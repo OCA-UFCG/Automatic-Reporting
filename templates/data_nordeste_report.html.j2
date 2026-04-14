@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ title }}</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 24px;
+        color: #222;
+        line-height: 1.5;
+      }
+      h1, h2 {
+        margin-bottom: 8px;
+      }
+      .meta {
+        margin-bottom: 20px;
+        color: #555;
+      }
+      .box {
+        background: #f7f7f7;
+        border: 1px solid #e5e5e5;
+        border-radius: 8px;
+        padding: 12px;
+        margin: 14px 0;
+      }
+      ul {
+        margin-top: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>{{ title }}</h1>
+    <div class="meta">Gerado em {{ generated_at }}</div>
+
+    <h2>Data Nordeste – Relatório modelo</h2>
+    <p><strong>Município:</strong> {{ city }}</p>
+    <p><strong>Ano:</strong> {{ year }}</p>
+
+    <h2>Apresentação</h2>
+    <p>
+      Data Nordeste é uma plataforma desenvolvida para centralizar o acesso a dados sobre o Nordeste e a área de atuação da Sudene,
+      reunindo dados produzidos pela Sudene e por seus parceiros institucionais. O objetivo principal é promover a acessibilidade,
+      a transparência e a inovação na gestão de informações estratégicas, ajudando a fortalecer o planejamento e a tomada de decisões
+      principalmente na região Nordeste do Brasil.
+    </p>
+
+    <p>
+      A plataforma Data Nordeste nasceu do compromisso da Sudene de enfrentar um desafio histórico: a dispersão e o difícil acesso a dados confiáveis
+      sobre o Nordeste. A ausência de uma base integrada dificultava o planejamento e a formulação de políticas públicas, além de limitar o potencial
+      de investimentos na região.
+    </p>
+
+    <p>
+      A partir dessa realidade, a Sudene, em parceria com a Universidade Federal de Campina Grande (UFCG), concebeu uma plataforma única,
+      voltada a transformar dados complexos em conhecimento acessível, útil e estratégico. A proposta é reunir, em um só lugar,
+      indicadores multitemáticos sobre o Nordeste, com recortes territoriais que abranjam o Semiárido, a Caatinga e a área de atuação da autarquia.
+    </p>
+
+    <p>
+      Para tornar esse projeto viável, a Sudene conta com o apoio técnico do Observatório da Caatinga e Desertificação,
+      da Universidade Federal de Campina Grande (UFCG), parceiro na implementação e no desenvolvimento da estrutura tecnológica do portal.
+    </p>
+
+    <p>
+      Com arquitetura moderna e escalável, a plataforma Data Nordeste é mais do que um banco de dados: é uma ferramenta viva de inteligência territorial,
+      criada para apoiar gestores, pesquisadores, empresários e cidadãos na construção de um Nordeste mais justo, sustentável e de alta resiliência econômica.
+    </p>
+
+    <h2>1. Demografia</h2>
+    <p>
+      Na plataforma DataNordeste, é possível acessar painéis de dados interativos, boletins e datastories sobre demografia. A apresentação em indicadores sintéticos,
+      gráficos comparativos, séries temporais e mapa municipal facilita a visualização da dinâmica demográfica regional. Os dados foram extraídos do Censo Demográfico do
+      Instituto Brasileiro de Geografia e Estatística (IBGE).
+    </p>
+
+    <div class="box">
+      <p>
+        O município de {{ city }} possui, de acordo com o Censo {{ year }}, população residente de {{ demografia.pop_total or '-' }} pessoas.
+        Desse total {{ demografia.pop_mulher or '-' }} ({{ demografia.pop_mulher_per or '-' }}) são do sexo feminino e
+        {{ demografia.pop_homem or '-' }} ({{ demografia.pop_homem_per or '-' }}) do sexo masculino.
+      </p>
+
+      <p>
+        A taxa de crescimento populacional de {{ city }} foi de {{ demografia.cres_pop or '-' }} nos últimos censos do IBGE,
+        havendo uma predominância de população {{ demografia.cor_raca_pri or '-' }}.
+      </p>
+
+      <p>
+        No DataNE, o porte dos municípios é definido pela seguinte classificação: baixo porte (até 50 mil habitantes),
+        médio porte (entre 50 mil e 100 mil habitantes) e grande porte (acima de 100 mil habitantes).
+        Nesse contexto, {{ city }} é um município de {{ demografia.porte or '-' }} porte.
+      </p>
+    </div>
+
+    <p>
+      Quando há queda populacional, o IBGE aponta alguns motivos:
+    </p>
+    <ul>
+      <li>A transição demográfica do tamanho das famílias – menos nascimentos e envelhecimento da população.</li>
+      <li>A migração e a busca por oportunidades – êxodo para cidades médias e grandes, com fins de estudo e trabalho.</li>
+      <li>O fenômeno do “Entorno” – pessoas podem estar deixando suas cidades para morar em cidades vizinhas com melhores oportunidades.</li>
+    </ul>
+
+    {% if row %}
+    <h2>Dados brutos da cidade selecionada</h2>
+    <ul>
+      {% for key, value in row.items() %}
+        {% if value is not mapping %}
+          <li><strong>{{ key }}</strong>: {{ value }}</li>
+        {% endif %}
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </body>
+</html>
