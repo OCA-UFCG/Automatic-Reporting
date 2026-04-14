@@ -41,7 +41,7 @@ No DataNE, o porte dos municípios é definido pela seguinte classificação: ba
 
 @app.get("/relatorio/{cidade}", response_class=HTMLResponse)
 async def gerar_relatorio(cidade: str):
-    df = pd.read_csv('demografia.csv', delimiter=";")
+    df = pd.read_csv('https://raw.githubusercontent.com/OCA-UFCG/Automatic-Reporting/refs/heads/main/demografia.csv', delimiter=";")
     linhas = df[df['nm_mun'] == cidade].to_dict("records")
 
     if not linhas:
