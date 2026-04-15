@@ -4,6 +4,7 @@ import pandas as pd
 from jinja2 import Template
 from pathlib import Path
 import re
+from weasyprint import HTML
 
 app = FastAPI()
 
@@ -111,5 +112,8 @@ async def gerar_relatorio(cidade: str):
     safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", cidade.strip().lower())
     output_file = OUTPUT_DIR / f"relatorio_{safe_city}.html"
     output_file.write_text(html, encoding="utf-8")
+    # Gerar PDF usando WeasyPrint
+    pdf_file = OUTPUT_DIR / f"relatorio_{safe_city}.pdf"
+    HTML(string=html, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
 
     return HTMLResponse(content=html)
