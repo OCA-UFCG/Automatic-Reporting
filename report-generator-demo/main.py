@@ -98,7 +98,7 @@ TEMPLATE_STRING = """
 
 @app.get("/relatorio/{cidade}", response_class=HTMLResponse)
 async def gerar_relatorio(cidade: str):
-    df = pd.read_csv('https://raw.githubusercontent.com/OCA-UFCG/Automatic-Reporting/refs/heads/main/demografia.csv', delimiter=";")
+    df = pd.read_csv('https://raw.githubusercontent.com/OCA-UFCG/Automatic-Reporting/refs/heads/main/report-generator-demo/demografia.csv', delimiter=";")
     linhas = df[df['nm_mun'].str.strip().str.lower() == cidade.strip().lower()].to_dict("records")
 
     if not linhas:
