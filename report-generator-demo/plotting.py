@@ -9,4 +9,15 @@ y = np.array([campina['pop_mulher'].sum(), campina['pop_homem'].sum()])
 mylabels = ["Mulher", "Homem"]
 
 plt.pie(y, labels=mylabels)
+"""paraiba = df[df['nm_mun'].str.contains(r'\(PB\)')]
+media_paraiba = pd.to_numeric(paraiba['pop_total']).mean()
+
+acima = paraiba[pd.to_numeric(paraiba['pop_total']) > media_paraiba].shape[0]
+menor_abaixo = paraiba[pd.to_numeric(paraiba['pop_total']) <= media_paraiba].shape[0]
+
+categorias = ['Acima da Média', 'Abaixo ou na Média']
+quantidades = [acima, menor_abaixo]
+
+plt.bar(categorias, quantidades, color=['blue', 'orange'])
+plt.title('Cidades da Paraíba em relação à média populacional')"""
 plt.show()
