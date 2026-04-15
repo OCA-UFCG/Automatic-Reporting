@@ -1,114 +1,54 @@
-# Automatic Reporting (MVP)
+# Automatic Reporting
 
-Geração de relatório **HTML simples** usando **Jinja2** a partir de um CSV local ou armazenado no Google Drive.
+Este repositório agora está focado no demo em [report-generator-demo](report-generator-demo), que gera relatórios HTML do **Data Nordeste** a partir do arquivo [demografia.csv](report-generator-demo/demografia.csv).
 
-## Requisitos
+## O que o demo faz
 
-- Python 3.10+
+- sobe uma API em FastAPI;
+- recebe o nome de uma cidade na rota;
+- filtra o CSV `demografia.csv`;
+- monta o HTML do relatório;
+- salva o HTML em [report-generator-demo/output](report-generator-demo/output).
+
+## Estrutura principal
+
+- [report-generator-demo/main.py](report-generator-demo/main.py) — API e template do relatório;
+- [report-generator-demo/demografia.csv](report-generator-demo/demografia.csv) — base usada no demo;
+- [report-generator-demo/requirements.txt](report-generator-demo/requirements.txt) — dependências;
+- [report-generator-demo/output](report-generator-demo/output) — HTMLs gerados.
 
 ## Instalação
 
+Dentro da pasta do demo:
+
 ```bash
+cd report-generator-demo
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Como usar
-
-### 1) CSV local
+## Como rodar a API
 
 ```bash
-python generate_report.py ./seu_arquivo.csv --title "Meu Relatório"
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### 2) Google Drive (link público)
+## Como testar
 
-Você pode passar:
+Abra no navegador:
 
-- URL de compartilhamento (`https://drive.google.com/file/d/<FILE_ID>/view?...`)
-- URL com `id=`
-- Apenas o `FILE_ID`
+- documentação: `http://127.0.0.1:8000/docs`
+- relatório: `http://127.0.0.1:8000/relatorio/Caruaru%20(PE)`
 
-Exemplo:
+## Onde o HTML aparece
 
-```bash
-python generate_report.py "https://drive.google.com/file/d/SEU_FILE_ID/view?usp=sharing" --title "Relatório Drive"
-```
+Depois que você acessar a rota, o arquivo fica salvo em:
 
-Saída padrão: `output/report.html`
-
-### 3) Relatório narrativo por município (modelo Data Nordeste)
-
-Use o template narrativo e informe a cidade:
-
-```bash
-python generate_report.py "https://drive.google.com/file/d/SEU_FILE_ID/view?usp=sharing" \
-	--template templates/data_nordeste_report.html.j2 \
-	--city "Recife" \
-	--title "Data Nordeste – Relatório modelo" \
-	--output output/recife.html
-```
-
-Se sua coluna de cidade tiver outro nome, use `--city-column`:
-
-```bash
-python generate_report.py "SEU_FILE_ID" --template templates/data_nordeste_report.html.j2 --city "Recife" --city-column "Município"
-```
-
-Você também pode forçar o ano exibido no texto com `--year "2022"`.
-
-### 4) Exemplo com `demografia.csv` (seu arquivo)
-
-```bash
-python generate_report.py demografia.csv \
-	--template templates/data_nordeste_report.html.j2 \
-	--city "Recife (PE)" \
-	--city-column "nm_mun" \
-	--year-column "ano" \
-	--title "Data Nordeste – Relatório modelo" \
-	--output output/recife.html
-```
-
-Observação: o script detecta automaticamente delimitador `;` ou `,`.
-
-### 5) Gerar PDF junto com o HTML (opcional)
-
-Instale dependência opcional:
-
-```bash
-pip install weasyprint
-```
-
-Depois rode:
-
-```bash
-python generate_report.py demografia.csv \
-	--template templates/data_nordeste_report.html.j2 \
-	--city "Recife (PE)" \
-	--city-column "nm_mun" \
-	--year-column "ano" \
-	--output output/recife.html \
-	--pdf-output output/recife.pdf
-```
-
-#### Colunas esperadas para o texto de demografia
-
-No CSV, use colunas com estes nomes (ou adapte o template):
-
-- `city` (ou `cidade` / `municipio` / `município`)
-- `year` (ou `ano`)
-- `demografia.pop_total`
-- `demografia.pop_mulher`
-- `demografia.pop_mulher_per`
-- `demografia.pop_homem`
-- `demografia.pop_homem_per`
-- `demografia.cres_pop`
-- `demografia.cor_raca_pri`
-- `demografia.porte`
+- `report-generator-demo/output/relatorio_caruaru_pe.html`
 
 ## Observações
 
-- O arquivo no Google Drive precisa estar compartilhado como **"Qualquer pessoa com o link"**.
-- O template padrão está em `templates/report.html.j2`.
-- Para customizar layout/campos, altere o template Jinja2.
+- O nome da cidade precisa existir no CSV;
+- o endpoint compara ignorando maiúsculas/minúsculas e espaços;
+- se quiser outro município, troque apenas a parte final da URL.
