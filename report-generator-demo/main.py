@@ -3,12 +3,25 @@ from fastapi.responses import HTMLResponse
 import pandas as pd
 from jinja2 import Template
 from pathlib import Path
+from urllib.parse import urlparse
+from urllib.request import urlopen
+from urllib.error import URLError, HTTPError
+import matplotlib.pyplot as plt
+import html
+import os
 import re
 from weasyprint import HTML
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
+app.mount("/output", StaticFiles(directory="output"), name="output")
 
 OUTPUT_DIR = Path(__file__).resolve().parent / "output"
+DEMOGRAFIA_CSV_URL = "https://raw.githubusercontent.com/OCA-UFCG/Automatic-Reporting/refs/heads/main/report-generator-demo/demografia.csv"
+DEFAULT_DOCS_URL = "https://docs.google.com/document/d/1WA3LcQAWIKFYu6MmuF4RSrGFSdYvbpnn/edit?usp=sharing&ouid=102957437660573133451&rtpof=true&sd=true"
+
+FALLBACK_DOC_TEXT = """deu erro.
+"""
 
 TEMPLATE_STRING = """
 <html lang="pt-BR">
@@ -56,60 +69,172 @@ TEMPLATE_STRING = """
         li {
             margin-bottom: 6px;
         }
+        .doc-content p {
+            text-indent: 1.5em;
+        }
+        .doc-content h1 {
+            font-size: 34px;
+            font-weight: 700;
+            margin: 0 0 18px 0;
+        }
+        .doc-content ul {
+            text-indent: 0;
+        }
     </style>
 </head>
 <body>
 {% for linha in dados %}
 
-<h1>Data Nordeste – Relatório modelo</h1>
-<p class="field"><strong>Município:</strong> {{ linha.nm_mun }}</p>
-<p class="field"><strong>Ano:</strong> {{ linha.ano }}</p>
+<div class="doc-content">{{ docs_html | safe }}</div>
 
-<h2>Apresentação</h2>
-<p class="indent">Data Nordeste é uma plataforma desenvolvida para centralizar o acesso a dados sobre o Nordeste e a área de atuação da Sudene, reunindo dados produzidos pela Sudene e por seus parceiros institucionais. O objetivo principal é promover a acessibilidade, a transparência e a inovação na gestão de informações estratégicas, ajudando a fortalecer o planejamento e a tomada de decisões principalmente na região Nordeste do Brasil.</p>
-
-<p class="indent">A plataforma Data Nordeste nasceu do compromisso da Sudene de enfrentar um desafio histórico: a dispersão e o difícil acesso a dados confiáveis sobre o Nordeste. A ausência de uma base integrada dificultava o planejamento e a formulação de políticas públicas, além de limitar o potencial de investimentos na região.</p>
-
-<p class="indent">A partir dessa realidade, a Sudene, em parceria com a Universidade Federal de Campina Grande (UFCG), concebeu uma plataforma única, voltada a transformar dados complexos em conhecimento acessível, útil e estratégico. A proposta é reunir, em um só lugar, indicadores multitemáticos sobre o Nordeste, com recortes territoriais que abranjam o Semiárido, a Caatinga e a área de atuação da autarquia.</p>
-
-<p class="indent">Para tornar esse projeto viável, a Sudene conta com o apoio técnico do Observatório da Caatinga e Desertificação, da Universidade Federal de Campina Grande (UFCG), parceiro na implementação e no desenvolvimento da estrutura tecnológica do portal.</p>
-
-<p class="indent">Com arquitetura moderna e escalável, a plataforma Data Nordeste é mais do que um banco de dados: é uma ferramenta viva de inteligência territorial, criada para apoiar gestores, pesquisadores, empresários e cidadãos na construção de um Nordeste mais justo, sustentável e de alta resiliência econômica.</p>
-
-<h2>1. Demografia</h2>
-
-<p class="indent">Na plataforma DataNordeste, é possível acessar painéis de dados interativos, boletins e datastories sobre demografia. A apresentação em indicadores sintéticos, gráficos comparativos, séries temporais e mapa municipal facilita a visualização da dinâmica demográfica regional. Os dados foram extraídos do Censo Demográfico do Instituto Brasileiro de Geografia e Estatística (IBGE). Além disso, estão disponíveis boletins sobre a população negra, a população idosa, a população indígena, mulheres, juventude, migração e habitação, bem como um datastory sobre "Nordeste é feminino, mas isso aparece no poder?"</p>
-
-<p class="indent">O município de {{ linha.nm_mun }} possui, de acordo com o Censo {{ linha.ano }}, população residente de {{ linha.pop_total }} pessoas. Desse total {{ linha.pop_mulher }} ({{ linha.pop_mulher_per }}) são do sexo feminino e {{ linha.pop_homem }} ({{ linha.pop_homem_per }}) do sexo masculino.</p>
-
-<p class="indent">De acordo com o Censo Demográfico 2022, a população feminina no Brasil é composta por cerca de 104 milhões de mulheres (51,5% da população nacional), frente a 98 milhões de homens. As mulheres são maioria em todas as regiões do País. O Nordeste é a segunda região com maior número absoluto de mulheres, cerca de 28,2 milhões de mulheres. A primeira posição é ocupada pela região Sudeste, que concentra 43,9 milhões. Neste sentido, a plataforma Data Nordeste apresenta um Data Story dedicado a esta característica demográfica.</p>
-
-<p class="indent">A taxa de crescimento populacional de {{ linha.nm_mun }} foi de {{ linha.cres_pop }} nos últimos censos do IBGE havendo uma predominância de população {{ linha.cor_raca_pri }}. Em todas as áreas de abrangência da plataforma DataNE, a população se autodeclara majoritariamente parda, seguida por branca, havendo aumento da cor ou raça indígena nos últimos dois censos e redução da cor ou raça Amarela.</p>
-
-<p class="indent">No DataNE, o porte dos municípios é definido pela seguinte classificação: baixo porte (até 50 mil habitantes), médio porte (entre 50 mil e 100 mil habitantes) e grande porte (acima de 100 mil habitantes). Nesse contexto, {{ linha.nm_mun }} é um município de {{ linha.porte }} porte. O crescimento populacional de municípios de grande porte na região Nordeste ocorre, na maioria das vezes, pelo papel de polo regional que alguns deles desempenham. Quando há, entretanto, uma queda populacional, o IBGE aponta alguns motivos:</p>
-<ul>
-    <li>A transição demográfica do tamanho das famílias – menos nascimentos e envelhecimento da população</li>
-    <li>A migração e a busca por oportunidades – êxodo para cidades médias e grandes, com fins de estudo e trabalho, uma vez que, em cidades muito pequenas, a economia muitas vezes depende de serviços prestados pelas prefeituras e de aposentadorias. A população mais jovem deve estar procurando oportunidades fora de sua cidade natal.</li>
-    <li>O fenômeno do “Entorno” – pessoas podem estar deixando suas cidades para morar em cidades vizinhas com melhores oportunidades.</li>
-</ul>
+<h2>Gráfico de população por sexo</h2>
+<img src="/output/{{ grafico_sexo }}" alt="Gráfico de população por sexo" style="max-width: 100%; height: auto;">
 {% endfor %}
  </body>
 </html>
 """
 
+
+def extrair_doc_id(link_ou_id: str) -> str:
+    valor = link_ou_id.strip()
+    if "/document/d/" not in valor:
+        return valor
+
+    parsed = urlparse(valor)
+    partes = [p for p in parsed.path.split("/") if p]
+    if "d" in partes:
+        idx = partes.index("d")
+        if idx + 1 < len(partes):
+            return partes[idx + 1]
+    raise ValueError("Não foi possível extrair o ID do Google Docs.")
+
+
+def carregar_texto_do_docs(link_ou_id: str) -> str:
+    doc_id = extrair_doc_id(link_ou_id)
+    export_url = f"https://docs.google.com/document/d/{doc_id}/export?format=txt"
+    try:
+        with urlopen(export_url, timeout=20) as response:
+            return response.read().decode("utf-8")
+    except HTTPError as err:
+        if err.code in (401, 403):
+            raise ValueError(
+                "Google Docs sem acesso público para exportação. "
+                "Defina o documento como 'Qualquer pessoa com o link - Leitor' "
+                "ou use um documento publicado na web."
+            ) from err
+        if err.code == 404:
+            raise ValueError("Documento do Google Docs não encontrado (404). Verifique o link/ID.") from err
+        return FALLBACK_DOC_TEXT
+    except (URLError, TimeoutError):
+        return FALLBACK_DOC_TEXT
+
+
+def texto_para_html(texto: str, contexto: dict) -> str:
+    def substituir_placeholder_dolar(match: re.Match) -> str:
+        namespace = match.group(1).lower()
+        campo = match.group(2)
+        if namespace in {"demografia", "linha", "dados", "csv"}:
+            return str(contexto.get(campo, match.group(0)))
+        return match.group(0)
+
+    alias_map = {
+        "city": contexto.get("nm_mun", ""),
+        "year": contexto.get("ano", ""),
+        "municipio": contexto.get("nm_mun", ""),
+        "ano": contexto.get("ano", ""),
+    }
+
+    texto_normalizado = texto
+    texto_normalizado = re.sub(r"\$([A-Za-z_][\w]*)\.([A-Za-z_][\w]*)", substituir_placeholder_dolar, texto_normalizado)
+    for alias, valor in alias_map.items():
+        texto_normalizado = texto_normalizado.replace(f"${alias}", str(valor))
+
+    texto_renderizado = Template(texto_normalizado).render(**contexto)
+    linhas = [linha.rstrip() for linha in texto_renderizado.splitlines()]
+    html_lines = []
+    em_lista = False
+
+    for linha in linhas:
+        linha_limpa = linha.lstrip("\ufeff").strip()
+        if not linha_limpa:
+            if em_lista:
+                html_lines.append("</ul>")
+                em_lista = False
+            continue
+
+        if linha_limpa.startswith("#!"):
+            if em_lista:
+                html_lines.append("</ul>")
+                em_lista = False
+            titulo = linha_limpa[2:].strip()
+            if titulo:
+                html_lines.append(f"<h1>{html.escape(titulo)}</h1>")
+            continue
+
+        if linha_limpa.startswith(("- ", "• ", "* ")):
+            if not em_lista:
+                html_lines.append("<ul>")
+                em_lista = True
+            item = html.escape(linha_limpa[2:].strip())
+            html_lines.append(f"<li>{item}</li>")
+            continue
+
+        if em_lista:
+            html_lines.append("</ul>")
+            em_lista = False
+
+        if re.match(r"^\d+\.\s+", linha_limpa) or linha_limpa.lower() in {"apresentação", "demografia"}:
+            html_lines.append(f"<h2>{html.escape(linha_limpa)}</h2>")
+        else:
+            html_lines.append(f"<p>{html.escape(linha_limpa)}</p>")
+
+    if em_lista:
+        html_lines.append("</ul>")
+
+    return "\n".join(html_lines)
+
+
+def gerar_grafico_sexo(linha: dict, output_dir: Path, safe_city: str) -> str:
+    mulheres = linha["pop_mulher"]
+    homens = linha["pop_homem"]
+    labels = ["Mulheres", "Homens"]
+    valores = [mulheres, homens]
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    chart_file = output_dir / f"grafico_sexo_{safe_city}.png"
+
+    plt.figure(figsize=(8, 5))
+    plt.bar(labels, valores)
+    plt.title(f"População por sexo - {linha['nm_mun']}")
+    plt.ylabel("Número de habitantes")
+    plt.tight_layout()
+    plt.savefig(chart_file, dpi=150)
+    plt.close()
+
+    return chart_file.name
+
 @app.get("/relatorio/{cidade}", response_class=HTMLResponse)
 async def gerar_relatorio(cidade: str):
-    df = pd.read_csv('https://raw.githubusercontent.com/OCA-UFCG/Automatic-Reporting/refs/heads/main/report-generator-demo/demografia.csv', delimiter=";")
+    df = pd.read_csv(DEMOGRAFIA_CSV_URL, delimiter=";")
     linhas = df[df['nm_mun'].str.strip().str.lower() == cidade.strip().lower()].to_dict("records")
 
     if not linhas:
         raise HTTPException(status_code=404, detail=f"Cidade '{cidade}' não encontrada.")
 
+    docs_url = os.getenv("DATANE_DOCS_URL", DEFAULT_DOCS_URL)
+    try:
+        docs_texto = carregar_texto_do_docs(docs_url)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+
+    docs_html = texto_para_html(docs_texto, linhas[0])
+
+    safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", cidade.strip().lower())
+    grafico_sexo = gerar_grafico_sexo(linhas[0], OUTPUT_DIR, safe_city)
     template = Template(TEMPLATE_STRING)
-    html = template.render(dados=linhas)
+    html = template.render(dados=linhas, grafico_sexo=grafico_sexo, docs_html=docs_html)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", cidade.strip().lower())
     output_file = OUTPUT_DIR / f"relatorio_{safe_city}.html"
     output_file.write_text(html, encoding="utf-8")
     # Gerar PDF usando WeasyPrint

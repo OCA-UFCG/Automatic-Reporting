@@ -24,6 +24,14 @@ pip install -r requirements.txt
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
+Opcionalmente, para usar um Google Docs específico como fonte do texto do relatório:
+
+```bash
+export DATANE_DOCS_URL="https://docs.google.com/document/d/SEU_DOC_ID/edit"
+```
+
+Se essa variável não for definida, a API usa o documento padrão já configurado no `main.py`.
+
 Depois abra no navegador:
 
 - documentação interativa: `http://127.0.0.1:8000/docs`
@@ -35,9 +43,10 @@ Quando você acessa a rota `/relatorio/{cidade}`:
 
 1. lê o CSV `demografia.csv`;
 2. filtra a cidade informada;
-3. renderiza o HTML do relatório;
-4. salva o arquivo em `output/`;
-5. devolve o HTML no navegador.
+3. busca o texto-base no Google Docs e aplica os placeholders Jinja (ex.: `{{ nm_mun }}`);
+4. renderiza o HTML do relatório;
+5. salva o arquivo em `output/`;
+6. devolve o HTML no navegador.
 
 ## Onde fica o arquivo gerado
 
