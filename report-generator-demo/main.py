@@ -12,6 +12,7 @@ import os
 import re
 from weasyprint import HTML
 from fastapi.staticfiles import StaticFiles
+from plotting import gerar_grafico_sexo
 
 app = FastAPI()
 app.mount("/output", StaticFiles(directory="output"), name="output")
@@ -88,7 +89,9 @@ TEMPLATE_STRING = """
 <div class="doc-content">{{ docs_html | safe }}</div>
 
 <h2>Gráfico de população por sexo</h2>
-<img src="/output/{{ grafico_sexo }}" alt="Gráfico de população por sexo" style="max-width: 100%; height: auto;">
+{% set i = 1 %}
+<img src="{{ grafico_sexo }}" alt="Gráfico de população por sexo" style="max-width: 100%; height: auto;">
+<p> Figura {{ i }} </p>
 {% endfor %}
  </body>
 </html>
