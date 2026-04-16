@@ -2,25 +2,21 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
-df = pd.read_csv('demografia.csv', delimiter=";")
-campina = df[df['nm_mun'] == 'Campina Grande (PB)']
+def gerar_grafico_sexo(cidade: pandas.DataFrame, OUTPUT_DIR: pathlib.PosixPath, safe_city: str):
+    mulheres = linha["pop_mulher"]
+    homens = linha["pop_homem"]
+    mylabels = ["Mulheres", "Homens"]
+    valores = [mulheres, homens]
 
+    output_dir.mkdir(parents=True, exist_ok=True)
+    chart_file = output_dir / f"grafico_sexo_{safe_city}.png"
 
-y = np.array([campina['pop_mulher'].sum(), campina['pop_homem'].sum()])
-mylabels = ["Mulher", "Homem"]
+    plt.figure(figsize=(8, 5))
+    plt.bar(valores, labels=mylabels)
+    plt.title(f"População por sexo - {linha['nm_mun']}")
+    plt.ylabel("Número de habitantes")
+    plt.tight_layout()
+    plt.savefig(chart_file, dpi=150)
+    plt.close()
 
-chart_file = output_dir / f"grafico_sexo_{safe_city}.png"
-
-plt.pie(y, labels=mylabels)
-"""paraiba = df[df['nm_mun'].str.contains(r'\(PB\)')]
-media_paraiba = pd.to_numeric(paraiba['pop_total']).mean()
-
-acima = paraiba[pd.to_numeric(paraiba['pop_total']) > media_paraiba].shape[0]
-menor_abaixo = paraiba[pd.to_numeric(paraiba['pop_total']) <= media_paraiba].shape[0]
-
-categorias = ['Acima da Média', 'Abaixo ou na Média']
-quantidades = [acima, menor_abaixo]
-
-plt.bar(categorias, quantidades, color=['blue', 'orange'])
-plt.title('Cidades da Paraíba em relação à média populacional')"""
-plt.show()
+    return chart_file.name
