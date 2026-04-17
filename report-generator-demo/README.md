@@ -1,14 +1,24 @@
 # report-generator-demo
 
-API em FastAPI para gerar um relatório HTML do **Data Nordeste** a partir do CSV `demografia.csv`.
+Projeto com duas partes:
 
-A rota principal monta o HTML do município solicitado e também salva uma cópia em disco dentro de `output/`, para facilitar a visualização local.
+- **API em FastAPI** para gerar relatórios do Data Nordeste.
+- **Frontend em React + Vite** para escolher macrotema e cidade e disparar o relatório.
+
+## Estrutura
+
+- `main.py` — API FastAPI
+- `citys.txt` — lista de cidades usadas no frontend
+- `demografia.csv` — base de dados do relatório
+- `output/` — arquivos HTML/PDF e gráficos gerados
+- `frontend/` — interface web
 
 ## Requisitos
 
 - Python 3.10+
+- Node.js 18+
 
-## Instalação
+## Instalação da API
 
 Dentro da pasta `report-generator-demo`:
 
@@ -24,7 +34,7 @@ pip install -r requirements.txt
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Opcionalmente, para usar um Google Docs específico como fonte do texto do relatório:
+Se quiser usar um Google Docs específico como texto-base do relatório:
 
 ```bash
 export DATANE_DOCS_URL="https://docs.google.com/document/d/SEU_DOC_ID/edit"
@@ -32,51 +42,58 @@ export DATANE_DOCS_URL="https://docs.google.com/document/d/SEU_DOC_ID/edit"
 
 Se essa variável não for definida, a API usa o documento padrão já configurado no `main.py`.
 
-Depois abra no navegador:
+## Instalação do frontend
 
-- documentação interativa: `http://127.0.0.1:8000/docs`
-- relatório: `http://127.0.0.1:8000/relatorio/Caruaru%20(PE)`
+Dentro da pasta `report-generator-demo/frontend`:
+
+```bash
+yarn install
+```
+
+## Como executar o frontend
+
+```bash
+yarn dev
+```
+
+O frontend abre normalmente em `http://localhost:5173`.
+
+Se quiser, também funciona:
+
+```bash
+yarn start
+```
+
+## Como usar
+
+1. Rode a API.
+2. Rode o frontend.
+3. Abra o frontend no navegador.
+4. Clique em **Gerar relatório**.
+5. Escolha o macrotema e a cidade.
+6. Clique em **Gerar relatório** novamente para abrir o relatório.
+
+Por enquanto, o macrotema é apenas visual no formulário; a API recebe apenas a cidade.
 
 ## O que a API faz
 
-Quando você acessa a rota `/relatorio/{cidade}`:
+Quando você acessa `/relatorio/{cidade}`:
 
 1. lê o CSV `demografia.csv`;
-2. filtra a cidade informada;
-3. busca o texto-base no Google Docs e aplica os placeholders Jinja (ex.: `{{ nm_mun }}`);
+2. procura a cidade informada, com ou sem UF;
+3. busca o texto-base no Google Docs;
 4. renderiza o HTML do relatório;
-5. salva o arquivo em `output/`;
-6. devolve o HTML no navegador.
+5. gera gráfico de população por sexo;
+6. salva os arquivos em `output/`;
+7. devolve o HTML no navegador.
 
-## Onde fica o arquivo gerado
+## Exemplo de uso direto da API
 
-O arquivo é salvo em:
+- `http://127.0.0.1:8000/docs`
+- `http://127.0.0.1:8000/relatorio/Caruaru%20(PE)`
 
-- `output/relatorio_<cidade>.html`
+## Arquivos importantes do frontend
 
-Exemplo:
-
-- `output/relatorio_caruaru_pe.html`
-
-## Formato da cidade
-
-Use o nome igual ao do CSV. Exemplo:
-
-- `Caruaru (PE)`
-- `Recife (PE)`
-- `Maceió (AL)`
-
-Se houver espaços ou caracteres especiais, use URL encoding no navegador:
-
-- `Caruaru%20(PE)`
-
-## Arquivos importantes
-
-- `main.py` — API FastAPI e template do relatório
-- `demografia.csv` — base de dados usada no exemplo
-- `requirements.txt` — dependências do projeto
-- `output/` — HTMLs gerados pela API
-
-## Observação
-
-Se quiser, depois dá para separar o template em um arquivo `.html` próprio e também adicionar geração de PDF.
+- `frontend/src/App.jsx` — tela principal
+- `frontend/src/styles.css` — estilos da interface
+- `frontend/package.json` — scripts do frontend

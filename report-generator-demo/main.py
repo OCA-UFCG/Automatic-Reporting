@@ -1,8 +1,10 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 from jinja2 import Template
 from pathlib import Path
+import ast
 from urllib.parse import urlparse
 from urllib.request import urlopen
 from urllib.error import URLError, HTTPError
@@ -15,9 +17,18 @@ from fastapi.staticfiles import StaticFiles
 from plotting import gerar_grafico_sexo
 
 app = FastAPI()
-app.mount("/output", StaticFiles(directory="output"), name="output")
+BASE_DIR = Path(__file__).resolve().parent
+app.mount("/output", StaticFiles(directory=str(BASE_DIR / "output")), name="output")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-OUTPUT_DIR = Path(__file__).resolve().parent / "output"
+OUTPUT_DIR = BASE_DIR / "output"
+CITIES_FILE = BASE_DIR / "citys.txt"
 DEMOGRAFIA_CSV_URL = "https://raw.githubusercontent.com/OCA-UFCG/Automatic-Reporting/refs/heads/main/report-generator-demo/demografia.csv"
 DEFAULT_DOCS_URL = "https://docs.google.com/document/d/1WA3LcQAWIKFYu6MmuF4RSrGFSdYvbpnn/edit?usp=sharing&ouid=102957437660573133451&rtpof=true&sd=true"
 
@@ -198,10 +209,52 @@ def texto_para_html(texto: str, contexto: dict) -> str:
 
 
 
+
+def carregar_cidades() -> list[str]:
+    if not CITIES_FILE.exists():
+        return []
+
+    conteudo = CITIES_FILE.read_text(encoding="utf-8").strip()
+    if not conteudo:
+        return []
+
+    try:
+        cidades = ast.literal_eval(conteudo)
+        if isinstance(cidades, list):
+            return [str(cidade).strip() for cidade in cidades if str(cidade).strip()]
+    except (ValueError, SyntaxError):
+        pass
+
+    return [linha.strip() for linha in conteudo.splitlines() if linha.strip()]
+
+
+def normalizar_nome_cidade(cidade: str) -> str:
+    return re.sub(r"\s*\([A-Za-z]{2}\)\s*$", "", cidade).strip()
+
+
+def filtrar_linhas_por_cidade(df: pd.DataFrame, cidade: str) -> pd.DataFrame:
+    cidade_informada = cidade.strip()
+    serie_cidades = df["nm_mun"].astype(str).str.strip()
+
+    mascara_exata = serie_cidades.str.lower() == cidade_informada.lower()
+    if mascara_exata.any():
+        return df[mascara_exata]
+
+    cidade_sem_uf = normalizar_nome_cidade(cidade_informada)
+    serie_sem_uf = serie_cidades.str.replace(r"\s*\([A-Za-z]{2}\)\s*$", "", regex=True)
+    mascara_sem_uf = serie_sem_uf.str.lower() == cidade_sem_uf.lower()
+    return df[mascara_sem_uf]
+
+
+@app.get("/cities")
+async def listar_cidades():
+    return carregar_cidades()
+
 @app.get("/relatorio/{cidade}", response_class=HTMLResponse)
 async def gerar_relatorio(cidade: str):
     df = pd.read_csv(DEMOGRAFIA_CSV_URL, delimiter=";")
-    linhas = df[df['nm_mun'].str.strip().str.lower() == cidade.strip().lower()].to_dict("records")
+    linhas_df = filtrar_linhas_por_cidade(df, cidade)
+    linhas = linhas_df.to_dict("records")
 
     if not linhas:
         raise HTTPException(status_code=404, detail=f"Cidade '{cidade}' não encontrada.")
@@ -214,7 +267,7 @@ async def gerar_relatorio(cidade: str):
 
     docs_html = texto_para_html(docs_texto, linhas[0])
 
-    safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", cidade.strip().lower())
+    safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas[0]["nm_mun"].strip().lower())
     grafico_sexo = gerar_grafico_sexo(linhas[0], OUTPUT_DIR, safe_city)
     template = Template(TEMPLATE_STRING)
     html = template.render(dados=linhas, grafico_sexo=grafico_sexo, docs_html=docs_html)

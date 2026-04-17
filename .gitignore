@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 .venv/
 output/
+report-generator-demo/frontend/node_modules/
+report-generator-demo/frontend/dist/
