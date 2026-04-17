@@ -14,6 +14,7 @@ import os
 import re
 from weasyprint import HTML
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from plotting import gerar_grafico_sexo
 
 app = FastAPI()
@@ -21,7 +22,12 @@ BASE_DIR = Path(__file__).resolve().parent
 app.mount("/output", StaticFiles(directory=str(BASE_DIR / "output")), name="output")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -259,7 +265,8 @@ async def gerar_relatorio(cidade: str):
     if not linhas:
         raise HTTPException(status_code=404, detail=f"Cidade '{cidade}' não encontrada.")
 
-    docs_url = os.getenv("DATANE_DOCS_URL", DEFAULT_DOCS_URL)
+    # If DATANE_DOCS_URL is set but empty (common in docker-compose), fall back to default.
+    docs_url = os.getenv("DATANE_DOCS_URL") or DEFAULT_DOCS_URL
     try:
         docs_texto = carregar_texto_do_docs(docs_url)
     except ValueError as err:
@@ -280,3 +287,14 @@ async def gerar_relatorio(cidade: str):
     HTML(string=html, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
 
     return HTMLResponse(content=html)
+
+
+# If the frontend has been built (e.g., via Docker), serve it from the same app.
+FRONTEND_DIST_DIR = BASE_DIR / "frontend" / "dist"
+if FRONTEND_DIST_DIR.exists():
+    @app.get("/")
+    async def frontend_index():
+        return FileResponse(FRONTEND_DIST_DIR / "index.html")
+
+    # Vite outputs assets under dist/assets; mounting the whole dist keeps it simple.
+    app.mount("/", StaticFiles(directory=str(FRONTEND_DIST_DIR), html=True), name="frontend")
