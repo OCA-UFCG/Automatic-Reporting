@@ -2,17 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
 const MACROTEMAS = [
-  'Ver todos',
-  'Demografia',
-  'Educação',
-  'Economia e Renda',
-  'Saúde',
-  'Infraestrutura e Saneamento',
-  'Segurança Hídrica',
-  'Meio Ambiente',
-  'Publicações',
-  'Catálogo de Dados',
-  'Plataformas conectadas'
+  'Demografia'
 ]
 
 function App() {
@@ -67,7 +57,7 @@ function App() {
           <span className="eyebrow">Sudene • Gerador de relatórios</span>
           <h1>Geração de relatório para Sudene</h1>
           <p className="subtitle">
-            Escolha um macrotema e uma cidade para montar o relatório. Por enquanto, a API recebe apenas a cidade.
+            Escolha a cidade para montar o relatório de Demografia.
           </p>
 
           <div className="hero-actions">
@@ -86,7 +76,7 @@ function App() {
         <aside className="hero-card">
           <p className="hero-card-label">Macrotemas disponíveis</p>
           <div className="macrotema-tags">
-            {MACROTEMAS.slice(1).map((item) => (
+            {MACROTEMAS.map((item) => (
               <span key={item} className="tag">
                 {item}
               </span>
