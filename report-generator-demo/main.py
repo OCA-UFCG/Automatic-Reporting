@@ -11,6 +11,7 @@ from urllib.error import URLError, HTTPError
 import matplotlib.pyplot as plt
 import html
 import os
+from dotenv import load_dotenv
 import re
 from weasyprint import HTML
 from fastapi.staticfiles import StaticFiles
@@ -35,8 +36,10 @@ app.add_middleware(
 
 OUTPUT_DIR = BASE_DIR / "output"
 CITIES_FILE = BASE_DIR / "citys.txt"
-DEMOGRAFIA_CSV_URL = "https://raw.githubusercontent.com/OCA-UFCG/Automatic-Reporting/refs/heads/main/report-generator-demo/demografia.csv"
-DEFAULT_DOCS_URL = "https://docs.google.com/document/d/1WA3LcQAWIKFYu6MmuF4RSrGFSdYvbpnn/edit?usp=sharing&ouid=102957437660573133451&rtpof=true&sd=true"
+
+carregado = load_dotenv(dotenv_path='.config')
+DEMOGRAFIA_CSV_URL = os.getenv("DEMOGRAFIA_CSV_URL")
+DEFAULT_DOCS_URL = os.getenv("DEFAULT_DOCS_URL")
 
 FALLBACK_DOC_TEXT = """deu erro.
 """
