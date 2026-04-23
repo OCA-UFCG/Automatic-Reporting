@@ -131,13 +131,12 @@ def extrair_doc_id(link_ou_id: str) -> str:
             return partes[idx + 1]
     raise ValueError("Não foi possível extrair o ID do Google Docs.")
 
-
 def carregar_texto_do_docs(link_ou_id: str) -> str:
     doc_id = extrair_doc_id(link_ou_id)
     export_url = f"https://docs.google.com/document/d/{doc_id}/export?format=txt"
     try:
         with urlopen(export_url, timeout=20) as response:
-            return response.read().decode("utf-8")
+            texto = response.read().decode("utf-8")
     except HTTPError as err:
         if err.code in (401, 403):
             raise ValueError(
@@ -150,7 +149,10 @@ def carregar_texto_do_docs(link_ou_id: str) -> str:
         return FALLBACK_DOC_TEXT
     except (URLError, TimeoutError):
         return FALLBACK_DOC_TEXT
-
+    
+    linhas = texto.splitlines()
+    linhas_filtradas = [linha for linha in linhas if not re.search(r'\[\w+\]', linha)]
+    return '\n'.join(linhas_filtradas)
 
 def texto_para_html(texto: str, contexto: dict) -> str:
     def substituir_placeholder_dolar(match: re.Match) -> str:
