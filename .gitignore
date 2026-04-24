@@ -4,3 +4,4 @@ __pycache__/
 output/
 report-generator-demo/frontend/node_modules/
 report-generator-demo/frontend/dist/
+.env
