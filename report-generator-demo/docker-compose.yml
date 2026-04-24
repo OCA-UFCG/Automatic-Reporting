@@ -1,0 +1,13 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      # Optional: override the Google Docs base document
+      - DATANE_DOCS_URL=${DATANE_DOCS_URL}
+    volumes:
+      # Persist generated HTML/PDF/PNGs
+      - ./output:/app/output

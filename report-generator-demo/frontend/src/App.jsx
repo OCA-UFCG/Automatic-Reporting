@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
-const MACROTEMAS = ["Demografia"];
+// Default to same-origin when served by the API (Docker/prod).
+// In dev (Vite on :5173), set VITE_API_BASE_URL=http://127.0.0.1:8000.
+const API_BASE = import.meta.env.VITE_API_BASE_URL || window.location.origin
+const MACROTEMAS = [
+  'Demografia'
+]
 
 function App() {
   const [view, setView] = useState("home");
