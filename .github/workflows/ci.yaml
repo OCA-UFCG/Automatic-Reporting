@@ -28,7 +28,7 @@ jobs:
           sleep 5
       - name: Check API health
         run: |
-          curl --fail http://localhost:8000
+          curl --fail http://localhost:8000/cities
       - name: Lint with Ruff
         run: |
           python -m ruff check .
