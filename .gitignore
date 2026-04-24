@@ -1,7 +1,8 @@
 __pycache__/
 *.pyc
 .venv/
-output/
+output/*
+!output/.gitkeep
 report-generator-demo/frontend/node_modules/
 report-generator-demo/frontend/dist/
 .env
