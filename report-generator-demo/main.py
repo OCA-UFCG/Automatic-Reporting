@@ -15,6 +15,7 @@ import re
 from weasyprint import HTML
 from fastapi.staticfiles import StaticFiles
 from plotting import gerar_grafico_sexo
+from datetime import datetime
 
 app = FastAPI()
 BASE_DIR = Path(__file__).resolve().parent
@@ -101,7 +102,7 @@ TEMPLATE_STRING = """
 
 <h2>Gráfico de população por sexo</h2>
 {% set i = 1 %}
-<img src="{{ grafico_sexo }}" alt="Gráfico de população por sexo" style="max-width: 100%; height: auto;">
+<img src="/output/{{ grafico_sexo }}" alt="Gráfico de população por sexo" style="max-width: 100%; height: auto;">
 <p> Figura {{ i }} </p>
 {% endfor %}
  </body>
@@ -250,6 +251,75 @@ def filtrar_linhas_por_cidade(df: pd.DataFrame, cidade: str) -> pd.DataFrame:
 async def listar_cidades():
     return carregar_cidades()
 
+@app.get("/relatorios")
+async def listar_relatorios():
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    relatorios = []
+
+    for pdf_file in OUTPUT_DIR.glob("relatorio_*.pdf"):
+        nome_base = pdf_file.stem
+        html_file = OUTPUT_DIR / f"{nome_base}.html"
+
+        stat = pdf_file.stat()
+        criado_em = datetime.fromtimestamp(stat.st_mtime)
+
+        slug_completo = nome_base.replace("relatorio_", "", 1)
+        if "__" in slug_completo:
+            slug_cidade, _timestamp = slug_completo.rsplit("__", 1)
+        else:
+            slug_cidade = slug_completo
+
+        cidade = re.sub(r"_+", " ", slug_cidade).strip().title()
+
+        relatorios.append({
+            "cidade": cidade,
+            "arquivo_pdf": pdf_file.name,
+            "arquivo_html": html_file.name if html_file.exists() else None,
+            "data": criado_em.strftime("%d/%m/%Y"),
+            "hora": criado_em.strftime("%H:%M:%S"),
+            "pdf_url": f"/output/{pdf_file.name}",
+            "html_url": f"/output/{html_file.name}" if html_file.exists() else None,
+        })
+
+    relatorios.sort(
+        key=lambda item: datetime.strptime(
+            f"{item['data']} {item['hora']}", "%d/%m/%Y %H:%M:%S"
+        ),
+        reverse=True
+    )
+
+    return relatorios
+
+
+@app.delete("/relatorios/{arquivo_pdf}")
+async def apagar_relatorio(arquivo_pdf: str):
+    nome_arquivo = arquivo_pdf.strip()
+
+    if "/" in nome_arquivo or "\\" in nome_arquivo:
+        raise HTTPException(status_code=400, detail="Nome de arquivo inválido.")
+
+    if not nome_arquivo.startswith("relatorio_") or not nome_arquivo.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Arquivo de relatório inválido.")
+
+    pdf_path = OUTPUT_DIR / nome_arquivo
+    nome_base = pdf_path.stem
+    html_path = OUTPUT_DIR / f"{nome_base}.html"
+
+    sufixo_relatorio = nome_base.replace("relatorio_", "", 1)
+    chart_path = OUTPUT_DIR / f"grafico_sexo_{sufixo_relatorio}.png"
+
+    removidos = []
+    for caminho in [pdf_path, html_path, chart_path]:
+        if caminho.exists() and caminho.is_file():
+            caminho.unlink()
+            removidos.append(caminho.name)
+
+    if not removidos:
+        raise HTTPException(status_code=404, detail="Relatório não encontrado.")
+
+    return {"ok": True, "removidos": removidos}
+
 @app.get("/relatorio/{cidade}", response_class=HTMLResponse)
 async def gerar_relatorio(cidade: str):
     df = pd.read_csv(DEMOGRAFIA_CSV_URL, delimiter=";")
@@ -268,15 +338,18 @@ async def gerar_relatorio(cidade: str):
     docs_html = texto_para_html(docs_texto, linhas[0])
 
     safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas[0]["nm_mun"].strip().lower())
-    grafico_sexo = gerar_grafico_sexo(linhas[0], OUTPUT_DIR, safe_city)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    report_slug = f"{safe_city}__{timestamp}"
+
+    grafico_sexo = gerar_grafico_sexo(linhas[0], OUTPUT_DIR, report_slug)
     template = Template(TEMPLATE_STRING)
     html = template.render(dados=linhas, grafico_sexo=grafico_sexo, docs_html=docs_html)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    output_file = OUTPUT_DIR / f"relatorio_{safe_city}.html"
+    output_file = OUTPUT_DIR / f"relatorio_{report_slug}.html"
     output_file.write_text(html, encoding="utf-8")
     # Gerar PDF usando WeasyPrint
-    pdf_file = OUTPUT_DIR / f"relatorio_{safe_city}.pdf"
+    pdf_file = OUTPUT_DIR / f"relatorio_{report_slug}.pdf"
     HTML(string=html, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
 
     return HTMLResponse(content=html)
