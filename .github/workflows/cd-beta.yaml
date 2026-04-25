@@ -11,6 +11,8 @@ jobs:
             
             - name: Debug environment variables
               run: echo "Image is ${{ vars.DOCKER_IMAGE_BETA }}"
+            - name: Debug image name
+              run: echo "DOCKER_IMAGE_BETA='${{ vars.DOCKER_IMAGE_BETA }}'"
             - name: Update Docker Container metadata
               uses: docker/metadata-action@v4
               id: meta
