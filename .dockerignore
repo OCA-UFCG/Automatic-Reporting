@@ -7,3 +7,5 @@ frontend/dist/
 *.pdf
 *.png
 *.html
+node_modules
+
