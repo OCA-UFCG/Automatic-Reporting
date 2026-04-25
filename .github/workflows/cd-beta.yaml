@@ -2,7 +2,7 @@ name: CD Beta
 
 on: 
     push:
-        branches: ["main", "feat/docker"]
+        branches: ["main"]
 jobs:
     build-image:
         runs-on: ubuntu-latest
