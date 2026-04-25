@@ -10,6 +10,4 @@ services:
       - DATANE_DOCS_URL=${DATANE_DOCS_URL}
     volumes:
       # Persist generated HTML/PDF/PNGs
-      - output:/app/output
-volumes:
-  output:
+      - ./output:/app/output
