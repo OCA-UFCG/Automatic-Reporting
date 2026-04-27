@@ -1,0 +1,12 @@
+# Arquivo de configuração para variáveis de ambiente
+# Copie para .config e preencha com seus valores
+
+# **ÚNICA configuração necessária**: ID do documento Google Docs central
+# Este documento contém TODAS as chaves de configuração em formato CHAVE=VALOR
+# Exemplo: DEMOGRAFIA_CSV_URL=https://...
+#          DEFAULT_DOCS_URL=https://...
+
+CONFIG_DOC_ID=12o-W-VtSl9ytbF6CD9S14ACJL63XsmYJnmZValPqKKA
+
+# TUDO MAIS VEM DO DOCUMENTO CENTRAL
+# Não adicione URLs aqui - elas devem estar no Google Docs!
