@@ -38,6 +38,8 @@ jobs:
                 tags: |
                     ${{ vars.DOCKER_IMAGE_BETA }}:latest
                     ${{ steps.meta.outputs.tags }}
+                build-args: |
+                  NEXT_PUBLIC_CONTENTFUL_ACCESS_TOKEN=${{ secrets.VITE_API_BASE_URL }}
     push-beta:
         needs: build-image
         runs-on: [self-hosted, datane-beta-runner]

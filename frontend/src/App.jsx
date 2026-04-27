@@ -15,7 +15,7 @@ function App() {
   const [citySearch, setCitySearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  console.log(API_BASE)
+
   useEffect(() => {
     async function fetchCities() {
       try {
