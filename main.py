@@ -15,7 +15,10 @@ import re
 from weasyprint import HTML
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from plotting import *
+from plotting import gerar_grafico_sexo
+from plotting import gerar_grafico_porte
+from plotting import gerar_grafico_top_cidades
+
 
 app = FastAPI()
 BASE_DIR = Path(__file__).resolve().parent
