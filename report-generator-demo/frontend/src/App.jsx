@@ -92,7 +92,7 @@ function App() {
     return cities.filter((city) => city.toLowerCase().includes(term));
   }, [cities, citySearch]);
 
-  function openReport() {
+  async function openReport() {
     if (!selectedCity) {
       return;
     }
@@ -100,12 +100,36 @@ function App() {
     const url = `${API_BASE}/relatorio/${encodeURIComponent(selectedCity)}`;
     window.open(url, "_blank");
     setShowForm(false);
-    setTimeout(() => {
-      fetchReports();
-    }, 1500);
-    setTimeout(() => {
-      fetchReports();
-    }, 3500);
+
+    let found = false;
+    let attempts = 0;
+    const maxAttempts = 60;
+
+    const pollInterval = setInterval(async () => {
+      attempts++;
+      try {
+        const response = await fetch(`${API_BASE}/relatorios`);
+        if (response.ok) {
+          const data = await response.json();
+          const newReports = Array.isArray(data) ? data : [];
+          const reportExists = newReports.some(
+            (report) => report.cidade.toLowerCase() === selectedCity.toLowerCase()
+          );
+          if (reportExists) {
+            found = true;
+            setReports(newReports);
+            clearInterval(pollInterval);
+          }
+        }
+      } catch (err) {
+        console.error("Error polling for reports:", err);
+      }
+
+      if (attempts >= maxAttempts) {
+        clearInterval(pollInterval);
+        fetchReports();
+      }
+    }, 1000);
   }
 
   return (
