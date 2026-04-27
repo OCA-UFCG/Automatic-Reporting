@@ -15,7 +15,7 @@ import re
 from weasyprint import HTML
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from plotting import gerar_grafico_sexo
+from plotting import *
 
 app = FastAPI()
 BASE_DIR = Path(__file__).resolve().parent
@@ -107,10 +107,11 @@ TEMPLATE_STRING = """
 
 <div class="doc-content">{{ docs_html | safe }}</div>
 
-<h2>Gráfico de população por sexo</h2>
-{% set i = 1 %}
-<img src="{{ grafico_sexo }}" alt="Gráfico de população por sexo" style="max-width: 100%; height: auto;">
-<p> Figura {{ i }} </p>
+<h2>Gráficos</h2>
+{% for i in range(graficos | length) %}
+<img src="/output/{{ graficos[i] }}" alt="Gráfico" style="max-width: 100%; height: auto;">
+<p> Figura {{ i+1 }} </p>
+{% endfor %}
 {% endfor %}
  </body>
 </html>
@@ -279,9 +280,17 @@ async def gerar_relatorio(cidade: str):
     docs_html = texto_para_html(docs_texto, linhas[0])
 
     safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas[0]["nm_mun"].strip().lower())
+
+    # Graficos
+    graficos = []
     grafico_sexo = gerar_grafico_sexo(linhas[0], OUTPUT_DIR, safe_city)
+    grafico_porte = gerar_grafico_porte(df, OUTPUT_DIR, safe_city)
+    grafico_top = gerar_grafico_top_cidades(df, OUTPUT_DIR)
+    graficos.append(grafico_sexo)
+    graficos.append(grafico_porte)
+    graficos.append(grafico_top)
     template = Template(TEMPLATE_STRING)
-    html = template.render(dados=linhas, grafico_sexo=grafico_sexo, docs_html=docs_html)
+    html = template.render(dados=linhas, graficos=graficos, docs_html=docs_html)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output_file = OUTPUT_DIR / f"relatorio_{safe_city}.html"
