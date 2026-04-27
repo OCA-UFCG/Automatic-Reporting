@@ -8,7 +8,6 @@ import ast
 from urllib.parse import urlparse
 from urllib.request import urlopen
 from urllib.error import URLError, HTTPError
-import matplotlib.pyplot as plt
 import html
 import os
 import re
