@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import pathlib
-import pandas as pd
 
 def gerar_grafico_sexo(cidade, OUTPUT_DIR: pathlib.Path, safe_city: str):
     mulheres = int(str(cidade["pop_mulher"]).replace('.', ''))
@@ -10,7 +9,7 @@ def gerar_grafico_sexo(cidade, OUTPUT_DIR: pathlib.Path, safe_city: str):
     valores = [mulheres, homens]
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    chart_file = OUTPUT_DIR / f"grafico_sexo_{safe_city}.png"
+    chart_file = OUTPUT_DIR / "grafico_sexo_{safe_city}.png"
 
     plt.figure(figsize=(8, 5))
     plt.bar(mylabels, valores)
@@ -32,7 +31,7 @@ def gerar_grafico_porte(df, OUTPUT_DIR: pathlib.Path, safe_city: str):
     porte_counts = df.groupby('porte')['pop_total'].sum()
     
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    chart_file = OUTPUT_DIR / f"grafico_porte_{safe_city}.png"
+    chart_file = OUTPUT_DIR / "grafico_porte_{safe_city}.png"
     
     plt.figure(figsize=(8, 6))
     plt.pie(porte_counts, labels=porte_counts.index, autopct='%1.1f%%', startangle=90)
@@ -49,7 +48,7 @@ def gerar_grafico_top_cidades(df, OUTPUT_DIR: pathlib.Path):
     top_10 = df.nlargest(10, 'pop_total')[['nm_mun', 'pop_total']]
     
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    chart_file = OUTPUT_DIR / f"grafico_top_cidades.png"
+    chart_file = OUTPUT_DIR / "grafico_top_cidades.png"
     
     plt.figure(figsize=(10, 6))
     plt.barh(top_10['nm_mun'], top_10['pop_total'])
