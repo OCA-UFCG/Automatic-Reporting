@@ -41,6 +41,7 @@ jobs:
                 build-args: |
                   DEFAULT_DOCS_URL=${{ secrets.DEFAULT_DOCS_URL }}
                   DEMOGRAFIA_CSV_URL=${{ secrets.DEMOGRAFIA_CSV_URL }}
+                  VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
     push-beta:
         needs: build-image
         runs-on: [self-hosted, datane-beta-runner]
