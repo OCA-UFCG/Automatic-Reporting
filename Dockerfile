@@ -3,9 +3,6 @@ FROM node:18-alpine AS frontend-build
 
 WORKDIR /app/frontend
 
-ARG VITE_API_BASE_URL
-
-ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 # Enable yarn via corepack (Node 18+)
 RUN corepack enable
 
