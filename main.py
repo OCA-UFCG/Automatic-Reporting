@@ -19,6 +19,11 @@ from plotting import gerar_grafico_sexo
 from plotting import gerar_grafico_porte
 from plotting import gerar_grafico_top_cidades
 
+CHART_TYPES = {
+    "sexo": gerar_grafico_sexo,
+    "porte": gerar_grafico_porte,
+    "top":gerar_grafico_top_cidades,
+}
 
 app = FastAPI()
 BASE_DIR = Path(__file__).resolve().parent
@@ -265,7 +270,7 @@ async def listar_cidades():
     return carregar_cidades()
 
 @app.get("/relatorio/{cidade}", response_class=HTMLResponse)
-async def gerar_relatorio(cidade: str):
+async def gerar_relatorio(cidade: str, charts: str = "all"):
     df = pd.read_csv(DEMOGRAFIA_CSV_URL, delimiter=";")
     linhas_df = filtrar_linhas_por_cidade(df, cidade)
     linhas = linhas_df.to_dict("records")
@@ -285,13 +290,25 @@ async def gerar_relatorio(cidade: str):
     safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas[0]["nm_mun"].strip().lower())
 
     # Graficos
+    allowed = set(CHART_TYPES.keys())
+    if charts == "all":
+        to_generate = allowed
+    else:
+        requested = {c.strip() for c in charts.split(",")}
+        invalid = requested - allowed
+        if invalid:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Tipo(s) de gráfico inválido(s): {invalid}. Tipos válidos: sexo, porte, top"
+            )
+        to_generate = requested
     graficos = []
-    grafico_sexo = gerar_grafico_sexo(linhas[0], OUTPUT_DIR, safe_city)
-    grafico_porte = gerar_grafico_porte(df, OUTPUT_DIR, safe_city)
-    grafico_top = gerar_grafico_top_cidades(df, OUTPUT_DIR)
-    graficos.append(grafico_sexo)
-    graficos.append(grafico_porte)
-    graficos.append(grafico_top)
+    if "sexo" in to_generate:
+        graficos.append(gerar_grafico_sexo(linhas[0], OUTPUT_DIR, safe_city))
+    if "porte" in to_generate:
+        graficos.append(gerar_grafico_porte(df, OUTPUT_DIR, safe_city))
+    if "top" in to_generate:
+        graficos.append(gerar_grafico_top_cidades(df, OUTPUT_DIR))
     template = Template(TEMPLATE_STRING)
     html = template.render(dados=linhas, graficos=graficos, docs_html=docs_html)
 
