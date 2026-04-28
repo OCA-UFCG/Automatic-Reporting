@@ -21,7 +21,7 @@ function App() {
     async function fetchCities() {
       try {
         setLoading(true)
-        const response = await fetch(`/cities`)
+        const response = await fetch(`${API_BASE}/cities`)
         if (!response.ok) {
           throw new Error('Falha ao carregar cidades')
         }
