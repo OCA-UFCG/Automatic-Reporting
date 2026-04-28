@@ -16,6 +16,14 @@ from weasyprint import HTML
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from plotting import gerar_grafico_sexo
+from plotting import gerar_grafico_porte
+from plotting import gerar_grafico_top_cidades
+
+CHART_TYPES = {
+    "sexo": gerar_grafico_sexo,
+    "porte": gerar_grafico_porte,
+    "top":gerar_grafico_top_cidades,
+}
 
 app = FastAPI()
 BASE_DIR = Path(__file__).resolve().parent
@@ -107,10 +115,11 @@ TEMPLATE_STRING = """
 
 <div class="doc-content">{{ docs_html | safe }}</div>
 
-<h2>Gráfico de população por sexo</h2>
-{% set i = 1 %}
-<img src="{{ grafico_sexo }}" alt="Gráfico de população por sexo" style="max-width: 100%; height: auto;">
-<p> Figura {{ i }} </p>
+<h2>Gráficos</h2>
+{% for i in range(graficos | length) %}
+<img src="/output/{{ graficos[i] }}" alt="Gráfico" style="max-width: 100%; height: auto;">
+<p style="text-align: center;"> Figura {{ i+1 }} </p>
+{% endfor %}
 {% endfor %}
  </body>
 </html>
@@ -261,7 +270,7 @@ async def listar_cidades():
     return carregar_cidades()
 
 @app.get("/relatorio/{cidade}", response_class=HTMLResponse)
-async def gerar_relatorio(cidade: str):
+async def gerar_relatorio(cidade: str, charts: str = "all"):
     df = pd.read_csv(DEMOGRAFIA_CSV_URL, delimiter=";")
     
     linhas_df = filtrar_linhas_por_cidade(df, cidade)
@@ -280,13 +289,39 @@ async def gerar_relatorio(cidade: str):
     docs_html = texto_para_html(docs_texto, linhas[0])
 
     safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas[0]["nm_mun"].strip().lower())
-    grafico_sexo = gerar_grafico_sexo(linhas[0], OUTPUT_DIR, safe_city)
-    template = Template(TEMPLATE_STRING)
-    html = template.render(dados=linhas, grafico_sexo=grafico_sexo, docs_html=docs_html)
 
+    # Charts plotting
+    allowed = set(CHART_TYPES.keys())
+    if charts == "all":
+        to_generate = list(CHART_TYPES.keys())
+    else:
+        requested = [c.strip() for c in charts.split(",")]
+        invalid = set(requested) - allowed
+        if invalid:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Tipo(s) de gráfico inválido(s): {invalid}. Tipos válidos: sexo, porte, top"
+            )
+        to_generate = requested
+    graficos = []
+    for chart_type in to_generate:
+        chart_func = CHART_TYPES[chart_type]
+        if chart_type == "sexo":
+            graficos.append(chart_func(linhas[0], OUTPUT_DIR, safe_city))
+        elif chart_type == "porte":
+            graficos.append(chart_func(df, OUTPUT_DIR, safe_city))
+        elif chart_type == "top":
+            graficos.append(chart_func(df, OUTPUT_DIR))
+
+    # Template rendering
+    template = Template(TEMPLATE_STRING)
+    html = template.render(dados=linhas, graficos=graficos, docs_html=docs_html)
+
+    # Output file handling
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output_file = OUTPUT_DIR / f"relatorio_{safe_city}.html"
     output_file.write_text(html, encoding="utf-8")
+
     # Gerar PDF usando WeasyPrint
     pdf_file = OUTPUT_DIR / f"relatorio_{safe_city}.pdf"
     HTML(string=html, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
