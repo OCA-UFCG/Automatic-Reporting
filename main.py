@@ -289,7 +289,7 @@ async def gerar_relatorio(cidade: str, charts: str = "all"):
 
     safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas[0]["nm_mun"].strip().lower())
 
-    # Graficos
+    # Charts plotting
     allowed = set(CHART_TYPES.keys())
     if charts == "all":
         to_generate = list(CHART_TYPES.keys())
@@ -311,12 +311,16 @@ async def gerar_relatorio(cidade: str, charts: str = "all"):
             graficos.append(chart_func(df, OUTPUT_DIR, safe_city))
         elif chart_type == "top":
             graficos.append(chart_func(df, OUTPUT_DIR))
+
+    # Template rendering
     template = Template(TEMPLATE_STRING)
     html = template.render(dados=linhas, graficos=graficos, docs_html=docs_html)
 
+    # Output file handling
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output_file = OUTPUT_DIR / f"relatorio_{safe_city}.html"
     output_file.write_text(html, encoding="utf-8")
+
     # Gerar PDF usando WeasyPrint
     pdf_file = OUTPUT_DIR / f"relatorio_{safe_city}.pdf"
     HTML(string=html, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
