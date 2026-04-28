@@ -36,7 +36,7 @@ app.add_middleware(
 OUTPUT_DIR = BASE_DIR / "output"
 CITIES_FILE = BASE_DIR / "citys.txt"
 
-carregado = load_dotenv(dotenv_path='.config')
+carregado = load_dotenv(dotenv_path='.env')
 DEMOGRAFIA_CSV_URL = os.getenv("DEMOGRAFIA_CSV_URL")
 DEFAULT_DOCS_URL = os.getenv("DEFAULT_DOCS_URL")
 
