@@ -292,10 +292,10 @@ async def gerar_relatorio(cidade: str, charts: str = "all"):
     # Graficos
     allowed = set(CHART_TYPES.keys())
     if charts == "all":
-        to_generate = allowed
+        to_generate = list(CHART_TYPES.keys())
     else:
-        requested = {c.strip() for c in charts.split(",")}
-        invalid = requested - allowed
+        requested = [c.strip() for c in charts.split(",")]
+        invalid = set(requested) - allowed
         if invalid:
             raise HTTPException(
                 status_code=400,
@@ -303,12 +303,14 @@ async def gerar_relatorio(cidade: str, charts: str = "all"):
             )
         to_generate = requested
     graficos = []
-    if "sexo" in to_generate:
-        graficos.append(gerar_grafico_sexo(linhas[0], OUTPUT_DIR, safe_city))
-    if "porte" in to_generate:
-        graficos.append(gerar_grafico_porte(df, OUTPUT_DIR, safe_city))
-    if "top" in to_generate:
-        graficos.append(gerar_grafico_top_cidades(df, OUTPUT_DIR))
+    for chart_type in to_generate:
+        chart_func = CHART_TYPES[chart_type]
+        if chart_type == "sexo":
+            graficos.append(chart_func(linhas[0], OUTPUT_DIR, safe_city))
+        elif chart_type == "porte":
+            graficos.append(chart_func(df, OUTPUT_DIR, safe_city))
+        elif chart_type == "top":
+            graficos.append(chart_func(df, OUTPUT_DIR))
     template = Template(TEMPLATE_STRING)
     html = template.render(dados=linhas, graficos=graficos, docs_html=docs_html)
 
