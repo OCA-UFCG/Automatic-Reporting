@@ -263,6 +263,7 @@ async def listar_cidades():
 @app.get("/relatorio/{cidade}", response_class=HTMLResponse)
 async def gerar_relatorio(cidade: str):
     df = pd.read_csv(DEMOGRAFIA_CSV_URL, delimiter=";")
+    
     linhas_df = filtrar_linhas_por_cidade(df, cidade)
     linhas = linhas_df.to_dict("records")
 
