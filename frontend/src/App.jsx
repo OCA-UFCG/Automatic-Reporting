@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 // Default to same-origin when served by the API (Docker/prod).
 // In dev (Vite on :5173), set VITE_API_BASE_URL=http://127.0.0.1:8000.
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || window.location.origin
+const API_BASE = window.location.origin
 
 const MACROTEMAS = [
   'Demografia'
@@ -21,7 +21,7 @@ function App() {
     async function fetchCities() {
       try {
         setLoading(true)
-        const response = await fetch(`/cities`)
+        const response = await fetch(`${API_BASE}/cities`)
         if (!response.ok) {
           throw new Error('Falha ao carregar cidades')
         }
