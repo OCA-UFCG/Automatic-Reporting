@@ -118,7 +118,7 @@ TEMPLATE_STRING = """
 <h2>Gráficos</h2>
 {% for i in range(graficos | length) %}
 <img src="/output/{{ graficos[i] }}" alt="Gráfico" style="max-width: 100%; height: auto;">
-<p> Figura {{ i+1 }} </p>
+<p style="text-align: center;"> Figura {{ i+1 }} </p>
 {% endfor %}
 {% endfor %}
  </body>
