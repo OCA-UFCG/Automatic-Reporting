@@ -1,0 +1,84 @@
+name: CD Beta
+
+on: 
+    push:
+        branches: ["main"]
+jobs:
+    build-image:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            
+            - name: Debug environment variables
+              run: echo "Image is ${{ vars.DOCKER_IMAGE_BETA }}"
+            - name: Debug image name
+              run: echo "DOCKER_IMAGE_BETA='${{ vars.DOCKER_IMAGE_BETA }}'"
+            - name: Update Docker Container metadata
+              uses: docker/metadata-action@v4
+              id: meta
+              with:
+                images: ${{ vars.DOCKER_IMAGE_BETA }}
+            
+            - name: Setup Docker Buildx
+              uses: docker/setup-buildx-action@v2
+            
+            - name: Login to OCA's Docker Hub
+              uses: docker/login-action@v2
+              with:
+                username: ${{ vars.DOCKER_USERNAME }}
+                password: ${{ secrets.DOCKER_PASSWORD }}
+            
+            - name: Build and push Docker image
+              uses: docker/build-push-action@v4
+              with: 
+                context: .
+                push: true
+                file: Dockerfile
+                labels: ${{ steps.meta.outputs.labels }}
+                tags: |
+                    ${{ vars.DOCKER_IMAGE_BETA }}:latest
+                    ${{ steps.meta.outputs.tags }}
+                build-args: |
+                  VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
+    push-beta:
+        needs: build-image
+        runs-on: [self-hosted, datane-beta-runner]
+        steps:
+
+            - name: Debug environment (Runner)
+              run: echo "Image is ${{ vars.DOCKER_IMAGE_BETA }}"
+
+            - name: Ensure docker volume exists
+              run: |
+                sudo docker volume create ${{ vars.VOLUME_NAME}}
+
+            - name: Ensure docker network exists
+              run: | 
+                DOCKER_NETWORK_NAME="${{ vars.NETWORK_NAME }}"
+                if ! sudo docker network inspect "$DOCKER_NETWORK_NAME" >/dev/null 2>&1; then
+                  sudo docker network create "$DOCKER_NETWORK_NAME"
+                  echo "Created network: $DOCKER_NETWORK_NAME"
+                else
+                  echo "Network already exists: $DOCKER_NETWORK_NAME"
+                fi
+
+            - name: Pull the latest beta image
+              run: sudo docker pull ${{ vars.DOCKER_IMAGE_BETA }}:latest
+
+            - name: Stop existing container
+              run: sudo docker rm -f ${{ vars.CONTAINER_NAME_BETA }} || true 
+
+            - name: Run the new Beta container
+              run: |
+                sudo docker run \
+                    --name ${{ vars.CONTAINER_NAME_BETA }} \
+                    --restart unless-stopped \
+                    -p ${{ vars.HOST_PORT_BETA }}:${{ vars.CONTAINER_PORT }} \
+                    -v ${{ vars.VOLUME_NAME}}:/app/output \
+                    -d ${{ vars.DOCKER_IMAGE_BETA }}:latest
+
+            - name: Connect to the Beta container network
+              run: sudo docker network connect ${{ vars.NETWORK_NAME }} ${{ vars.CONTAINER_NAME_BETA }}
+
+            - name: Prune unused Docker images
+              run: sudo docker system prune -f

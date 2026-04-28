@@ -4,3 +4,4 @@ uvicorn
 fastapi
 matplotlib
 weasyprint
+dotenv
