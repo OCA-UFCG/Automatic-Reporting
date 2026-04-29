@@ -3,10 +3,10 @@ FROM node:18-alpine AS frontend-build
 
 WORKDIR /app/frontend
 
-ARG VITE_API_BASE_URL
+# ARG VITE_API_BASE_URL
 
-ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
-# Enable yarn via corepack (Node 18+)
+# ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+
 RUN corepack enable
 
 COPY frontend/package.json frontend/yarn.lock ./
@@ -21,6 +21,11 @@ RUN yarn build
 ### Runtime (FastAPI + built frontend)
 FROM python:3.11-slim AS runtime
 
+ARG DEMOGRAFIA_CSV_URL
+ARG DEFAULT_DOCS_URL
+
+ENV DEMOGRAFIA_CSV_URL=$DEMOGRAFIA_CSV_URL
+ENV DEFAULT_DOCS_URL=$DEFAULT_DOCS_URL
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
