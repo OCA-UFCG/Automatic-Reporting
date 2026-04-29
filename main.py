@@ -12,6 +12,7 @@ import html
 import os
 from dotenv import load_dotenv
 import re
+from datetime import datetime
 from weasyprint import HTML
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -268,6 +269,75 @@ def filtrar_linhas_por_cidade(df: pd.DataFrame, cidade: str) -> pd.DataFrame:
 @app.get("/cities")
 async def listar_cidades():
     return carregar_cidades()
+
+@app.get("/relatorios")
+async def listar_relatorios():
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    relatorios = []
+
+    for pdf_file in OUTPUT_DIR.glob("relatorio_*.pdf"):
+        nome_base = pdf_file.stem
+        html_file = OUTPUT_DIR / f"{nome_base}.html"
+
+        stat = pdf_file.stat()
+        criado_em = datetime.fromtimestamp(stat.st_mtime)
+
+        slug_completo = nome_base.replace("relatorio_", "", 1)
+        if "__" in slug_completo:
+            slug_cidade, _timestamp = slug_completo.rsplit("__", 1)
+        else:
+            slug_cidade = slug_completo
+
+        cidade = re.sub(r"_+", " ", slug_cidade).strip().title()
+
+        relatorios.append({
+            "cidade": cidade,
+            "arquivo_pdf": pdf_file.name,
+            "arquivo_html": html_file.name if html_file.exists() else None,
+            "data": criado_em.strftime("%d/%m/%Y"),
+            "hora": criado_em.strftime("%H:%M:%S"),
+            "pdf_url": f"/output/{pdf_file.name}",
+            "html_url": f"/output/{html_file.name}" if html_file.exists() else None,
+        })
+
+    relatorios.sort(
+        key=lambda item: datetime.strptime(
+            f"{item['data']} {item['hora']}", "%d/%m/%Y %H:%M:%S"
+        ),
+        reverse=True
+    )
+
+    return relatorios
+
+
+@app.delete("/relatorios/{arquivo_pdf}")
+async def apagar_relatorio(arquivo_pdf: str):
+    nome_arquivo = arquivo_pdf.strip()
+
+    if "/" in nome_arquivo or "\\" in nome_arquivo:
+        raise HTTPException(status_code=400, detail="Nome de arquivo inválido.")
+
+    if not nome_arquivo.startswith("relatorio_") or not nome_arquivo.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Arquivo de relatório inválido.")
+
+    pdf_path = OUTPUT_DIR / nome_arquivo
+    nome_base = pdf_path.stem
+    html_path = OUTPUT_DIR / f"{nome_base}.html"
+
+    sufixo_relatorio = nome_base.replace("relatorio_", "", 1)
+    chart_path = OUTPUT_DIR / f"grafico_sexo_{sufixo_relatorio}.png"
+
+    removidos = []
+    for caminho in [pdf_path, html_path, chart_path]:
+        if caminho.exists() and caminho.is_file():
+            caminho.unlink()
+            removidos.append(caminho.name)
+
+    if not removidos:
+        raise HTTPException(status_code=404, detail="Relatório não encontrado.")
+
+    return {"ok": True, "removidos": removidos}
 
 @app.get("/relatorio/{cidade}", response_class=HTMLResponse)
 async def gerar_relatorio(cidade: str, charts: str = "all"):
