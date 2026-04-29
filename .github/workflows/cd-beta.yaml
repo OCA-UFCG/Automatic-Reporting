@@ -2,7 +2,7 @@ name: CD Beta
 
 on: 
     push:
-        branches: ["fix/dotenv_buildargs"]
+        branches: ["main"]
 jobs:
     build-image:
         runs-on: ubuntu-latest
