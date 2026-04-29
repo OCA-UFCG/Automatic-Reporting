@@ -7,3 +7,4 @@ report-generator-demo/frontend/node_modules/
 report-generator-demo/frontend/dist/
 .env
 frontend/node_modules/
+.config
