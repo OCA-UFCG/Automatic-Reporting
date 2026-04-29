@@ -12,6 +12,7 @@ import html
 import os
 from dotenv import load_dotenv
 import re
+from datetime import datetime
 from weasyprint import HTML
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -388,11 +389,11 @@ async def gerar_relatorio(cidade: str, charts: str = "all"):
 
     # Output file handling
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    output_file = OUTPUT_DIR / f"relatorio_{report_slug}.html"
+    output_file = OUTPUT_DIR / f"relatorio_{safe_city}.html"
     output_file.write_text(html, encoding="utf-8")
 
     # Gerar PDF usando WeasyPrint
-    pdf_file = OUTPUT_DIR / f"relatorio_{report_slug}.pdf"
+    pdf_file = OUTPUT_DIR / f"relatorio_{safe_city}.pdf"
     HTML(string=html, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
 
     return HTMLResponse(content=html)
