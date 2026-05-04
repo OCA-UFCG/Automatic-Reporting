@@ -42,7 +42,7 @@ def gerar_grafico_porte(df, OUTPUT_DIR: pathlib.Path, safe_city: str):
     porte_counts = df.groupby('porte')['pop_total'].sum()
     
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    chart_file = OUTPUT_DIR / "grafico_porte_{safe_city}.png"
+    chart_file = OUTPUT_DIR / f"grafico_porte_{safe_city}.png"
     
     plt.figure(figsize=(8, 6))
     plt.pie(porte_counts, labels=porte_counts.index, autopct='%1.1f%%', startangle=90)
