@@ -341,7 +341,7 @@ async def apagar_relatorio(arquivo_pdf: str):
 
 @app.get("/relatorio/{cidade}", response_class=HTMLResponse)
 async def gerar_relatorio(cidade: str, charts: str = "all"):
-    df = pd.read_csv(DEMOGRAFIA_CSV_URL, delimiter=";")
+    df = pd.read_csv(DEMOGRAFIA_CSV_URL, delimiter=";", thousands=".")
     
     linhas_df = filtrar_linhas_por_cidade(df, cidade)
     linhas = linhas_df.to_dict("records")
