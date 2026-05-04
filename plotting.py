@@ -15,7 +15,7 @@ def gerar_grafico_sexo(cidade, OUTPUT_DIR: pathlib.Path, safe_city: str):
     fig, ax = plt.subplots(figsize=(8, 3), facecolor='white')
     ax.set_facecolor('white')
 
-    bars = ax.barh(mylabels, valores, color=cores, height=0.6)
+    ax.barh(mylabels, valores, color=cores, height=0.6)
 
     max_val = max(valores)
     for i, v in enumerate(valores):
@@ -92,8 +92,8 @@ def gerar_grafico_populacao_etaria_sexo(cidade, OUTPUT_DIR: pathlib.Path, safe_c
     cor_m, borda_m = '#c23b61', '#c23b61'
     cor_h, borda_h = '#8fad35', '#8fad35'
 
-    bars_m = ax.barh(age_groups, [-m for m in mulheres], color=cor_m, edgecolor=borda_m, height=0.85)
-    bars_h = ax.barh(age_groups, homens, color=cor_h, edgecolor=borda_h, height=0.85)
+    ax.barh(age_groups, [-m for m in mulheres], color=cor_m, edgecolor=borda_m, height=0.85)
+    ax.barh(age_groups, homens, color=cor_h, edgecolor=borda_h, height=0.85)
 
     max_val = max(max(mulheres), max(homens))
     limiar = max_val * 0.28
