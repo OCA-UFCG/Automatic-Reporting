@@ -255,15 +255,25 @@ def normalizar_nome_cidade(cidade: str) -> str:
 def filtrar_linhas_por_cidade(df: pd.DataFrame, cidade: str) -> pd.DataFrame:
     cidade_informada = cidade.strip()
     serie_cidades = df["nm_mun"].astype(str).str.strip()
-
+    # 1. Exact match (case-insensitive)
     mascara_exata = serie_cidades.str.lower() == cidade_informada.lower()
     if mascara_exata.any():
         return df[mascara_exata]
-
+    # 2. Fallback: strip state abbreviations like "(PB)" and match
     cidade_sem_uf = normalizar_nome_cidade(cidade_informada)
     serie_sem_uf = serie_cidades.str.replace(r"\s*\([A-Za-z]{2}\)\s*$", "", regex=True)
     mascara_sem_uf = serie_sem_uf.str.lower() == cidade_sem_uf.lower()
-    return df[mascara_sem_uf]
+    matched = df[mascara_sem_uf]
+    if matched.empty:
+        return matched
+    # 3. Check for ambiguity: multiple states matched
+    states = serie_cidades[mascara_sem_uf].str.extract(r"\(([A-Za-z]{2})\)$")[0].dropna().unique()
+    if len(states) > 1:
+        raise ValueError(
+            f"Cidade ambígua: '{cidade_informada}' encontrada em {', '.join(sorted(states))}. "
+            f"Indique o estado, ex: '{cidade_sem_uf} ({states[0]})'"
+        )
+    return matched
 
 
 @app.get("/cities")
@@ -343,7 +353,11 @@ async def apagar_relatorio(arquivo_pdf: str):
 async def gerar_relatorio(cidade: str, charts: str = "all"):
     df = pd.read_csv(DEMOGRAFIA_CSV_URL, delimiter=";")
     
-    linhas_df = filtrar_linhas_por_cidade(df, cidade)
+    try:
+        linhas_df = filtrar_linhas_por_cidade(df, cidade)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err))
+
     linhas = linhas_df.to_dict("records")
 
     if not linhas:
