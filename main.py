@@ -19,11 +19,13 @@ from fastapi.responses import FileResponse
 from plotting import gerar_grafico_sexo
 from plotting import gerar_grafico_porte
 from plotting import gerar_grafico_top_cidades
+from plotting import gerar_grafico_populacao_etaria_sexo
 
 CHART_TYPES = {
     "sexo": gerar_grafico_sexo,
     "porte": gerar_grafico_porte,
     "top":gerar_grafico_top_cidades,
+    "etaria":gerar_grafico_populacao_etaria_sexo,
 }
 
 app = FastAPI()
@@ -382,6 +384,8 @@ async def gerar_relatorio(cidade: str, charts: str = "all"):
             graficos.append(chart_func(df, OUTPUT_DIR, safe_city))
         elif chart_type == "top":
             graficos.append(chart_func(df, OUTPUT_DIR))
+        elif chart_type == "etaria":
+            graficos.append(chart_func(linhas[0], OUTPUT_DIR, safe_city))
 
     # Template rendering
     template = Template(TEMPLATE_STRING)
