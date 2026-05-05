@@ -17,15 +17,15 @@ from weasyprint import HTML
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from plotting import gerar_grafico_sexo
-from plotting import gerar_grafico_porte
-from plotting import gerar_grafico_top_cidades
 from plotting import gerar_grafico_populacao_etaria_sexo
+from plotting import gerar_grafico_serie_temporal_mortalidade_infantil
+from plotting import gerar_grafico_estabelecimento_saude
 
 CHART_TYPES = {
     "sexo": gerar_grafico_sexo,
-    "porte": gerar_grafico_porte,
-    "top":gerar_grafico_top_cidades,
     "etaria":gerar_grafico_populacao_etaria_sexo,
+    "mortalidade":gerar_grafico_serie_temporal_mortalidade_infantil,
+    "estabelecimento":gerar_grafico_estabelecimento_saude
 }
 
 app = FastAPI()
@@ -50,6 +50,9 @@ CITIES_FILE = BASE_DIR / "citys.txt"
 carregado = load_dotenv(dotenv_path='.env')
 DEMOGRAFIA_CSV_URL = os.getenv("DEMOGRAFIA_CSV_URL")
 DEFAULT_DOCS_URL = os.getenv("DEFAULT_DOCS_URL")
+DEMOGRAFIA_FAKE_CSV = "demografia-fake.csv"
+SAUDE_CSV = "saude-fake.csv"
+SAUDE_ESTABELECIMENTO_CSV = "saude-estabelecimento.csv"
 
 FALLBACK_DOC_TEXT = """deu erro.
 """
@@ -352,17 +355,26 @@ async def apagar_relatorio(arquivo_pdf: str):
     return {"ok": True, "removidos": removidos}
 
 @app.get("/relatorio/{cidade}", response_class=HTMLResponse)
-async def gerar_relatorio(cidade: str, charts: str = "sexo"):
-    df = pd.read_csv(DEMOGRAFIA_CSV_URL, delimiter=";", thousands=".")
+async def gerar_relatorio(cidade: str, charts: str = "all"):
+    df_demografia = pd.read_csv(DEMOGRAFIA_CSV_URL, delimiter=";", thousands=".")
+    df_demografia_fake = pd.read_csv(DEMOGRAFIA_FAKE_CSV, delimiter=",", thousands=".")
+    df_saude = pd.read_csv(SAUDE_CSV, delimiter=",")
+    df_saude_estabelecimento = pd.read_csv(SAUDE_ESTABELECIMENTO_CSV, delimiter=",")
     
     try:
-        linhas_df = filtrar_linhas_por_cidade(df, cidade)
+        linhas_df_demografia = filtrar_linhas_por_cidade(df_demografia, cidade)
+        linhas_df_demografia_fake = filtrar_linhas_por_cidade(df_demografia_fake, cidade)
+        linhas_df_saude = filtrar_linhas_por_cidade(df_saude, cidade)
+        linhas_df_saude_estabelecimento = filtrar_linhas_por_cidade(df_saude_estabelecimento, cidade)
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err))
 
-    linhas = linhas_df.to_dict("records")
+    linhas_demografia = linhas_df_demografia.to_dict("records")
+    linhas_demografia_fake = linhas_df_demografia_fake.to_dict("records")
+    linhas_saude = linhas_df_saude.to_dict("records")
+    linhas_saude_estabelecimento = linhas_df_saude_estabelecimento.to_dict("records")
 
-    if not linhas:
+    if not linhas_demografia:
         raise HTTPException(status_code=404, detail=f"Cidade '{cidade}' não encontrada.")
 
     # If DATANE_DOCS_URL is set but empty (common in docker-compose), fall back to default.
@@ -372,9 +384,9 @@ async def gerar_relatorio(cidade: str, charts: str = "sexo"):
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
 
-    docs_html = texto_para_html(docs_texto, linhas[0])
+    docs_html = texto_para_html(docs_texto, linhas_demografia[0])
 
-    safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas[0]["nm_mun"].strip().lower())
+    safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas_demografia[0]["nm_mun"].strip().lower())
 
     # Charts plotting
     allowed = set(CHART_TYPES.keys())
@@ -393,17 +405,17 @@ async def gerar_relatorio(cidade: str, charts: str = "sexo"):
     for chart_type in to_generate:
         chart_func = CHART_TYPES[chart_type]
         if chart_type == "sexo":
-            graficos.append(chart_func(linhas[0], OUTPUT_DIR, safe_city))
-        elif chart_type == "porte":
-            graficos.append(chart_func(df, OUTPUT_DIR, safe_city))
-        elif chart_type == "top":
-            graficos.append(chart_func(df, OUTPUT_DIR))
+            graficos.append(chart_func(linhas_demografia[0], OUTPUT_DIR, safe_city))
         elif chart_type == "etaria":
-            graficos.append(chart_func(linhas[0], OUTPUT_DIR, safe_city))
+            graficos.append(chart_func(linhas_demografia_fake[0], OUTPUT_DIR, safe_city))
+        elif chart_type == "mortalidade":
+            graficos.append(chart_func(linhas_saude[0], OUTPUT_DIR, safe_city))
+        elif chart_type == "estabelecimento":
+            graficos.append(chart_func(linhas_saude_estabelecimento[0], OUTPUT_DIR, safe_city))
 
     # Template rendering
     template = Template(TEMPLATE_STRING)
-    html = template.render(dados=linhas, graficos=graficos, docs_html=docs_html)
+    html = template.render(dados=linhas_demografia, graficos=graficos, docs_html=docs_html)
 
     # Output file handling
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
