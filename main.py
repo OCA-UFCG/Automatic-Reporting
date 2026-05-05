@@ -115,12 +115,6 @@ TEMPLATE_STRING = """
 {% for linha in dados %}
 
 <div class="doc-content">{{ docs_html | safe }}</div>
-
-<h2>Gráficos</h2>
-{% for i in range(graficos | length) %}
-<img src="/output/{{ graficos[i] }}" alt="Gráfico" style="max-width: 100%; height: auto;">
-<p style="text-align: center;"> Figura {{ i+1 }} </p>
-{% endfor %}
 {% endfor %}
  </body>
 </html>
@@ -140,6 +134,7 @@ def extrair_doc_id(link_ou_id: str) -> str:
             return partes[idx + 1]
     raise ValueError("Não foi possível extrair o ID do Google Docs.")
 
+
 def carregar_texto_do_docs(link_ou_id: str) -> str:
     doc_id = extrair_doc_id(link_ou_id)
     export_url = f"https://docs.google.com/document/d/{doc_id}/export?format=txt"
@@ -158,12 +153,13 @@ def carregar_texto_do_docs(link_ou_id: str) -> str:
         return FALLBACK_DOC_TEXT
     except (URLError, TimeoutError):
         return FALLBACK_DOC_TEXT
-    
+
     linhas = texto.splitlines()
     linhas_filtradas = [linha for linha in linhas if not re.search(r'\[\w+\]', linha)]
     return '\n'.join(linhas_filtradas)
 
-def texto_para_html(texto: str, contexto: dict) -> str:
+
+def texto_para_html(texto: str, contexto: dict, graficos: dict[str, str] = {}) -> str:
     def substituir_placeholder_dolar(match: re.Match) -> str:
         namespace = match.group(1).lower()
         campo = match.group(2)
@@ -179,12 +175,45 @@ def texto_para_html(texto: str, contexto: dict) -> str:
     }
 
     texto_normalizado = texto
-    texto_normalizado = re.sub(r"\$([A-Za-z_][\w]*)\.([A-Za-z_][\w]*)", substituir_placeholder_dolar, texto_normalizado)
+    texto_normalizado = re.sub(
+        r"\$([A-Za-z_][\w]*)\.([A-Za-z_][\w]*)",
+        substituir_placeholder_dolar,
+        texto_normalizado,
+    )
     for alias, valor in alias_map.items():
         texto_normalizado = texto_normalizado.replace(f"${alias}", str(valor))
 
     texto_renderizado = Template(texto_normalizado).render(**contexto)
-    linhas = [linha.rstrip() for linha in texto_renderizado.splitlines()]
+
+    # Substitui %%marcadores%% por blocos <figure> ANTES do escape
+    def substituir_grafico(match: re.Match) -> str:
+        conteudo = match.group(1).lower()
+        tipos = [t.strip() for t in conteudo.split("+")]
+
+        figuras = []
+        for tipo in tipos:
+            arquivo = graficos.get(tipo)
+            if arquivo:
+                figuras.append(
+                    f'<figure style="flex:1; text-align:center; margin:0;">'
+                    f'<img src="/output/{arquivo}" alt="Gráfico {tipo}" style="width:100%; height:auto;">'
+                    f'<figcaption>Figura – {tipo.capitalize()}</figcaption>'
+                    f'</figure>'
+                )
+
+        if not figuras:
+            return ""
+
+        wrapper = (
+            f'<div style="display:flex; gap:16px; align-items:flex-start; margin:24px 0;">'
+            + "".join(figuras)
+            + '</div>'
+        )
+        return f'\x00GRAFICO\x00{wrapper}\x00FIMGRAFICO\x00'
+
+    texto_marcado = re.sub(r"%%(\w+(?:\+\w+)*)", substituir_grafico, texto_renderizado)
+
+    linhas = [linha.rstrip() for linha in texto_marcado.splitlines()]
     html_lines = []
     em_lista = False
 
@@ -194,6 +223,15 @@ def texto_para_html(texto: str, contexto: dict) -> str:
             if em_lista:
                 html_lines.append("</ul>")
                 em_lista = False
+            continue
+
+        # Linha de gráfico: já é HTML puro, não passa pelo escape
+        if "\x00GRAFICO\x00" in linha_limpa:
+            if em_lista:
+                html_lines.append("</ul>")
+                em_lista = False
+            conteudo = linha_limpa.replace("\x00GRAFICO\x00", "").replace("\x00FIMGRAFICO\x00", "")
+            html_lines.append(conteudo)
             continue
 
         if linha_limpa.startswith("#!"):
@@ -226,8 +264,6 @@ def texto_para_html(texto: str, contexto: dict) -> str:
         html_lines.append("</ul>")
 
     return "\n".join(html_lines)
-
-
 
 
 def carregar_cidades() -> list[str]:
