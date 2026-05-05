@@ -19,11 +19,13 @@ from fastapi.responses import FileResponse
 from plotting import gerar_grafico_sexo
 from plotting import gerar_grafico_porte
 from plotting import gerar_grafico_top_cidades
+from plotting import gerar_grafico_populacao_etaria_sexo
 
 CHART_TYPES = {
     "sexo": gerar_grafico_sexo,
     "porte": gerar_grafico_porte,
     "top":gerar_grafico_top_cidades,
+    "etaria":gerar_grafico_populacao_etaria_sexo,
 }
 
 app = FastAPI()
@@ -386,8 +388,8 @@ async def apagar_relatorio(arquivo_pdf: str):
     return {"ok": True, "removidos": removidos}
 
 @app.get("/relatorio/{cidade}", response_class=HTMLResponse)
-async def gerar_relatorio(cidade: str, charts: str = "all"):
-    df = pd.read_csv(DEMOGRAFIA_CSV_URL, delimiter=";")
+async def gerar_relatorio(cidade: str, charts: str = "sexo"):
+    df = pd.read_csv(DEMOGRAFIA_CSV_URL, delimiter=";", thousands=".")
     
     try:
         linhas_df = filtrar_linhas_por_cidade(df, cidade)
@@ -432,6 +434,8 @@ async def gerar_relatorio(cidade: str, charts: str = "all"):
             graficos.append(chart_func(df, OUTPUT_DIR, safe_city))
         elif chart_type == "top":
             graficos.append(chart_func(df, OUTPUT_DIR))
+        elif chart_type == "etaria":
+            graficos.append(chart_func(linhas[0], OUTPUT_DIR, safe_city))
 
     # Template rendering
     template = Template(TEMPLATE_STRING)
