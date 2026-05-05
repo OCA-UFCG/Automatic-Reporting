@@ -22,10 +22,10 @@ from plotting import gerar_grafico_top_cidades
 from plotting import gerar_grafico_populacao_etaria_sexo
 
 CHART_TYPES = {
-    "sexo": gerar_grafico_sexo,
-    "porte": gerar_grafico_porte,
-    "top":gerar_grafico_top_cidades,
-    "etaria":gerar_grafico_populacao_etaria_sexo,
+    "grafico_sexo": gerar_grafico_sexo,
+    "grafico_porte": gerar_grafico_porte,
+    "grafico_top_cidades":gerar_grafico_top_cidades,
+    "grafico_populacao_etaria_sexo":gerar_grafico_populacao_etaria_sexo,
 }
 
 app = FastAPI()
@@ -47,7 +47,7 @@ app.add_middleware(
 OUTPUT_DIR = BASE_DIR / "output"
 CITIES_FILE = BASE_DIR / "citys.txt"
 
-carregado = load_dotenv(dotenv_path='.env')
+carregado = load_dotenv(dotenv_path='.config')
 DEMOGRAFIA_CSV_URL = os.getenv("DEMOGRAFIA_CSV_URL")
 DEFAULT_DOCS_URL = os.getenv("DEFAULT_DOCS_URL")
 
@@ -388,9 +388,9 @@ async def apagar_relatorio(arquivo_pdf: str):
     return {"ok": True, "removidos": removidos}
 
 @app.get("/relatorio/{cidade}", response_class=HTMLResponse)
-async def gerar_relatorio(cidade: str, charts: str = "sexo"):
+async def gerar_relatorio(cidade: str, charts: str = "all"):
     df = pd.read_csv(DEMOGRAFIA_CSV_URL, delimiter=";", thousands=".")
-    
+
     try:
         linhas_df = filtrar_linhas_por_cidade(df, cidade)
     except ValueError as err:
@@ -401,18 +401,10 @@ async def gerar_relatorio(cidade: str, charts: str = "sexo"):
     if not linhas:
         raise HTTPException(status_code=404, detail=f"Cidade '{cidade}' não encontrada.")
 
-    # If DATANE_DOCS_URL is set but empty (common in docker-compose), fall back to default.
-    docs_url = os.getenv("DATANE_DOCS_URL") or DEFAULT_DOCS_URL
-    try:
-        docs_texto = carregar_texto_do_docs(docs_url)
-    except ValueError as err:
-        raise HTTPException(status_code=400, detail=str(err)) from err
-
-    docs_html = texto_para_html(docs_texto, linhas[0])
-
+    # safe_city primeiro, pois é usado nos gráficos
     safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas[0]["nm_mun"].strip().lower())
 
-    # Charts plotting
+    # resolve quais tipos de gráfico gerar
     allowed = set(CHART_TYPES.keys())
     if charts == "all":
         to_generate = list(CHART_TYPES.keys())
@@ -422,22 +414,34 @@ async def gerar_relatorio(cidade: str, charts: str = "sexo"):
         if invalid:
             raise HTTPException(
                 status_code=400,
-                detail=f"Tipo(s) de gráfico inválido(s): {invalid}. Tipos válidos: sexo, porte, top"
+                detail=f"Tipo(s) de gráfico inválido(s): {invalid}. Tipos válidos: {', '.join(allowed)}"
             )
         to_generate = requested
-    graficos = []
+
+    # gera os gráficos como dict ANTES do HTML
+    graficos: dict[str, str] = {}
     for chart_type in to_generate:
         chart_func = CHART_TYPES[chart_type]
-        if chart_type == "sexo":
-            graficos.append(chart_func(linhas[0], OUTPUT_DIR, safe_city))
-        elif chart_type == "porte":
-            graficos.append(chart_func(df, OUTPUT_DIR, safe_city))
-        elif chart_type == "top":
-            graficos.append(chart_func(df, OUTPUT_DIR))
-        elif chart_type == "etaria":
-            graficos.append(chart_func(linhas[0], OUTPUT_DIR, safe_city))
+        if chart_type == "grafico_sexo":
+            graficos[chart_type] = chart_func(linhas[0], OUTPUT_DIR, safe_city)
+        elif chart_type == "grafico_porte":
+            graficos[chart_type] = chart_func(df, OUTPUT_DIR, safe_city)
+        elif chart_type == "grafico_top_cidades":
+            graficos[chart_type] = chart_func(df, OUTPUT_DIR)
+        elif chart_type == "grafico_populacao_etaria_sexo":
+            graficos[chart_type] = chart_func(linhas[0], OUTPUT_DIR, safe_city)
 
-    # Template rendering
+    # carrega o texto do Docs
+    docs_url = os.getenv("DATANE_DOCS_URL") or DEFAULT_DOCS_URL
+    try:
+        docs_texto = carregar_texto_do_docs(docs_url)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+
+    # converte texto → HTML já com os gráficos embutidos
+    docs_html = texto_para_html(docs_texto, linhas[0], graficos)
+
+    # renderiza o template
     template = Template(TEMPLATE_STRING)
     html = template.render(dados=linhas, graficos=graficos, docs_html=docs_html)
 
@@ -451,7 +455,6 @@ async def gerar_relatorio(cidade: str, charts: str = "sexo"):
     HTML(string=html, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
 
     return HTMLResponse(content=html)
-
 
 # If the frontend has been built (e.g., via Docker), serve it from the same app.
 FRONTEND_DIST_DIR = BASE_DIR / "frontend" / "dist"
