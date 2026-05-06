@@ -47,7 +47,7 @@ app.add_middleware(
 OUTPUT_DIR = BASE_DIR / "output"
 CITIES_FILE = BASE_DIR / "citys.txt"
 
-carregado = load_dotenv(dotenv_path='.env')
+carregado = load_dotenv(dotenv_path='.config')
 DEMOGRAFIA_CSV_URL = os.getenv("DEMOGRAFIA_CSV_URL")
 DEFAULT_DOCS_URL = os.getenv("DEFAULT_DOCS_URL")
 DEMOGRAFIA_FAKE_CSV = "demografia-fake.csv"
@@ -189,8 +189,9 @@ def texto_para_html(texto: str, contexto: dict, graficos: dict[str, str] = {}) -
         texto_normalizado = texto_normalizado.replace(f"${alias}", str(valor))
 
     texto_renderizado = Template(texto_normalizado).render(**contexto)
+    
+    figura_contador = [0]
 
-    # Substitui %%marcadores%% por blocos <figure> ANTES do escape
     def substituir_grafico(match: re.Match) -> str:
         conteudo = match.group(1).lower()
         tipos = [t.strip() for t in conteudo.split("+")]
@@ -200,22 +201,28 @@ def texto_para_html(texto: str, contexto: dict, graficos: dict[str, str] = {}) -
             arquivo = graficos.get(tipo)
             if arquivo:
                 figuras.append(
-                    f'<figure style="flex:1; text-align:center; margin:0;">'
-                    f'<img src="/output/{arquivo}" alt="Gráfico {tipo}" style="width:100%; height:auto;">'
-                    f'<figcaption>Figura – {tipo.capitalize()}</figcaption>'
+                    f'<figure style="text-align:center; margin:0; flex:1; min-width:280px;">'
+                    f'<img src="/output/{arquivo}" '
+                    f'alt="Gráfico {tipo}" '
+                    f'style="width:100%; max-width:480px; object-fit:contain;">'
                     f'</figure>'
                 )
 
         if not figuras:
             return ""
-
+        
+        figura_contador[0] += 1
+        
         wrapper = (
-            f'<div style="display:flex; gap:16px; align-items:flex-start; margin:24px 0;">'
+            f'<div style="display:flex; gap:24px; justify-content:center; align-items:flex-start; margin:32px 0; flex-wrap:wrap;">'
             + "".join(figuras)
             + '</div>'
+            + f'<div style="text-align:center">Figura {figura_contador[0]} - População por faixa etária e sexo </div>'
         )
-        return f'\x00GRAFICO\x00{wrapper}\x00FIMGRAFICO\x00'
 
+        return f'\x00GRAFICO\x00{wrapper}\x00FIMGRAFICO\x00'
+    
+    # Substitui %%marcadores por blocos <figure> ANTES do escape
     texto_marcado = re.sub(r"%%(\w+(?:\+\w+)*)", substituir_grafico, texto_renderizado)
 
     linhas = [linha.rstrip() for linha in texto_marcado.splitlines()]
