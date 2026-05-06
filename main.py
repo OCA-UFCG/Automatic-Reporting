@@ -201,11 +201,11 @@ def texto_para_html(texto: str, contexto: dict, graficos: dict[str, str] = {}) -
             arquivo = graficos.get(tipo)
             if arquivo:
                 figuras.append(
-                    f'<figure style="text-align:center; margin:0; flex:1; min-width:280px;">'
+                    '<figure style="text-align:center; margin:0; flex:1; min-width:280px;">'
                     f'<img src="/output/{arquivo}" '
                     f'alt="Gráfico {tipo}" '
-                    f'style="width:100%; max-width:480px; object-fit:contain;">'
-                    f'</figure>'
+                    'style="width:100%; max-width:480px; object-fit:contain;">'
+                    '</figure>'
                 )
 
         if not figuras:
@@ -214,7 +214,7 @@ def texto_para_html(texto: str, contexto: dict, graficos: dict[str, str] = {}) -
         figura_contador[0] += 1
         
         wrapper = (
-            f'<div style="display:flex; gap:24px; justify-content:center; align-items:flex-start; margin:32px 0; flex-wrap:wrap;">'
+            '<div style="display:flex; gap:24px; justify-content:center; align-items:flex-start; margin:32px 0; flex-wrap:wrap;">'
             + "".join(figuras)
             + '</div>'
             + f'<div style="text-align:center">Figura {figura_contador[0]} - População por faixa etária e sexo </div>'
