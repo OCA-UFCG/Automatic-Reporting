@@ -3,11 +3,15 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - DEMOGRAFIA_CSV_URL=${DEMOGRAFIA_CSV_URL:-}
+        - DEFAULT_DOCS_URL=${DEFAULT_DOCS_URL:-}
+    image: automatic-reporting
+    container_name: automatic-reporting-app
     ports:
       - "8000:8000"
-    environment:
-      # Optional: override the Google Docs base document
-      - DATANE_DOCS_URL=${DATANE_DOCS_URL}
+    env_file:
+      - .env
     volumes:
       # Persist generated HTML/PDF/PNGs
       - ./output:/app/output
