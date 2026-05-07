@@ -12,6 +12,7 @@ import html
 import os
 from dotenv import load_dotenv
 import re
+from sqlalchemy import create_engine
 from datetime import datetime
 from weasyprint import HTML
 from fastapi.staticfiles import StaticFiles
@@ -356,7 +357,10 @@ async def apagar_relatorio(arquivo_pdf: str):
 
 @app.get("/relatorio/{cidade}", response_class=HTMLResponse)
 async def gerar_relatorio(cidade: str, charts: str = "all"):
-    df_demografia = pd.read_csv(DEMOGRAFIA_CSV_URL, delimiter=";", thousands=".")
+    engine = create_engine('sqlite:///database/database.db')
+
+
+    df_demografia = pd.read_sql(f"SELECT * FROM demografia WHERE nm_mun = '{cidade}'", engine)
     df_demografia_fake = pd.read_csv(DEMOGRAFIA_FAKE_CSV, delimiter=",", thousands=".")
     df_saude = pd.read_csv(SAUDE_CSV, delimiter=",")
     df_saude_estabelecimento = pd.read_csv(SAUDE_ESTABELECIMENTO_CSV, delimiter=",")
