@@ -324,9 +324,142 @@ TEMPLATE_STRING = """
             line-height: 1.35;
             text-align: center;
         }
+        .report-cover {
+            margin: 56px 0 34px;
+            font-family: Arial, sans-serif;
+            color: #555;
+        }
+        .cover-stripe {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            height: 5px;
+            margin-bottom: 12px;
+        }
+        .cover-stripe span:nth-child(1) { background: #225236; }
+        .cover-stripe span:nth-child(2) { background: #bd6039; }
+        .cover-stripe span:nth-child(3) { background: #d79a3b; }
+        .cover-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            font-size: 14px;
+        }
+        .cover-brand,
+        .cover-kicker,
+        .executive-title {
+            color: #bd6039;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .cover-kicker {
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+        .cover-city {
+            margin: 0;
+            color: #255235;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 60px;
+            font-weight: 400;
+            line-height: 0.95;
+            letter-spacing: -1px;
+        }
+        .cover-city-separator {
+            color: #d19a3a;
+        }
+        .cover-subtitle {
+            margin: 6px 0 32px;
+            color: #5e5e5e;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 18px;
+            font-style: italic;
+            line-height: 1.35;
+            text-align: left;
+        }
+        .cover-metrics {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 22px;
+            margin-bottom: 20px;
+        }
+        .metric-card {
+            border-left: 3px solid #d19a3a;
+            padding-left: 12px;
+        }
+        .metric-label {
+            margin-bottom: 6px;
+            color: #666;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .metric-value {
+            color: #255235;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 32px;
+            line-height: 1;
+        }
+        .metric-caption {
+            margin-top: 6px;
+            font-size: 12px;
+        }
+        .executive-summary {
+            border-top: 1px solid #dfd6c5;
+            padding-top: 20px;
+        }
+        .executive-title {
+            margin: 0 0 6px;
+            font-family: Arial, sans-serif;
+            font-size: 21px;
+        }
+        .executive-summary p {
+            margin: 0;
+            color: #555;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.45;
+            text-align: left;
+        }
     </style>
 </head>
 <body>
+<section class="report-cover">
+    <div class="cover-stripe"><span></span><span></span><span></span></div>
+    <div class="cover-meta">
+        <span class="cover-brand">Plataforma Data NE</span>
+        <span>{{ cover.data_extenso }}</span>
+    </div>
+    <div class="cover-kicker">Relatório Municipal</div>
+    <h1 class="cover-city">{{ cover.cidade_nome }}<span class="cover-city-separator">·</span>{{ cover.uf }}</h1>
+    <p class="cover-subtitle">{{ cover.descricao }}</p>
+    <div class="cover-metrics">
+        <div class="metric-card">
+            <div class="metric-label">População</div>
+            <div class="metric-value">{{ cover.populacao }}</div>
+            <div class="metric-caption">habitantes · Censo 2022</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">PIB</div>
+            <div class="metric-value">R$ 6,48 bi</div>
+            <div class="metric-caption">per capita R$ 29.711</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Alfabetização</div>
+            <div class="metric-value">86,90%</div>
+            <div class="metric-caption">população 15+ anos</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Vacinação</div>
+            <div class="metric-value">76,55%</div>
+            <div class="metric-caption">cobertura em 2024</div>
+        </div>
+    </div>
+    <div class="executive-summary">
+        <h2 class="executive-title">Resumo Executivo Por Tema</h2>
+        <p>A síntese a seguir classifica os sete temas estratégicos do município segundo os parâmetros de referência adotados pela plataforma Data NE. Cada tema é detalhado nas seções subsequentes.</p>
+    </div>
+</section>
 {% for linha in dados %}
 <div class="doc-content">{{ docs_html | safe }}</div>
 {% endfor %}
@@ -560,6 +693,41 @@ def normalizar_nome_cidade(cidade: str) -> str:
     return re.sub(r"\s*\([A-Za-z]{2}\)\s*$", "", cidade).strip()
 
 
+def formatar_data_extenso(data: datetime) -> str:
+    meses = [
+        "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+        "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+    ]
+    return f"{data.day:02d} de {meses[data.month - 1]} de {data.year}"
+
+
+def formatar_data_hora_extenso(data: datetime) -> str:
+    return f"{formatar_data_extenso(data)}, {data.strftime('%H:%M')}"
+
+
+def separar_cidade_uf(nome_municipio: str) -> tuple[str, str]:
+    match = re.match(r"^(.*?)\s*\(([A-Za-z]{2})\)\s*$", str(nome_municipio).strip())
+    if match:
+        return match.group(1).strip(), match.group(2).upper()
+    return str(nome_municipio).strip(), ""
+
+
+def montar_capa_relatorio(linha: dict, gerado_em: datetime) -> dict[str, str]:
+    cidade_nome, uf = separar_cidade_uf(linha.get("nm_mun", ""))
+    porte = str(linha.get("porte", "médio")).strip().lower() or "médio"
+    descricao = (
+        f"Município de {porte} porte na microrregião do(a) {cidade_nome}, "
+        "bioma Caatinga"
+    )
+    return {
+        "data_extenso": formatar_data_hora_extenso(gerado_em),
+        "cidade_nome": cidade_nome,
+        "uf": uf,
+        "descricao": descricao,
+        "populacao": str(linha.get("pop_total", "218.162")),
+    }
+
+
 def filtrar_linhas_por_cidade(df: pd.DataFrame, cidade: str) -> pd.DataFrame:
     cidade_informada = cidade.strip()
     serie_cidades = df["nm_mun"].astype(str).str.strip()
@@ -697,6 +865,7 @@ async def gerar_relatorio(cidade: str, macrotema: str = "demografia", charts: st
     for linha in linhas:
         linha["data_relatorio"] = gerado_em.strftime("%d/%m/%Y")
         linha["hora_relatorio"] = gerado_em.strftime("%H:%M")
+    cover = montar_capa_relatorio(linhas[0], gerado_em)
 
     safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas[0]["nm_mun"].strip().lower())
     safe_report = f"{macrotema}__{safe_city}"
@@ -742,7 +911,7 @@ async def gerar_relatorio(cidade: str, macrotema: str = "demografia", charts: st
 
     # Template rendering
     template = Environment(trim_blocks=True, lstrip_blocks=True).from_string(TEMPLATE_STRING)
-    html = template.render(dados=linhas, graficos=graficos, docs_html=docs_html)
+    html = template.render(dados=linhas, graficos=graficos, docs_html=docs_html, cover=cover)
 
     # Output file handling
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

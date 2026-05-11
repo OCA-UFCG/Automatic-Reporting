@@ -67,10 +67,6 @@ TEMPLATE_STRING = """
     </style>
 </head>
 <body>
-<h1>Data Nordeste – Relatório modelo</h1>
-<p class="field"><strong>Município:</strong> {{ linha.nm_mun }}</p>
-<p class="field"><strong>Ano:</strong> {{ linha.ano }}</p>
-
 <h2>Apresentação</h2>
 <p class="indent">Data Nordeste é uma plataforma desenvolvida para centralizar o acesso a dados sobre o Nordeste e a área de atuação da Sudene, reunindo dados produzidos pela Sudene e por seus parceiros institucionais. O objetivo principal é promover a acessibilidade, a transparência e a inovação na gestão de informações estratégicas, ajudando a fortalecer o planejamento e a tomada de decisões principalmente na região Nordeste do Brasil.</p>
 
