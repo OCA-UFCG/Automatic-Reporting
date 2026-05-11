@@ -5,7 +5,17 @@ services:
       dockerfile: Dockerfile
       args:
         - DEMOGRAFIA_CSV_URL=${DEMOGRAFIA_CSV_URL:-}
-        - DEFAULT_DOCS_URL=${DEFAULT_DOCS_URL:-}
+        - EDUCACAO_CSV_URL=${EDUCACAO_CSV_URL:-}
+        - SAUDE_CSV_URL=${SAUDE_CSV_URL:-}
+        - ECONOMIA_RENDA_CSV_URL=${ECONOMIA_RENDA_CSV_URL:-}
+        - SANEAMENTO_CSV_URL=${SANEAMENTO_CSV_URL:-}
+        - HIDRAULICA_CSV_URL=${HIDRAULICA_CSV_URL:-}
+        - DEMOGRAFIA_DOCS_URL=${DEMOGRAFIA_DOCS_URL:-}
+        - EDUCACAO_DOCS_URL=${EDUCACAO_DOCS_URL:-}
+        - SAUDE_DOCS_URL=${SAUDE_DOCS_URL:-}
+        - ECONOMIA_RENDA_DOCS_URL=${ECONOMIA_RENDA_DOCS_URL:-}
+        - SANEAMENTO_DOCS_URL=${SANEAMENTO_DOCS_URL:-}
+        - HIDRAULICA_DOCS_URL=${HIDRAULICA_DOCS_URL:-}
     image: automatic-reporting
     container_name: automatic-reporting-app
     ports:
