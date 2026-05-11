@@ -58,6 +58,9 @@ MACROTEMAS = {
     },
 }
 
+TODOS_MACROTEMAS_SLUG = "todos"
+TODOS_MACROTEMAS_NOME = "Todos"
+
 MACROTEMA_SECOES = {
     "demografia": {
         "numero": "01",
