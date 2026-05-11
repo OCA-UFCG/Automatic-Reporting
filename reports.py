@@ -5,10 +5,12 @@ from fastapi import HTTPException
 from fastapi.responses import HTMLResponse
 from jinja2 import Environment
 from weasyprint import HTML
+
 from config import BASE_DIR, OUTPUT_DIR, resolve_csv_source, require_config_value
 from utils.macrotemas import MACROTEMAS
 from utils.cities import filtrar_linhas_por_cidade
 from utils.docs import carregar_texto_do_docs
+from utils.cover import montar_capa_relatorio
 from utils.renderer import texto_para_html, TEMPLATE_STRING, FALLBACK_DOC_TEXT
 from plotting import gerar_grafico_sexo
 from plotting import gerar_grafico_porte
@@ -72,11 +74,10 @@ async def listar_relatorios_handler():
         if "__" in slug_completo:
             primeira_parte, restante = slug_completo.split("__", 1)
             if primeira_parte in MACROTEMAS:
-                partes_restantes = restante.rsplit("__", 1)
-                slug_cidade = partes_restantes[0]
+                slug_cidade = restante
                 macrotema = MACROTEMAS[primeira_parte]["nome"]
             else:
-                slug_cidade = slug_completo
+                slug_cidade, _timestamp = slug_completo.rsplit("__", 1)
         else:
             slug_cidade = slug_completo
 
@@ -157,10 +158,10 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
         linha["data_relatorio"] = gerado_em.strftime("%d/%m/%Y")
         linha["hora_relatorio"] = gerado_em.strftime("%H:%M")
 
-    safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas[0]["nm_mun"].strip().lower())
+    cover = montar_capa_relatorio(linhas[0], gerado_em)
 
-    timestamp = gerado_em.strftime("%Y%m%d_%H%M%S")
-    safe_report = f"{macrotema}__{safe_city}__{timestamp}"
+    safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas[0]["nm_mun"].strip().lower())
+    safe_report = f"{macrotema}__{safe_city}"
 
     # Charts plotting
     allowed = set(CHART_TYPES.keys())
@@ -179,19 +180,12 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
     graficos_por_placeholder = {}
     for chart_type in to_generate:
         chart_func = CHART_TYPES[chart_type]
-
-        try:
-            if chart_type == "sexo":
-                chart_file = chart_func(linhas[0], OUTPUT_DIR, safe_report)
-            elif chart_type == "porte":
-                chart_file = chart_func(df, OUTPUT_DIR, safe_report)
-            elif chart_type == "top":
-                chart_file = chart_func(df, OUTPUT_DIR)
-        except Exception as exc:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Erro ao gerar gráfico '{chart_type}': {exc}"
-            ) from exc
+        if chart_type == "sexo":
+            chart_file = chart_func(linhas[0], OUTPUT_DIR, safe_report)
+        elif chart_type == "porte":
+            chart_file = chart_func(df, OUTPUT_DIR, safe_report)
+        elif chart_type == "top":
+            chart_file = chart_func(df, OUTPUT_DIR)
         graficos.append(chart_file)
         graficos_por_placeholder[f"grafico_{chart_type}"] = chart_file
 
@@ -199,8 +193,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
     try:
         docs_texto = carregar_texto_do_docs(docs_url)
     except ValueError as err:
-
-        docs_texto = FALLBACK_DOC_TEXT
+        raise HTTPException(status_code=400, detail=str(err)) from err
 
     docs_html = texto_para_html(
         docs_texto,
@@ -211,8 +204,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
 
     # Template rendering
     template = Environment(trim_blocks=True, lstrip_blocks=True).from_string(TEMPLATE_STRING)
-
-    html_content = template.render(dados=linhas, graficos=graficos, docs_html=docs_html)
+    html_content = template.render(dados=linhas, graficos=graficos, docs_html=docs_html, cover=cover)
 
     # Output file handling
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

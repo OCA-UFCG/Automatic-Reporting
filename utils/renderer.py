@@ -118,9 +118,142 @@ TEMPLATE_STRING = """
             line-height: 1.35;
             text-align: center;
         }
+        .report-cover {
+            margin: 56px 0 34px;
+            font-family: Arial, sans-serif;
+            color: #555;
+        }
+        .cover-stripe {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            height: 5px;
+            margin-bottom: 12px;
+        }
+        .cover-stripe span:nth-child(1) { background: #225236; }
+        .cover-stripe span:nth-child(2) { background: #bd6039; }
+        .cover-stripe span:nth-child(3) { background: #d79a3b; }
+        .cover-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            font-size: 14px;
+        }
+        .cover-brand,
+        .cover-kicker,
+        .executive-title {
+            color: #bd6039;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .cover-kicker {
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+        .cover-city {
+            margin: 0;
+            color: #255235;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 60px;
+            font-weight: 400;
+            line-height: 0.95;
+            letter-spacing: -1px;
+        }
+        .cover-city-separator {
+            color: #d19a3a;
+        }
+        .cover-subtitle {
+            margin: 6px 0 32px;
+            color: #5e5e5e;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 18px;
+            font-style: italic;
+            line-height: 1.35;
+            text-align: left;
+        }
+        .cover-metrics {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 22px;
+            margin-bottom: 20px;
+        }
+        .metric-card {
+            border-left: 3px solid #d19a3a;
+            padding-left: 12px;
+        }
+        .metric-label {
+            margin-bottom: 6px;
+            color: #666;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .metric-value {
+            color: #255235;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 32px;
+            line-height: 1;
+        }
+        .metric-caption {
+            margin-top: 6px;
+            font-size: 12px;
+        }
+        .executive-summary {
+            border-top: 1px solid #dfd6c5;
+            padding-top: 20px;
+        }
+        .executive-title {
+            margin: 0 0 6px;
+            font-family: Arial, sans-serif;
+            font-size: 21px;
+        }
+        .executive-summary p {
+            margin: 0;
+            color: #555;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.45;
+            text-align: left;
+        }
     </style>
 </head>
 <body>
+<section class="report-cover">
+    <div class="cover-stripe"><span></span><span></span><span></span></div>
+    <div class="cover-meta">
+        <span class="cover-brand">Plataforma Data NE</span>
+        <span>{{ cover.data_extenso }}</span>
+    </div>
+    <div class="cover-kicker">Relatório Municipal</div>
+    <h1 class="cover-city">{{ cover.cidade_nome }}<span class="cover-city-separator">·</span>{{ cover.uf }}</h1>
+    <p class="cover-subtitle">{{ cover.descricao }}</p>
+    <div class="cover-metrics">
+        <div class="metric-card">
+            <div class="metric-label">População</div>
+            <div class="metric-value">{{ cover.populacao }}</div>
+            <div class="metric-caption">habitantes · Censo 2022</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">PIB</div>
+            <div class="metric-value">R$ 6,48 bi</div>
+            <div class="metric-caption">per capita R$ 29.711</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Alfabetização</div>
+            <div class="metric-value">86,90%</div>
+            <div class="metric-caption">população 15+ anos</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Vacinação</div>
+            <div class="metric-value">76,55%</div>
+            <div class="metric-caption">cobertura em 2024</div>
+        </div>
+    </div>
+    <div class="executive-summary">
+        <h2 class="executive-title">Resumo Executivo Por Tema</h2>
+        <p>A síntese a seguir classifica os sete temas estratégicos do município segundo os parâmetros de referência adotados pela plataforma Data NE. Cada tema é detalhado nas seções subsequentes.</p>
+    </div>
+</section>
 {% for linha in dados %}
 <div class="doc-content">{{ docs_html | safe }}</div>
 {% endfor %}
