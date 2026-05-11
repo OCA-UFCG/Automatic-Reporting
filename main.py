@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from config import BASE_DIR, OUTPUT_DIR
+from config import BASE_DIR
 from utils.macrotemas import MACROTEMAS
 from utils.cities import carregar_cidades
 from reports import (

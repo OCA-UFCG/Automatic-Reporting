@@ -6,12 +6,12 @@ from fastapi.responses import HTMLResponse
 from jinja2 import Environment
 from weasyprint import HTML
 
-from config import BASE_DIR, OUTPUT_DIR, resolve_csv_source, require_config_value
+from config import OUTPUT_DIR, resolve_csv_source, require_config_value
 from utils.macrotemas import MACROTEMAS
 from utils.cities import filtrar_linhas_por_cidade
 from utils.docs import carregar_texto_do_docs
 from utils.cover import montar_capa_relatorio
-from utils.renderer import texto_para_html, TEMPLATE_STRING, FALLBACK_DOC_TEXT
+from utils.renderer import texto_para_html, TEMPLATE_STRING
 from plotting import gerar_grafico_sexo
 from plotting import gerar_grafico_porte
 from plotting import gerar_grafico_top_cidades
