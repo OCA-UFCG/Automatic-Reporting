@@ -19,6 +19,7 @@ from fastapi.responses import FileResponse
 from plotting import gerar_grafico_sexo
 from plotting import gerar_grafico_porte
 from plotting import gerar_grafico_top_cidades
+from utils.tables import render_tabela_resumo
 
 CHART_TYPES = {
     "sexo": gerar_grafico_sexo,
@@ -443,6 +444,7 @@ def texto_para_html(
     namespace: str = "demografia",
     graficos_por_placeholder: dict[str, str] | None = None,
 ) -> str:
+
     def substituir_placeholder_dolar(match: re.Match) -> str:
         placeholder_namespace = match.group(1).lower()
         campo = match.group(2)
@@ -507,12 +509,40 @@ def texto_para_html(
     figura_contador = 0
 
     for linha in linhas:
+
         linha_limpa = linha.lstrip("\ufeff").strip()
 
+        # LINHA VAZIA
         if not linha_limpa:
             if em_lista:
                 html_lines.append("</ul>")
                 em_lista = False
+
+            continue
+
+        # COMPONENTES
+        marcador_componente = re.fullmatch(
+            r"##([A-Za-z_][\w]*)",
+            linha_limpa,
+        )
+
+        if marcador_componente:
+
+            if em_lista:
+                html_lines.append("</ul>")
+                em_lista = False
+
+            nome_componente = marcador_componente.group(1)
+
+            if nome_componente == "tabela_resumo":
+
+                html_lines.append(
+                    render_tabela_resumo(
+                        contexto=contexto,
+                        namespace=namespace,
+                    )
+                )
+
             continue
 
         # GRÁFICOS
@@ -522,6 +552,7 @@ def texto_para_html(
         )
 
         if marcador_grafico:
+
             if em_lista:
                 html_lines.append("</ul>")
                 em_lista = False
@@ -534,6 +565,7 @@ def texto_para_html(
             figuras = []
 
             for tipo in tipos:
+
                 chart_file = graficos_por_placeholder.get(tipo)
 
                 if not chart_file:
@@ -548,6 +580,7 @@ def texto_para_html(
                 )
 
             if figuras:
+
                 figura_contador += 1
 
                 legenda = " e ".join(
@@ -573,6 +606,7 @@ def texto_para_html(
 
         # TÍTULO PRINCIPAL
         if linha_limpa.startswith("#!"):
+
             if em_lista:
                 html_lines.append("</ul>")
                 em_lista = False
@@ -588,6 +622,7 @@ def texto_para_html(
 
         # LISTAS
         if linha_limpa.startswith(("- ", "• ", "* ")):
+
             if not em_lista:
                 html_lines.append("<ul>")
                 em_lista = True
@@ -611,6 +646,7 @@ def texto_para_html(
         )
 
         if secao_macrotema:
+
             html_lines.append(
                 render_section_heading(secao_macrotema)
             )
@@ -622,6 +658,7 @@ def texto_para_html(
             or linha_limpa.lower()
             in {"apresentação", "demografia"}
         ):
+
             html_lines.append(
                 f"<h2>{html_module.escape(linha_limpa)}</h2>"
             )
@@ -633,6 +670,7 @@ def texto_para_html(
             linha_limpa,
             flags=re.IGNORECASE,
         ):
+
             legenda = re.sub(
                 r"\[[A-Za-z0-9]{1,3}\]",
                 "",
@@ -648,6 +686,7 @@ def texto_para_html(
             proximo_paragrafo_destaque = False
 
         else:
+
             linha_limpa = re.sub(
                 r"\[[A-Za-z0-9]{1,3}\]",
                 "",
@@ -672,7 +711,6 @@ def texto_para_html(
         html_lines.append("</ul>")
 
     return "\n".join(html_lines)
-
 
 def carregar_cidades() -> list[str]:
     if not CITIES_FILE.exists():
