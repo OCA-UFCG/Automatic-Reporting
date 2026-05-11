@@ -8,7 +8,7 @@ import ast
 from urllib.parse import urlparse
 from urllib.request import urlopen
 from urllib.error import URLError, HTTPError
-import html
+import html as html_module  #renomeado para evitar conflito com a variável local 'html_content'
 import os
 from dotenv import load_dotenv
 import re
@@ -403,7 +403,7 @@ def carregar_texto_do_docs(link_ou_id: str) -> str:
 def render_chart_placeholder(chart_file: str) -> str:
     return (
         '<div class="chart-block">'
-        f'<img src="/output/{html.escape(chart_file)}" alt="Gráfico">'
+        f'<img src="/output/{html_module.escape(chart_file)}" alt="Gráfico">'  
         '</div>'
     )
 
@@ -427,8 +427,8 @@ def identificar_secao_macrotema(linha: str, namespace: str) -> dict[str, object]
 
 
 def render_section_heading(secao: dict[str, object]) -> str:
-    numero = html.escape(str(secao["numero"]))
-    titulo = html.escape(str(secao["titulo"]))
+    numero = html_module.escape(str(secao["numero"]))   
+    titulo = html_module.escape(str(secao["titulo"]))   
     return (
         '<div class="section-heading">'
         f'<span class="section-number">{numero}</span>'
@@ -446,9 +446,17 @@ def texto_para_html(
     def substituir_placeholder_dolar(match: re.Match) -> str:
         placeholder_namespace = match.group(1).lower()
         campo = match.group(2)
-        namespaces_validos = {namespace.lower(), "linha", "dados", "csv"}
+
+        namespaces_validos = {
+            namespace.lower(),
+            "linha",
+            "dados",
+            "csv",
+        }
+
         if placeholder_namespace in namespaces_validos:
             return str(contexto.get(campo, match.group(0)))
+
         return match.group(0)
 
     alias_map = {
@@ -461,81 +469,209 @@ def texto_para_html(
         "data_geracao": contexto.get("data_relatorio", ""),
         "hora_geracao": contexto.get("hora_relatorio", ""),
     }
+
+    LEGENDAS_GRAFICOS = {
+        "grafico_sexo": "População por sexo",
+        "grafico_porte": "Distribuição por porte",
+        "grafico_top_cidades": "Top cidades",
+    }
+
     graficos_por_placeholder = graficos_por_placeholder or {}
 
     texto_normalizado = texto
-    texto_normalizado = re.sub(r"\$([A-Za-z_][\w]*)\.([A-Za-z_][\w]*)", substituir_placeholder_dolar, texto_normalizado)
-    for alias, valor in alias_map.items():
-        texto_normalizado = texto_normalizado.replace(f"${alias}", str(valor))
 
-    texto_renderizado = Environment().from_string(texto_normalizado).render(**contexto)
+    texto_normalizado = re.sub(
+        r"\$([A-Za-z_][\w]*)\.([A-Za-z_][\w]*)",
+        substituir_placeholder_dolar,
+        texto_normalizado,
+    )
+
+    for alias, valor in alias_map.items():
+        texto_normalizado = texto_normalizado.replace(
+            f"${alias}",
+            str(valor),
+        )
+
+    texto_renderizado = Environment().from_string(
+        texto_normalizado
+    ).render(**contexto)
+
     linhas = [linha.rstrip() for linha in texto_renderizado.splitlines()]
+
     html_lines = []
+
     em_lista = False
+
     proximo_paragrafo_destaque = namespace in MACROTEMA_SECOES
+
+    figura_contador = 0
 
     for linha in linhas:
         linha_limpa = linha.lstrip("\ufeff").strip()
+
         if not linha_limpa:
             if em_lista:
                 html_lines.append("</ul>")
                 em_lista = False
             continue
 
-        marcador_grafico = re.fullmatch(r"%%([A-Za-z_][\w]*)", linha_limpa)
+        # GRÁFICOS
+        marcador_grafico = re.fullmatch(
+            r"%%(\w+(?:\+\w+)*)",
+            linha_limpa,
+        )
+
         if marcador_grafico:
             if em_lista:
                 html_lines.append("</ul>")
                 em_lista = False
-            chart_file = graficos_por_placeholder.get(marcador_grafico.group(1))
-            if chart_file:
-                html_lines.append(render_chart_placeholder(chart_file))
+
+            tipos = [
+                tipo.strip()
+                for tipo in marcador_grafico.group(1).split("+")
+            ]
+
+            figuras = []
+
+            for tipo in tipos:
+                chart_file = graficos_por_placeholder.get(tipo)
+
+                if not chart_file:
+                    continue
+
+                figuras.append(
+                    '<figure style="text-align:center; margin:0; flex:1; min-width:280px;">'
+                    f'<img src="/output/{html_module.escape(chart_file)}" '
+                    f'alt="{html_module.escape(tipo)}" '
+                    'style="width:100%; max-width:480px; object-fit:contain;">'
+                    "</figure>"
+                )
+
+            if figuras:
+                figura_contador += 1
+
+                legenda = " e ".join(
+                    LEGENDAS_GRAFICOS.get(tipo, tipo)
+                    for tipo in tipos
+                )
+
+                html_lines.append(
+                    '<div style="display:flex; gap:24px; justify-content:center; '
+                    'align-items:flex-start; margin:32px 0; flex-wrap:wrap;">'
+                    + "".join(figuras)
+                    + "</div>"
+                )
+
+                html_lines.append(
+                    f'<p class="figure-caption">'
+                    f'Figura {figura_contador} - '
+                    f'{html_module.escape(legenda)}'
+                    f"</p>"
+                )
+
             continue
 
+        # TÍTULO PRINCIPAL
         if linha_limpa.startswith("#!"):
             if em_lista:
                 html_lines.append("</ul>")
                 em_lista = False
+
             titulo = linha_limpa[2:].strip()
+
             if titulo:
-                html_lines.append(f"<h1>{html.escape(titulo)}</h1>")
+                html_lines.append(
+                    f"<h1>{html_module.escape(titulo)}</h1>"
+                )
+
             continue
 
+        # LISTAS
         if linha_limpa.startswith(("- ", "• ", "* ")):
             if not em_lista:
                 html_lines.append("<ul>")
                 em_lista = True
-            item = html.escape(linha_limpa[2:].strip())
+
+            item = html_module.escape(
+                linha_limpa[2:].strip()
+            )
+
             html_lines.append(f"<li>{item}</li>")
+
             continue
 
         if em_lista:
             html_lines.append("</ul>")
             em_lista = False
 
-        secao_macrotema = identificar_secao_macrotema(linha_limpa, namespace)
+        # SEÇÕES
+        secao_macrotema = identificar_secao_macrotema(
+            linha_limpa,
+            namespace,
+        )
+
         if secao_macrotema:
-            html_lines.append(render_section_heading(secao_macrotema))
+            html_lines.append(
+                render_section_heading(secao_macrotema)
+            )
+
             proximo_paragrafo_destaque = True
-        elif re.match(r"^\d+\.\s+", linha_limpa) or linha_limpa.lower() in {"apresentação", "demografia"}:
-            html_lines.append(f"<h2>{html.escape(linha_limpa)}</h2>")
+
+        elif (
+            re.match(r"^\d+\.\s+", linha_limpa)
+            or linha_limpa.lower()
+            in {"apresentação", "demografia"}
+        ):
+            html_lines.append(
+                f"<h2>{html_module.escape(linha_limpa)}</h2>"
+            )
+
             proximo_paragrafo_destaque = False
-        elif re.match(r"^figura\s+[&x]\s*[–-]", linha_limpa, flags=re.IGNORECASE):
-            legenda = re.sub(r"\[[A-Za-z0-9]{1,3}\]", "", linha_limpa).replace("&", "")
-            html_lines.append(f'<p class="figure-caption">{html.escape(legenda.strip())}</p>')
+
+        elif re.match(
+            r"^figura\s+[&x]\s*[–-]",
+            linha_limpa,
+            flags=re.IGNORECASE,
+        ):
+            legenda = re.sub(
+                r"\[[A-Za-z0-9]{1,3}\]",
+                "",
+                linha_limpa,
+            ).replace("&", "")
+
+            html_lines.append(
+                f'<p class="figure-caption">'
+                f"{html_module.escape(legenda.strip())}"
+                f"</p>"
+            )
+
             proximo_paragrafo_destaque = False
+
         else:
-            linha_limpa = re.sub(r"\[[A-Za-z0-9]{1,3}\]", "", linha_limpa)
-            classe = ' class="lead"' if proximo_paragrafo_destaque else ""
-            html_lines.append(f"<p{classe}>{html.escape(linha_limpa)}</p>")
+            linha_limpa = re.sub(
+                r"\[[A-Za-z0-9]{1,3}\]",
+                "",
+                linha_limpa,
+            )
+
+            classe = (
+                ' class="lead"'
+                if proximo_paragrafo_destaque
+                else ""
+            )
+
+            html_lines.append(
+                f"<p{classe}>"
+                f"{html_module.escape(linha_limpa)}"
+                f"</p>"
+            )
+
             proximo_paragrafo_destaque = False
 
     if em_lista:
         html_lines.append("</ul>")
 
     return "\n".join(html_lines)
-
-
 
 
 def carregar_cidades() -> list[str]:
@@ -614,10 +750,11 @@ async def listar_relatorios():
         if "__" in slug_completo:
             primeira_parte, restante = slug_completo.split("__", 1)
             if primeira_parte in MACROTEMAS:
-                slug_cidade = restante
+                partes_restantes = restante.rsplit("__", 1)
+                slug_cidade = partes_restantes[0]
                 macrotema = MACROTEMAS[primeira_parte]["nome"]
             else:
-                slug_cidade, _timestamp = slug_completo.rsplit("__", 1)
+                slug_cidade = slug_completo
         else:
             slug_cidade = slug_completo
 
@@ -662,6 +799,7 @@ async def apagar_relatorio(arquivo_pdf: str):
     chart_paths = [
         OUTPUT_DIR / f"grafico_sexo_{sufixo_relatorio}.png",
         OUTPUT_DIR / f"grafico_porte_{sufixo_relatorio}.png",
+        OUTPUT_DIR / f"grafico_top_{sufixo_relatorio}.png",  
     ]
 
     removidos = []
@@ -699,7 +837,9 @@ async def gerar_relatorio(cidade: str, macrotema: str = "demografia", charts: st
         linha["hora_relatorio"] = gerado_em.strftime("%H:%M")
 
     safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas[0]["nm_mun"].strip().lower())
-    safe_report = f"{macrotema}__{safe_city}"
+
+    timestamp = gerado_em.strftime("%Y%m%d_%H%M%S")
+    safe_report = f"{macrotema}__{safe_city}__{timestamp}"
 
     # Charts plotting
     allowed = set(CHART_TYPES.keys())
@@ -718,12 +858,19 @@ async def gerar_relatorio(cidade: str, macrotema: str = "demografia", charts: st
     graficos_por_placeholder = {}
     for chart_type in to_generate:
         chart_func = CHART_TYPES[chart_type]
-        if chart_type == "sexo":
-            chart_file = chart_func(linhas[0], OUTPUT_DIR, safe_report)
-        elif chart_type == "porte":
-            chart_file = chart_func(df, OUTPUT_DIR, safe_report)
-        elif chart_type == "top":
-            chart_file = chart_func(df, OUTPUT_DIR)
+
+        try:
+            if chart_type == "sexo":
+                chart_file = chart_func(linhas[0], OUTPUT_DIR, safe_report)
+            elif chart_type == "porte":
+                chart_file = chart_func(df, OUTPUT_DIR, safe_report)
+            elif chart_type == "top":
+                chart_file = chart_func(df, OUTPUT_DIR)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Erro ao gerar gráfico '{chart_type}': {exc}"
+            ) from exc
         graficos.append(chart_file)
         graficos_por_placeholder[f"grafico_{chart_type}"] = chart_file
 
@@ -731,7 +878,8 @@ async def gerar_relatorio(cidade: str, macrotema: str = "demografia", charts: st
     try:
         docs_texto = carregar_texto_do_docs(docs_url)
     except ValueError as err:
-        raise HTTPException(status_code=400, detail=str(err)) from err
+
+        docs_texto = FALLBACK_DOC_TEXT
 
     docs_html = texto_para_html(
         docs_texto,
@@ -742,18 +890,19 @@ async def gerar_relatorio(cidade: str, macrotema: str = "demografia", charts: st
 
     # Template rendering
     template = Environment(trim_blocks=True, lstrip_blocks=True).from_string(TEMPLATE_STRING)
-    html = template.render(dados=linhas, graficos=graficos, docs_html=docs_html)
+
+    html_content = template.render(dados=linhas, graficos=graficos, docs_html=docs_html)
 
     # Output file handling
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output_file = OUTPUT_DIR / f"relatorio_{safe_report}.html"
-    output_file.write_text(html, encoding="utf-8")
+    output_file.write_text(html_content, encoding="utf-8") 
 
     # Gerar PDF usando WeasyPrint
     pdf_file = OUTPUT_DIR / f"relatorio_{safe_report}.pdf"
-    HTML(string=html, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
+    HTML(string=html_content, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))  
 
-    return HTMLResponse(content=html)
+    return HTMLResponse(content=html_content)  
 
 
 # If the frontend has been built (e.g., via Docker), serve it from the same app.
