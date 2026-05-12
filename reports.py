@@ -7,10 +7,11 @@ from jinja2 import Environment
 from weasyprint import HTML
 
 from config import OUTPUT_DIR, resolve_csv_source, require_config_value
-from utils.macrotemas import MACROTEMAS
+from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
 from utils.cities import filtrar_linhas_por_cidade
 from utils.docs import carregar_texto_do_docs
 from utils.cover import montar_capa_relatorio
+from utils.maps import render_mapa_geografico
 from utils.renderer import texto_para_html, TEMPLATE_STRING
 from plotting import gerar_grafico_sexo
 from plotting import gerar_grafico_porte
@@ -27,9 +28,16 @@ CHART_TYPES = {
 def get_macrotema(slug: str) -> dict[str, str]:
     macrotema = MACROTEMAS.get(slug)
     if not macrotema:
-        validos = ", ".join(MACROTEMAS.keys())
+        validos = ", ".join([TODOS_MACROTEMAS_SLUG, *MACROTEMAS.keys()])
         raise HTTPException(status_code=400, detail=f"Macrotema inválido. Use um destes: {validos}")
     return macrotema
+
+
+def get_macrotema_slugs_para_relatorio(macrotema: str) -> list[str]:
+    if macrotema == TODOS_MACROTEMAS_SLUG:
+        return list(MACROTEMAS.keys())
+    get_macrotema(macrotema)
+    return [macrotema]
 
 
 def get_csv_config_for_macrotema(macrotema: dict[str, str | None]) -> tuple[str | None, str]:
@@ -73,7 +81,10 @@ async def listar_relatorios_handler():
         macrotema = "Demografia"
         if "__" in slug_completo:
             primeira_parte, restante = slug_completo.split("__", 1)
-            if primeira_parte in MACROTEMAS:
+            if primeira_parte == TODOS_MACROTEMAS_SLUG:
+                slug_cidade = restante
+                macrotema = TODOS_MACROTEMAS_NOME
+            elif primeira_parte in MACROTEMAS:
                 slug_cidade = restante
                 macrotema = MACROTEMAS[primeira_parte]["nome"]
             else:
@@ -137,70 +148,83 @@ async def apagar_relatorio_handler(arquivo_pdf: str):
 
 
 async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", charts: str = "all"):
-    macrotema_dados = get_macrotema(macrotema)
-    csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
-    csv_source = resolve_csv_source(csv_url, csv_env)
-    df = pd.read_csv(csv_source, delimiter=";")
-    df = normalizar_colunas_macrotema(df, macrotema)
-
-    try:
-        linhas_df = filtrar_linhas_por_cidade(df, cidade)
-    except ValueError as err:
-        raise HTTPException(status_code=400, detail=str(err))
-
-    linhas = linhas_df.to_dict("records")
-
-    if not linhas:
-        raise HTTPException(status_code=404, detail=f"Cidade '{cidade}' não encontrada.")
-
+    macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
     gerado_em = datetime.now()
-    for linha in linhas:
-        linha["data_relatorio"] = gerado_em.strftime("%d/%m/%Y")
-        linha["hora_relatorio"] = gerado_em.strftime("%H:%M")
-
-    cover = montar_capa_relatorio(linhas[0], gerado_em)
-
-    safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas[0]["nm_mun"].strip().lower())
-    safe_report = f"{macrotema}__{safe_city}"
-
-    # Charts plotting
     allowed = set(CHART_TYPES.keys())
-    if charts == "all":
-        to_generate = list(CHART_TYPES.keys()) if macrotema == "demografia" else []
-    else:
-        requested = [c.strip() for c in charts.split(",")]
-        invalid = set(requested) - allowed
-        if invalid:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Tipo(s) de gráfico inválido(s): {invalid}. Tipos válidos: sexo, porte, top"
-            )
-        to_generate = requested
+    requested_charts = list(CHART_TYPES.keys()) if charts == "all" else [c.strip() for c in charts.split(",")]
+    invalid = set(requested_charts) - allowed
+    if invalid:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tipo(s) de gráfico inválido(s): {invalid}. Tipos válidos: sexo, porte, top"
+        )
+
+    linhas = None
+    cover = None
+    safe_city = None
+    safe_report = None
     graficos = []
-    graficos_por_placeholder = {}
-    for chart_type in to_generate:
-        chart_func = CHART_TYPES[chart_type]
-        if chart_type == "sexo":
-            chart_file = chart_func(linhas[0], OUTPUT_DIR, safe_report)
-        elif chart_type == "porte":
-            chart_file = chart_func(df, OUTPUT_DIR, safe_report)
-        elif chart_type == "top":
-            chart_file = chart_func(df, OUTPUT_DIR)
-        graficos.append(chart_file)
-        graficos_por_placeholder[f"grafico_{chart_type}"] = chart_file
+    docs_html_parts = []
 
-    docs_url = require_config_value(macrotema_dados["docs_url"], macrotema_dados["docs_env"])
-    try:
-        docs_texto = carregar_texto_do_docs(docs_url)
-    except ValueError as err:
-        raise HTTPException(status_code=400, detail=str(err)) from err
+    for macrotema_slug in macrotema_slugs:
+        macrotema_dados = get_macrotema(macrotema_slug)
+        csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
+        csv_source = resolve_csv_source(csv_url, csv_env)
+        df = pd.read_csv(csv_source, delimiter=";")
+        df = normalizar_colunas_macrotema(df, macrotema_slug)
 
-    docs_html = texto_para_html(
-        docs_texto,
-        linhas[0],
-        namespace=macrotema,
-        graficos_por_placeholder=graficos_por_placeholder,
-    )
+        try:
+            linhas_df = filtrar_linhas_por_cidade(df, cidade)
+        except ValueError as err:
+            raise HTTPException(status_code=400, detail=str(err))
+
+        linhas_macrotema = linhas_df.to_dict("records")
+
+        if not linhas_macrotema:
+            raise HTTPException(status_code=404, detail=f"Cidade '{cidade}' não encontrada.")
+
+        for linha in linhas_macrotema:
+            linha["data_relatorio"] = gerado_em.strftime("%d/%m/%Y")
+            linha["hora_relatorio"] = gerado_em.strftime("%H:%M")
+
+        if linhas is None:
+            linhas = linhas_macrotema
+            cover = montar_capa_relatorio(linhas[0], gerado_em)
+            safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas[0]["nm_mun"].strip().lower())
+            safe_report = f"{macrotema}__{safe_city}"
+
+        graficos_por_placeholder = {}
+        if macrotema_slug == "demografia":
+            for chart_type in requested_charts:
+                chart_func = CHART_TYPES[chart_type]
+                if chart_type == "sexo":
+                    chart_file = chart_func(linhas_macrotema[0], OUTPUT_DIR, safe_report)
+                elif chart_type == "porte":
+                    chart_file = chart_func(df, OUTPUT_DIR, safe_report)
+                elif chart_type == "top":
+                    chart_file = chart_func(df, OUTPUT_DIR)
+                graficos.append(chart_file)
+                graficos_por_placeholder[f"grafico_{chart_type}"] = chart_file
+
+        docs_url = require_config_value(macrotema_dados["docs_url"], macrotema_dados["docs_env"])
+        try:
+            docs_texto = carregar_texto_do_docs(docs_url)
+        except ValueError as err:
+            raise HTTPException(status_code=400, detail=str(err)) from err
+
+        docs_html_parts.append(
+            texto_para_html(
+                docs_texto,
+                linhas_macrotema[0],
+                namespace=macrotema_slug,
+                graficos_por_placeholder=graficos_por_placeholder,
+                componentes_html={
+                    "mapa_geografico": render_mapa_geografico(linhas_macrotema[0]),
+                },
+            )
+        )
+
+    docs_html = "\n".join(docs_html_parts)
 
     # Template rendering
     template = Environment(trim_blocks=True, lstrip_blocks=True).from_string(TEMPLATE_STRING)

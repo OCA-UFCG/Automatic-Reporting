@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from config import BASE_DIR
-from utils.macrotemas import MACROTEMAS
+from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
 from utils.cities import carregar_cidades
 from reports import (
     listar_relatorios_handler,
@@ -38,8 +38,11 @@ async def listar_cidades():
 @app.get("/macrotemas")
 async def listar_macrotemas():
     return [
+        {"slug": TODOS_MACROTEMAS_SLUG, "nome": TODOS_MACROTEMAS_NOME},
+        *[
         {"slug": slug, "nome": dados["nome"]}
         for slug, dados in MACROTEMAS.items()
+        ],
     ]
 
 

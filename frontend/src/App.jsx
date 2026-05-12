@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 const API_BASE = import.meta.env.VITE_API_BASE_URL || window.location.origin;
 
 const MACROTEMAS = [
+  { slug: "todos", nome: "Todos" },
   { slug: "demografia", nome: "Demografia" },
   { slug: "educacao", nome: "Educação" },
   { slug: "saude", nome: "Saúde" },

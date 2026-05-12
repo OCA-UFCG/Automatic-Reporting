@@ -118,6 +118,116 @@ TEMPLATE_STRING = """
             line-height: 1.35;
             text-align: center;
         }
+        .map-block {
+            width: 100%;
+            max-width: 420px;
+            margin: 16px auto 22px;
+            break-inside: avoid;
+            text-align: center;
+            overflow: hidden;
+            border: 1px solid #b9b9b9;
+            background: #f7f7f7;
+            padding: 6px 6px 4px;
+        }
+        .map-title {
+            color: #111;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.2;
+            margin: 0 0 4px;
+            text-align: center;
+        }
+        .map-frame {
+            width: 100%;
+            aspect-ratio: 220 / 194;
+            height: auto;
+            border: 1px solid #c8d6dd;
+            box-sizing: border-box;
+            overflow: hidden;
+            background: #bfe3f1;
+            position: relative;
+        }
+        .locator-map {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .map-block figcaption {
+            margin-top: 4px;
+            color: #111;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.2;
+        }
+        .locator-label {
+            position: absolute;
+            transform: translate(-100%, -50%);
+            margin-left: -8px;
+            color: #111;
+            font: 700 12px Arial, sans-serif;
+            text-shadow: 0 1px 2px #fff, 0 -1px 2px #fff, 1px 0 2px #fff, -1px 0 2px #fff;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        .state-label {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            color: #111;
+            font: 700 9px Arial, sans-serif;
+            line-height: 1;
+            text-shadow: 0 1px 2px #fff, 0 -1px 2px #fff, 1px 0 2px #fff, -1px 0 2px #fff;
+            pointer-events: none;
+        }
+        .locator-dot {
+            position: absolute;
+            width: 9px;
+            height: 9px;
+            transform: translate(-50%, -50%);
+            border: 1.5px solid #8f1d14;
+            border-radius: 999px;
+            background: #d7191c;
+            box-sizing: border-box;
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.75);
+            pointer-events: none;
+        }
+        .region-legend {
+            display: grid;
+            grid-template-columns: repeat(2, max-content);
+            gap: 4px 12px;
+            justify-content: center;
+            margin: 7px 0 3px;
+            font-family: Arial, sans-serif;
+            font-size: 11px;
+            color: #111;
+        }
+        .region-legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+        }
+        .region-legend-swatch {
+            width: 10px;
+            height: 10px;
+            border: 1px solid rgba(0, 0, 0, 0.35);
+            border-radius: 2px;
+        }
+        .map-fallback {
+            display: grid;
+            gap: 6px;
+            place-items: center;
+            min-height: 220px;
+            border: 1px solid #d8d0bf;
+            background: #f5f0e8;
+            color: #255235;
+            font-family: Arial, sans-serif;
+        }
+        .map-fallback a {
+            color: #bd6039;
+            font-size: 13px;
+            font-weight: 700;
+        }
         .report-cover {
             margin: 56px 0 34px;
             font-family: Arial, sans-serif;
@@ -304,6 +414,7 @@ def texto_para_html(
     contexto: dict,
     namespace: str = "demografia",
     graficos_por_placeholder: dict[str, str] | None = None,
+    componentes_html: dict[str, str] | None = None,
 ) -> str:
 
     def substituir_placeholder_dolar(match: re.Match) -> str:
@@ -340,6 +451,7 @@ def texto_para_html(
     }
 
     graficos_por_placeholder = graficos_por_placeholder or {}
+    componentes_html = componentes_html or {}
 
     texto_normalizado = texto
 
@@ -378,6 +490,20 @@ def texto_para_html(
             if em_lista:
                 html_lines.append("</ul>")
                 em_lista = False
+
+            continue
+
+        # MAPA GEOGRÁFICO
+        if linha_limpa.lower() in {"*mapa_geografico", "mapa_geografico"}:
+
+            if em_lista:
+                html_lines.append("</ul>")
+                em_lista = False
+
+            mapa_html = componentes_html.get("mapa_geografico")
+
+            if mapa_html:
+                html_lines.append(mapa_html)
 
             continue
 
@@ -527,7 +653,7 @@ def texto_para_html(
             proximo_paragrafo_destaque = False
 
         elif re.match(
-            r"^figura\s+[&x]\s*[–-]",
+            r"^figura\s+(?:[&x]|\d+)\s*[–-]",
             linha_limpa,
             flags=re.IGNORECASE,
         ):
