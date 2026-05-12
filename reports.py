@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse
 from jinja2 import Environment
 from weasyprint import HTML
 
-from config import BASE_DIR, OUTPUT_DIR, resolve_csv_source, require_config_value
+from config import OUTPUT_DIR, resolve_csv_source, require_config_value
 from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
 from utils.cities import filtrar_linhas_por_cidade
 from utils.docs import carregar_texto_do_docs

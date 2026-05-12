@@ -61,51 +61,91 @@ MACROTEMA_CONFIG = {
 
 
 def _status_demografia(ctx: dict) -> tuple[str, str]:
-    raw = str(ctx.get("cres_pop", "0")).replace("%", "").replace(",", ".").strip()
-    
+    raw = (
+        str(ctx.get("cres_pop", "0"))
+        .replace("%", "")
+        .replace(",", ".")
+        .strip()
+    )
+
     try:
         cres_pop = float(raw)
+
     except ValueError:
         cres_pop = 0.0
 
     if cres_pop < -5:
         status_key = "critico"
+
     elif cres_pop < 0:
         status_key = "moderado"
+
     else:
         status_key = "positivo"
 
-    descricao = f"Variação populacional de {cres_pop:+.1f}% na década"
+    descricao = (
+        f"Variação populacional de "
+        f"{cres_pop:+.1f}% na década"
+    )
+
     return status_key, descricao
 
 
 def _render_paineis(texto: str) -> str:
-    linhas = [linha.strip() for linha in texto.strip().splitlines() if linha.strip()]
+
+    linhas = [
+        linha.strip()
+        for linha in texto.strip().splitlines()
+        if linha.strip()
+    ]
+
     if not linhas:
         return ""
+
     primeiro = html_module.escape(linhas[0])
+
     resto = "".join(
         f"<br><em>{html_module.escape(linha)}</em>"
         for linha in linhas[1:]
     )
+
     return f"<em>{primeiro}</em>{resto}"
 
 
-def render_tabela_resumo(contexto: dict, namespace: str) -> str:
+def render_tabela_resumo(
+    contexto: dict,
+    namespace: str,
+) -> str:
+
     config = MACROTEMA_CONFIG.get(namespace)
 
     if not config:
         return ""
 
     status_key, descricao = config["calcular_status"](contexto)
+
     status = STATUS_MAP[status_key]
 
     tema = html_module.escape(config["tema"])
-    indicadores = html_module.escape(config["indicadores"])
-    paineis_html = _render_paineis(config["paineis"])
-    label = html_module.escape(status["label"])
-    descricao_esc = html_module.escape(descricao)
+
+    indicadores = html_module.escape(
+        config["indicadores"]
+    )
+
+    paineis_html = _render_paineis(
+        config["paineis"]
+    )
+
+    label = html_module.escape(
+        status["label"]
+    )
+
+    descricao_esc = html_module.escape(
+        descricao
+    )
+
     cor = status["cor"]
+
     bg = status["bg"]
 
     return f'''
@@ -118,18 +158,30 @@ def render_tabela_resumo(contexto: dict, namespace: str) -> str:
                     <th style="padding:8px 12px; color:#5a4a1a; font-weight:600; width:25%;">STATUS</th>
                 </tr>
             </thead>
+
             <tbody>
                 <tr style="border-left: 4px solid {cor};">
-                    <td style="padding:10px 12px; color:#5a4a1a; font-size:15px;">{tema}</td>
-                    <td style="padding:10px 12px; color:#333;">{indicadores}</td>
-                    <td style="padding:10px 12px; color:#555;">{paineis_html}</td>
+
+                    <td style="padding:10px 12px; color:#5a4a1a; font-size:15px;">
+                        {tema}
+                    </td>
+
+                    <td style="padding:10px 12px; color:#333;">
+                        {indicadores}
+                    </td>
+
+                    <td style="padding:10px 12px; color:#555;">
+                        {paineis_html}
+                    </td>
+
                     <td style="padding:10px 12px;">
                         <div style="background:{bg}; color:{cor}; padding:8px 10px; border-radius:4px; font-size:12px; line-height:1.5;">
                             ● <strong>{label}</strong><br>
                             <span>{descricao_esc}</span>
                         </div>
                     </td>
+
                 </tr>
             </tbody>
         </table>
-        '''
+    '''
