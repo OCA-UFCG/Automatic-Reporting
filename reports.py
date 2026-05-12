@@ -11,6 +11,7 @@ from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS
 from utils.cities import filtrar_linhas_por_cidade
 from utils.docs import carregar_texto_do_docs
 from utils.cover import montar_capa_relatorio
+from utils.maps import render_mapa_geografico
 from utils.renderer import texto_para_html, TEMPLATE_STRING, FALLBACK_DOC_TEXT
 from plotting import gerar_grafico_sexo
 from plotting import gerar_grafico_porte
@@ -217,6 +218,9 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
                 linhas_macrotema[0],
                 namespace=macrotema_slug,
                 graficos_por_placeholder=graficos_por_placeholder,
+                componentes_html={
+                    "mapa_geografico": render_mapa_geografico(linhas_macrotema[0]),
+                },
             )
         )
 
