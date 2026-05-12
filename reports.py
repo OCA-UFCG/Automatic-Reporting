@@ -12,7 +12,7 @@ from utils.cities import filtrar_linhas_por_cidade
 from utils.docs import carregar_texto_do_docs
 from utils.cover import montar_capa_relatorio
 from utils.maps import render_mapa_geografico
-from utils.renderer import texto_para_html, TEMPLATE_STRING, FALLBACK_DOC_TEXT
+from utils.renderer import texto_para_html, TEMPLATE_STRING
 from plotting import gerar_grafico_sexo
 from plotting import gerar_grafico_porte
 from plotting import gerar_grafico_top_cidades

@@ -80,13 +80,13 @@ def _status_demografia(ctx: dict) -> tuple[str, str]:
 
 
 def _render_paineis(texto: str) -> str:
-    linhas = [l.strip() for l in texto.strip().splitlines() if l.strip()]
+    linhas = [linha.strip() for linha in texto.strip().splitlines() if linha.strip()]
     if not linhas:
         return ""
     primeiro = html_module.escape(linhas[0])
     resto = "".join(
-        f"<br><em>{html_module.escape(l)}</em>"
-        for l in linhas[1:]
+        f"<br><em>{html_module.escape(linha)}</em>"
+        for linha in linhas[1:]
     )
     return f"<em>{primeiro}</em>{resto}"
 
