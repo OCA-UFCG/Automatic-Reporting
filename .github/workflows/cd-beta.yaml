@@ -41,6 +41,17 @@ jobs:
                 build-args: |
                   DEFAULT_DOCS_URL=${{ secrets.DEFAULT_DOCS_URL }}
                   DEMOGRAFIA_CSV_URL=${{ secrets.DEMOGRAFIA_CSV_URL }}
+                  EDUCACAO_CSV_URL=${{ secrets.EDUCACAO_CSV_URL }}
+                  SAUDE_CSV_URL=${{ secrets.SAUDE_CSV_URL }}
+                  ECONOMIA_RENDA_CSV_URL=${{ secrets.ECONOMIA_RENDA_CSV_URL }}
+                  SANEAMENTO_CSV_URL=${{ secrets.SANEAMENTO_CSV_URL }}
+                  HIDRAULICA_CSV_URL=${{ secrets.HIDRAULICA_CSV_URL }}
+                  DEMOGRAFIA_DOCS_URL=${{ secrets.DEMOGRAFIA_DOCS_URL }}
+                  EDUCACAO_DOCS_URL=${{ secrets.EDUCACAO_DOCS_URL }}
+                  SAUDE_DOCS_URL=${{ secrets.SAUDE_DOCS_URL }}
+                  ECONOMIA_RENDA_DOCS_URL=${{ secrets.ECONOMIA_RENDA_DOCS_URL }}
+                  SANEAMENTO_DOCS_URL=${{ secrets.SANEAMENTO_DOCS_URL }}
+                  HIDRAULICA_DOCS_URL=${{ secrets.HIDRAULICA_DOCS_URL }}
                   VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
     push-beta:
         needs: build-image
