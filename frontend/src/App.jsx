@@ -5,14 +5,20 @@ import React, { useEffect, useMemo, useState } from 'react'
 const API_BASE = import.meta.env.VITE_API_BASE_URL || window.location.origin;
 
 const MACROTEMAS = [
-  'Demografia'
+  { slug: "todos", nome: "Todos" },
+  { slug: "demografia", nome: "Demografia" },
+  { slug: "educacao", nome: "Educação" },
+  { slug: "saude", nome: "Saúde" },
+  { slug: "economia-renda", nome: "Economia e Renda" },
+  { slug: "saneamento", nome: "Saneamento" },
+  { slug: "hidraulica", nome: "Hidráulica" },
 ]
 
 function App() {
   const [view, setView] = useState("home");
   const [cities, setCities] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const [selectedMacrotema, setSelectedMacrotema] = useState(MACROTEMAS[0]);
+  const [selectedMacrotema, setSelectedMacrotema] = useState(MACROTEMAS[0].slug);
   const [selectedCity, setSelectedCity] = useState("");
   const [citySearch, setCitySearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -87,6 +93,10 @@ function App() {
   }
 
   const cityCount = useMemo(() => cities.length, [cities]);
+  const selectedMacrotemaName = useMemo(() => {
+    return MACROTEMAS.find((macrotema) => macrotema.slug === selectedMacrotema)?.nome || selectedMacrotema;
+  }, [selectedMacrotema]);
+
   const filteredCities = useMemo(() => {
     const term = citySearch.trim().toLowerCase();
     if (!term) return cities;
@@ -98,7 +108,8 @@ function App() {
       return;
     }
 
-    const url = `${API_BASE}/relatorio/${encodeURIComponent(selectedCity)}`;
+    const params = new URLSearchParams({ macrotema: selectedMacrotema });
+    const url = `${API_BASE}/relatorio/${encodeURIComponent(selectedCity)}?${params.toString()}`;
     window.open(url, "_blank");
     setShowForm(false);
 
@@ -114,7 +125,9 @@ function App() {
           const data = await response.json();
           const newReports = Array.isArray(data) ? data : [];
           const reportExists = newReports.some(
-            (report) => report.cidade.toLowerCase() === selectedCity.toLowerCase()
+            (report) =>
+              report.cidade.toLowerCase() === selectedCity.toLowerCase() &&
+              report.macrotema === selectedMacrotemaName
           );
           if (reportExists) {
             found = true;
@@ -149,6 +162,7 @@ function App() {
               <thead>
                 <tr>
                   <th>Cidade</th>
+                  <th>Macrotema</th>
                   <th>Data</th>
                   <th>Hora</th>
                   <th>Download</th>
@@ -158,25 +172,26 @@ function App() {
               <tbody>
                 {reportsLoading && (
                   <tr>
-                    <td colSpan="5">Carregando relatórios...</td>
+                    <td colSpan="6">Carregando relatórios...</td>
                   </tr>
                 )}
 
                 {reportsError && !reportsLoading && (
                   <tr>
-                    <td colSpan="5" className="error">{reportsError}</td>
+                    <td colSpan="6" className="error">{reportsError}</td>
                   </tr>
                 )}
 
                 {!reportsLoading && !reportsError && reports.length === 0 && (
                   <tr>
-                    <td colSpan="5">Nenhum relatório gerado ainda.</td>
+                    <td colSpan="6">Nenhum relatório gerado ainda.</td>
                   </tr>
                 )}
 
                 {!reportsLoading && !reportsError && reports.map((report) => (
                   <tr key={report.arquivo_pdf}>
                     <td>{report.cidade}</td>
+                    <td>{report.macrotema || "Demografia"}</td>
                     <td>{report.data}</td>
                     <td>{report.hora}</td>
                     <td>
@@ -209,7 +224,7 @@ function App() {
           <span className="eyebrow">Sudene • Gerador de relatórios</span>
           <h1>Geração de relatório para Sudene</h1>
           <p className="subtitle">
-            Escolha a cidade para montar o relatório de Demografia.
+            Escolha o macrotema e a cidade para montar o relatório.
           </p>
 
           <div className="hero-actions">
@@ -239,8 +254,8 @@ function App() {
           <p className="hero-card-label">Macrotemas disponíveis</p>
           <div className="macrotema-tags">
             {MACROTEMAS.map((item) => (
-              <span key={item} className="tag">
-                {item}
+              <span key={item.slug} className="tag">
+                {item.nome}
               </span>
             ))}
           </div>
@@ -287,8 +302,8 @@ function App() {
                   onChange={(event) => setSelectedMacrotema(event.target.value)}
                 >
                   {MACROTEMAS.map((macrotema) => (
-                    <option key={macrotema} value={macrotema}>
-                      {macrotema}
+                    <option key={macrotema.slug} value={macrotema.slug}>
+                      {macrotema.nome}
                     </option>
                   ))}
                 </select>
@@ -330,7 +345,7 @@ function App() {
             <div className="selection-summary">
               <div>
                 <span className="summary-label">Macrotema</span>
-                <strong>{selectedMacrotema}</strong>
+                <strong>{selectedMacrotemaName}</strong>
               </div>
               <div>
                 <span className="summary-label">Cidade</span>
