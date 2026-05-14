@@ -16,6 +16,7 @@ from utils.renderer import texto_para_html, TEMPLATE_STRING
 from plotting import gerar_grafico_sexo
 from plotting import gerar_grafico_porte
 from plotting import gerar_grafico_top_cidades
+from utils.database import coleta_id_ibge
 
 
 CHART_TYPES = {
@@ -190,7 +191,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
         if linhas is None:
             linhas = linhas_macrotema
             cover = montar_capa_relatorio(linhas[0], gerado_em)
-            safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas[0]["nm_mun"].strip().lower())
+            safe_city = coleta_id_ibge(linhas[0]['nm_mun'])
             safe_report = f"{macrotema}__{safe_city}"
 
         graficos_por_placeholder = {}
