@@ -34,6 +34,7 @@ SAUDE_DOCS_URL = get_config_value("SAUDE_DOCS_URL")
 ECONOMIA_RENDA_DOCS_URL = get_config_value("ECONOMIA_RENDA_DOCS_URL")
 SANEAMENTO_DOCS_URL = get_config_value("SANEAMENTO_DOCS_URL")
 HIDRAULICA_DOCS_URL = get_config_value("HIDRAULICA_DOCS_URL")
+DATABASE_PATH = get_config_value("DATABASE_PATH")
 
 MACROTEMAS = {
     "demografia": {
