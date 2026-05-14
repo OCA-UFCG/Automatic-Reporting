@@ -21,17 +21,48 @@ def separar_cidade_uf(nome_municipio: str) -> tuple[str, str]:
     return str(nome_municipio).strip(), ""
 
 
-def montar_capa_relatorio(linha: dict, gerado_em: datetime) -> dict[str, str]:
+def montar_capa_relatorio(linha: dict, gerado_em: datetime) -> dict[str, object]:
     cidade_nome, uf = separar_cidade_uf(linha.get("nm_mun", ""))
-    porte = str(linha.get("porte", "médio")).strip().lower() or "médio"
-    descricao = (
-        f"Município de {porte} porte na microrregião do(a) {cidade_nome}, "
-        "bioma Caatinga"
-    )
+
+    def primeiro_valor(*chaves: str, fallback: str = "N/D") -> str:
+        for chave in chaves:
+            valor = linha.get(chave)
+            if valor is not None and str(valor).strip():
+                return str(valor)
+        return fallback
+
     return {
-        "data_extenso": formatar_data_hora_extenso(gerado_em),
+        "data_extenso": formatar_data_extenso(gerado_em),
         "cidade_nome": cidade_nome,
         "uf": uf,
-        "descricao": descricao,
-        "populacao": str(linha.get("pop_total", "218.162")),
+        "metricas": [
+            {
+                "rotulo": "Área territorial",
+                "valor": primeiro_valor("area_territorial", "area", "area_km2"),
+                "sufixo": "Km²",
+                "fonte": "Censo demográfico 2022",
+                "caption": "Tamanho do território",
+            },
+            {
+                "rotulo": "População",
+                "valor": primeiro_valor("pop_total", fallback="N/D"),
+                "sufixo": "",
+                "fonte": "Censo demográfico 2022",
+                "caption": "Número de residentes",
+            },
+            {
+                "rotulo": "IDH",
+                "valor": primeiro_valor("idh", "idhm"),
+                "sufixo": "",
+                "fonte": "IBGE 2023",
+                "caption": "Índice de desenvolvimento humano",
+            },
+            {
+                "rotulo": "PIB",
+                "valor": primeiro_valor("pib", "pib_total"),
+                "sufixo": "",
+                "fonte": "IBGE 2023",
+                "caption": "Produto Interno Bruto",
+            },
+        ],
     }

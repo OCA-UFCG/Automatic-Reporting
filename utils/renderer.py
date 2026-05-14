@@ -19,7 +19,7 @@ TEMPLATE_STRING = """
         body {
             font-family: Georgia, "Times New Roman", serif;
             max-width: 920px;
-            margin: 32px auto;
+            margin:0 auto 2px;
             padding: 0 24px;
             line-height: 1.48;
             font-size: 16px;
@@ -229,93 +229,159 @@ TEMPLATE_STRING = """
             font-weight: 700;
         }
         .report-cover {
-            margin: 56px 0 34px;
+            margin: 0 0 34px;
             font-family: Arial, sans-serif;
-            color: #555;
+            color: #25262a;
+            break-inside: avoid;
         }
-        .cover-stripe {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            height: 5px;
-            margin-bottom: 12px;
-        }
-        .cover-stripe span:nth-child(1) { background: #225236; }
-        .cover-stripe span:nth-child(2) { background: #bd6039; }
-        .cover-stripe span:nth-child(3) { background: #d79a3b; }
+       .cover-header {
+    width: 100vw;
+    height: 10%;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    margin-bottom: 24px;
+    padding: 12px 24px;
+    background: #eeeeef;
+    box-sizing: border-box;
+}
         .cover-meta {
+            position: relative;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 28px;
+            justify-content:right;
+            align-items: right;
+            margin-bottom: 0;
             font-size: 14px;
         }
-        .cover-brand,
-        .cover-kicker,
-        .executive-title {
-            color: #bd6039;
+        .cover-brand {
+    position: absolute;
+    left: 0;
+    display: inline-grid;
+    gap: 2px;
+    line-height: 1;
+}
+        .brand-mark {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            color: #008d43;
+            font-size: 26px;
+            font-weight: 900;
+            letter-spacing: 0;
+        }
+        .brand-squares {
+            display: grid;
+            grid-template-columns: repeat(3, 4px);
+            gap: 2px;
+        }
+        .brand-squares span {
+            width: 4px;
+            height: 4px;
+        }
+        .brand-squares span:nth-child(1),
+        .brand-squares span:nth-child(5) { background: #ef7d00; }
+        .brand-squares span:nth-child(2),
+        .brand-squares span:nth-child(6) { background: #0a8f43; }
+        .brand-squares span:nth-child(3),
+        .brand-squares span:nth-child(4) { background: #204f9e; }
+        .brand-subtitle {
+            color: #222;
+            font-size: 5px;
             font-weight: 700;
+            letter-spacing: 0.3px;
             text-transform: uppercase;
         }
+        .cover-date {
+            color: #2f3033;
+            font-size: 14px;
+            white-space: nowrap;
+            text-align: center;
+            transform: translateY(6px);
+        }
+        .cover-content {
+            padding: 0;
+        }
         .cover-kicker {
-            margin-bottom: 8px;
-            font-size: 15px;
+            margin-bottom: 10px;
+            color: #005e2f;
+            font-size: 16px;
+            font-weight: 500;
         }
         .cover-city {
-            margin: 0;
-            color: #255235;
-            font-family: Georgia, "Times New Roman", serif;
-            font-size: 60px;
-            font-weight: 400;
-            line-height: 0.95;
-            letter-spacing: -1px;
-        }
-        .cover-city-separator {
-            color: #d19a3a;
-        }
-        .cover-subtitle {
-            margin: 6px 0 32px;
-            color: #5e5e5e;
-            font-family: Georgia, "Times New Roman", serif;
-            font-size: 18px;
-            font-style: italic;
-            line-height: 1.35;
-            text-align: left;
+            margin: 0 0 24px;
+            color: #2b2c30;
+            font-family: Arial, sans-serif;
+            font-size: 34px;
+            font-weight: 800;
+            line-height: 1.05;
+            letter-spacing: 0;
         }
         .cover-metrics {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(4, minmax(0, 1fr));
             gap: 22px;
-            margin-bottom: 20px;
+            margin-bottom: 26px;
         }
         .metric-card {
-            border-left: 3px solid #d19a3a;
-            padding-left: 12px;
+            min-height: 88px;
+            padding: 13px 12px 10px;
+            border: 1px solid #e7e7ea;
+            border-radius: 8px;
+            background: #fbfbfc;
+            box-shadow: 0 8px 18px rgba(23, 28, 38, 0.06);
+            box-sizing: border-box;
+        }
+        .metric-heading {
+            display: grid;
+            grid-template-columns: 18px 1fr;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 11px;
+        }
+        .metric-icon {
+            width: 18px;
+            height: 18px;
+            color: #008d43;
         }
         .metric-label {
-            margin-bottom: 6px;
-            color: #666;
-            font-size: 12px;
+            color: #1f2227;
+            font-size: 11px;
             font-weight: 700;
-            text-transform: uppercase;
+            line-height: 1.15;
+        }
+        .metric-source {
+            margin-top: 1px;
+            color: #8a8d95;
+            font-size: 7px;
+            line-height: 1.1;
         }
         .metric-value {
-            color: #255235;
-            font-family: Georgia, "Times New Roman", serif;
-            font-size: 32px;
-            line-height: 1;
-        }
-        .metric-caption {
-            margin-top: 6px;
-            font-size: 12px;
-        }
-        .executive-summary {
-            border-top: 1px solid #dfd6c5;
-            padding-top: 20px;
-        }
-        .executive-title {
-            margin: 0 0 6px;
+            color: #008d43;
             font-family: Arial, sans-serif;
             font-size: 21px;
+            font-weight: 800;
+            line-height: 1;
+            white-space: nowrap;
+        }
+        .metric-unit {
+            font-size: 15px;
+            font-weight: 800;
+        }
+        .metric-caption {
+            margin-top: 8px;
+            color: #8a8d95;
+            font-size: 7px;
+            line-height: 1.1;
+        }
+        .executive-summary {
+            padding-top: 0;
+        }
+        .executive-title {
+            margin: 0 0 8px;
+            color: #005e2f;
+            font-family: Arial, sans-serif;
+            font-size: 17px;
+            font-weight: 700;
+            text-transform: none;
         }
         .executive-summary p {
             margin: 0;
@@ -325,43 +391,55 @@ TEMPLATE_STRING = """
             line-height: 1.45;
             text-align: left;
         }
+        @media (max-width: 760px) {
+            .cover-metrics {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
     </style>
 </head>
 <body>
 <section class="report-cover">
-    <div class="cover-stripe"><span></span><span></span><span></span></div>
-    <div class="cover-meta">
-        <span class="cover-brand">Plataforma Data NE</span>
-        <span>{{ cover.data_extenso }}</span>
-    </div>
-    <div class="cover-kicker">Relatório Municipal</div>
-    <h1 class="cover-city">{{ cover.cidade_nome }}<span class="cover-city-separator">·</span>{{ cover.uf }}</h1>
-    <p class="cover-subtitle">{{ cover.descricao }}</p>
-    <div class="cover-metrics">
-        <div class="metric-card">
-            <div class="metric-label">População</div>
-            <div class="metric-value">{{ cover.populacao }}</div>
-            <div class="metric-caption">habitantes · Censo 2022</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">PIB</div>
-            <div class="metric-value">R$ 6,48 bi</div>
-            <div class="metric-caption">per capita R$ 29.711</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">Alfabetização</div>
-            <div class="metric-value">86,90%</div>
-            <div class="metric-caption">população 15+ anos</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">Vacinação</div>
-            <div class="metric-value">76,55%</div>
-            <div class="metric-caption">cobertura em 2024</div>
+    <div class="cover-header">
+        <div class="cover-meta">
+            <div class="cover-brand" aria-label="Data Nordeste">
+                <div class="brand-mark">
+                    <span class="brand-squares" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></span>
+                    <span>NE</span>
+                </div>
+                <span class="brand-subtitle">Data Nordeste</span>
+            </div>
+            <span class="cover-date">{{ cover.data_extenso }}</span>
         </div>
     </div>
-    <div class="executive-summary">
-        <h2 class="executive-title">Resumo Executivo Por Tema</h2>
-        <p>A síntese a seguir classifica os sete temas estratégicos do município segundo os parâmetros de referência adotados pela plataforma Data NE. Cada tema é detalhado nas seções subsequentes.</p>
+    <div class="cover-content">
+        <div class="cover-kicker">Relatório geral</div>
+        <h1 class="cover-city">{{ cover.cidade_nome }}{% if cover.uf %} ({{ cover.uf }}){% endif %}</h1>
+        <div class="cover-metrics">
+            {% for metrica in cover.metricas %}
+            <div class="metric-card">
+                <div class="metric-heading">
+                    <svg class="metric-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 17h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        <path d="M7 15l3.1-4.2 2.7 2.8 3.3-5.1L20 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="10.1" cy="10.8" r="1.1" fill="currentColor"/>
+                        <circle cx="12.8" cy="13.6" r="1.1" fill="currentColor"/>
+                        <circle cx="16.1" cy="8.5" r="1.1" fill="currentColor"/>
+                    </svg>
+                    <div>
+                        <div class="metric-label">{{ metrica.rotulo }}</div>
+                        <div class="metric-source">{{ metrica.fonte }}</div>
+                    </div>
+                </div>
+                <div class="metric-value">{{ metrica.valor }}{% if metrica.sufixo %} <span class="metric-unit">{{ metrica.sufixo }}</span>{% endif %}</div>
+                <div class="metric-caption">{{ metrica.caption }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="executive-summary">
+            <h2 class="executive-title">Radar da região</h2>
+            <p>A síntese a seguir classifica os sete temas estratégicos do município segundo os parâmetros de referência adotados pela plataforma Data NE. Cada tema é detalhado nas seções subsequentes.</p>
+        </div>
     </div>
 </section>
 {% for linha in dados %}
