@@ -5,4 +5,4 @@ fastapi
 matplotlib
 weasyprint
 dotenv
-sqlalchemy
+sqlite3
