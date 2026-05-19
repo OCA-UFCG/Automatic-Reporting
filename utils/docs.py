@@ -48,6 +48,36 @@ def limpar_texto_exportado_docs(texto: str) -> str:
     return "\n".join(linhas_limpas)
 
 
+def extrair_bloco_marcado(
+    texto: str,
+    marcador: str,
+    exigir_fechamento: bool = False,
+) -> tuple[str | None, str]:
+    marcador_escapado = re.escape(marcador)
+    fim = "@@" if exigir_fechamento else "@@|\\Z"
+    padrao = re.compile(
+        rf"(?is){marcador_escapado}\s*=\s*(.*?)(?:{fim})"
+    )
+    match = padrao.search(texto)
+    if not match:
+        return None, texto
+
+    bloco = match.group(1).strip()
+    texto_sem_bloco = (texto[:match.start()] + texto[match.end():]).strip()
+    return bloco or None, texto_sem_bloco
+
+
+def extrair_resumo_tema(texto: str) -> tuple[str | None, str]:
+    resumo, texto_sem_resumo = extrair_bloco_marcado(texto, "resumo_tema")
+    if resumo:
+        resumo = re.sub(r"\s+", " ", resumo).strip()
+    return resumo, texto_sem_resumo
+
+
+def extrair_descricao_tema(texto: str) -> tuple[str | None, str]:
+    return extrair_bloco_marcado(texto, "descricao_tema")
+
+
 def carregar_texto_do_docs(link_ou_id: str) -> str:
     doc_id = extrair_doc_id(link_ou_id)
     export_url = f"https://docs.google.com/document/d/{doc_id}/export?format=txt"

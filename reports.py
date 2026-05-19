@@ -9,9 +9,8 @@ from weasyprint import HTML
 from config import OUTPUT_DIR, resolve_csv_source, require_config_value
 from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
 from utils.cities import filtrar_linhas_por_cidade
-from utils.docs import carregar_texto_do_docs
+from utils.docs import carregar_texto_do_docs, extrair_descricao_tema, extrair_resumo_tema
 from utils.cover import montar_capa_relatorio
-from utils.maps import render_mapa_geografico
 from utils.renderer import texto_para_html, TEMPLATE_STRING
 from plotting import gerar_grafico_sexo
 from plotting import gerar_grafico_porte
@@ -189,7 +188,11 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
 
         if linhas is None:
             linhas = linhas_macrotema
-            cover = montar_capa_relatorio(linhas[0], gerado_em)
+            cover = montar_capa_relatorio(
+                linhas[0],
+                gerado_em,
+                macrotema_dados["nome"],
+            )
             safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas[0]["nm_mun"].strip().lower())
             safe_report = f"{macrotema}__{safe_city}"
 
@@ -212,15 +215,25 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
         except ValueError as err:
             raise HTTPException(status_code=400, detail=str(err)) from err
 
+        resumo_tema, docs_texto = extrair_resumo_tema(docs_texto)
+        if resumo_tema and cover is not None and macrotema_slug == macrotema_slugs[0]:
+            cover["macrotema"]["resumo"] = resumo_tema
+
+        descricao_tema, docs_texto = extrair_descricao_tema(docs_texto)
+        if descricao_tema and cover is not None and macrotema_slug == macrotema_slugs[0]:
+            cover["macrotema"]["descricao"] = descricao_tema
+            cover["macrotema"]["descricao_paragrafos"] = [
+                paragrafo.strip()
+                for paragrafo in re.split(r"\n\s*\n", descricao_tema)
+                if paragrafo.strip()
+            ]
+
         docs_html_parts.append(
             texto_para_html(
                 docs_texto,
                 linhas_macrotema[0],
                 namespace=macrotema_slug,
                 graficos_por_placeholder=graficos_por_placeholder,
-                componentes_html={
-                    "mapa_geografico": render_mapa_geografico(linhas_macrotema[0]),
-                },
             )
         )
 

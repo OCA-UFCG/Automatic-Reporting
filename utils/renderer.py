@@ -16,6 +16,27 @@ TEMPLATE_STRING = """
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Data Nordeste – Relatório modelo</title>
     <style>
+        @page {
+            margin: 16mm 8mm 16mm;
+            @bottom-left {
+                content: "Relatório automático do Data Nordeste";
+                color: #2d2e33;
+                font-family: Arial, sans-serif;
+                font-size: 10px;
+                vertical-align: middle;
+                border-top: 1px solid #e4e4e7;
+                padding-top: 4mm;
+            }
+            @bottom-right {
+                content: counter(page, decimal-leading-zero);
+                color: #2d2e33;
+                font-family: Arial, sans-serif;
+                font-size: 10px;
+                vertical-align: middle;
+                border-top: 1px solid #e4e4e7;
+                padding-top: 4mm;
+            }
+        }
         body {
             font-family: Georgia, "Times New Roman", serif;
             max-width: 920px;
@@ -290,6 +311,30 @@ TEMPLATE_STRING = """
             letter-spacing: 0.3px;
             text-transform: uppercase;
         }
+        .pdf-page-header {
+            display: none;
+        }
+        .pdf-page-header-brand {
+            display: inline-grid;
+            gap: 2px;
+            line-height: 1;
+        }
+        .pdf-page-header-mark {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            color: #111;
+            font-size: 26px;
+            font-weight: 900;
+            letter-spacing: 0;
+        }
+        .pdf-page-header-subtitle {
+            color: #222;
+            font-size: 5px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
         .cover-date {
             color: #2f3033;
             font-size: 14px;
@@ -322,11 +367,17 @@ TEMPLATE_STRING = """
             margin-bottom: 26px;
         }
         .metric-card {
-            min-height: 88px;
+            min-height: 120px;
             padding: 13px 12px 10px;
             border: 1px solid #e7e7ea;
             border-radius: 8px;
-            background: #fbfbfc;
+            background: linear-gradient(
+        to bottom,
+        #f5f5f6 0%,
+        #f5f5f6 42%,
+        #ffffff 42%,
+        #ffffff 100%
+    );
             box-shadow: 0 8px 18px rgba(23, 28, 38, 0.06);
             box-sizing: border-box;
         }
@@ -344,14 +395,14 @@ TEMPLATE_STRING = """
         }
         .metric-label {
             color: #1f2227;
-            font-size: 11px;
+            font-size: 15px;
             font-weight: 700;
             line-height: 1.15;
         }
         .metric-source {
-            margin-top: 1px;
+            margin-top: 4px;
             color: #8a8d95;
-            font-size: 7px;
+            font-size: 11px;
             line-height: 1.1;
         }
         .metric-value {
@@ -367,38 +418,718 @@ TEMPLATE_STRING = """
             font-weight: 800;
         }
         .metric-caption {
-            margin-top: 8px;
+            margin-top: 30px;
             color: #8a8d95;
-            font-size: 7px;
+            font-size: 10px;
             line-height: 1.1;
         }
-        .executive-summary {
-            padding-top: 0;
+        .region-radar-title {
+            margin: -4px 0 12px;
+            color: #005e2f;
+            font-size: 16px;
+            font-weight: 500;
+            line-height: 1.2;
         }
-        .executive-title {
-            margin: 0 0 8px;
+        .region-radar-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 22px;
+            margin-bottom: 16px;
+        }
+        .region-radar-card {
+            min-height: 260px;
+            padding: 18px;
+            border-radius: 12px;
+            background: #f7f7f8;
+            box-sizing: border-box;
+        }
+        .score-column {
+            display: grid;
+            gap: 14px;
+            align-content: start;
+        }
+        .region-radar-chart {
+            display: block;
+            width: 100%;
+            height: 224px;
+        }
+        .radar-grid {
+            fill: none;
+            stroke: #333;
+            stroke-width: 0.8;
+        }
+        .radar-axis {
+            stroke: #555;
+            stroke-width: 0.75;
+        }
+        .radar-area {
+            fill: #008d43;
+            fill-opacity: 0.22;
+            stroke: #008d43;
+            stroke-width: 2;
+        }
+        .radar-label {
+            fill: #1f2227;
+            font-family: Arial, sans-serif;
+            font-size: 10px;
+        }
+        .radar-tick {
+            fill: #6f737b;
+            font-family: Arial, sans-serif;
+            font-size: 8px;
+        }
+        .score-card {
+            grid-column: 3 / span 2;
+            overflow: hidden;
+            border: 1px solid #e3e3e7;
+            border-radius: 22px;
+            background: #fff;
+            box-shadow: 0 8px 18px rgba(23, 28, 38, 0.05);
+        }
+        .score-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 18px 24px;
+            background: #f5f5f6;
+        }
+        .score-icon {
+            width: 24px;
+            height: 24px;
+            color: #008d43;
+            flex: 0 0 auto;
+        }
+        .score-title {
+            color: #24252a;
+            font-size: 19px;
+            font-weight: 500;
+            line-height: 1.2;
+        }
+        .score-body {
+            padding: 16px 24px 18px;
+        }
+        .score-line {
+            display: flex;
+            align-items: baseline;
+            gap: 18px;
+            margin-bottom: 12px;
+        }
+        .score-value {
+            color: #ff9900;
+            font-size: 34px;
+            font-weight: 800;
+            line-height: 1;
+            white-space: nowrap;
+        }
+        .score-max {
+            font-size: 20px;
+            font-weight: 700;
+        }
+        .score-status {
+            color: #2a2b30;
+            font-size: 20px;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+        .score-description {
+            margin: 0;
+            color: #8a8d95;
+            font-size: 12px;
+            line-height: 1.35;
+            text-align: left;
+        }
+        .score-support-text {
+            grid-column: 3 / span 2;
+            margin: -2px 0 0;
+            color: #2d2e33;
+            font-size: 12px;
+            line-height: 1.36;
+            text-align: left;
+        }
+        .score-legend {
+            grid-column: 1 / -1;
+            margin-top: 6px;
+        }
+        .score-legend-title {
+            margin: 0 0 10px;
+            color: #2d2e33;
+            font-size: 20px;
+            font-weight: 500;
+            line-height: 1.2;
+        }
+        .score-legend-bar {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            overflow: hidden;
+            border-radius: 7px;
+        }
+        .score-legend-item {
+            padding: 8px 16px;
+            color: #fff;
+            font-size: 18px;
+            font-weight: 500;
+            line-height: 1;
+            white-space: nowrap;
+        }
+        .score-legend-item + .score-legend-item {
+            border-left: 2px solid #fff;
+        }
+        .score-legend-very-high { background: #6f8f18; }
+        .score-legend-high { background: #ff9f0a; }
+        .score-legend-low { background: #eb5b0c; }
+        .score-legend-very-low { background: #c91423; }
+        .macrotheme-card {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            min-height: 72px;
+            margin-top: 10px;
+            padding: 14px 26px;
+            border-left: 4px solid #ff3045;
+            border-radius: 18px 0 0 18px;
+            background: #f7f7f8;
+            box-sizing: border-box;
+        }
+        .macrotheme-title {
+            display: inline-flex;
+            align-items: center;
+            gap: 16px;
+            min-width: 0;
+        }
+        .macrotheme-icon-box {
+            display: inline-grid;
+            place-items: center;
+            width: 28px;
+            height: 28px;
+            border: 3px solid #ff3045;
+            color: #ff3045;
+            box-sizing: border-box;
+        }
+        .macrotheme-icon {
+            width: 18px;
+            height: 18px;
+        }
+        .macrotheme-name {
+            color: #2d2e33;
+            font-size: 26px;
+            font-weight: 800;
+            line-height: 1;
+        }
+        .macrotheme-status {
+            padding: 8px 14px;
+            border-radius: 6px;
+            background: #6f8f18;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 500;
+            line-height: 1;
+            white-space: nowrap;
+        }
+        .macrotheme-summary {
+            grid-column: 1 / -1;
+            margin: -2px 0 0;
+        }
+        .macrotheme-summary-title {
+            margin: 0 0 12px;
+            color: #005e2f;
+            font-size: 16px;
+            font-weight: 500;
+            line-height: 1.2;
+        }
+        .macrotheme-summary-text {
+            margin: 0;
+            color: #2d2e33;
+            font-size: 13px;
+            line-height: 1.42;
+            text-align: left;
+        }
+        .indicator-scores {
+            grid-column: 1 / -1;
+            margin-top: 4px;
+        }
+        .indicator-scores-title {
+            margin: 0 0 12px;
+            color: #005e2f;
+            font-size: 16px;
+            font-weight: 500;
+            line-height: 1.2;
+        }
+        .indicator-score-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px 28px;
+        }
+        .indicator-score-card {
+            display: grid;
+            grid-template-columns: 22px minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 12px;
+            min-height: 66px;
+            padding: 10px 14px;
+            border: 1px solid #eeeef1;
+            border-radius: 10px;
+            background: #f8f8f9;
+            box-shadow: 0 6px 14px rgba(23, 28, 38, 0.04);
+            box-sizing: border-box;
+        }
+        .indicator-icon {
+            width: 18px;
+            height: 18px;
+            color: #ff3045;
+        }
+        .indicator-name {
+            color: #22242a;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.15;
+        }
+        .indicator-source {
+            margin-top: 4px;
+            color: #8a8d95;
+            font-size: 8px;
+            line-height: 1.1;
+        }
+        .indicator-badge {
+            min-width: 42px;
+            padding: 7px 9px;
+            border-radius: 7px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .indicator-badge-very-high { background: #6f8f18; }
+        .indicator-badge-high { background: #ff9f0a; }
+        .indicator-badge-low { background: #eb5b0c; }
+        .indicator-badge-very-low { background: #c91423; }
+        .indicator-badge-unknown { background: #9a9da5; }
+        .pdf-footer {
+            display: none;
+        }
+        .pdf-footer-page::before {
+            content: counter(page, decimal-leading-zero);
+        }
+        .theme-detail-page {
+            page-break-before: always;
+            break-before: page;
+            font-family: Arial, sans-serif;
+            color: #26272c;
+        }
+        .theme-detail-header {
+            display: none;
+        }
+        .theme-detail-header .cover-brand {
+            position: static;
+        }
+        .theme-detail-kicker {
+            margin: 0 0 20px;
+            color: #8a8d95;
+            font-size: 14px;
+            line-height: 1.2;
+        }
+        .theme-detail-title {
+            margin: 0 0 18px;
             color: #005e2f;
             font-family: Arial, sans-serif;
-            font-size: 17px;
-            font-weight: 700;
-            text-transform: none;
+            font-size: 18px;
+            font-weight: 600;
+            line-height: 1.2;
         }
-        .executive-summary p {
-            margin: 0;
-            color: #555;
+        .theme-detail-text {
+            margin: 0 0 18px;
+            color: #2d2e33;
             font-family: Arial, sans-serif;
             font-size: 14px;
-            line-height: 1.45;
+            line-height: 1.48;
             text-align: left;
+        }
+        @media print {
+            html,
+            body {
+                width: auto;
+                max-width: none;
+                margin: 0;
+                padding: 0;
+                background: #fff;
+            }
+            body {
+                font-size: 11px;
+                line-height: 1.35;
+            }
+            .cover-header {
+                display: none;
+            }
+            .theme-detail-header {
+                display: none;
+            }
+            .pdf-page-header {
+                position: fixed;
+                top: -13mm;
+                left: -8mm;
+                right: -8mm;
+                display: block;
+                width: auto;
+                height: 12mm;
+                padding: 2.5mm 14mm;
+                background: #eeeeef;
+                box-sizing: border-box;
+                font-family: Arial, sans-serif;
+                z-index: 1000;
+            }
+            .pdf-page-header-brand {
+                display: block;
+                width: 22mm;
+                height: 8mm;
+            }
+            .pdf-page-header-logo {
+                display: block;
+                width: 22mm;
+                height: 8mm;
+            }
+            .report-cover,
+            .theme-detail-page,
+            .doc-content {
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            .report-cover {
+                break-after: auto;
+                page-break-after: auto;
+                break-inside: auto;
+                page-break-inside: auto;
+            }
+            .cover-kicker {
+                margin-bottom: 9px;
+                font-size: 15px;
+            }
+            .cover-city {
+                margin-bottom: 18px;
+                font-size: 34px;
+            }
+            .cover-metrics {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0;
+                margin-bottom: 0;
+            }
+            .metric-card {
+                width: 23.5%;
+                min-height: 112px;
+                margin: 0 1.5% 18px 0;
+                padding: 14px 13px 12px;
+                border-radius: 7px;
+                box-shadow: none;
+            }
+            .metric-card:nth-of-type(4) {
+                margin-right: 0;
+            }
+            .metric-heading {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                margin-bottom: 12px;
+            }
+            .metric-icon {
+                width: 17px;
+                height: 17px;
+            }
+            .metric-label {
+                font-size: 12px;
+            }
+            .metric-source,
+            .metric-caption {
+                font-size: 8px;
+            }
+            .metric-caption {
+                margin-top: 32px;
+            }
+            .metric-value {
+                font-size: 20px;
+            }
+            .metric-unit {
+                font-size: 13px;
+            }
+            .score-card {
+                width: 100%;
+                margin: 0 0 12px;
+                border-radius: 14px;
+                box-shadow: none;
+            }
+            .region-radar-title {
+                width: 100%;
+                margin: 0 0 8px;
+                font-size: 13px;
+            }
+            .region-radar-row {
+                display: flex;
+                gap: 0;
+                margin-bottom: 14px;
+            }
+            .region-radar-card {
+                width: 48.5%;
+                min-height: 205px;
+                margin: 0 3% 0 0;
+                padding: 12px;
+                border-radius: 10px;
+            }
+            .score-column {
+                display: block;
+                width: 48.5%;
+            }
+            .region-radar-chart {
+                height: 181px;
+            }
+            .radar-label {
+                font-size: 8px;
+            }
+            .radar-tick {
+                font-size: 6px;
+            }
+            .score-header {
+                gap: 12px;
+                padding: 18px 20px;
+            }
+            .score-icon {
+                width: 21px;
+                height: 21px;
+            }
+            .score-title {
+                font-size: 18px;
+            }
+            .score-body {
+                padding: 18px 20px 20px;
+            }
+            .score-line {
+                gap: 14px;
+                margin-bottom: 10px;
+            }
+            .score-value {
+                font-size: 32px;
+            }
+            .score-max,
+            .score-status {
+                font-size: 18px;
+            }
+            .score-description,
+            .score-support-text {
+                font-size: 12px;
+                line-height: 1.38;
+            }
+            .score-support-text {
+                width: 100%;
+                margin: 0;
+            }
+            .score-legend {
+                width: 100%;
+                margin-top: 8px;
+            }
+            .score-legend-title {
+                margin-bottom: 7px;
+                font-size: 13px;
+            }
+            .score-legend-item {
+                display: inline-block;
+                width: 25%;
+                box-sizing: border-box;
+                padding: 9px 10px;
+                font-size: 11px;
+            }
+            .macrotheme-card {
+                width: 100%;
+                min-height: 84px;
+                margin-top: 18px;
+                padding: 18px 22px;
+                border-radius: 14px 0 0 14px;
+                box-shadow: none;
+            }
+            .macrotheme-icon-box {
+                width: 26px;
+                height: 26px;
+                border-width: 2px;
+            }
+            .macrotheme-icon {
+                width: 17px;
+                height: 17px;
+            }
+            .macrotheme-name {
+                font-size: 24px;
+            }
+            .macrotheme-status {
+                padding: 7px 12px;
+                font-size: 11px;
+            }
+            .macrotheme-summary-title,
+            .indicator-scores-title {
+                margin-bottom: 10px;
+                font-size: 14px;
+            }
+            .macrotheme-summary,
+            .indicator-scores {
+                width: 100%;
+            }
+            .macrotheme-summary-text {
+                font-size: 12px;
+                line-height: 1.5;
+            }
+            .indicator-scores {
+                margin-top: 16px;
+            }
+            .indicator-score-grid {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0;
+            }
+            .indicator-score-card {
+                width: 31.5%;
+                min-height: 82px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin: 0 1.75% 16px 0;
+                padding: 13px 14px;
+                border-radius: 9px;
+                box-shadow: none;
+            }
+            .indicator-score-card:nth-child(3n) {
+                margin-right: 0;
+            }
+            .indicator-icon {
+                flex: 0 0 auto;
+                width: 16px;
+                height: 16px;
+            }
+            .indicator-score-card > div {
+                flex: 1 1 auto;
+                min-width: 0;
+            }
+            .indicator-name {
+                font-size: 11px;
+            }
+            .indicator-source {
+                margin-top: 4px;
+                font-size: 7px;
+            }
+            .indicator-badge {
+                flex: 0 0 auto;
+                min-width: 36px;
+                padding: 7px 8px;
+                border-radius: 6px;
+                font-size: 11px;
+            }
+            .score-card,
+            .score-legend,
+            .macrotheme-card,
+            .macrotheme-summary,
+            .indicator-scores,
+            .indicator-score-card,
+            .metric-card,
+            .chart-block,
+            .map-block {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+            .theme-detail-page {
+                break-before: page;
+                page-break-before: always;
+            }
+            .theme-detail-kicker {
+                display: none;
+            }
+            .theme-detail-title {
+                margin: 0 0 10px;
+                font-size: 14px;
+            }
+            .theme-detail-text {
+                margin-bottom: 12px;
+                font-size: 10px;
+                line-height: 1.45;
+            }
+            .doc-content {
+                break-before: auto;
+                page-break-before: auto;
+                margin-top: 14px;
+            }
+            .doc-content h1,
+            .doc-content h2 {
+                font-family: Arial, sans-serif;
+                color: #005e2f;
+                break-after: avoid;
+                page-break-after: avoid;
+            }
+            .doc-content h1 {
+                font-size: 18px;
+            }
+            .doc-content h2 {
+                font-size: 15px;
+            }
+            .doc-content p,
+            .doc-content li {
+                font-size: 10px;
+                line-height: 1.42;
+            }
+            .chart-block {
+                margin: 10px auto 12px;
+            }
+            .chart-block img {
+                max-width: 70%;
+            }
+            .figure-caption {
+                font-size: 8px;
+            }
         }
         @media (max-width: 760px) {
             .cover-metrics {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
+            .score-card {
+                grid-column: 1 / -1;
+            }
+            .score-support-text {
+                grid-column: 1 / -1;
+                font-size: 18px;
+            }
+            .score-legend-bar {
+                grid-template-columns: 1fr;
+            }
+            .score-legend-item + .score-legend-item {
+                border-left: 0;
+                border-top: 2px solid #fff;
+            }
+            .macrotheme-card {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+            .macrotheme-status {
+                white-space: normal;
+            }
+            .indicator-score-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
+<div class="pdf-page-header">
+    <div class="pdf-page-header-brand" aria-label="Data Nordeste">
+        <svg class="pdf-page-header-logo" viewBox="0 0 150 58" role="img" aria-label="Data Nordeste">
+            <rect x="0" y="0" width="150" height="58" fill="none"/>
+            <rect x="7" y="14" width="6" height="6" fill="#ef7d00"/>
+            <rect x="17" y="14" width="6" height="6" fill="#0a8f43"/>
+            <rect x="27" y="14" width="6" height="6" fill="#204f9e"/>
+            <rect x="7" y="24" width="6" height="6" fill="#204f9e"/>
+            <rect x="17" y="24" width="6" height="6" fill="#ef7d00"/>
+            <rect x="27" y="24" width="6" height="6" fill="#0a8f43"/>
+            <text x="39" y="31" fill="#008d43" font-family="Arial, sans-serif" font-size="31" font-weight="900">NE</text>
+            <text x="7" y="48" fill="#222" font-family="Arial, sans-serif" font-size="6" font-weight="700">DATA NORDESTE</text>
+        </svg>
+    </div>
+</div>
 <section class="report-cover">
     <div class="cover-header">
         <div class="cover-meta">
@@ -436,15 +1167,159 @@ TEMPLATE_STRING = """
             </div>
             {% endfor %}
         </div>
-        <div class="executive-summary">
-            <h2 class="executive-title">Radar da região</h2>
-            <p>A síntese a seguir classifica os sete temas estratégicos do município segundo os parâmetros de referência adotados pela plataforma Data NE. Cada tema é detalhado nas seções subsequentes.</p>
-        </div>
+            <h2 class="region-radar-title">Radar da região</h2>
+            <div class="region-radar-row">
+            <div class="region-radar-card" aria-label="Radar da região">
+                <svg class="region-radar-chart" viewBox="0 0 360 260" role="img" aria-label="Gráfico radar da região">
+                    <g transform="translate(180 132)">
+                        <polygon class="radar-grid" points="0,-82 71,-41 71,41 0,82 -71,41 -71,-41"/>
+                        <polygon class="radar-grid" points="0,-65.6 56.8,-32.8 56.8,32.8 0,65.6 -56.8,32.8 -56.8,-32.8"/>
+                        <polygon class="radar-grid" points="0,-49.2 42.6,-24.6 42.6,24.6 0,49.2 -42.6,24.6 -42.6,-24.6"/>
+                        <polygon class="radar-grid" points="0,-32.8 28.4,-16.4 28.4,16.4 0,32.8 -28.4,16.4 -28.4,-16.4"/>
+                        <polygon class="radar-grid" points="0,-16.4 14.2,-8.2 14.2,8.2 0,16.4 -14.2,8.2 -14.2,-8.2"/>
+                        <line class="radar-axis" x1="0" y1="0" x2="0" y2="-82"/>
+                        <line class="radar-axis" x1="0" y1="0" x2="71" y2="-41"/>
+                        <line class="radar-axis" x1="0" y1="0" x2="71" y2="41"/>
+                        <line class="radar-axis" x1="0" y1="0" x2="0" y2="82"/>
+                        <line class="radar-axis" x1="0" y1="0" x2="-71" y2="41"/>
+                        <line class="radar-axis" x1="0" y1="0" x2="-71" y2="-41"/>
+                        <polygon class="radar-area" points="0,-49.2 42.6,-24.6 28.4,16.4 0,65.6 -42.6,24.6 -28.4,-16.4"/>
+                        <text class="radar-tick" x="4" y="-65">4</text>
+                        <text class="radar-tick" x="4" y="-49">3</text>
+                        <text class="radar-tick" x="4" y="-33">2</text>
+                        <text class="radar-tick" x="4" y="-17">1</text>
+                        <text class="radar-label" x="0" y="-99" text-anchor="middle">Saúde</text>
+                        <text class="radar-label" x="94" y="-48" text-anchor="start">Educação</text>
+                        <text class="radar-label" x="92" y="38" text-anchor="start">Desenvolvimento</text>
+                        <text class="radar-label" x="92" y="51" text-anchor="start">Social</text>
+                        <text class="radar-label" x="48" y="97" text-anchor="start">Economia e Renda</text>
+                        <text class="radar-label" x="0" y="112" text-anchor="middle">Demografia</text>
+                        <text class="radar-label" x="-92" y="75" text-anchor="middle">Infraestrutura e</text>
+                        <text class="radar-label" x="-92" y="88" text-anchor="middle">Saneamento</text>
+                        <text class="radar-label" x="-105" y="20" text-anchor="end">Meio Ambiente</text>
+                        <text class="radar-label" x="-88" y="-47" text-anchor="end">Segurança Hídrica</text>
+                    </g>
+                </svg>
+            </div>
+            <div class="score-column">
+            <div class="score-card">
+                <div class="score-header">
+                    <svg class="score-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 16l5-5 4 4 6-7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M15 8h4v4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <div class="score-title">Score geral em relação ao Brasil</div>
+                </div>
+                <div class="score-body">
+                    <div class="score-line">
+                        <div class="score-value">{{ cover.score.valor }}<span class="score-max">/{{ cover.score.maximo }}</span></div>
+                        <div class="score-status">{{ cover.score.status }}</div>
+                    </div>
+                    <p class="score-description">{{ cover.score.descricao }}</p>
+                </div>
+            </div>
+            <p class="score-support-text">{{ cover.score.texto_apoio }}</p>
+            </div>
+            </div>
+            <div class="score-legend">
+                <p class="score-legend-title">Legenda</p>
+                <div class="score-legend-bar" aria-label="Legenda do score">
+                    <div class="score-legend-item score-legend-very-high">Muito acima da média</div>
+                    <div class="score-legend-item score-legend-high">Acima da média</div>
+                    <div class="score-legend-item score-legend-low">Abaixo da média</div>
+                    <div class="score-legend-item score-legend-very-low">Muito abaixo da média</div>
+                </div>
+            </div>
+            <div class="macrotheme-card">
+                <div class="macrotheme-title">
+                    <span class="macrotheme-icon-box" aria-hidden="true">
+                        <svg class="macrotheme-icon" viewBox="0 0 24 24">
+                            {% if cover.macrotema.icone == "health" %}
+                            <path d="M10 5h4v5h5v4h-5v5h-4v-5H5v-4h5z" fill="currentColor"/>
+                            {% elif cover.macrotema.icone == "book" %}
+                            <path d="M5 5.5c2.6 0 4.5.5 7 2v11c-2.5-1.5-4.4-2-7-2zM19 5.5c-2.6 0-4.5.5-7 2v11c2.5-1.5 4.4-2 7-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                            {% elif cover.macrotema.icone == "people" %}
+                            <path d="M8.5 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM15.5 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM3.5 19c.7-3.2 2.5-5 5-5s4.3 1.8 5 5zM12.5 19c.5-2.2 1.7-3.7 3.6-3.7 2 0 3.4 1.4 4 3.7z" fill="currentColor"/>
+                            {% elif cover.macrotema.icone == "drop" %}
+                            <path d="M12 3s6 6.4 6 11a6 6 0 0 1-12 0c0-4.6 6-11 6-11z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                            {% elif cover.macrotema.icone == "water" %}
+                            <path d="M3 9c2 0 2 1.5 4 1.5S9 9 11 9s2 1.5 4 1.5S17 9 21 9M3 15c2 0 2 1.5 4 1.5S9 15 11 15s2 1.5 4 1.5S17 15 21 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            {% else %}
+                            <path d="M4 17h16M7 15l3-4 3 3 4-6 3 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            {% endif %}
+                        </svg>
+                    </span>
+                    <span class="macrotheme-name">{{ cover.macrotema.nome }}</span>
+                </div>
+                <span class="macrotheme-status">{{ cover.macrotema.status }}</span>
+            </div>
+            <div class="macrotheme-summary">
+                <h2 class="macrotheme-summary-title">Resumo</h2>
+                <p class="macrotheme-summary-text">{{ cover.macrotema.resumo }}</p>
+            </div>
+            <div class="indicator-scores">
+                <h2 class="indicator-scores-title">Scores por indicador</h2>
+                <div class="indicator-score-grid">
+                    {% for indicador in cover.macrotema.indicadores %}
+                    <div class="indicator-score-card">
+                        <svg class="indicator-icon" viewBox="0 0 24 24" aria-hidden="true">
+                            {% if indicador.icone == "hospital" %}
+                            <path d="M4 21V8h5V3h6v5h5v13H4zM10 7h4M12 10v7M8.5 13.5h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            {% elif indicador.icone == "vaccine" %}
+                            <path d="M7 5l12 12M14 4l6 6M4 14l6 6M9 7l8 8-5 5-8-8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            {% elif indicador.icone == "birth" %}
+                            <circle cx="12" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="2"/>
+                            <path d="M7 21c.6-4 2.3-6 5-6s4.4 2 5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            {% elif indicador.icone == "shield" %}
+                            <path d="M12 3l7 3v5c0 4.5-2.7 8-7 10-4.3-2-7-5.5-7-10V6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                            {% elif indicador.icone == "book" %}
+                            <path d="M5 5.5c2.6 0 4.5.5 7 2v11c-2.5-1.5-4.4-2-7-2zM19 5.5c-2.6 0-4.5.5-7 2v11c2.5-1.5 4.4-2 7-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                            {% elif indicador.icone == "people" %}
+                            <path d="M8.5 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM15.5 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM3.5 19c.7-3.2 2.5-5 5-5s4.3 1.8 5 5zM12.5 19c.5-2.2 1.7-3.7 3.6-3.7 2 0 3.4 1.4 4 3.7z" fill="currentColor"/>
+                            {% elif indicador.icone == "drop" %}
+                            <path d="M12 3s6 6.4 6 11a6 6 0 0 1-12 0c0-4.6 6-11 6-11z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                            {% elif indicador.icone == "water" %}
+                            <path d="M3 9c2 0 2 1.5 4 1.5S9 9 11 9s2 1.5 4 1.5S17 9 21 9M3 15c2 0 2 1.5 4 1.5S9 15 11 15s2 1.5 4 1.5S17 15 21 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            {% else %}
+                            <path d="M4 17h16M7 15l3-4 3 3 4-6 3 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            {% endif %}
+                        </svg>
+                        <div>
+                            <div class="indicator-name">{{ indicador.nome }}</div>
+                            <div class="indicator-source">{{ indicador.fonte }}</div>
+                        </div>
+                        <span class="indicator-badge indicator-badge-{{ indicador.classe }}">{{ indicador.score }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
     </div>
 </section>
+{% if cover.macrotema.descricao_paragrafos %}
+<section class="theme-detail-page">
+    <p class="theme-detail-kicker">Relatório V1</p>
+    <div class="theme-detail-header">
+        <div class="cover-brand" aria-label="Data Nordeste">
+            <div class="brand-mark">
+                <span class="brand-squares" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></span>
+                <span>NE</span>
+            </div>
+            <span class="brand-subtitle">Data Nordeste</span>
+        </div>
+    </div>
+    <h2 class="theme-detail-title">Detalhamento do tema</h2>
+    {% for paragrafo in cover.macrotema.descricao_paragrafos %}
+    <p class="theme-detail-text">{{ paragrafo }}</p>
+    {% endfor %}
+</section>
+{% endif %}
 {% for linha in dados %}
 <div class="doc-content">{{ docs_html | safe }}</div>
 {% endfor %}
+<footer class="pdf-footer">
+    <span>Relatório automático do Data Nordeste</span>
+    <span class="pdf-footer-page" aria-label="Número da página"></span>
+</footer>
 </body>
 </html>
 """
@@ -554,14 +1429,27 @@ def texto_para_html(
     html_lines = []
 
     em_lista = False
+    em_metadado_docs = False
 
-    proximo_paragrafo_destaque = namespace in MACROTEMA_SECOES
+    proximo_paragrafo_destaque = False
 
     figura_contador = 0
 
     for linha in linhas:
 
         linha_limpa = linha.lstrip("\ufeff").strip()
+
+        if em_metadado_docs:
+            if "@@" in linha_limpa:
+                em_metadado_docs = False
+            continue
+
+        metadado_match = re.match(r"^([A-Za-z_][\w]*)\s*=", linha_limpa)
+        if metadado_match:
+            marcador_metadado = metadado_match.group(1).lower()
+            if "@@" not in linha_limpa and marcador_metadado != "descricao_tema":
+                em_metadado_docs = True
+            continue
 
         # LINHA VAZIA
         if not linha_limpa:
@@ -577,11 +1465,6 @@ def texto_para_html(
             if em_lista:
                 html_lines.append("</ul>")
                 em_lista = False
-
-            mapa_html = componentes_html.get("mapa_geografico")
-
-            if mapa_html:
-                html_lines.append(mapa_html)
 
             continue
 
@@ -711,12 +1594,8 @@ def texto_para_html(
         )
 
         if secao_macrotema:
-
-            html_lines.append(
-                render_section_heading(secao_macrotema)
-            )
-
-            proximo_paragrafo_destaque = True
+            proximo_paragrafo_destaque = False
+            continue
 
         elif (
             re.match(r"^\d+\.\s+", linha_limpa)
