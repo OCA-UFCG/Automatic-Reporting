@@ -1,0 +1,165 @@
+<section class="report-cover">
+    <div class="cover-header">
+        <div class="cover-meta">
+            <div class="cover-brand" aria-label="Data Nordeste">
+                <div class="brand-mark">
+                    <span class="brand-squares" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></span>
+                    <span>NE</span>
+                </div>
+                <span class="brand-subtitle">Data Nordeste</span>
+            </div>
+            <span class="cover-date">{{ cover.data_extenso }}</span>
+        </div>
+    </div>
+    <div class="cover-content">
+        <div class="cover-kicker">Relatório geral</div>
+        <h1 class="cover-city">{{ cover.cidade_nome }}{% if cover.uf %} ({{ cover.uf }}){% endif %}</h1>
+        <div class="cover-metrics">
+            {% for metrica in cover.metricas %}
+            <div class="metric-card">
+                <div class="metric-heading">
+                    <svg class="metric-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 17h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        <path d="M7 15l3.1-4.2 2.7 2.8 3.3-5.1L20 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="10.1" cy="10.8" r="1.1" fill="currentColor"/>
+                        <circle cx="12.8" cy="13.6" r="1.1" fill="currentColor"/>
+                        <circle cx="16.1" cy="8.5" r="1.1" fill="currentColor"/>
+                    </svg>
+                    <div>
+                        <div class="metric-label">{{ metrica.rotulo }}</div>
+                        <div class="metric-source">{{ metrica.fonte }}</div>
+                    </div>
+                </div>
+                <div class="metric-value">{{ metrica.valor }}{% if metrica.sufixo %} <span class="metric-unit">{{ metrica.sufixo }}</span>{% endif %}</div>
+                <div class="metric-caption">{{ metrica.caption }}</div>
+            </div>
+            {% endfor %}
+        </div>
+            <h2 class="region-radar-title">Radar da região</h2>
+            <div class="region-radar-row">
+            <div class="region-radar-card" aria-label="Radar da região">
+                <svg class="region-radar-chart" viewBox="0 0 360 260" role="img" aria-label="Gráfico radar da região">
+                    <g transform="translate(180 132)">
+                        <polygon fill="none" stroke="#333" stroke-width="0.8" points="0,-82 71,-41 71,41 0,82 -71,41 -71,-41"/>
+                        <polygon fill="none" stroke="#333" stroke-width="0.8" points="0,-65.6 56.8,-32.8 56.8,32.8 0,65.6 -56.8,32.8 -56.8,-32.8"/>
+                        <polygon fill="none" stroke="#333" stroke-width="0.8" points="0,-49.2 42.6,-24.6 42.6,24.6 0,49.2 -42.6,24.6 -42.6,-24.6"/>
+                        <polygon fill="none" stroke="#333" stroke-width="0.8" points="0,-32.8 28.4,-16.4 28.4,16.4 0,32.8 -28.4,16.4 -28.4,-16.4"/>
+                        <polygon fill="none" stroke="#333" stroke-width="0.8" points="0,-16.4 14.2,-8.2 14.2,8.2 0,16.4 -14.2,8.2 -14.2,-8.2"/>
+                        <line stroke="#555" stroke-width="0.75" x1="0" y1="0" x2="0" y2="-82"/>
+                        <line stroke="#555" stroke-width="0.75" x1="0" y1="0" x2="71" y2="-41"/>
+                        <line stroke="#555" stroke-width="0.75" x1="0" y1="0" x2="71" y2="41"/>
+                        <line stroke="#555" stroke-width="0.75" x1="0" y1="0" x2="0" y2="82"/>
+                        <line stroke="#555" stroke-width="0.75" x1="0" y1="0" x2="-71" y2="41"/>
+                        <line stroke="#555" stroke-width="0.75" x1="0" y1="0" x2="-71" y2="-41"/>
+                        <polygon points="0,-49.2 42.6,-24.6 28.4,16.4 0,65.6 -42.6,24.6 -28.4,-16.4" fill="#008d43" fill-opacity="0.22" stroke="#008d43" stroke-width="2"/>
+                        <text class="radar-tick" x="4" y="-65">4</text>
+                        <text class="radar-tick" x="4" y="-49">3</text>
+                        <text class="radar-tick" x="4" y="-33">2</text>
+                        <text class="radar-tick" x="4" y="-17">1</text>
+                        <text class="radar-label" x="0" y="-99" text-anchor="middle">Saúde</text>
+                        <text class="radar-label" x="94" y="-48" text-anchor="start">Educação</text>
+                        <text class="radar-label" x="92" y="38" text-anchor="start">Desenvolvimento</text>
+                        <text class="radar-label" x="92" y="51" text-anchor="start">Social</text>
+                        <text class="radar-label" x="48" y="97" text-anchor="start">Economia e Renda</text>
+                        <text class="radar-label" x="0" y="112" text-anchor="middle">Demografia</text>
+                        <text class="radar-label" x="-92" y="75" text-anchor="middle">Infraestrutura e</text>
+                        <text class="radar-label" x="-92" y="88" text-anchor="middle">Saneamento</text>
+                        <text class="radar-label" x="-105" y="20" text-anchor="end">Meio Ambiente</text>
+                        <text class="radar-label" x="-88" y="-47" text-anchor="end">Segurança Hídrica</text>
+                    </g>
+                </svg>
+            </div>
+            <div class="score-column">
+            <div class="score-card">
+                <div class="score-header">
+                    <svg class="score-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 16l5-5 4 4 6-7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M15 8h4v4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <div class="score-title">Score geral em relação ao Brasil</div>
+                </div>
+                <div class="score-body">
+                    <div class="score-line">
+                        <div class="score-value">{{ cover.score.valor }}<span class="score-max">/{{ cover.score.maximo }}</span></div>
+                        <div class="score-status">{{ cover.score.status }}</div>
+                    </div>
+                    <p class="score-description">{{ cover.score.descricao }}</p>
+                </div>
+            </div>
+            <p class="score-support-text">{{ cover.score.texto_apoio }}</p>
+            </div>
+            </div>
+            <div class="score-legend">
+                <p class="score-legend-title">Legenda</p>
+                <div class="score-legend-bar" aria-label="Legenda do score">
+                    <div class="score-legend-item score-legend-very-high">Muito acima da média</div>
+                    <div class="score-legend-item score-legend-high">Acima da média</div>
+                    <div class="score-legend-item score-legend-low">Abaixo da média</div>
+                    <div class="score-legend-item score-legend-very-low">Muito abaixo da média</div>
+                </div>
+            </div>
+            <div class="macrotheme-card">
+                <div class="macrotheme-title">
+                    <span class="macrotheme-icon-box" aria-hidden="true">
+                        <svg class="macrotheme-icon" viewBox="0 0 24 24">
+                            {% if cover.macrotema.icone == "health" %}
+                            <path d="M10 5h4v5h5v4h-5v5h-4v-5H5v-4h5z" fill="currentColor"/>
+                            {% elif cover.macrotema.icone == "book" %}
+                            <path d="M5 5.5c2.6 0 4.5.5 7 2v11c-2.5-1.5-4.4-2-7-2zM19 5.5c-2.6 0-4.5.5-7 2v11c2.5-1.5 4.4-2 7-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                            {% elif cover.macrotema.icone == "people" %}
+                            <path d="M8.5 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM15.5 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM3.5 19c.7-3.2 2.5-5 5-5s4.3 1.8 5 5zM12.5 19c.5-2.2 1.7-3.7 3.6-3.7 2 0 3.4 1.4 4 3.7z" fill="currentColor"/>
+                            {% elif cover.macrotema.icone == "drop" %}
+                            <path d="M12 3s6 6.4 6 11a6 6 0 0 1-12 0c0-4.6 6-11 6-11z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                            {% elif cover.macrotema.icone == "water" %}
+                            <path d="M3 9c2 0 2 1.5 4 1.5S9 9 11 9s2 1.5 4 1.5S17 9 21 9M3 15c2 0 2 1.5 4 1.5S9 15 11 15s2 1.5 4 1.5S17 15 21 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            {% else %}
+                            <path d="M4 17h16M7 15l3-4 3 3 4-6 3 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            {% endif %}
+                        </svg>
+                    </span>
+                    <span class="macrotheme-name">{{ cover.macrotema.nome }}</span>
+                </div>
+                <span class="macrotheme-status">{{ cover.macrotema.status }}</span>
+            </div>
+            <div class="macrotheme-summary">
+                <h2 class="macrotheme-summary-title">Resumo</h2>
+                <p class="macrotheme-summary-text">{{ cover.macrotema.resumo }}</p>
+            </div>
+            <div class="indicator-scores">
+                <h2 class="indicator-scores-title">Scores por indicador</h2>
+                <div class="indicator-score-grid">
+                    {% for indicador in cover.macrotema.indicadores %}
+                    <div class="indicator-score-card">
+                        <svg class="indicator-icon" viewBox="0 0 24 24" aria-hidden="true">
+                            {% if indicador.icone == "hospital" %}
+                            <path d="M4 21V8h5V3h6v5h5v13H4zM10 7h4M12 10v7M8.5 13.5h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            {% elif indicador.icone == "vaccine" %}
+                            <path d="M7 5l12 12M14 4l6 6M4 14l6 6M9 7l8 8-5 5-8-8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            {% elif indicador.icone == "birth" %}
+                            <circle cx="12" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="2"/>
+                            <path d="M7 21c.6-4 2.3-6 5-6s4.4 2 5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            {% elif indicador.icone == "shield" %}
+                            <path d="M12 3l7 3v5c0 4.5-2.7 8-7 10-4.3-2-7-5.5-7-10V6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                            {% elif indicador.icone == "book" %}
+                            <path d="M5 5.5c2.6 0 4.5.5 7 2v11c-2.5-1.5-4.4-2-7-2zM19 5.5c-2.6 0-4.5.5-7 2v11c2.5-1.5 4.4-2 7-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                            {% elif indicador.icone == "people" %}
+                            <path d="M8.5 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM15.5 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM3.5 19c.7-3.2 2.5-5 5-5s4.3 1.8 5 5zM12.5 19c.5-2.2 1.7-3.7 3.6-3.7 2 0 3.4 1.4 4 3.7z" fill="currentColor"/>
+                            {% elif indicador.icone == "drop" %}
+                            <path d="M12 3s6 6.4 6 11a6 6 0 0 1-12 0c0-4.6 6-11 6-11z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                            {% elif indicador.icone == "water" %}
+                            <path d="M3 9c2 0 2 1.5 4 1.5S9 9 11 9s2 1.5 4 1.5S17 9 21 9M3 15c2 0 2 1.5 4 1.5S9 15 11 15s2 1.5 4 1.5S17 15 21 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            {% else %}
+                            <path d="M4 17h16M7 15l3-4 3 3 4-6 3 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            {% endif %}
+                        </svg>
+                        <div>
+                            <div class="indicator-name">{{ indicador.nome }}</div>
+                            <div class="indicator-source">{{ indicador.fonte }}</div>
+                        </div>
+                        <span class="indicator-badge indicator-badge-{{ indicador.classe }}">{{ indicador.score }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+    </div>
+</section>

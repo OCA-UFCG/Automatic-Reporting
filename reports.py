@@ -3,7 +3,6 @@ import pandas as pd
 from datetime import datetime
 from fastapi import HTTPException
 from fastapi.responses import HTMLResponse
-from jinja2 import Environment
 from weasyprint import HTML
 
 from config import OUTPUT_DIR, resolve_csv_source, require_config_value
@@ -11,7 +10,8 @@ from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS
 from utils.cities import filtrar_linhas_por_cidade
 from utils.docs import carregar_texto_do_docs, extrair_descricao_tema, extrair_resumo_tema
 from utils.cover import montar_capa_relatorio
-from utils.renderer import texto_para_html, TEMPLATE_STRING
+from utils.docs_renderer import texto_para_html
+from utils.renderer import render_relatorio_html
 from plotting import gerar_grafico_sexo
 from plotting import gerar_grafico_porte
 from plotting import gerar_grafico_top_cidades
@@ -239,9 +239,12 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
 
     docs_html = "\n".join(docs_html_parts)
 
-    # Template rendering
-    template = Environment(trim_blocks=True, lstrip_blocks=True).from_string(TEMPLATE_STRING)
-    html_content = template.render(dados=linhas, graficos=graficos, docs_html=docs_html, cover=cover)
+    html_content = render_relatorio_html(
+        dados=linhas,
+        graficos=graficos,
+        docs_html=docs_html,
+        cover=cover,
+    )
 
     # Output file handling
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

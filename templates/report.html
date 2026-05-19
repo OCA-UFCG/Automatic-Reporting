@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <title>Relatório automático</title>
+    <style>{{ report_css | safe }}</style>
+</head>
+<body>
+{% include "partials/pdf_header.html" %}
+{% include "partials/cover.html" %}
+{% include "partials/theme_detail.html" %}
+{% include "partials/doc_content.html" %}
+{% include "partials/footer.html" %}
+</body>
+</html>

@@ -1,0 +1,18 @@
+{% if cover.macrotema.descricao_paragrafos %}
+<section class="theme-detail-page">
+    <p class="theme-detail-kicker">Relatório V1</p>
+    <div class="theme-detail-header">
+        <div class="cover-brand" aria-label="Data Nordeste">
+            <div class="brand-mark">
+                <span class="brand-squares" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></span>
+                <span>NE</span>
+            </div>
+            <span class="brand-subtitle">Data Nordeste</span>
+        </div>
+    </div>
+    <h2 class="theme-detail-title">Detalhamento do tema</h2>
+    {% for paragrafo in cover.macrotema.descricao_paragrafos %}
+    <p class="theme-detail-text">{{ paragrafo }}</p>
+    {% endfor %}
+</section>
+{% endif %}
