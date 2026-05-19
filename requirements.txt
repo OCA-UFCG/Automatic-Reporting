@@ -5,3 +5,4 @@ fastapi
 matplotlib
 weasyprint
 dotenv
+psycopg2-binary
