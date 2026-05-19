@@ -768,7 +768,7 @@ TEMPLATE_STRING = """
             }
             .pdf-page-header {
                 position: fixed;
-                top: -13mm;
+                top: -16mm;
                 left: -8mm;
                 right: -8mm;
                 display: block;
@@ -1172,18 +1172,18 @@ TEMPLATE_STRING = """
             <div class="region-radar-card" aria-label="Radar da região">
                 <svg class="region-radar-chart" viewBox="0 0 360 260" role="img" aria-label="Gráfico radar da região">
                     <g transform="translate(180 132)">
-                        <polygon class="radar-grid" points="0,-82 71,-41 71,41 0,82 -71,41 -71,-41"/>
-                        <polygon class="radar-grid" points="0,-65.6 56.8,-32.8 56.8,32.8 0,65.6 -56.8,32.8 -56.8,-32.8"/>
-                        <polygon class="radar-grid" points="0,-49.2 42.6,-24.6 42.6,24.6 0,49.2 -42.6,24.6 -42.6,-24.6"/>
-                        <polygon class="radar-grid" points="0,-32.8 28.4,-16.4 28.4,16.4 0,32.8 -28.4,16.4 -28.4,-16.4"/>
-                        <polygon class="radar-grid" points="0,-16.4 14.2,-8.2 14.2,8.2 0,16.4 -14.2,8.2 -14.2,-8.2"/>
-                        <line class="radar-axis" x1="0" y1="0" x2="0" y2="-82"/>
-                        <line class="radar-axis" x1="0" y1="0" x2="71" y2="-41"/>
-                        <line class="radar-axis" x1="0" y1="0" x2="71" y2="41"/>
-                        <line class="radar-axis" x1="0" y1="0" x2="0" y2="82"/>
-                        <line class="radar-axis" x1="0" y1="0" x2="-71" y2="41"/>
-                        <line class="radar-axis" x1="0" y1="0" x2="-71" y2="-41"/>
-                        <polygon class="radar-area" points="0,-49.2 42.6,-24.6 28.4,16.4 0,65.6 -42.6,24.6 -28.4,-16.4"/>
+                        <polygon fill="none" stroke="#333" stroke-width="0.8" points="0,-82 71,-41 71,41 0,82 -71,41 -71,-41"/>
+                        <polygon fill="none" stroke="#333" stroke-width="0.8" points="0,-65.6 56.8,-32.8 56.8,32.8 0,65.6 -56.8,32.8 -56.8,-32.8"/>
+                        <polygon fill="none" stroke="#333" stroke-width="0.8" points="0,-49.2 42.6,-24.6 42.6,24.6 0,49.2 -42.6,24.6 -42.6,-24.6"/>
+                        <polygon fill="none" stroke="#333" stroke-width="0.8" points="0,-32.8 28.4,-16.4 28.4,16.4 0,32.8 -28.4,16.4 -28.4,-16.4"/>
+                        <polygon fill="none" stroke="#333" stroke-width="0.8" points="0,-16.4 14.2,-8.2 14.2,8.2 0,16.4 -14.2,8.2 -14.2,-8.2"/>
+                        <line stroke="#555" stroke-width="0.75" x1="0" y1="0" x2="0" y2="-82"/>
+                        <line stroke="#555" stroke-width="0.75" x1="0" y1="0" x2="71" y2="-41"/>
+                        <line stroke="#555" stroke-width="0.75" x1="0" y1="0" x2="71" y2="41"/>
+                        <line stroke="#555" stroke-width="0.75" x1="0" y1="0" x2="0" y2="82"/>
+                        <line stroke="#555" stroke-width="0.75" x1="0" y1="0" x2="-71" y2="41"/>
+                        <line stroke="#555" stroke-width="0.75" x1="0" y1="0" x2="-71" y2="-41"/>
+                        <polygon points="0,-49.2 42.6,-24.6 28.4,16.4 0,65.6 -42.6,24.6 -28.4,-16.4" fill="#008d43" fill-opacity="0.22" stroke="#008d43" stroke-width="2"/>
                         <text class="radar-tick" x="4" y="-65">4</text>
                         <text class="radar-tick" x="4" y="-49">3</text>
                         <text class="radar-tick" x="4" y="-33">2</text>
