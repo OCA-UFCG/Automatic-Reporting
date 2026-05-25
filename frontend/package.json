@@ -7,6 +7,7 @@
     "dev": "vite",
     "start": "vite",
     "build": "vite build",
+    "render:report": "node scripts/render-report-html.mjs",
     "preview": "vite preview",
     "lint": "eslint . --ext js,jsx --max-warnings 0"
   },
