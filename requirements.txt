@@ -1,6 +1,7 @@
 pandas
 uvicorn
 fastapi
+httpx
 matplotlib
 weasyprint
 dotenv

@@ -240,7 +240,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
     docs_html = "\n".join(docs_html_parts)
 
     # React SSR rendering
-    html_content = render_react_ssr({
+    html_content = await render_react_ssr({
         "cover": cover,
         "docsHtml": docs_html,
         "dados": linhas,

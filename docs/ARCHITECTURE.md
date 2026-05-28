@@ -55,8 +55,9 @@ Cada camada tem uma responsabilidade única: Python processa dados, React render
 │     ├── gera <p>, <ul>, <h1>, <h2>, figure-caption                 │
 │     └── output: string HTML pronta pra injetar no template         │
 │                                                                      │
-│  7. Chama React SSR (subprocess node) ────────────────────────┐    │
-│     └── utils/ssr.py — render_react_ssr(props)                │    │
+│  7. Chama React SSR (HTTP POST p/ servidor persistente) ─────┐    │
+│     └── utils/ssr.py — render_react_ssr(props)               │    │
+│                          │ httpx.post("http://127.0.0.1:3001")│    │
 │                                                                      │
 │  8. WeasyPrint converte HTML → PDF                                  │
 │     └── HTML(string=..., base_url=...).write_pdf(...)               │
@@ -201,21 +202,20 @@ O Python monta um dicionário e passa como `props` pro React SSR:
 ## Pipeline de build
 
 ```bash
-# 1. Frontend (SPA do browser)
-cd frontend
+# 1. Instalar todas as dependências (monorepo — React instalado uma vez)
 npm install
-npm run build          # → frontend/dist/
 
-# 2. SSR (renderização de PDF)
-cd ../report
-npm install
-npm run build          # → report/ssr-dist/
+# 2. Build frontend (SPA do browser)
+npm run build -w frontend     # → frontend/dist/
 
-# 3. Python (dependências)
-cd ..
+# 3. Build SSR (renderização de PDF)
+npm run build -w report       # → report/ssr-dist/
+
+# 4. Python (dependências)
 pip install -r requirements.txt
 
-# 4. Rodar
+# 5. Rodar
+node report/ssr-dist/server.js &   # Servidor SSR persistente (porta 3001)
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
@@ -226,10 +226,11 @@ docker build -t automatic-reporting .
 docker run -p 8000:8000 automatic-reporting
 ```
 
-O Dockerfile tem 3 estágios:
-1. `frontend-build` — compila a SPA React
-2. `ssr-build` — compila o bundle SSR
-3. `runtime` — Python + Node.js + WeasyPrint (copia os builds dos estágios 1 e 2)
+O Dockerfile tem 4 estágios:
+1. `deps` — instala dependências JS (monorepo, uma única `node_modules`)
+2. `frontend-build` — compila a SPA React
+3. `ssr-build` — compila o bundle SSR (entry + server)
+4. `runtime` — Python + Node.js + WeasyPrint (rota o servidor SSR em background)
 
 ---
 
@@ -249,32 +250,31 @@ O Dockerfile tem 3 estágios:
 
 | Aspecto | Impacto |
 |---|---|
-| **Build extra** | Precisa rodar `npm run build` no `report/` (antes não tinha build step) |
-| **Subprocess** | Cada requisição spawna um Node.js (latência maior que Jinja in-process) |
-| **Duas instalações** | `frontend/` e `report/` têm package.json separados com React duplicado |
+| **Build extra** | Precisa rodar `npm run build -w report` (antes não tinha build step) |
 | **Curva** | Jinja é só HTML + tags; React JSX exige conhecimento do ecossistema |
+| **Dois runtimes** | Python + Node.js rodando lado a lado (mais processos que antes só Python) |
 
 ---
 
 ## Sugestões de melhoria
 
-### 1. Servidor Node persistente (elimina subprocess)
-Em vez de `subprocess.run(["node", ...])` a cada requisição, sobe um servidor Node que escuta numa porta. Python manda as props via HTTP ou stdin persistente.
+### ~~1. Servidor Node persistente~~ ✅ Implementado
+`report/src/ssr-server.jsx` roda um servidor HTTP que mantém o React carregado em memória. Python faz POST em vez de subprocess.
 
 ```
-Antes:  subprocess.run → 200ms cada requisição
-Depois: HTTP POST → 5ms cada requisição
+Antes:  subprocess.run → ~200ms cada requisição
+Depois: HTTP POST → ~5ms cada requisição
 ```
 
-### 2. Monorepo com npm workspaces
-Unificar `frontend/` e `report/` num workspace só. React e react-dom compartilhados, um `package.json` na raiz.
+### ~~2. Monorepo com npm workspaces~~ ✅ Implementado
+`package.json` na raiz com `workspaces: ["frontend", "report"]`. React e react-dom instalados uma vez só em `/node_modules`.
 
 ```
 /
 ├── package.json         # workspaces: ["frontend", "report"]
 ├── frontend/
 ├── report/
-└── node_modules/        # compartilhado
+└── node_modules/        # único, compartilhado
 ```
 
 ### 3. CSS Modules ou Tailwind

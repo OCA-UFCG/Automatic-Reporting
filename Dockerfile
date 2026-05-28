@@ -1,30 +1,30 @@
-### Build frontend (Vite client)
-FROM node:18-alpine AS frontend-build
+### Stage 1: Install all JS dependencies (monorepo workspaces)
+FROM node:18-alpine AS deps
 
-WORKDIR /app/frontend
+WORKDIR /app
 
-RUN corepack enable
+COPY package.json ./
+COPY frontend/package.json ./frontend/
+COPY report/package.json ./report/
 
-COPY frontend/package.json frontend/yarn.lock ./
-RUN yarn install --frozen-lockfile
-
-COPY frontend/ ./
-RUN yarn build
-
-
-### Build SSR bundle (React report components)
-FROM node:18-alpine AS ssr-build
-
-WORKDIR /app/report
-
-COPY report/package.json ./
 RUN npm install
 
-COPY report/ ./
-RUN npm run build
+
+### Stage 2: Build frontend SPA
+FROM deps AS frontend-build
+
+COPY frontend/ ./frontend/
+RUN npm run build -w frontend
 
 
-### Runtime (FastAPI + built frontend + SSR)
+### Stage 3: Build SSR bundle
+FROM deps AS ssr-build
+
+COPY report/ ./report/
+RUN npm run build -w report
+
+
+### Stage 4: Runtime (FastAPI + Node SSR server)
 FROM node:18-slim AS runtime
 
 ARG DEMOGRAFIA_CSV_URL
@@ -77,16 +77,15 @@ RUN apt-get update \
 COPY requirements.txt ./
 RUN pip3 install --no-cache-dir -r requirements.txt
 
-# Copy API source
+# Copy all source code
 COPY . ./
 
-# Copy built frontend client
+# Copy built assets from previous stages
+COPY --from=deps /app/node_modules ./node_modules
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
-
-# Copy SSR bundle + node_modules
 COPY --from=ssr-build /app/report/ssr-dist ./report/ssr-dist
-COPY --from=ssr-build /app/report/node_modules ./report/node_modules
 
 EXPOSE 8000
 
-CMD ["python3", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start both SSR server (background) and FastAPI
+CMD sh -c "node report/ssr-dist/server.js & python3 -m uvicorn main:app --host 0.0.0.0 --port 8000"
