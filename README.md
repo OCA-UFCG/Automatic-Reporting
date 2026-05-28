@@ -30,6 +30,12 @@ pip install -r requirements.txt
 
 ## Como executar a API
 
+Antes de gerar relatorios com mapa, baixe as malhas cartograficas:
+
+```bash
+python scripts/download_map_shapes.py --url "https://github.com/OCA-UFCG/Automatic-Reporting/releases/tag/map-shapes-2025"
+```
+
 ```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```

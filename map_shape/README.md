@@ -21,3 +21,25 @@ map_shape/
 ```
 
 Fonte: IBGE, Malha Municipal Digital.
+
+## Baixar de uma GitHub Release
+
+Crie uma release no GitHub do repositorio, anexe um `.zip` com as pastas `BR_Municipios_2025/` e `BR_UF_2025/`, e rode:
+
+```bash
+python scripts/download_map_shapes.py --url "https://github.com/OCA-UFCG/Automatic-Reporting/releases/tag/map-shapes-2025"
+```
+
+Se a release tiver mais de um asset, informe o nome do arquivo:
+
+```bash
+python scripts/download_map_shapes.py \
+  --url "https://github.com/OCA-UFCG/Automatic-Reporting/releases/tag/map-shapes-2025" \
+  --asset-name "map-shapes-2025.zip"
+```
+
+Tambem funciona com URL direta para o `.zip`:
+
+```bash
+python scripts/download_map_shapes.py --url "https://github.com/OCA-UFCG/Automatic-Reporting/releases/download/map-shapes-2025/map-shapes-2025.zip"
+```
