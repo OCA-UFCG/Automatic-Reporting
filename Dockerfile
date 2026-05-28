@@ -1,11 +1,7 @@
-### Build frontend (Vite)
+### Build frontend (Vite client)
 FROM node:18-alpine AS frontend-build
 
 WORKDIR /app/frontend
-
-# ARG VITE_API_BASE_URL
-
-# ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
 RUN corepack enable
 
@@ -13,13 +9,23 @@ COPY frontend/package.json frontend/yarn.lock ./
 RUN yarn install --frozen-lockfile
 
 COPY frontend/ ./
-
-# Build static assets
 RUN yarn build
 
 
-### Runtime (FastAPI + built frontend)
-FROM python:3.11-slim AS runtime
+### Build SSR bundle (React report components)
+FROM node:18-alpine AS ssr-build
+
+WORKDIR /app/report
+
+COPY report/package.json ./
+RUN npm install
+
+COPY report/ ./
+RUN npm run build
+
+
+### Runtime (FastAPI + built frontend + SSR)
+FROM node:18-slim AS runtime
 
 ARG DEMOGRAFIA_CSV_URL
 ARG EDUCACAO_CSV_URL
@@ -54,6 +60,8 @@ WORKDIR /app
 # System deps for weasyprint + matplotlib
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+        python3 \
+        python3-pip \
         libcairo2 \
         libpango-1.0-0 \
         libpangocairo-1.0-0 \
@@ -67,15 +75,18 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy API source
 COPY . ./
 
-# Copy built frontend into expected location
+# Copy built frontend client
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
+
+# Copy SSR bundle + node_modules
+COPY --from=ssr-build /app/report/ssr-dist ./report/ssr-dist
+COPY --from=ssr-build /app/report/node_modules ./report/node_modules
 
 EXPOSE 8000
 
-# Uvicorn is pulled in via requirements.txt
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python3", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

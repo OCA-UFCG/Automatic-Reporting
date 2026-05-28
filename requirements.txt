@@ -1,5 +1,4 @@
 pandas
-jinja2
 uvicorn
 fastapi
 matplotlib
