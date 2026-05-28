@@ -166,25 +166,26 @@ function App() {
                   <th>Data</th>
                   <th>Hora</th>
                   <th>Download</th>
+                  <th>Mapas</th>
                   <th>Lixeira</th>
                 </tr>
               </thead>
               <tbody>
                 {reportsLoading && (
                   <tr>
-                    <td colSpan="6">Carregando relatórios...</td>
+                    <td colSpan="7">Carregando relatórios...</td>
                   </tr>
                 )}
 
                 {reportsError && !reportsLoading && (
                   <tr>
-                    <td colSpan="6" className="error">{reportsError}</td>
+                    <td colSpan="7" className="error">{reportsError}</td>
                   </tr>
                 )}
 
                 {!reportsLoading && !reportsError && reports.length === 0 && (
                   <tr>
-                    <td colSpan="6">Nenhum relatório gerado ainda.</td>
+                    <td colSpan="7">Nenhum relatório gerado ainda.</td>
                   </tr>
                 )}
 
@@ -198,6 +199,19 @@ function App() {
                       <a className="report-button report-download-button" href={`${API_BASE}${report.pdf_url}`} download>
                         Download PDF
                       </a>
+                    </td>
+                    <td>
+                      {report.mapa_url ? (
+                        <a
+                          className="report-button report-download-button map-download-button"
+                          href={`${API_BASE}${report.mapa_url}`}
+                          download={report.arquivo_mapa || true}
+                        >
+                          Baixar mapa
+                        </a>
+                      ) : (
+                        <span className="report-unavailable">Sem mapa</span>
+                      )}
                     </td>
                     <td>
                       <button
