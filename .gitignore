@@ -12,3 +12,4 @@ frontend/dist/
 node_modules/
 map_shape/*
 !map_shape/README.md
+  
