@@ -1368,7 +1368,7 @@ def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
     return render_mapa_geografico(contexto)
 
 
-def render_descricao_tema_html(descricao_tema: str, contexto: dict, safe_report: str | None = None) -> list[str]:
+def render_descricao_tema_html(descricao_tema: str, contexto: dict, namespace: str = "demografia", safe_report: str | None = None) -> list[str]:
     partes = []
     for paragrafo in re.split(r"\n\s*\n", descricao_tema):
         paragrafo = paragrafo.strip()
@@ -1378,6 +1378,7 @@ def render_descricao_tema_html(descricao_tema: str, contexto: dict, safe_report:
         if paragrafo.lstrip("\ufeff").strip().lower() in {"*mapa_geografico", "mapa_geografico"}:
             partes.append(render_mapa_marker(contexto, safe_report))
         else:
+            paragrafo = substituir_placeholders(paragrafo, contexto, namespace)
             partes.append(
                 f'<p class="theme-detail-text">{html_module.escape(paragrafo)}</p>'
             )
@@ -1414,16 +1415,9 @@ def render_section_heading(secao: dict[str, object]) -> str:
     )
 
 
-def texto_para_html(
-    texto: str,
-    contexto: dict,
-    namespace: str = "demografia",
-    graficos_por_placeholder: dict[str, str] | None = None,
-    componentes_html: dict[str, str] | None = None,
-    safe_report: str | None = None,
-) -> str:
+def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demografia") -> str:
 
-    def substituir_placeholder_dolar(match: re.Match) -> str:
+    def _substituir_dolar(match: re.Match) -> str:
         placeholder_namespace = match.group(1).lower()
         campo = match.group(2)
 
@@ -1450,6 +1444,35 @@ def texto_para_html(
         "hora_geracao": contexto.get("hora_relatorio", ""),
     }
 
+    resultado = texto
+
+    resultado = re.sub(
+        r"\$([A-Za-z_][\w]*)\.([A-Za-z_][\w]*)",
+        _substituir_dolar,
+        resultado,
+    )
+
+    for alias, valor in alias_map.items():
+        resultado = resultado.replace(f"${alias}", str(valor))
+
+    resultado = re.sub(
+        r'\{\{\s*(\w+)\s*\}\}',
+        lambda m: str(contexto.get(m.group(1), m.group(0))),
+        resultado,
+    )
+
+    return resultado
+
+
+def texto_para_html(
+    texto: str,
+    contexto: dict,
+    namespace: str = "demografia",
+    graficos_por_placeholder: dict[str, str] | None = None,
+    componentes_html: dict[str, str] | None = None,
+    safe_report: str | None = None,
+) -> str:
+
     LEGENDAS_GRAFICOS = {
         "grafico_sexo": "População por sexo",
         "grafico_porte": "Distribuição por porte",
@@ -1459,25 +1482,7 @@ def texto_para_html(
     graficos_por_placeholder = graficos_por_placeholder or {}
     componentes_html = componentes_html or {}
 
-    texto_normalizado = texto
-
-    texto_normalizado = re.sub(
-        r"\$([A-Za-z_][\w]*)\.([A-Za-z_][\w]*)",
-        substituir_placeholder_dolar,
-        texto_normalizado,
-    )
-
-    for alias, valor in alias_map.items():
-        texto_normalizado = texto_normalizado.replace(
-            f"${alias}",
-            str(valor),
-        )
-
-    texto_renderizado = re.sub(
-        r'\{\{\s*(\w+)\s*\}\}',
-        lambda m: str(contexto.get(m.group(1), m.group(0))),
-        texto_normalizado,
-    )
+    texto_renderizado = substituir_placeholders(texto, contexto, namespace)
 
     linhas = [linha.rstrip() for linha in texto_renderizado.splitlines()]
 

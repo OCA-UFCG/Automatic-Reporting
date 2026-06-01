@@ -10,7 +10,7 @@ from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS
 from utils.cities import filtrar_linhas_por_cidade
 from utils.docs import carregar_texto_do_docs, extrair_descricao_tema, extrair_resumo_tema
 from utils.cover import montar_capa_relatorio
-from utils.renderer import render_descricao_tema_html, texto_para_html
+from utils.renderer import render_descricao_tema_html, substituir_placeholders, texto_para_html
 from utils.ssr import render_react_ssr
 from plotting import gerar_grafico_sexo
 from plotting import gerar_grafico_porte
@@ -221,20 +221,27 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
 
         resumo_tema, docs_texto = extrair_resumo_tema(docs_texto)
         if resumo_tema and cover is not None and macrotema_slug == macrotema_slugs[0]:
-            cover["macrotema"]["resumo"] = resumo_tema
+            cover["macrotema"]["resumo"] = substituir_placeholders(
+                resumo_tema, linhas_macrotema[0], macrotema_slug
+            )
 
         descricao_tema, docs_texto = extrair_descricao_tema(docs_texto)
         if descricao_tema and cover is not None and macrotema_slug == macrotema_slugs[0]:
-            cover["macrotema"]["descricao"] = descricao_tema
+            cover["macrotema"]["descricao"] = substituir_placeholders(
+                descricao_tema, linhas_macrotema[0], macrotema_slug
+            )
             cover["macrotema"]["descricao_paragrafos"] = [
-                paragrafo.strip()
+                substituir_placeholders(
+                    paragrafo.strip(), linhas_macrotema[0], macrotema_slug
+                )
                 for paragrafo in re.split(r"\n\s*\n", descricao_tema)
                 if paragrafo.strip()
             ]
             cover["macrotema"]["descricao_html"] = render_descricao_tema_html(
                 descricao_tema,
                 linhas_macrotema[0],
-                safe_report,
+                namespace=macrotema_slug,
+                safe_report=safe_report,
             )
 
         docs_html_parts.append(
