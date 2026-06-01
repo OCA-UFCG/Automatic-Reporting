@@ -49,6 +49,9 @@ li { margin-bottom: 6px; }
 .chart-block img { display: block; max-width: 78%; height: auto; margin: 0 auto; }
 .figure-caption { margin: 8px auto 16px; max-width: 76%; color: #333; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.35; text-align: center; }
 .map-block { width: 100%; max-width: 420px; margin: 16px auto 22px; break-inside: avoid; text-align: center; overflow: hidden; border: 1px solid #b9b9b9; background: #f7f7f7; padding: 6px 6px 4px; }
+.map-block--region { max-width: 760px; margin: 18px 0 20px; border: 0; background: transparent; padding: 0; text-align: left; }
+.region-map-title { margin: 0 0 12px; color: #006b3f; font-family: Arial, sans-serif; font-size: 17px; font-weight: 400; line-height: 1.2; }
+.region-map-image { display: block; width: 100%; height: auto; }
 .map-title { color: #111; font-family: Arial, sans-serif; font-size: 12px; line-height: 1.2; margin: 0 0 4px; text-align: center; }
 .map-frame { width: 100%; aspect-ratio: 220 / 194; height: auto; border: 1px solid #c8d6dd; box-sizing: border-box; overflow: hidden; background: #bfe3f1; position: relative; }
 .locator-map { display: block; width: 100%; height: 100%; object-fit: contain; }

@@ -3,5 +3,6 @@ uvicorn
 fastapi
 httpx
 matplotlib
+geopandas
 weasyprint
 dotenv
