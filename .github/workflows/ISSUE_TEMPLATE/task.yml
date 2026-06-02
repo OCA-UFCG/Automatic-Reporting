@@ -26,17 +26,17 @@ body:
         - API Documentation: https://...
         - Design Mockup: https://...
 
-  - type: checkboxes
+  - type: textarea
     id: acceptance_criteria
     attributes:
       label: Acceptance Criteria
-      description: The task will be considered complete when all criteria are satisfied.
-      options:
-        - label: Functionality is implemented as specified.
-        - label: Code follows project standards and conventions.
-        - label: Unit and/or integration tests have been added or updated.
-        - label: Documentation has been updated if necessary.
-        - label: Changes have been reviewed and validated.
+      description: Define the acceptance criteria for this task.
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+        - [ ] Criterion 3
+    validations:
+      required: true
 
   - type: textarea
     id: notes
