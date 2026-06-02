@@ -5,7 +5,8 @@ from fastapi import HTTPException
 from fastapi.responses import HTMLResponse
 from weasyprint import HTML
 
-from config import OUTPUT_DIR, resolve_csv_source, require_config_value
+import re
+from config import BASE_DIR, OUTPUT_DIR, resolve_csv_source, require_config_value
 from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
 from utils.cities import filtrar_linhas_por_cidade
 from utils.docs import carregar_texto_do_docs, extrair_descricao_tema, extrair_resumo_tema
@@ -269,7 +270,9 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
     output_file.write_text(html_content, encoding="utf-8")
 
     # Gerar PDF usando WeasyPrint
+    # Remove o prefixo /output/ para WeasyPrint resolver relativo ao OUTPUT_DIR
+    pdf_html = re.sub(r'src="/output/', 'src="', html_content)
     pdf_file = OUTPUT_DIR / f"relatorio_{safe_report}.pdf"
-    HTML(string=html_content, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
+    HTML(string=pdf_html, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
 
     return HTMLResponse(content=html_content)

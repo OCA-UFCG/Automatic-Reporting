@@ -38,6 +38,27 @@ export function PdfPageHeaderBrand() {
   );
 }
 
+export function PdfCoverBrand() {
+  return (
+    <div className="pdf-cover-brand" aria-label="Data Nordeste">
+      <svg viewBox="0 0 130 44" role="img" aria-label="Data Nordeste">
+        <rect x="0" y="0" width="130" height="44" fill="none" />
+        <rect x="2" y="6" width="7" height="7" fill="#BCD441" rx="1" />
+        <rect x="11" y="6" width="7" height="7" fill="#009046" rx="1" />
+        <rect x="20" y="6" width="7" height="7" fill="#D6528E" rx="1" />
+        <rect x="2" y="15" width="7" height="7" fill="#35B9CF" rx="1" />
+        <rect x="11" y="15" width="7" height="7" fill="#211F5F" rx="1" />
+        <rect x="20" y="15" width="7" height="7" fill="#CA962B" rx="1" />
+        <rect x="2" y="24" width="7" height="7" fill="#EF424C" rx="1" />
+        <rect x="11" y="24" width="7" height="7" fill="#F99A3A" rx="1" />
+        <rect x="20" y="24" width="7" height="7" fill="#FDDA57" rx="1" />
+        <text x="32" y="22" fill="#009046" fontFamily="Arial, sans-serif" fontSize="20" fontWeight="900">DNE</text>
+        <text x="2" y="38" fill="#514C50" fontFamily="Arial, sans-serif" fontSize="5" fontWeight="700" letterSpacing="0.5">DATA NORDESTE</text>
+      </svg>
+    </div>
+  );
+}
+
 export function MetricIcon() {
   return (
     <svg className="metric-icon" viewBox="0 0 24 24" aria-hidden="true">

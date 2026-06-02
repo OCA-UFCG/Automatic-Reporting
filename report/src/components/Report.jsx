@@ -1,6 +1,6 @@
 import React from 'react';
 import { pdfStyles } from '../styles.js';
-import Cover from './Cover.jsx';
+import Cover from './cover/Cover.jsx';
 import ThemeDetail from './ThemeDetail.jsx';
 import { PdfPageHeader, PdfFooter } from './PdfLayout.jsx';
 
