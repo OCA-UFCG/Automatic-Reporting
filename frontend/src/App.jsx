@@ -37,6 +37,7 @@ function App() {
           throw new Error("Falha ao carregar cidades");
         }
         const data = await response.json();
+        console.log('cidades', data);
         setCities(Array.isArray(data) ? data : []);
       } catch (err) {
         setError(err.message || "Erro ao carregar cidades");
