@@ -1,0 +1,46 @@
+name: Task
+description: Create a new task
+title: "[TASK] "
+labels: ["task"]
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Task Description
+      description: Describe the task and its purpose.
+      placeholder: |
+        Example:
+        Implement user authentication using JWT.
+        The system must validate credentials and return an access token.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Provide any relevant information, references, links, or technical details.
+      placeholder: |
+        - Related User Story: #123
+        - API Documentation: https://...
+        - Design Mockup: https://...
+
+  - type: checkboxes
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria
+      description: The task will be considered complete when all criteria are satisfied.
+      options:
+        - label: Functionality is implemented as specified.
+        - label: Code follows project standards and conventions.
+        - label: Unit and/or integration tests have been added or updated.
+        - label: Documentation has been updated if necessary.
+        - label: Changes have been reviewed and validated.
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Any additional observations or implementation details.
+      placeholder: Add any relevant notes here...
