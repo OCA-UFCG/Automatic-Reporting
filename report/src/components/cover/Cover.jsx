@@ -30,9 +30,12 @@ export default function Cover({ cover }) {
         </div>
         {hasMaps && (
           <div className="cover-maps">
-            {cover.macrotema.descricao_html.map((item, idx) => (
-              <div key={idx} dangerouslySetInnerHTML={{ __html: item }} />
-            ))}
+            {cover.macrotema.descricao_html
+              .filter(item => typeof item === 'string' && item.startsWith('<figure'))
+              .slice(0, 2)
+              .map((item, idx) => (
+                <div key={idx} dangerouslySetInnerHTML={{ __html: item }} />
+              ))}
           </div>
         )}
         <MacrothemeCard macrotema={cover.macrotema} />

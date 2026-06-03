@@ -13,6 +13,9 @@ export default function ThemeDetail({ macrotema }) {
       </div>
       <h2 className="theme-detail-title">Detalhamento do tema</h2>
       {items.map((item, idx) => {
+        if (typeof item === 'string' && item.startsWith('<figure')) {
+          return null;
+        }
         if (macrotema.descricao_html) {
           return <div key={idx} dangerouslySetInnerHTML={{ __html: item }} />;
         }

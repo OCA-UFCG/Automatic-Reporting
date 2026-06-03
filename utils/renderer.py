@@ -37,11 +37,15 @@ TEMPLATE_STRING = """
                 padding-top: 4mm;
             }
         }
+        html {
+            overflow-x: hidden;
+        }
         body {
             font-family: Georgia, "Times New Roman", serif;
-            max-width: 920px;
+            max-width: 100%;
             margin:0 auto 2px;
             padding: 0 24px;
+            overflow-x: hidden;
             line-height: 1.48;
             font-size: 16px;
             color: #222;
@@ -1370,13 +1374,16 @@ def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
 
 def render_descricao_tema_html(descricao_tema: str, contexto: dict, namespace: str = "demografia", safe_report: str | None = None) -> list[str]:
     partes = []
+    map_count = 0
     for paragrafo in re.split(r"\n\s*\n", descricao_tema):
         paragrafo = paragrafo.strip()
         if not paragrafo:
             continue
 
         if paragrafo.lstrip("\ufeff").strip().lower() in {"*mapa_geografico", "mapa_geografico"}:
-            partes.append(render_mapa_marker(contexto, safe_report))
+            if map_count < 2:
+                partes.append(render_mapa_marker(contexto, safe_report))
+                map_count += 1
         else:
             paragrafo = substituir_placeholders(paragrafo, contexto, namespace)
             partes.append(
@@ -1525,8 +1532,6 @@ def texto_para_html(
             if em_lista:
                 html_lines.append("</ul>")
                 em_lista = False
-
-            html_lines.append(render_mapa_marker(contexto, safe_report))
 
             continue
 

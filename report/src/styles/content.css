@@ -1,10 +1,13 @@
 
-
+html {
+  overflow-x: hidden;
+}
 body {
   font-family: var(--font-serif);
-  max-width: 920px;
+  max-width: 100%;
   margin: 0 auto 2px;
   padding: 0 24px;
+  overflow-x: hidden;
   line-height: 1.48;
   font-size: 16px;
   color: #222;
