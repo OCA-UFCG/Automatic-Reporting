@@ -11,7 +11,7 @@ from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS
 from utils.cities import filtrar_linhas_por_cidade
 from utils.docs import carregar_texto_do_docs, extrair_descricao_tema, extrair_resumo_tema
 from utils.cover import montar_capa_relatorio
-from utils.renderer import texto_para_html, TEMPLATE_STRING
+from utils.renderer import render_descricao_tema_html, texto_para_html, TEMPLATE_STRING
 from plotting import gerar_grafico_sexo
 from plotting import gerar_grafico_porte
 from plotting import gerar_grafico_top_cidades
@@ -72,11 +72,12 @@ async def listar_relatorios_handler():
     for pdf_file in OUTPUT_DIR.glob("relatorio_*.pdf"):
         nome_base = pdf_file.stem
         html_file = OUTPUT_DIR / f"{nome_base}.html"
+        slug_completo = nome_base.replace("relatorio_", "", 1)
+        mapa_file = OUTPUT_DIR / f"mapa_regiao_{slug_completo}.png"
 
         stat = pdf_file.stat()
         criado_em = datetime.fromtimestamp(stat.st_mtime)
 
-        slug_completo = nome_base.replace("relatorio_", "", 1)
         macrotema = "Demografia"
         if "__" in slug_completo:
             primeira_parte, restante = slug_completo.split("__", 1)
@@ -98,10 +99,12 @@ async def listar_relatorios_handler():
             "macrotema": macrotema,
             "arquivo_pdf": pdf_file.name,
             "arquivo_html": html_file.name if html_file.exists() else None,
+            "arquivo_mapa": mapa_file.name if mapa_file.exists() else None,
             "data": criado_em.strftime("%d/%m/%Y"),
             "hora": criado_em.strftime("%H:%M:%S"),
             "pdf_url": f"/output/{pdf_file.name}",
             "html_url": f"/output/{html_file.name}" if html_file.exists() else None,
+            "mapa_url": f"/output/{mapa_file.name}" if mapa_file.exists() else None,
         })
 
     relatorios.sort(
@@ -132,6 +135,7 @@ async def apagar_relatorio_handler(arquivo_pdf: str):
         OUTPUT_DIR / f"grafico_sexo_{sufixo_relatorio}.png",
         OUTPUT_DIR / f"grafico_porte_{sufixo_relatorio}.png",
         OUTPUT_DIR / f"grafico_top_{sufixo_relatorio}.png",
+        OUTPUT_DIR / f"mapa_regiao_{sufixo_relatorio}.png",
     ]
 
     removidos = []
@@ -227,6 +231,11 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
                 for paragrafo in re.split(r"\n\s*\n", descricao_tema)
                 if paragrafo.strip()
             ]
+            cover["macrotema"]["descricao_html"] = render_descricao_tema_html(
+                descricao_tema,
+                linhas_macrotema[0],
+                safe_report,
+            )
 
         docs_html_parts.append(
             texto_para_html(
@@ -234,6 +243,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
                 linhas_macrotema[0],
                 namespace=macrotema_slug,
                 graficos_por_placeholder=graficos_por_placeholder,
+                safe_report=safe_report,
             )
         )
 

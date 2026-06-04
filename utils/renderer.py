@@ -3,6 +3,7 @@ import html as html_module  #renomeado para evitar conflito com a variável loca
 from jinja2 import Environment
 
 from utils.macrotemas import MACROTEMA_SECOES
+from utils.maps import gerar_mapa_regiao, render_mapa_geografico
 from utils.tables import render_tabela_resumo
 
 
@@ -149,6 +150,27 @@ TEMPLATE_STRING = """
             border: 1px solid #b9b9b9;
             background: #f7f7f7;
             padding: 6px 6px 4px;
+        }
+        .map-block--region {
+            max-width: 760px;
+            margin: 18px 0 20px;
+            border: 0;
+            background: transparent;
+            padding: 0;
+            text-align: left;
+        }
+        .region-map-title {
+            margin: 0 0 12px;
+            color: #006b3f;
+            font-family: Arial, sans-serif;
+            font-size: 17px;
+            font-weight: 400;
+            line-height: 1.2;
+        }
+        .region-map-image {
+            display: block;
+            width: 100%;
+            height: auto;
         }
         .map-title {
             color: #111;
@@ -1308,8 +1330,8 @@ TEMPLATE_STRING = """
         </div>
     </div>
     <h2 class="theme-detail-title">Detalhamento do tema</h2>
-    {% for paragrafo in cover.macrotema.descricao_paragrafos %}
-    <p class="theme-detail-text">{{ paragrafo }}</p>
+    {% for paragrafo_html in cover.macrotema.descricao_html %}
+    {{ paragrafo_html | safe }}
     {% endfor %}
 </section>
 {% endif %}
@@ -1331,6 +1353,38 @@ def render_chart_placeholder(chart_file: str) -> str:
         f'<img src="/output/{html_module.escape(chart_file)}" alt="Gráfico">'
         '</div>'
     )
+
+
+def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
+    mapa_file = gerar_mapa_regiao(contexto.get("nm_mun", ""), safe_report or "relatorio")
+    if mapa_file:
+        cidade_segura = html_module.escape(str(contexto.get("nm_mun", "município")))
+        return (
+            '<figure class="map-block map-block--region">'
+            '<h2 class="region-map-title">Mapa da região</h2>'
+            f'<img class="region-map-image" src="/output/{html_module.escape(mapa_file)}" '
+            f'alt="Mapa da região de {cidade_segura}">'
+            '</figure>'
+        )
+
+    return render_mapa_geografico(contexto)
+
+
+def render_descricao_tema_html(descricao_tema: str, contexto: dict, safe_report: str | None = None) -> list[str]:
+    partes = []
+    for paragrafo in re.split(r"\n\s*\n", descricao_tema):
+        paragrafo = paragrafo.strip()
+        if not paragrafo:
+            continue
+
+        if paragrafo.lstrip("\ufeff").strip().lower() in {"*mapa_geografico", "mapa_geografico"}:
+            partes.append(render_mapa_marker(contexto, safe_report))
+        else:
+            partes.append(
+                f'<p class="theme-detail-text">{html_module.escape(paragrafo)}</p>'
+            )
+
+    return partes
 
 
 def normalizar_titulo_para_match(texto: str) -> str:
@@ -1368,6 +1422,7 @@ def texto_para_html(
     namespace: str = "demografia",
     graficos_por_placeholder: dict[str, str] | None = None,
     componentes_html: dict[str, str] | None = None,
+    safe_report: str | None = None,
 ) -> str:
 
     def substituir_placeholder_dolar(match: re.Match) -> str:
@@ -1465,6 +1520,8 @@ def texto_para_html(
             if em_lista:
                 html_lines.append("</ul>")
                 em_lista = False
+
+            html_lines.append(render_mapa_marker(contexto, safe_report))
 
             continue
 

@@ -52,6 +52,8 @@ jobs:
                   ECONOMIA_RENDA_DOCS_URL=${{ secrets.ECONOMIA_RENDA_DOCS_URL }}
                   SANEAMENTO_DOCS_URL=${{ secrets.SANEAMENTO_DOCS_URL }}
                   HIDRAULICA_DOCS_URL=${{ secrets.HIDRAULICA_DOCS_URL }}
+                  MAP_SHAPE_ZIP_URL=${{ secrets.MAP_SHAPE_ZIP_URL }}
+                  MAP_SHAPE_ASSET_NAME=${{ secrets.MAP_SHAPE_ASSET_NAME }}
                   VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
     push-beta:
         needs: build-image

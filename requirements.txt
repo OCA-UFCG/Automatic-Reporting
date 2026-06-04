@@ -3,5 +3,6 @@ jinja2
 uvicorn
 fastapi
 matplotlib
+geopandas
 weasyprint
 dotenv
