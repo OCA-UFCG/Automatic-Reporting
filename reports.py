@@ -1,11 +1,11 @@
 import re
 import pandas as pd
 from datetime import datetime
-from fastapi import HTTPException
+from fastapi import BackgroundTasks, HTTPException
 from fastapi.responses import HTMLResponse
 from weasyprint import HTML
 
-from config import OUTPUT_DIR, resolve_csv_source, require_config_value
+from config import OUTPUT_DIR, BASE_DIR, resolve_csv_source, require_config_value
 from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
 from utils.cities import filtrar_linhas_por_cidade
 from utils.docs import carregar_texto_do_docs, extrair_descricao_tema, extrair_resumo_tema
@@ -15,6 +15,25 @@ from utils.ssr import render_react_ssr
 from plotting import gerar_grafico_sexo
 from plotting import gerar_grafico_porte
 from plotting import gerar_grafico_top_cidades
+
+
+_CSV_CACHE: dict[str, pd.DataFrame] = {}
+
+
+def _gerar_pdf(html_content: str, pdf_file: Path) -> None:
+    try:
+        HTML(string=html_content, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
+    except Exception:
+        pass
+
+
+def _carregar_csv(csv_source: str | Path) -> pd.DataFrame:
+    cache_key = str(csv_source)
+    if cache_key in _CSV_CACHE:
+        return _CSV_CACHE[cache_key].copy()
+    df = pd.read_csv(csv_source, delimiter=";")
+    _CSV_CACHE[cache_key] = df.copy()
+    return df
 
 
 CHART_TYPES = {
@@ -150,7 +169,7 @@ async def apagar_relatorio_handler(arquivo_pdf: str):
     return {"ok": True, "removidos": removidos}
 
 
-async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", charts: str = "all"):
+async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", charts: str = "all", *, background_tasks: BackgroundTasks):
     macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
     gerado_em = datetime.now()
     allowed = set(CHART_TYPES.keys())
@@ -173,7 +192,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
         macrotema_dados = get_macrotema(macrotema_slug)
         csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
         csv_source = resolve_csv_source(csv_url, csv_env)
-        df = pd.read_csv(csv_source, delimiter=";")
+        df = _carregar_csv(csv_source)
         df = normalizar_colunas_macrotema(df, macrotema_slug)
 
         try:
@@ -268,8 +287,9 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
     output_file = OUTPUT_DIR / f"relatorio_{safe_report}.html"
     output_file.write_text(html_content, encoding="utf-8")
 
-    # Gerar PDF usando WeasyPrint
+    # Gerar PDF em background
     pdf_file = OUTPUT_DIR / f"relatorio_{safe_report}.pdf"
-    HTML(string=html_content, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
+    if not pdf_file.exists():
+        background_tasks.add_task(_gerar_pdf, html_content, pdf_file)
 
     return HTMLResponse(content=html_content)
