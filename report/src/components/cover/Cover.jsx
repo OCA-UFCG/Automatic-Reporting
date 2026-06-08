@@ -38,8 +38,8 @@ export default function Cover({ cover }) {
               ))}
           </div>
         )}
-        <MacrothemeSummary macrotema={cover.macrotema} />
         <MacrothemeCard macrotema={cover.macrotema} />
+        <MacrothemeSummary macrotema={cover.macrotema} />
         <IndicatorScores macrotema={cover.macrotema} />
         <ScoreLegend />
       </div>
