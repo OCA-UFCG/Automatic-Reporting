@@ -1,5 +1,6 @@
 import html
 import json
+import logging
 import os
 import re
 import unicodedata
@@ -9,6 +10,7 @@ from urllib.request import Request, urlopen
 
 from config import BASE_DIR, OUTPUT_DIR
 
+logger = logging.getLogger(__name__)
 
 GEOCODING_CACHE_FILE = OUTPUT_DIR / "geocoding_cache.json"
 BRASIL_ESTADOS_SOURCE_ASSET = "brazil-states.svg"
@@ -336,10 +338,12 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
     try:
         municipios, ufs = carregar_malhas()
         municipio = localizar_municipio(nome_municipio)
-    except Exception:
+    except Exception as e:
+        logger.warning("Falha ao carregar malhas ou localizar município '%s': %s", nome_municipio, e)
         return None
 
     if municipio is None:
+        logger.warning("Município '%s' não encontrado nas malhas shapefile", nome_municipio)
         return None
 
     os.environ.setdefault("MPLCONFIGDIR", str(OUTPUT_DIR / "matplotlib-cache"))

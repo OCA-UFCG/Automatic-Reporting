@@ -1536,6 +1536,7 @@ def texto_para_html(
                 html_lines.append("</ul>")
                 em_lista = False
 
+            html_lines.append(render_mapa_marker(contexto, safe_report))
             continue
 
         # COMPONENTES

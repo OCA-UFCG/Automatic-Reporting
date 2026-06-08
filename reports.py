@@ -1,3 +1,4 @@
+import logging
 import re
 import pandas as pd
 from datetime import datetime
@@ -18,6 +19,8 @@ from plotting import gerar_grafico_porte
 from plotting import gerar_grafico_top_cidades
 
 
+logger = logging.getLogger(__name__)
+
 _CSV_CACHE: dict[str, pd.DataFrame] = {}
 
 
@@ -25,8 +28,8 @@ def _gerar_pdf(html_content: str, pdf_file: Path) -> None:
     try:
         pdf_html = re.sub(r'src="/output/', 'src="', html_content)
         HTML(string=pdf_html, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Falha ao gerar PDF %s: %s", pdf_file, e)
 
 
 def _carregar_csv(csv_source: str | Path) -> pd.DataFrame:
