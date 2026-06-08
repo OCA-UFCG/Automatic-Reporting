@@ -6,14 +6,13 @@ from fastapi.staticfiles import StaticFiles
 from config import BASE_DIR
 from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
 from utils.cities import carregar_cidades
-from utils.ssr import start_server as start_ssr_server, stop_server as stop_ssr_server
 from reports import (
     listar_relatorios_handler,
     apagar_relatorio_handler,
     gerar_relatorio_handler,
 )
 
-app = FastAPI(on_startup=[start_ssr_server], on_shutdown=[stop_ssr_server])
+app = FastAPI()
 
 app.mount("/output", StaticFiles(directory=str(BASE_DIR / "output")), name="output")
 

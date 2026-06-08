@@ -1,8 +1,7 @@
 pandas
+jinja2
 uvicorn
 fastapi
-httpx
 matplotlib
-geopandas
 weasyprint
 dotenv
