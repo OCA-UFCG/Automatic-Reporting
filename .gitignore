@@ -13,5 +13,4 @@ report/node_modules/
 *.lock
 .config
 /map_shape
-/frontend/map_shape
 .opencode
