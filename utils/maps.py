@@ -1,6 +1,8 @@
 import html
 import json
+import os
 import re
+import unicodedata
 from urllib.error import URLError, HTTPError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
@@ -13,6 +15,9 @@ BRASIL_ESTADOS_SOURCE_ASSET = "brazil-states.svg"
 BRASIL_ESTADOS_OUTPUT_ASSET = "brazil-states-regions.svg"
 BRASIL_ESTADOS_SOURCE = BASE_DIR / "assets" / BRASIL_ESTADOS_SOURCE_ASSET
 BRASIL_ESTADOS_OUTPUT = OUTPUT_DIR / BRASIL_ESTADOS_OUTPUT_ASSET
+MAP_SHAPE_DIR = BASE_DIR / "map_shape"
+MUNICIPIOS_SHAPE = MAP_SHAPE_DIR / "BR_Municipios_2025" / "BR_Municipios_2025.shp"
+UF_SHAPE = MAP_SHAPE_DIR / "BR_UF_2025" / "BR_UF_2025.shp"
 REGIAO_CORES_POR_CLASSE = {
     "fil4": "#079342",  # Norte
     "fil5": "#a55596",  # Centro-Oeste
@@ -20,6 +25,9 @@ REGIAO_CORES_POR_CLASSE = {
     "fil7": "#f0c70d",  # Sul
     "fil8": "#2e98cf",  # Nordeste
 }
+
+_MUNICIPIOS_GDF = None
+_UF_GDF = None
 REGIOES_LEGENDA = [
     ("Norte", "#079342"),
     ("Nordeste", "#2e98cf"),
@@ -27,6 +35,35 @@ REGIOES_LEGENDA = [
     ("Sudeste", "#d72b24"),
     ("Sul", "#f0c70d"),
 ]
+UF_NOMES = {
+    "AC": "Acre",
+    "AL": "Alagoas",
+    "AM": "Amazonas",
+    "AP": "Amapá",
+    "BA": "Bahia",
+    "CE": "Ceará",
+    "DF": "Distrito Federal",
+    "ES": "Espírito Santo",
+    "GO": "Goiás",
+    "MA": "Maranhão",
+    "MG": "Minas Gerais",
+    "MS": "Mato Grosso do Sul",
+    "MT": "Mato Grosso",
+    "PA": "Pará",
+    "PB": "Paraíba",
+    "PE": "Pernambuco",
+    "PI": "Piauí",
+    "PR": "Paraná",
+    "RJ": "Rio de Janeiro",
+    "RN": "Rio Grande do Norte",
+    "RO": "Rondônia",
+    "RR": "Roraima",
+    "RS": "Rio Grande do Sul",
+    "SC": "Santa Catarina",
+    "SE": "Sergipe",
+    "SP": "São Paulo",
+    "TO": "Tocantins",
+}
 
 BRASIL_BOUNDS = {
     "south": -34.0,
@@ -81,6 +118,346 @@ def separar_cidade_uf(nome_municipio: str) -> tuple[str, str]:
         cidade, uf = nome.rsplit("(", 1)
         return cidade.strip(), uf.rstrip(")").strip().upper()
     return nome, ""
+
+
+def normalizar_texto(valor: object) -> str:
+    texto = str(valor or "").strip().casefold()
+    texto = unicodedata.normalize("NFKD", texto)
+    return "".join(char for char in texto if not unicodedata.combining(char))
+
+
+def carregar_malhas():
+    global _MUNICIPIOS_GDF, _UF_GDF
+
+    if _MUNICIPIOS_GDF is None or _UF_GDF is None:
+        import geopandas as gpd
+
+        _MUNICIPIOS_GDF = gpd.read_file(MUNICIPIOS_SHAPE)
+        _UF_GDF = gpd.read_file(UF_SHAPE)
+
+    return _MUNICIPIOS_GDF, _UF_GDF
+
+
+def localizar_municipio(nome_municipio: str):
+    municipios, _ufs = carregar_malhas()
+    cidade, uf = separar_cidade_uf(nome_municipio)
+    cidade_normalizada = normalizar_texto(cidade)
+
+    filtro = municipios["NM_MUN"].map(normalizar_texto) == cidade_normalizada
+    if uf:
+        filtro = filtro & (municipios["SIGLA_UF"].astype(str).str.upper() == uf)
+
+    encontrados = municipios.loc[filtro]
+    if encontrados.empty:
+        return None
+
+    return encontrados.iloc[0]
+
+
+def expandir_bounds(bounds, fator: float = 0.12) -> tuple[float, float, float, float]:
+    minx, miny, maxx, maxy = bounds
+    largura = max(maxx - minx, 0.08)
+    altura = max(maxy - miny, 0.08)
+    return (
+        minx - largura * fator,
+        maxx + largura * fator,
+        miny - altura * fator,
+        maxy + altura * fator,
+    )
+
+
+def bounds_por_pontos_principais(gdf, alvo=None, fator: float = 0.08) -> tuple[float, float, float, float]:
+    pontos = gdf.geometry.representative_point()
+    minx = pontos.x.quantile(0.02)
+    maxx = pontos.x.quantile(0.98)
+    miny = pontos.y.quantile(0.02)
+    maxy = pontos.y.quantile(0.98)
+
+    if alvo is not None:
+        alvo_minx, alvo_miny, alvo_maxx, alvo_maxy = alvo.geometry.bounds
+        minx = min(minx, alvo_minx)
+        maxx = max(maxx, alvo_maxx)
+        miny = min(miny, alvo_miny)
+        maxy = max(maxy, alvo_maxy)
+
+    return expandir_bounds((minx, miny, maxx, maxy), fator)
+
+
+def ampliar_altura_bounds(bounds, proporcao_altura_largura: float = 1.25) -> tuple[float, float, float, float]:
+    minx, maxx, miny, maxy = bounds
+    largura = maxx - minx
+    altura = maxy - miny
+    altura_desejada = largura * proporcao_altura_largura
+
+    if altura >= altura_desejada:
+        return bounds
+
+    centro_y = (miny + maxy) / 2
+    return (minx, maxx, centro_y - altura_desejada / 2, centro_y + altura_desejada / 2)
+
+
+def configurar_eixo_mapa(ax, bounds=None) -> None:
+    ax.set_aspect("equal")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+    if bounds is not None:
+        minx, maxx, miny, maxy = bounds
+        ax.set_xlim(minx, maxx)
+        ax.set_ylim(miny, maxy)
+
+
+def formatar_grau_decimal(valor: float, eixo: str) -> str:
+    hemisferio = "W" if eixo == "lon" and valor < 0 else "E" if eixo == "lon" else "S" if valor < 0 else "N"
+    absoluto = abs(valor)
+    graus = int(absoluto)
+    minutos = int(round((absoluto - graus) * 60))
+    if minutos == 60:
+        graus += 1
+        minutos = 0
+    return f"{graus}°{minutos}'{hemisferio}"
+
+
+def ticks_intervalo(minimo: float, maximo: float, quantidade: int) -> list[float]:
+    if quantidade <= 1:
+        return [(minimo + maximo) / 2]
+    passo = (maximo - minimo) / (quantidade - 1)
+    return [minimo + passo * indice for indice in range(quantidade)]
+
+
+def aplicar_grade_coordenadas(ax, bounds, x_ticks=None, y_ticks=None, fontsize: float = 6.0) -> None:
+    minx, maxx, miny, maxy = bounds
+    x_ticks = x_ticks or ticks_intervalo(minx, maxx, 3)
+    y_ticks = y_ticks or ticks_intervalo(miny, maxy, 4)
+
+    ax.set_xticks(x_ticks)
+    ax.set_yticks(y_ticks)
+    ax.set_xticklabels([formatar_grau_decimal(tick, "lon") for tick in x_ticks], fontsize=fontsize)
+    ax.set_yticklabels([formatar_grau_decimal(tick, "lat") for tick in y_ticks], fontsize=fontsize, rotation=90, va="center")
+    ax.tick_params(
+        axis="x",
+        top=True,
+        labeltop=True,
+        bottom=True,
+        labelbottom=False,
+        length=2.5,
+        pad=1,
+        colors="#1f1f1f",
+    )
+    ax.tick_params(
+        axis="y",
+        right=True,
+        labelright=True,
+        left=True,
+        labelleft=False,
+        length=2.5,
+        pad=1,
+        colors="#1f1f1f",
+    )
+
+
+def desenhar_escala(ax, km_total: int, pos=(0.70, 0.055), largura_frac: float = 0.16, fontsize: float = 5.5) -> None:
+    x0, y0 = pos
+    x1 = x0 + largura_frac
+    x_mid = x0 + largura_frac / 2
+    ax.plot([x0, x1], [y0, y0], transform=ax.transAxes, color="#111", lw=0.9, clip_on=False)
+    for x in [x0, x_mid, x1]:
+        ax.plot([x, x], [y0, y0 - 0.018], transform=ax.transAxes, color="#111", lw=0.9, clip_on=False)
+    ax.text(x0, y0 + 0.012, "0", transform=ax.transAxes, ha="center", va="bottom", fontsize=fontsize, color="#111")
+    ax.text(x_mid, y0 + 0.012, f"{km_total // 2}", transform=ax.transAxes, ha="center", va="bottom", fontsize=fontsize, color="#111")
+    ax.text(x1 + 0.012, y0 + 0.012, f"{km_total} km", transform=ax.transAxes, ha="left", va="bottom", fontsize=fontsize, color="#111")
+
+
+def desenhar_nomes_ufs(ax, ufs, bounds, alvo_uf: str, fontsize: float = 7.0) -> None:
+    import matplotlib.patheffects as path_effects
+
+    minx, maxx, miny, maxy = bounds
+    visiveis = ufs.cx[minx:maxx, miny:maxy]
+    for _, estado in visiveis.iterrows():
+        sigla = str(estado["SIGLA_UF"]).upper()
+        ponto = estado.geometry.representative_point()
+        if not (minx <= ponto.x <= maxx and miny <= ponto.y <= maxy):
+            continue
+        margem_x = (maxx - minx) * 0.055
+        margem_y = (maxy - miny) * 0.055
+        texto_x = min(max(ponto.x, minx + margem_x), maxx - margem_x)
+        texto_y = min(max(ponto.y, miny + margem_y), maxy - margem_y)
+        ax.text(
+            texto_x,
+            texto_y,
+            sigla,
+            fontsize=fontsize,
+            color="white",
+            fontweight="bold",
+            ha="center",
+            va="center",
+            path_effects=[path_effects.withStroke(linewidth=1.2, foreground="#575757")],
+        )
+
+
+def anotar_municipios_vizinhos(ax, municipios, alvo, limite: int = 9) -> None:
+    municipios_metrico = municipios.to_crs(epsg=3857)
+    alvo_metrico = municipios.loc[[alvo.name]].to_crs(epsg=3857).iloc[0]
+    centro_alvo = alvo_metrico.geometry.representative_point()
+    municipios = municipios.copy()
+    municipios["_distancia"] = municipios_metrico.geometry.representative_point().distance(centro_alvo).values
+    vizinhos = municipios.sort_values("_distancia").head(limite)
+
+    for _, municipio in vizinhos.iterrows():
+        ponto = municipio.geometry.representative_point()
+        ax.text(
+            ponto.x,
+            ponto.y,
+            str(municipio["NM_MUN"]),
+            fontsize=4.8,
+            color="#5e5245",
+            ha="center",
+            va="center",
+        )
+
+
+def desenhar_norte(ax, fontsize: float = 8.0, pos=(0.94, 0.9)) -> None:
+    x, y = pos
+    ax.annotate(
+        "N",
+        xy=(x, y),
+        xytext=(x, y - 0.105),
+        xycoords="axes fraction",
+        textcoords="axes fraction",
+        ha="center",
+        va="center",
+        fontsize=fontsize,
+        fontweight="bold",
+        arrowprops={"arrowstyle": "-|>", "color": "#262626", "lw": 1},
+    )
+
+
+def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
+    try:
+        municipios, ufs = carregar_malhas()
+        municipio = localizar_municipio(nome_municipio)
+    except Exception:
+        return None
+
+    if municipio is None:
+        return None
+
+    os.environ.setdefault("MPLCONFIGDIR", str(OUTPUT_DIR / "matplotlib-cache"))
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Patch
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    chart_file = OUTPUT_DIR / f"mapa_regiao_{safe_report}.png"
+
+    uf = str(municipio["SIGLA_UF"]).upper()
+    nome_uf = UF_NOMES.get(uf, uf)
+    nome_cidade = str(municipio["NM_MUN"])
+    municipios_uf = municipios[municipios["SIGLA_UF"].astype(str).str.upper() == uf]
+    uf_alvo = ufs[ufs["SIGLA_UF"].astype(str).str.upper() == uf]
+    municipio_gdf = municipios.loc[[municipio.name]]
+
+    fig = plt.figure(figsize=(8.3, 5.55), facecolor="white")
+    grid = fig.add_gridspec(
+        2,
+        2,
+        width_ratios=[1.05, 2.45],
+        height_ratios=[1, 1],
+        wspace=0.05,
+        hspace=0.08,
+    )
+    ax_brasil = fig.add_subplot(grid[0, 0])
+    ax_estado = fig.add_subplot(grid[1, 0])
+    ax_cidade = fig.add_subplot(grid[:, 1])
+
+    cinza = "#9a9a9a"
+    cinza_claro = "#d9d9d9"
+    municipio_cor = "#f5822a"
+    uf_cor = "#f8cd8b"
+    fundo_cor = "#ffd18f"
+    limite_cor = "#6b604f"
+
+    brasil_bounds = (-75.0, -34.5, -34.5, 5.5)
+    ufs.plot(ax=ax_brasil, color=cinza, edgecolor="#202020", linewidth=0.45)
+    uf_alvo.plot(ax=ax_brasil, color=uf_cor, edgecolor="#424242", linewidth=0.6)
+    municipio_gdf.plot(ax=ax_brasil, color=municipio_cor, edgecolor="#7a3a14", linewidth=0.4)
+    ax_brasil.set_facecolor("#d8e9f7")
+    ax_brasil.set_title("", pad=0)
+    configurar_eixo_mapa(ax_brasil, brasil_bounds)
+    aplicar_grade_coordenadas(
+        ax_brasil,
+        brasil_bounds,
+        x_ticks=[-75, -60, -45],
+        y_ticks=[0, -15, -30],
+        fontsize=5.5,
+    )
+    desenhar_norte(ax_brasil, fontsize=7.5, pos=(0.94, 0.92))
+    desenhar_escala(ax_brasil, 600, pos=(0.68, 0.065), largura_frac=0.20, fontsize=5.1)
+
+    estado_bounds = ampliar_altura_bounds(
+        bounds_por_pontos_principais(municipios_uf, municipio, 0.42),
+        1.25,
+    )
+    ax_estado.set_facecolor("#d8e9f7")
+    ax_estado.set_title("", pad=0)
+    configurar_eixo_mapa(ax_estado, estado_bounds)
+    ufs.plot(ax=ax_estado, color=cinza, edgecolor="#202020", linewidth=0.55)
+    municipios_uf.plot(ax=ax_estado, color=uf_cor, edgecolor="#b78347", linewidth=0.24)
+    ufs.boundary.plot(ax=ax_estado, color="#202020", linewidth=0.55)
+    uf_alvo.boundary.plot(ax=ax_estado, color="#202020", linewidth=0.65)
+    municipio_gdf.plot(ax=ax_estado, color=municipio_cor, edgecolor="#8a3d12", linewidth=0.7)
+    aplicar_grade_coordenadas(ax_estado, estado_bounds, fontsize=5.4)
+    desenhar_nomes_ufs(ax_estado, ufs, estado_bounds, uf, fontsize=7.0)
+    desenhar_norte(ax_estado, fontsize=7.5, pos=(0.94, 0.91))
+    desenhar_escala(ax_estado, 200, pos=(0.61, 0.06), largura_frac=0.28, fontsize=5.1)
+
+    ax_cidade.set_facecolor(fundo_cor)
+    municipios_uf.plot(ax=ax_cidade, color="#ffd79d", edgecolor="#c2955f", linewidth=0.35)
+    municipio_gdf.plot(ax=ax_cidade, color=municipio_cor, edgecolor="#8a3d12", linewidth=1)
+    bounds_cidade = expandir_bounds(municipio.geometry.bounds, 0.75)
+    configurar_eixo_mapa(ax_cidade, bounds_cidade)
+    aplicar_grade_coordenadas(ax_cidade, bounds_cidade, fontsize=5.4)
+    ax_cidade.set_title("", pad=0)
+    anotar_municipios_vizinhos(ax_cidade, municipios_uf, municipio)
+    desenhar_norte(ax_cidade, fontsize=8.5, pos=(0.96, 0.93))
+    desenhar_escala(ax_cidade, 6, pos=(0.845, 0.055), largura_frac=0.13, fontsize=5.2)
+
+    for ax in [ax_brasil, ax_estado, ax_cidade]:
+        for spine in ax.spines.values():
+            spine.set_visible(True)
+            spine.set_color(limite_cor)
+            spine.set_linewidth(0.45)
+
+    legendas = [
+        Patch(facecolor=municipio_cor, edgecolor="#8a3d12", label=nome_cidade),
+        Patch(facecolor="#f6f6f6", edgecolor="#8a8a8a", label="Limites municipais"),
+        Patch(facecolor=uf_cor, edgecolor="#424242", label=nome_uf),
+        Patch(facecolor=cinza, edgecolor="#424242", label="Brasil"),
+        Patch(facecolor=cinza_claro, edgecolor="#424242", label="América do Sul"),
+    ]
+    ax_cidade.legend(
+        handles=legendas,
+        loc="lower left",
+        bbox_to_anchor=(0.01, 0.075),
+        fontsize=5.4,
+        frameon=True,
+        framealpha=0.92,
+        borderpad=0.28,
+        handlelength=1.2,
+    )
+    ax_cidade.text(
+        0.015,
+        0.012,
+        "Sistema de Coordenadas: Geográfico\nSistema Geodésico de Referência: SIRGAS 2000",
+        transform=ax_cidade.transAxes,
+        fontsize=5.0,
+        color="#5d5146",
+        ha="left",
+        va="bottom",
+    )
+    fig.subplots_adjust(left=0.015, right=0.995, top=0.965, bottom=0.018)
+    fig.savefig(chart_file, dpi=190, bbox_inches="tight", pad_inches=0.02)
+    plt.close(fig)
+    return chart_file.name
 
 
 def carregar_cache_geocoding() -> dict:
