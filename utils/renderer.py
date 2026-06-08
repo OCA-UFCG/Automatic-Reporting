@@ -19,30 +19,16 @@ TEMPLATE_STRING = """
     <style>
         @page {
             margin: 16mm 8mm 16mm;
-            @bottom-left {
-                content: "Relatório automático do Data Nordeste";
-                color: #2d2e33;
-                font-family: Arial, sans-serif;
-                font-size: 10px;
-                vertical-align: middle;
-                border-top: 1px solid #e4e4e7;
-                padding-top: 4mm;
-            }
-            @bottom-right {
-                content: counter(page, decimal-leading-zero);
-                color: #2d2e33;
-                font-family: Arial, sans-serif;
-                font-size: 10px;
-                vertical-align: middle;
-                border-top: 1px solid #e4e4e7;
-                padding-top: 4mm;
-            }
+        }
+        html {
+            overflow-x: hidden;
         }
         body {
             font-family: Georgia, "Times New Roman", serif;
-            max-width: 920px;
+            max-width: 100%;
             margin:0 auto 2px;
             padding: 0 24px;
+            overflow-x: hidden;
             line-height: 1.48;
             font-size: 16px;
             color: #222;
@@ -142,7 +128,7 @@ TEMPLATE_STRING = """
         }
         .map-block {
             width: 100%;
-            max-width: 420px;
+            max-width: 300px;
             margin: 16px auto 22px;
             break-inside: avoid;
             text-align: center;
@@ -152,7 +138,7 @@ TEMPLATE_STRING = """
             padding: 6px 6px 4px;
         }
         .map-block--region {
-            max-width: 760px;
+            max-width: 600px;
             margin: 18px 0 20px;
             border: 0;
             background: transparent;
@@ -730,7 +716,25 @@ TEMPLATE_STRING = """
         .indicator-badge-very-low { background: #c91423; }
         .indicator-badge-unknown { background: #9a9da5; }
         .pdf-footer {
-            display: none;
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2.5mm 14mm;
+            height: 12mm;
+            background: #F8F7F8;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+            font-style: normal;
+            font-weight: 500;
+            font-size: 10px;
+            line-height: 24px;
+            color: #333333;
+            position: fixed;
+            bottom: -16mm;
+            left: -8mm;
+            right: -8mm;
+            z-index: 1000;
         }
         .pdf-footer-page::before {
             content: counter(page, decimal-leading-zero);
@@ -1151,20 +1155,9 @@ TEMPLATE_STRING = """
             <text x="7" y="48" fill="#222" font-family="Arial, sans-serif" font-size="6" font-weight="700">DATA NORDESTE</text>
         </svg>
     </div>
+    <span class="cover-date">{{ cover.data_extenso }}</span>
 </div>
 <section class="report-cover">
-    <div class="cover-header">
-        <div class="cover-meta">
-            <div class="cover-brand" aria-label="Data Nordeste">
-                <div class="brand-mark">
-                    <span class="brand-squares" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></span>
-                    <span>NE</span>
-                </div>
-                <span class="brand-subtitle">Data Nordeste</span>
-            </div>
-            <span class="cover-date">{{ cover.data_extenso }}</span>
-        </div>
-    </div>
     <div class="cover-content">
         <div class="cover-kicker">Relatório geral</div>
         <h1 class="cover-city">{{ cover.cidade_nome }}{% if cover.uf %} ({{ cover.uf }}){% endif %}</h1>
@@ -1384,13 +1377,16 @@ def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
 
 def render_descricao_tema_html(descricao_tema: str, contexto: dict, namespace: str = "demografia", safe_report: str | None = None) -> list[str]:
     partes = []
+    map_count = 0
     for paragrafo in re.split(r"\n\s*\n", descricao_tema):
         paragrafo = paragrafo.strip()
         if not paragrafo:
             continue
 
         if paragrafo.lstrip("\ufeff").strip().lower() in {"*mapa_geografico", "mapa_geografico"}:
-            partes.append(render_mapa_marker(contexto, safe_report))
+            if map_count < 2:
+                partes.append(render_mapa_marker(contexto, safe_report))
+                map_count += 1
         else:
             paragrafo = substituir_placeholders(paragrafo, contexto, namespace)
             partes.append(
@@ -1539,8 +1535,6 @@ def texto_para_html(
             if em_lista:
                 html_lines.append("</ul>")
                 em_lista = False
-
-            html_lines.append(render_mapa_marker(contexto, safe_report))
 
             continue
 

@@ -7,12 +7,14 @@ export default function ThemeDetail({ macrotema }) {
 
   return (
     <section className="theme-detail-page">
-      <p className="theme-detail-kicker">Relatório V1</p>
       <div className="theme-detail-header">
         <CoverBrand />
       </div>
       <h2 className="theme-detail-title">Detalhamento do tema</h2>
       {items.map((item, idx) => {
+        if (typeof item === 'string' && item.startsWith('<figure')) {
+          return null;
+        }
         if (macrotema.descricao_html) {
           return <div key={idx} dangerouslySetInnerHTML={{ __html: item }} />;
         }

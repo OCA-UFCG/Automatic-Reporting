@@ -1,6 +1,6 @@
 import React from 'react';
 import { pdfStyles } from '../styles.js';
-import Cover from './Cover.jsx';
+import Cover from './cover/Cover.jsx';
 import ThemeDetail from './ThemeDetail.jsx';
 import { PdfPageHeader, PdfFooter } from './PdfLayout.jsx';
 
@@ -14,7 +14,7 @@ export default function Report({ cover, docsHtml, dados }) {
         <style dangerouslySetInnerHTML={{ __html: pdfStyles }} />
       </head>
       <body>
-        <PdfPageHeader />
+        <PdfPageHeader data={cover.data_extenso} />
         <Cover cover={cover} />
         <ThemeDetail macrotema={cover.macrotema} />
         {dados.map((_, idx) => (

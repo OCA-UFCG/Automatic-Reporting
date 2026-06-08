@@ -22,6 +22,7 @@ _CSV_CACHE: dict[str, pd.DataFrame] = {}
 
 def _gerar_pdf(html_content: str, pdf_file: Path) -> None:
     try:
+        pdf_html = re.sub(r'src="/output/', 'src="', html_content)
         HTML(string=html_content, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
     except Exception:
         pass
