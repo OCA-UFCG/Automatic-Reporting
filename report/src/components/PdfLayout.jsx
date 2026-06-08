@@ -1,10 +1,11 @@
 import React from 'react';
 import { PdfPageHeaderBrand } from './Brand.jsx';
 
-export function PdfPageHeader() {
+export function PdfPageHeader({ data }) {
   return (
     <div className="pdf-page-header">
       <PdfPageHeaderBrand />
+      {data && <span className="cover-date">{data}</span>}
     </div>
   );
 }

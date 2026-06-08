@@ -114,7 +114,7 @@ li {
 
 .map-block {
   width: 100%;
-  max-width: 420px;
+  max-width: 300px;
   margin: 16px auto 22px;
   break-inside: avoid;
   text-align: center;
@@ -125,7 +125,7 @@ li {
 }
 
 .map-block--region {
-  max-width: 760px;
+  max-width: 600px;
   margin: 18px 0 20px;
   border: 0;
   background: transparent;

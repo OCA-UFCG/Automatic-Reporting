@@ -2,26 +2,39 @@
 
 @page {
   margin: 16mm 8mm 16mm;
+}
 
-  @bottom-left {
-    content: 'Relatório automático do Data Nordeste';
-    color: #2d2e33;
-    font-family: var(--font-sans);
-    font-size: 10px;
-    vertical-align: middle;
-    border-top: 1px solid #e4e4e7;
-    padding-top: 4mm;
-  }
+.pdf-footer {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 24px;
+  background: #EFEFEF;
+  box-sizing: border-box;
+  font-family: var(--font-sans);
+  font-style: normal;
+  font-weight: 500;
+  font-size: 10px;
+  line-height: 24px;
+  color: #333333;
+}
 
-  @bottom-right {
-    content: counter(page, decimal-leading-zero);
-    color: #2d2e33;
-    font-family: var(--font-sans);
-    font-size: 10px;
-    vertical-align: middle;
-    border-top: 1px solid #e4e4e7;
-    padding-top: 4mm;
-  }
+.pdf-footer-page::before {
+  content: counter(page, decimal-leading-zero);
+}
+
+.pdf-page-header {
+  display: none;
+}
+
+.pdf-page-header-brand {
+  display: inline-grid;
+  gap: 2px;
+  line-height: 1;
 }
 
 @media print {
@@ -60,23 +73,27 @@
     width: 22mm;
     height: 8mm;
   }
-}
 
-.pdf-footer {
-  display: none;
-}
-
-.pdf-footer-page::before {
-  content: counter(page, decimal-leading-zero);
-}
-
-.pdf-page-header {
-  display: none;
-}
-
-.pdf-page-header-brand {
-  display: inline-grid;
-  gap: 2px;
-  line-height: 1;
+  .pdf-footer {
+    position: fixed;
+    bottom: -16mm;
+    left: -8mm;
+    right: -8mm;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2.5mm 14mm;
+    height: 12mm;
+    background: #F8F7F8;
+    box-sizing: border-box;
+    font-family: var(--font-sans);
+    font-style: normal;
+    font-weight: 500;
+    font-size: 10px;
+    line-height: 24px;
+    color: #333333;
+    z-index: 1000;
+  }
 }
 
