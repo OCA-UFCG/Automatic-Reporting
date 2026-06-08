@@ -4,6 +4,7 @@ from datetime import datetime
 from fastapi import BackgroundTasks, HTTPException
 from fastapi.responses import HTMLResponse
 from weasyprint import HTML
+from pathlib import Path
 
 from config import OUTPUT_DIR, BASE_DIR, resolve_csv_source, require_config_value
 from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
