@@ -1,7 +1,7 @@
 import re
 import pandas as pd
 from datetime import datetime
-from fastapi import BackgroundTasks, HTTPException
+from fastapi import HTTPException
 from fastapi.responses import HTMLResponse
 from weasyprint import HTML
 
@@ -18,6 +18,7 @@ from plotting import gerar_grafico_porte
 from plotting import gerar_grafico_top_cidades
 
 
+<<<<<<< HEAD
 _CSV_CACHE: dict[str, pd.DataFrame] = {}
 
 
@@ -38,6 +39,8 @@ def _carregar_csv(csv_source: str | Path) -> pd.DataFrame:
     return df
 
 
+=======
+>>>>>>> parent of 15bc96c (feat: report generation optimization via cache and contentful)
 CHART_TYPES = {
     "sexo": gerar_grafico_sexo,
     "porte": gerar_grafico_porte,
@@ -171,7 +174,7 @@ async def apagar_relatorio_handler(arquivo_pdf: str):
     return {"ok": True, "removidos": removidos}
 
 
-async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", charts: str = "all", *, background_tasks: BackgroundTasks):
+async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", charts: str = "all"):
     macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
     gerado_em = datetime.now()
     allowed = set(CHART_TYPES.keys())
@@ -194,7 +197,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
         macrotema_dados = get_macrotema(macrotema_slug)
         csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
         csv_source = resolve_csv_source(csv_url, csv_env)
-        df = _carregar_csv(csv_source)
+        df = pd.read_csv(csv_source, delimiter=";")
         df = normalizar_colunas_macrotema(df, macrotema_slug)
 
         try:
@@ -289,9 +292,8 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
     output_file = OUTPUT_DIR / f"relatorio_{safe_report}.html"
     output_file.write_text(html_content, encoding="utf-8")
 
-    # Gerar PDF em background
+    # Gerar PDF usando WeasyPrint
     pdf_file = OUTPUT_DIR / f"relatorio_{safe_report}.pdf"
-    if not pdf_file.exists():
-        background_tasks.add_task(_gerar_pdf, html_content, pdf_file)
+    HTML(string=html_content, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
 
     return HTMLResponse(content=html_content)
