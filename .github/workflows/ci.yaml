@@ -22,19 +22,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install ruff
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Build SSR bundle
-        run: |
-          npm ci
-          npm run build -w report
-
       - name: Start API
         run: |
           uvicorn main:app --host 0.0.0.0 --port 8000 &
@@ -49,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: .
+        working-directory: frontend
 
     steps:
       - uses: actions/checkout@v4
@@ -58,12 +45,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: npm
-          cache-dependency-path: package-lock.json
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+      - name: Enable Corepack
+        run: corepack enable
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install frontend dependencies
+        run: yarn install --frozen-lockfile
 
       - name: Build frontend
-        run: npm run build -w frontend
+        run: yarn build
       

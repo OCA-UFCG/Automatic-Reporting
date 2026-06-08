@@ -1,4 +1,4 @@
-from fastapi import BackgroundTasks, FastAPI
+from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -6,14 +6,13 @@ from fastapi.staticfiles import StaticFiles
 from config import BASE_DIR
 from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
 from utils.cities import carregar_cidades
-from utils.ssr import start_server as start_ssr_server, stop_server as stop_ssr_server
 from reports import (
     listar_relatorios_handler,
     apagar_relatorio_handler,
     gerar_relatorio_handler,
 )
 
-app = FastAPI(on_startup=[start_ssr_server], on_shutdown=[stop_ssr_server])
+app = FastAPI()
 
 app.mount("/output", StaticFiles(directory=str(BASE_DIR / "output")), name="output")
 
@@ -58,8 +57,8 @@ async def apagar_relatorio(arquivo_pdf: str):
 
 
 @app.get("/relatorio/{cidade}", response_class=HTMLResponse)
-async def gerar_relatorio(cidade: str, macrotema: str = "demografia", charts: str = "all", *, background_tasks: BackgroundTasks):
-    return await gerar_relatorio_handler(cidade, macrotema, charts, background_tasks=background_tasks)
+async def gerar_relatorio(cidade: str, macrotema: str = "demografia", charts: str = "all"):
+    return await gerar_relatorio_handler(cidade, macrotema, charts)
 
 
 # If the frontend has been built (e.g., via Docker), serve it from the same app.

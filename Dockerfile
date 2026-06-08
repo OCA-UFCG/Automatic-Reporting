@@ -1,31 +1,25 @@
-### Stage 1: Install all JS dependencies (monorepo workspaces)
-FROM node:18-alpine AS deps
+### Build frontend (Vite)
+FROM node:18-alpine AS frontend-build
 
-WORKDIR /app
+WORKDIR /app/frontend
 
-COPY package.json ./
-COPY frontend/package.json ./frontend/
-COPY report/package.json ./report/
+# ARG VITE_API_BASE_URL
 
-RUN npm install
+# ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
+RUN corepack enable
 
-### Stage 2: Build frontend SPA
-FROM deps AS frontend-build
+COPY frontend/package.json frontend/yarn.lock ./
+RUN yarn install --frozen-lockfile
 
-COPY frontend/ ./frontend/
-RUN npm run build -w frontend
+COPY frontend/ ./
 
-
-### Stage 3: Build SSR bundle
-FROM deps AS ssr-build
-
-COPY report/ ./report/
-RUN npm run build -w report
+# Build static assets
+RUN yarn build
 
 
-### Stage 4: Runtime (FastAPI + Node SSR server)
-FROM node:18-slim AS runtime
+### Runtime (FastAPI + built frontend)
+FROM python:3.11-slim AS runtime
 
 ARG DEMOGRAFIA_CSV_URL
 ARG EDUCACAO_CSV_URL
@@ -60,8 +54,6 @@ WORKDIR /app
 # System deps for weasyprint + matplotlib
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        python3 \
-        python3-pip \
         libcairo2 \
         libpango-1.0-0 \
         libpangocairo-1.0-0 \
@@ -75,17 +67,15 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy all source code
+# Copy API source
 COPY . ./
 
-# Copy built assets from previous stages
-COPY --from=deps /app/node_modules ./node_modules
+# Copy built frontend into expected location
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
-COPY --from=ssr-build /app/report/ssr-dist ./report/ssr-dist
 
 EXPOSE 8000
 
-# Start both SSR server (background) and FastAPI
-CMD sh -c "node report/ssr-dist/server.js & python3 -m uvicorn main:app --host 0.0.0.0 --port 8000"
+# Uvicorn is pulled in via requirements.txt
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import re
-import unicodedata
 from urllib.error import URLError, HTTPError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
@@ -17,9 +16,6 @@ BRASIL_ESTADOS_SOURCE_ASSET = "brazil-states.svg"
 BRASIL_ESTADOS_OUTPUT_ASSET = "brazil-states-regions.svg"
 BRASIL_ESTADOS_SOURCE = BASE_DIR / "assets" / BRASIL_ESTADOS_SOURCE_ASSET
 BRASIL_ESTADOS_OUTPUT = OUTPUT_DIR / BRASIL_ESTADOS_OUTPUT_ASSET
-MAP_SHAPE_DIR = BASE_DIR / "map_shape"
-MUNICIPIOS_SHAPE = MAP_SHAPE_DIR / "BR_Municipios_2025" / "BR_Municipios_2025.shp"
-UF_SHAPE = MAP_SHAPE_DIR / "BR_UF_2025" / "BR_UF_2025.shp"
 REGIAO_CORES_POR_CLASSE = {
     "fil4": "#079342",  # Norte
     "fil5": "#a55596",  # Centro-Oeste
@@ -27,9 +23,6 @@ REGIAO_CORES_POR_CLASSE = {
     "fil7": "#f0c70d",  # Sul
     "fil8": "#2e98cf",  # Nordeste
 }
-
-_MUNICIPIOS_GDF = None
-_UF_GDF = None
 REGIOES_LEGENDA = [
     ("Norte", "#079342"),
     ("Nordeste", "#2e98cf"),
@@ -37,35 +30,6 @@ REGIOES_LEGENDA = [
     ("Sudeste", "#d72b24"),
     ("Sul", "#f0c70d"),
 ]
-UF_NOMES = {
-    "AC": "Acre",
-    "AL": "Alagoas",
-    "AM": "Amazonas",
-    "AP": "Amapá",
-    "BA": "Bahia",
-    "CE": "Ceará",
-    "DF": "Distrito Federal",
-    "ES": "Espírito Santo",
-    "GO": "Goiás",
-    "MA": "Maranhão",
-    "MG": "Minas Gerais",
-    "MS": "Mato Grosso do Sul",
-    "MT": "Mato Grosso",
-    "PA": "Pará",
-    "PB": "Paraíba",
-    "PE": "Pernambuco",
-    "PI": "Piauí",
-    "PR": "Paraná",
-    "RJ": "Rio de Janeiro",
-    "RN": "Rio Grande do Norte",
-    "RO": "Rondônia",
-    "RR": "Roraima",
-    "RS": "Rio Grande do Sul",
-    "SC": "Santa Catarina",
-    "SE": "Sergipe",
-    "SP": "São Paulo",
-    "TO": "Tocantins",
-}
 
 BRASIL_BOUNDS = {
     "south": -34.0,

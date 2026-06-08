@@ -2,8 +2,9 @@ import logging
 import re
 import pandas as pd
 from datetime import datetime
-from fastapi import BackgroundTasks, HTTPException
+from fastapi import HTTPException
 from fastapi.responses import HTMLResponse
+from jinja2 import Environment
 from weasyprint import HTML
 from pathlib import Path
 
@@ -12,8 +13,7 @@ from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS
 from utils.cities import filtrar_linhas_por_cidade
 from utils.docs import carregar_texto_do_docs, extrair_descricao_tema, extrair_resumo_tema
 from utils.cover import montar_capa_relatorio
-from utils.renderer import render_descricao_tema_html, substituir_placeholders, texto_para_html
-from utils.ssr import render_react_ssr
+from utils.renderer import texto_para_html, TEMPLATE_STRING
 from plotting import gerar_grafico_sexo
 from plotting import gerar_grafico_porte
 from plotting import gerar_grafico_top_cidades
@@ -96,12 +96,11 @@ async def listar_relatorios_handler():
     for pdf_file in OUTPUT_DIR.glob("relatorio_*.pdf"):
         nome_base = pdf_file.stem
         html_file = OUTPUT_DIR / f"{nome_base}.html"
-        slug_completo = nome_base.replace("relatorio_", "", 1)
-        mapa_file = OUTPUT_DIR / f"mapa_regiao_{slug_completo}.png"
 
         stat = pdf_file.stat()
         criado_em = datetime.fromtimestamp(stat.st_mtime)
 
+        slug_completo = nome_base.replace("relatorio_", "", 1)
         macrotema = "Demografia"
         if "__" in slug_completo:
             primeira_parte, restante = slug_completo.split("__", 1)
@@ -123,12 +122,10 @@ async def listar_relatorios_handler():
             "macrotema": macrotema,
             "arquivo_pdf": pdf_file.name,
             "arquivo_html": html_file.name if html_file.exists() else None,
-            "arquivo_mapa": mapa_file.name if mapa_file.exists() else None,
             "data": criado_em.strftime("%d/%m/%Y"),
             "hora": criado_em.strftime("%H:%M:%S"),
             "pdf_url": f"/output/{pdf_file.name}",
             "html_url": f"/output/{html_file.name}" if html_file.exists() else None,
-            "mapa_url": f"/output/{mapa_file.name}" if mapa_file.exists() else None,
         })
 
     relatorios.sort(
@@ -159,7 +156,6 @@ async def apagar_relatorio_handler(arquivo_pdf: str):
         OUTPUT_DIR / f"grafico_sexo_{sufixo_relatorio}.png",
         OUTPUT_DIR / f"grafico_porte_{sufixo_relatorio}.png",
         OUTPUT_DIR / f"grafico_top_{sufixo_relatorio}.png",
-        OUTPUT_DIR / f"mapa_regiao_{sufixo_relatorio}.png",
     ]
 
     removidos = []
@@ -174,7 +170,7 @@ async def apagar_relatorio_handler(arquivo_pdf: str):
     return {"ok": True, "removidos": removidos}
 
 
-async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", charts: str = "all", *, background_tasks: BackgroundTasks):
+async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", charts: str = "all"):
     macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
     gerado_em = datetime.now()
     allowed = set(CHART_TYPES.keys())
@@ -197,7 +193,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
         macrotema_dados = get_macrotema(macrotema_slug)
         csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
         csv_source = resolve_csv_source(csv_url, csv_env)
-        df = _carregar_csv(csv_source)
+        df = pd.read_csv(csv_source, delimiter=";")
         df = normalizar_colunas_macrotema(df, macrotema_slug)
 
         try:
@@ -245,28 +241,16 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
 
         resumo_tema, docs_texto = extrair_resumo_tema(docs_texto)
         if resumo_tema and cover is not None and macrotema_slug == macrotema_slugs[0]:
-            cover["macrotema"]["resumo"] = substituir_placeholders(
-                resumo_tema, linhas_macrotema[0], macrotema_slug
-            )
+            cover["macrotema"]["resumo"] = resumo_tema
 
         descricao_tema, docs_texto = extrair_descricao_tema(docs_texto)
         if descricao_tema and cover is not None and macrotema_slug == macrotema_slugs[0]:
-            cover["macrotema"]["descricao"] = substituir_placeholders(
-                descricao_tema, linhas_macrotema[0], macrotema_slug
-            )
+            cover["macrotema"]["descricao"] = descricao_tema
             cover["macrotema"]["descricao_paragrafos"] = [
-                substituir_placeholders(
-                    paragrafo.strip(), linhas_macrotema[0], macrotema_slug
-                )
+                paragrafo.strip()
                 for paragrafo in re.split(r"\n\s*\n", descricao_tema)
                 if paragrafo.strip()
             ]
-            cover["macrotema"]["descricao_html"] = render_descricao_tema_html(
-                descricao_tema,
-                linhas_macrotema[0],
-                namespace=macrotema_slug,
-                safe_report=safe_report,
-            )
 
         docs_html_parts.append(
             texto_para_html(
@@ -274,27 +258,22 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
                 linhas_macrotema[0],
                 namespace=macrotema_slug,
                 graficos_por_placeholder=graficos_por_placeholder,
-                safe_report=safe_report,
             )
         )
 
     docs_html = "\n".join(docs_html_parts)
 
-    # React SSR rendering
-    html_content = await render_react_ssr({
-        "cover": cover,
-        "docsHtml": docs_html,
-        "dados": linhas,
-    })
+    # Template rendering
+    template = Environment(trim_blocks=True, lstrip_blocks=True).from_string(TEMPLATE_STRING)
+    html_content = template.render(dados=linhas, graficos=graficos, docs_html=docs_html, cover=cover)
 
     # Output file handling
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output_file = OUTPUT_DIR / f"relatorio_{safe_report}.html"
     output_file.write_text(html_content, encoding="utf-8")
 
-    # Gerar PDF em background
+    # Gerar PDF usando WeasyPrint
     pdf_file = OUTPUT_DIR / f"relatorio_{safe_report}.pdf"
-    if not pdf_file.exists():
-        background_tasks.add_task(_gerar_pdf, html_content, pdf_file)
+    HTML(string=html_content, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
 
     return HTMLResponse(content=html_content)
