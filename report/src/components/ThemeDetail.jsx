@@ -7,7 +7,6 @@ export default function ThemeDetail({ macrotema }) {
 
   return (
     <section className="theme-detail-page">
-      <p className="theme-detail-kicker">Relatório V1</p>
       <div className="theme-detail-header">
         <CoverBrand />
       </div>

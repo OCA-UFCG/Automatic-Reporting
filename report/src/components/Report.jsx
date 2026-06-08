@@ -14,7 +14,7 @@ export default function Report({ cover, docsHtml, dados }) {
         <style dangerouslySetInnerHTML={{ __html: pdfStyles }} />
       </head>
       <body>
-        <PdfPageHeader />
+        <PdfPageHeader data={cover.data_extenso} />
         <Cover cover={cover} />
         <ThemeDetail macrotema={cover.macrotema} />
         {dados.map((_, idx) => (
