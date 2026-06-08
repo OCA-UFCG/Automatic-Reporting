@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse
 from weasyprint import HTML
 from pathlib import Path
 
-from config import OUTPUT_DIR, BASE_DIR, resolve_csv_source, require_config_value
+from config import OUTPUT_DIR, resolve_csv_source, require_config_value
 from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
 from utils.cities import filtrar_linhas_por_cidade
 from utils.docs import carregar_texto_do_docs, extrair_descricao_tema, extrair_resumo_tema
@@ -24,7 +24,7 @@ _CSV_CACHE: dict[str, pd.DataFrame] = {}
 def _gerar_pdf(html_content: str, pdf_file: Path) -> None:
     try:
         pdf_html = re.sub(r'src="/output/', 'src="', html_content)
-        HTML(string=html_content, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
+        HTML(string=pdf_html, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
     except Exception:
         pass
 
