@@ -1,8 +1,9 @@
 import re
-import html as html_module  #renomeado para evitar conflito com a variável local 'html_content'
-from jinja2 import Environment
+import html as html_module
 
 from utils.macrotemas import MACROTEMA_SECOES
+from utils.maps import gerar_mapa_regiao, render_mapa_geografico
+from utils.contentful import obter_url_mapa_contentful
 from utils.tables import render_tabela_resumo
 
 
@@ -18,30 +19,16 @@ TEMPLATE_STRING = """
     <style>
         @page {
             margin: 16mm 8mm 16mm;
-            @bottom-left {
-                content: "Relatório automático do Data Nordeste";
-                color: #2d2e33;
-                font-family: Arial, sans-serif;
-                font-size: 10px;
-                vertical-align: middle;
-                border-top: 1px solid #e4e4e7;
-                padding-top: 4mm;
-            }
-            @bottom-right {
-                content: counter(page, decimal-leading-zero);
-                color: #2d2e33;
-                font-family: Arial, sans-serif;
-                font-size: 10px;
-                vertical-align: middle;
-                border-top: 1px solid #e4e4e7;
-                padding-top: 4mm;
-            }
+        }
+        html {
+            overflow-x: hidden;
         }
         body {
             font-family: Georgia, "Times New Roman", serif;
-            max-width: 920px;
+            max-width: 100%;
             margin:0 auto 2px;
             padding: 0 24px;
+            overflow-x: hidden;
             line-height: 1.48;
             font-size: 16px;
             color: #222;
@@ -141,7 +128,7 @@ TEMPLATE_STRING = """
         }
         .map-block {
             width: 100%;
-            max-width: 420px;
+            max-width: 300px;
             margin: 16px auto 22px;
             break-inside: avoid;
             text-align: center;
@@ -149,6 +136,27 @@ TEMPLATE_STRING = """
             border: 1px solid #b9b9b9;
             background: #f7f7f7;
             padding: 6px 6px 4px;
+        }
+        .map-block--region {
+            max-width: 600px;
+            margin: 18px 0 20px;
+            border: 0;
+            background: transparent;
+            padding: 0;
+            text-align: left;
+        }
+        .region-map-title {
+            margin: 0 0 12px;
+            color: #006b3f;
+            font-family: Arial, sans-serif;
+            font-size: 17px;
+            font-weight: 400;
+            line-height: 1.2;
+        }
+        .region-map-image {
+            display: block;
+            width: 100%;
+            height: auto;
         }
         .map-title {
             color: #111;
@@ -708,7 +716,25 @@ TEMPLATE_STRING = """
         .indicator-badge-very-low { background: #c91423; }
         .indicator-badge-unknown { background: #9a9da5; }
         .pdf-footer {
-            display: none;
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2.5mm 14mm;
+            height: 12mm;
+            background: #F8F7F8;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+            font-style: normal;
+            font-weight: 500;
+            font-size: 10px;
+            line-height: 24px;
+            color: #333333;
+            position: fixed;
+            bottom: -16mm;
+            left: -8mm;
+            right: -8mm;
+            z-index: 1000;
         }
         .pdf-footer-page::before {
             content: counter(page, decimal-leading-zero);
@@ -1129,20 +1155,9 @@ TEMPLATE_STRING = """
             <text x="7" y="48" fill="#222" font-family="Arial, sans-serif" font-size="6" font-weight="700">DATA NORDESTE</text>
         </svg>
     </div>
+    <span class="cover-date">{{ cover.data_extenso }}</span>
 </div>
 <section class="report-cover">
-    <div class="cover-header">
-        <div class="cover-meta">
-            <div class="cover-brand" aria-label="Data Nordeste">
-                <div class="brand-mark">
-                    <span class="brand-squares" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></span>
-                    <span>NE</span>
-                </div>
-                <span class="brand-subtitle">Data Nordeste</span>
-            </div>
-            <span class="cover-date">{{ cover.data_extenso }}</span>
-        </div>
-    </div>
     <div class="cover-content">
         <div class="cover-kicker">Relatório geral</div>
         <h1 class="cover-city">{{ cover.cidade_nome }}{% if cover.uf %} ({{ cover.uf }}){% endif %}</h1>
@@ -1308,8 +1323,8 @@ TEMPLATE_STRING = """
         </div>
     </div>
     <h2 class="theme-detail-title">Detalhamento do tema</h2>
-    {% for paragrafo in cover.macrotema.descricao_paragrafos %}
-    <p class="theme-detail-text">{{ paragrafo }}</p>
+    {% for paragrafo_html in cover.macrotema.descricao_html %}
+    {{ paragrafo_html | safe }}
     {% endfor %}
 </section>
 {% endif %}
@@ -1324,13 +1339,61 @@ TEMPLATE_STRING = """
 </html>
 """
 
-
 def render_chart_placeholder(chart_file: str) -> str:
     return (
         '<div class="chart-block">'
         f'<img src="/output/{html_module.escape(chart_file)}" alt="Gráfico">'
         '</div>'
     )
+
+
+def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
+    contentful_url = obter_url_mapa_contentful(contexto.get("nm_mun", ""))
+    if contentful_url:
+        cidade_segura = html_module.escape(str(contexto.get("nm_mun", "município")))
+        return (
+            '<figure class="map-block map-block--region">'
+            '<h2 class="region-map-title">Mapa da região</h2>'
+            f'<img class="region-map-image" src="{html_module.escape(contentful_url)}" '
+            f'alt="Mapa da região de {cidade_segura}">'
+            '</figure>'
+            '<!-- fonte: contentful -->'
+        )
+
+    mapa_file = gerar_mapa_regiao(contexto.get("nm_mun", ""), safe_report or "relatorio")
+    if mapa_file:
+        cidade_segura = html_module.escape(str(contexto.get("nm_mun", "município")))
+        return (
+            '<figure class="map-block map-block--region">'
+            '<h2 class="region-map-title">Mapa da região</h2>'
+            f'<img class="region-map-image" src="/output/{html_module.escape(mapa_file)}" '
+            f'alt="Mapa da região de {cidade_segura}">'
+            '</figure>'
+            '<!-- fonte: gerado_localmente -->'
+        )
+
+    return render_mapa_geografico(contexto) + '\n<!-- fonte: svg_locator -->'
+
+
+def render_descricao_tema_html(descricao_tema: str, contexto: dict, namespace: str = "demografia", safe_report: str | None = None) -> list[str]:
+    partes = []
+    map_count = 0
+    for paragrafo in re.split(r"\n\s*\n", descricao_tema):
+        paragrafo = paragrafo.strip()
+        if not paragrafo:
+            continue
+
+        if paragrafo.lstrip("\ufeff").strip().lower() in {"*mapa_geografico", "mapa_geografico"}:
+            if map_count < 2:
+                partes.append(render_mapa_marker(contexto, safe_report))
+                map_count += 1
+        else:
+            paragrafo = substituir_placeholders(paragrafo, contexto, namespace)
+            partes.append(
+                f'<p class="theme-detail-text">{html_module.escape(paragrafo)}</p>'
+            )
+
+    return partes
 
 
 def normalizar_titulo_para_match(texto: str) -> str:
@@ -1362,15 +1425,9 @@ def render_section_heading(secao: dict[str, object]) -> str:
     )
 
 
-def texto_para_html(
-    texto: str,
-    contexto: dict,
-    namespace: str = "demografia",
-    graficos_por_placeholder: dict[str, str] | None = None,
-    componentes_html: dict[str, str] | None = None,
-) -> str:
+def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demografia") -> str:
 
-    def substituir_placeholder_dolar(match: re.Match) -> str:
+    def _substituir_dolar(match: re.Match) -> str:
         placeholder_namespace = match.group(1).lower()
         campo = match.group(2)
 
@@ -1397,6 +1454,35 @@ def texto_para_html(
         "hora_geracao": contexto.get("hora_relatorio", ""),
     }
 
+    resultado = texto
+
+    resultado = re.sub(
+        r"\$([A-Za-z_][\w]*)\.([A-Za-z_][\w]*)",
+        _substituir_dolar,
+        resultado,
+    )
+
+    for alias, valor in alias_map.items():
+        resultado = resultado.replace(f"${alias}", str(valor))
+
+    resultado = re.sub(
+        r'\{\{\s*(\w+)\s*\}\}',
+        lambda m: str(contexto.get(m.group(1), m.group(0))),
+        resultado,
+    )
+
+    return resultado
+
+
+def texto_para_html(
+    texto: str,
+    contexto: dict,
+    namespace: str = "demografia",
+    graficos_por_placeholder: dict[str, str] | None = None,
+    componentes_html: dict[str, str] | None = None,
+    safe_report: str | None = None,
+) -> str:
+
     LEGENDAS_GRAFICOS = {
         "grafico_sexo": "População por sexo",
         "grafico_porte": "Distribuição por porte",
@@ -1406,23 +1492,7 @@ def texto_para_html(
     graficos_por_placeholder = graficos_por_placeholder or {}
     componentes_html = componentes_html or {}
 
-    texto_normalizado = texto
-
-    texto_normalizado = re.sub(
-        r"\$([A-Za-z_][\w]*)\.([A-Za-z_][\w]*)",
-        substituir_placeholder_dolar,
-        texto_normalizado,
-    )
-
-    for alias, valor in alias_map.items():
-        texto_normalizado = texto_normalizado.replace(
-            f"${alias}",
-            str(valor),
-        )
-
-    texto_renderizado = Environment().from_string(
-        texto_normalizado
-    ).render(**contexto)
+    texto_renderizado = substituir_placeholders(texto, contexto, namespace)
 
     linhas = [linha.rstrip() for linha in texto_renderizado.splitlines()]
 
@@ -1465,8 +1535,6 @@ def texto_para_html(
             if em_lista:
                 html_lines.append("</ul>")
                 em_lista = False
-
-            html_lines.append(render_mapa_marker(contexto, safe_report))
 
             continue
 
