@@ -1,7 +1,44 @@
+import json
 import re
+import time
+from pathlib import Path
 from urllib.parse import urlparse
 from urllib.request import urlopen
 from urllib.error import URLError, HTTPError
+
+from config import BASE_DIR
+
+
+DOCS_CACHE_DIR = BASE_DIR / "output" / "docs_cache"
+DOCS_CACHE_TTL = 3600  # 1 hour
+
+
+def _cache_path(doc_id: str) -> Path:
+    return DOCS_CACHE_DIR / f"{doc_id}.json"
+
+
+def _carregar_do_cache(doc_id: str) -> str | None:
+    cache_path = _cache_path(doc_id)
+    if not cache_path.exists():
+        return None
+    try:
+        dados = json.loads(cache_path.read_text(encoding="utf-8"))
+        if time.time() - dados["timestamp"] < DOCS_CACHE_TTL:
+            return dados["texto"]
+    except Exception:
+        pass
+    return None
+
+
+def _salvar_no_cache(doc_id: str, texto: str) -> None:
+    try:
+        DOCS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        dados = {"timestamp": time.time(), "texto": texto}
+        _cache_path(doc_id).write_text(
+            json.dumps(dados, ensure_ascii=False), encoding="utf-8"
+        )
+    except Exception:
+        pass
 
 
 def extrair_doc_id(link_ou_id: str) -> str:
@@ -80,6 +117,11 @@ def extrair_descricao_tema(texto: str) -> tuple[str | None, str]:
 
 def carregar_texto_do_docs(link_ou_id: str) -> str:
     doc_id = extrair_doc_id(link_ou_id)
+
+    texto_cache = _carregar_do_cache(doc_id)
+    if texto_cache is not None:
+        return texto_cache
+
     export_url = f"https://docs.google.com/document/d/{doc_id}/export?format=txt"
     try:
         with urlopen(export_url, timeout=20) as response:
@@ -97,4 +139,6 @@ def carregar_texto_do_docs(link_ou_id: str) -> str:
     except (URLError, TimeoutError) as err:
         raise ValueError("Não foi possível acessar o Google Docs. Verifique a conexão, o link e as permissões.") from err
 
-    return limpar_texto_exportado_docs(texto)
+    texto = limpar_texto_exportado_docs(texto)
+    _salvar_no_cache(doc_id, texto)
+    return texto

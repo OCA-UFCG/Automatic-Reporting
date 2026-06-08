@@ -6,8 +6,11 @@ output/*
 report-generator-demo/frontend/node_modules/
 report-generator-demo/frontend/dist/
 .env
-frontend/node_modules/
+node_modules/
 frontend/dist/
+report/ssr-dist/
+report/node_modules/
+*.lock
 .config
 /map_shape
 .opencode
