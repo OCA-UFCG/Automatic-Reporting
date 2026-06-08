@@ -6,21 +6,6 @@ from utils.maps import gerar_mapa_regiao, render_mapa_geografico
 from utils.tables import render_tabela_resumo
 
 
-def converter_links_para_html(texto: str) -> str:
-    resultado = []
-    ultimo_fim = 0
-    for m in re.finditer(r'\[([^\]]+)\]\(([^)]+)\)', texto):
-        resultado.append(html_module.escape(texto[ultimo_fim:m.start()]))
-        resultado.append(
-            f'<a href="{html_module.escape(m.group(2))}">'
-            f'{html_module.escape(m.group(1))}'
-            f'</a>'
-        )
-        ultimo_fim = m.end()
-    resultado.append(html_module.escape(texto[ultimo_fim:]))
-    return "".join(resultado)
-
-
 FALLBACK_DOC_TEXT = """deu erro.
 """
 
@@ -60,10 +45,6 @@ TEMPLATE_STRING = """
         p {
             margin: 0 0 14px 0;
             text-align: justify;
-        }
-        a {
-            color: #bd6039;
-            text-decoration: underline;
         }
         .field {
             font-size: 17px;
@@ -1395,7 +1376,7 @@ def render_descricao_tema_html(descricao_tema: str, contexto: dict, namespace: s
         else:
             paragrafo = substituir_placeholders(paragrafo, contexto, namespace)
             partes.append(
-                f'<p class="theme-detail-text">{converter_links_para_html(paragrafo)}</p>'
+                f'<p class="theme-detail-text">{html_module.escape(paragrafo)}</p>'
             )
 
     return partes
@@ -1720,7 +1701,7 @@ def texto_para_html(
 
             html_lines.append(
                 f"<p{classe}>"
-                f"{converter_links_para_html(linha_limpa)}"
+                f"{html_module.escape(linha_limpa)}"
                 f"</p>"
             )
 
