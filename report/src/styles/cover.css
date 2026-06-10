@@ -2,17 +2,17 @@
   margin: 0 0 34px;
   font-family: var(--font-sans);
   color: var(--color-text);
-  break-inside: avoid;
+  width: 100%;
+  padding: 0;
+  box-sizing: border-box;
+  break-after: auto;
+  page-break-after: auto;
+  break-inside: auto;
+  page-break-inside: auto;
 }
 
 .cover-header {
-  width: 100vw;
-  margin-left: calc(50% - 50vw);
-  margin-right: calc(50% - 50vw);
-  padding: 8px 24px;
-  margin-bottom: 24px;
-  background: #EFEFEF;
-  box-sizing: border-box;
+  display: none;
 }
 
 .cover-meta {
@@ -20,13 +20,11 @@
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  height: 40px;
+  height: auto;
 }
 
 .cover-brand {
-  display: inline-grid;
-  gap: 2px;
-  line-height: 1;
+  display: none;
 }
 
 .brand-mark {
@@ -70,18 +68,30 @@
 }
 
 .cover-date {
-  color: #2f3033;
-  font-size: 14px;
+  width: 95px;
+  height: 24px;
+  font-family: 'Inter', var(--font-sans);
+  font-style: normal;
+  font-weight: 500;
+  font-size: 10px;
+  line-height: 24px;
+  color: #333333;
   white-space: nowrap;
   text-align: center;
 }
 
 .pdf-cover-brand {
-  display: none;
+  display: block;
+}
+
+.pdf-cover-brand svg {
+  display: block;
+  width: 50px;
+  height: 24px;
 }
 
 .cover-content {
-  padding: 0;
+  padding: 12px 0 0;
 }
 
 .cover-kicker {
@@ -130,10 +140,10 @@
 }
 
 .cover-metrics {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
-  margin-bottom: 26px;
+  margin-bottom: 0;
 }
 
 .metric-card {
@@ -145,6 +155,10 @@
   border: 1px solid #EFEFEF;
   border-radius: 8px;
   box-sizing: border-box;
+  width: calc(25% - 9px);
+  margin: 0;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .metric-heading {
@@ -249,6 +263,9 @@
 
 .macrotheme-summary {
   margin: 0;
+  width: 100%;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .macrotheme-summary-title {
@@ -277,6 +294,8 @@
   border-left: 3px solid var(--color-accent);
   border-radius: 8px;
   margin-bottom: 16px;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .macrotheme-icon-box {
@@ -308,6 +327,9 @@
 
 .indicator-scores {
   margin: 0;
+  width: 100%;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .indicator-scores-title {
@@ -320,8 +342,8 @@
 }
 
 .indicator-score-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 16px;
 }
 
@@ -332,6 +354,9 @@
   border-radius: 8px;
   background: #fff;
   overflow: hidden;
+  width: calc(33.33% - 11px);
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .indicator-score-card-header {
@@ -356,7 +381,7 @@
 .indicator-icon {
   width: 12px;
   height: 12px;
-  color: var(--color-accent);
+  color: var(--color-accent, #E5333F);
   flex: 0 0 12px;
   display: block;
 }
@@ -415,16 +440,10 @@
   min-width: 0;
 }
 
-.indicator-icon {
-  width: 12px;
-  height: 12px;
-  flex: 0 0 12px;
-  color: var(--color-accent, #E5333F); /* vermelho do Figma */
-  display: block;
-}
-
 .score-legend {
   margin-top: 16px;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .score-legend-title {
@@ -478,6 +497,8 @@
 
 .cover-detalhamento {
   margin-top: 16px;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .cover-detalhamento-title {
@@ -497,7 +518,9 @@
 }
 
 .cover-maps {
-  margin-top: 20px;
+  margin-top: 10px;
+  width: 100%;
+  break-inside: avoid;
 }
 
 .cover-maps .map-block--region {
@@ -511,8 +534,16 @@
   margin: 0 auto;
 }
 
+.cover-maps img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
 .cover-maps-group {
   margin-top: 20px;
+  page-break-after: always;
+  break-after: page;
 }
 
 .cover-maps-group figure {
@@ -522,26 +553,18 @@
 
 .cover-mapa-principal img {
   display: block;
-  max-width: 100%;
+  max-width: 600px;
   height: auto;
   margin: 0 auto;
-}
-
-@media print {
-  .cover-maps-group {
-    page-break-after: always;
-    break-after: page;
-  }
-
-  .cover-mapa-principal img {
-    max-width: 600px;
-  }
 }
 
 .theme-detail-page {
   font-family: var(--font-sans);
   color: #26272c;
   margin-top: 24px;
+  width: 100%;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 .theme-detail-header {
@@ -552,10 +575,7 @@
 }
 
 .theme-detail-kicker {
-  margin: 0 0 20px;
-  color: var(--color-text-muted);
-  font-size: 14px;
-  line-height: 1.2;
+  display: none;
 }
 
 .theme-detail-title {
@@ -576,6 +596,17 @@
   font-weight: 400;
   line-height: 150%;
   text-align: left;
+}
+
+@media print {
+  .cover-maps-group {
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .cover-mapa-principal img {
+    max-width: 600px;
+  }
 }
 
 @media print {
@@ -693,6 +724,17 @@
     page-break-inside: avoid;
   }
 
+  .macrotheme-icon-box,
+  .macrotheme-icon,
+  .indicator-icon {
+    color: #ff3045;
+  }
+
+  .macrotheme-icon *[fill="currentColor"] { fill: #ff3045; }
+  .macrotheme-icon *[stroke="currentColor"] { stroke: #ff3045; }
+  .indicator-icon *[fill="currentColor"] { fill: #ff3045; }
+  .indicator-icon *[stroke="currentColor"] { stroke: #ff3045; }
+
   .theme-detail-kicker {
     display: none;
   }
@@ -763,12 +805,12 @@
 }
 
 @media (max-width: 760px) {
-  .cover-metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .metric-card {
+    width: calc(50% - 6px);
   }
 
-  .indicator-score-grid {
-    grid-template-columns: 1fr;
+  .indicator-score-card {
+    width: 100%;
   }
 
   .score-legend-bar {
