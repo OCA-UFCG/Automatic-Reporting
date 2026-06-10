@@ -186,6 +186,21 @@ h1 {
   font-weight: 500;
 }
 
+.map-download-button {
+  background: linear-gradient(135deg, #006b3f 0%, #19a061 100%);
+  box-shadow: 0 6px 14px rgba(0, 107, 63, 0.16);
+}
+
+.map-download-button:hover {
+  box-shadow: 0 10px 22px rgba(0, 107, 63, 0.22);
+}
+
+.report-unavailable {
+  display: inline-block;
+  color: #7c8798;
+  font-size: 13px;
+}
+
 .trash-button {
   width: 36px;
   height: 36px;
