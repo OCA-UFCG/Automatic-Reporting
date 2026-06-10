@@ -52,8 +52,10 @@ ENV SAUDE_DOCS_URL=$SAUDE_DOCS_URL
 ENV ECONOMIA_RENDA_DOCS_URL=$ECONOMIA_RENDA_DOCS_URL
 ENV SANEAMENTO_DOCS_URL=$SANEAMENTO_DOCS_URL
 ENV HIDRAULICA_DOCS_URL=$HIDRAULICA_DOCS_URL
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app
 
@@ -62,6 +64,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         python3 \
         python3-pip \
+        python3-venv \
         libcairo2 \
         libpango-1.0-0 \
         libpangocairo-1.0-0 \
@@ -75,7 +78,10 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
-RUN pip3 install --no-cache-dir -r requirements.txt
+
+RUN python3 -m venv /opt/venv \
+    && pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
 # Copy all source code
 COPY . ./
@@ -87,5 +93,5 @@ COPY --from=ssr-build /app/report/ssr-dist ./report/ssr-dist
 
 EXPOSE 8000
 
-# Start both SSR server (background) and FastAPI
-CMD sh -c "node report/ssr-dist/server.js & python3 -m uvicorn main:app --host 0.0.0.0 --port 8000"
+# Start both SSR server and FastAPI
+CMD ["sh", "-c", "node report/ssr-dist/server.js & python3 -m uvicorn main:app --host 0.0.0.0 --port 8000"]
