@@ -13,6 +13,12 @@ body {
   color: #222;
 }
 
+@media screen {
+  html {
+    overflow-x: hidden;
+  }
+}
+
 h1 {
   font-size: 30px;
   font-weight: 700;
@@ -38,18 +44,31 @@ li {
   margin-bottom: 6px;
 }
 
+.doc-content {
+  font-family: 'Inter', var(--font-sans);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 150%;
+  color: #292829;
+}
+
 .doc-content p {
-  font-family: var(--font-sans);
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  color: inherit;
   text-indent: 0;
 }
 
 .doc-content p.lead {
-  font-family: var(--font-serif);
-  font-size: 18px;
-  font-style: italic;
-  line-height: 1.38;
-  color: #3d3d3d;
-  margin: 10px 0 24px;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  color: inherit;
+  font-style: normal;
+  margin: 0 0 14px;
 }
 
 .doc-content h1 {
@@ -66,27 +85,29 @@ li {
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: end;
-  column-gap: 16px;
-  margin: 14px 0 10px;
+  column-gap: 12px;
+  margin: 14px 0 8px;
 }
 
 .section-number {
   color: #c68a2c;
-  font-size: 56px;
+  font-size: 32px;
   line-height: 0.9;
   font-weight: 400;
 }
 
 .section-title-wrap {
-  padding-bottom: 7px;
+  padding-bottom: 4px;
   border-bottom: 1px solid #d99a37;
 }
 
 .section-title {
-  color: var(--color-primary-dark);
-  font-size: 29px;
-  line-height: 1;
-  font-weight: 400;
+  color: #085F2D;
+  font-family: 'Inter', var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 150%;
+  letter-spacing: -0.012em;
 }
 
 .chart-block {
@@ -142,10 +163,26 @@ li {
   line-height: 1.2;
 }
 
-.region-map-image {
-  display: block;
-  width: 100%;
-  height: auto;
+.region-maps-container {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  padding: 0px;
+  gap: 8px;
+  width: 547px;
+  height: 283.6px;
+}
+
+.region-map-estado {
+  width: 259px;
+  height: 283.6px;
+  flex: none;
+}
+
+.region-map-cidade {
+  width: 280px;
+  height: 283px;
+  flex: none;
 }
 
 .map-title {
@@ -301,7 +338,7 @@ li {
   .doc-content p,
   .doc-content li {
     font-size: 10px;
-    line-height: 1.42;
+    line-height: 1.5;
   }
 
   .chart-block {

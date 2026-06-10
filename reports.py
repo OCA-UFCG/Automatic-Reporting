@@ -10,9 +10,15 @@ from pathlib import Path
 from config import OUTPUT_DIR, resolve_csv_source, require_config_value
 from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
 from utils.cities import filtrar_linhas_por_cidade
-from utils.docs import carregar_texto_do_docs, extrair_descricao_tema, extrair_resumo_tema
+from utils.docs import (
+    carregar_texto_do_docs,
+    extrair_descricao_tema,
+    extrair_resumo_tema,
+    extrair_resumo_relatorio,
+    extrair_resumo_cidade,
+)
 from utils.cover import montar_capa_relatorio
-from utils.renderer import render_descricao_tema_html, substituir_placeholders, texto_para_html
+from utils.renderer import render_descricao_tema_html, render_mapa_marker, substituir_placeholders, texto_para_html
 from utils.ssr import render_react_ssr
 from plotting import gerar_grafico_sexo
 from plotting import gerar_grafico_porte
@@ -197,7 +203,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
         macrotema_dados = get_macrotema(macrotema_slug)
         csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
         csv_source = resolve_csv_source(csv_url, csv_env)
-        df = _carregar_csv(csv_source)
+        df = pd.read_csv(csv_source, delimiter=";")
         df = normalizar_colunas_macrotema(df, macrotema_slug)
 
         try:
@@ -249,6 +255,30 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
                 resumo_tema, linhas_macrotema[0], macrotema_slug
             )
 
+        resumo_relatorio, docs_texto = extrair_resumo_relatorio(docs_texto)
+        if resumo_relatorio and cover is not None and macrotema_slug == macrotema_slugs[0]:
+            cover["resumo_relatorio_html"] = render_descricao_tema_html(
+                resumo_relatorio,
+                linhas_macrotema[0],
+                namespace=macrotema_slug,
+                safe_report=safe_report,
+            )
+            cover["resumo_relatorio"] = substituir_placeholders(
+                resumo_relatorio, linhas_macrotema[0], macrotema_slug
+            )
+
+        resumo_cidade, docs_texto = extrair_resumo_cidade(docs_texto)
+        if resumo_cidade and cover is not None and macrotema_slug == macrotema_slugs[0]:
+            cover["resumo_cidade_html"] = render_descricao_tema_html(
+                resumo_cidade,
+                linhas_macrotema[0],
+                namespace=macrotema_slug,
+                safe_report=safe_report,
+            )
+            cover["resumo_cidade"] = substituir_placeholders(
+                resumo_cidade, linhas_macrotema[0], macrotema_slug
+            )
+
         descricao_tema, docs_texto = extrair_descricao_tema(docs_texto)
         if descricao_tema and cover is not None and macrotema_slug == macrotema_slugs[0]:
             cover["macrotema"]["descricao"] = substituir_placeholders(
@@ -268,9 +298,23 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
                 safe_report=safe_report,
             )
 
+        mapa_principal = None
+        for paragrafo in re.split(r"\n\s*\n", docs_texto):
+            if paragrafo.strip().lower() in {"*mapa_geografico", "mapa_geografico"}:
+                if cover is not None and macrotema_slug == macrotema_slugs[0]:
+                    mapa_principal = render_mapa_marker(linhas_macrotema[0], safe_report)
+                break
+
+        if mapa_principal and cover is not None:
+            cover["mapa_principal"] = mapa_principal
+
+        docs_texto_sem_mapa = re.sub(
+            r"(?im)^\s*\*?mapa_geografico\s*$", "", docs_texto
+        ).strip()
+
         docs_html_parts.append(
             texto_para_html(
-                docs_texto,
+                docs_texto_sem_mapa,
                 linhas_macrotema[0],
                 namespace=macrotema_slug,
                 graficos_por_placeholder=graficos_por_placeholder,

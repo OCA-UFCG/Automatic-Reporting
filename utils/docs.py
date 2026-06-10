@@ -114,6 +114,13 @@ def extrair_resumo_tema(texto: str) -> tuple[str | None, str]:
 def extrair_descricao_tema(texto: str) -> tuple[str | None, str]:
     return extrair_bloco_marcado(texto, "descricao_tema")
 
+def extrair_resumo_relatorio(texto: str) -> tuple[str | None, str]:
+    return extrair_bloco_marcado(texto, "resumo_relatorio")
+
+
+def extrair_resumo_cidade(texto: str) -> tuple[str | None, str]:
+    return extrair_bloco_marcado(texto, "resumo_cidade")
+
 
 def carregar_texto_do_docs(link_ou_id: str) -> str:
     doc_id = extrair_doc_id(link_ou_id)
@@ -121,7 +128,6 @@ def carregar_texto_do_docs(link_ou_id: str) -> str:
     texto_cache = _carregar_do_cache(doc_id)
     if texto_cache is not None:
         return texto_cache
-
     export_url = f"https://docs.google.com/document/d/{doc_id}/export?format=txt"
     try:
         with urlopen(export_url, timeout=20) as response:

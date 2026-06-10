@@ -360,49 +360,22 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
     uf_alvo = ufs[ufs["SIGLA_UF"].astype(str).str.upper() == uf]
     municipio_gdf = municipios.loc[[municipio.name]]
 
-    fig = plt.figure(figsize=(8.3, 5.55), facecolor="white")
-    grid = fig.add_gridspec(
-        2,
-        2,
-        width_ratios=[1.05, 2.45],
-        height_ratios=[1, 1],
-        wspace=0.05,
-        hspace=0.08,
-    )
-    ax_brasil = fig.add_subplot(grid[0, 0])
-    ax_estado = fig.add_subplot(grid[1, 0])
-    ax_cidade = fig.add_subplot(grid[:, 1])
-
     cinza = "#9a9a9a"
-    cinza_claro = "#d9d9d9"
     municipio_cor = "#f5822a"
     uf_cor = "#f8cd8b"
     fundo_cor = "#ffd18f"
     limite_cor = "#6b604f"
 
-    brasil_bounds = (-75.0, -34.5, -34.5, 5.5)
-    ufs.plot(ax=ax_brasil, color=cinza, edgecolor="#202020", linewidth=0.45)
-    uf_alvo.plot(ax=ax_brasil, color=uf_cor, edgecolor="#424242", linewidth=0.6)
-    municipio_gdf.plot(ax=ax_brasil, color=municipio_cor, edgecolor="#7a3a14", linewidth=0.4)
-    ax_brasil.set_facecolor("#d8e9f7")
-    ax_brasil.set_title("", pad=0)
-    configurar_eixo_mapa(ax_brasil, brasil_bounds)
-    aplicar_grade_coordenadas(
-        ax_brasil,
-        brasil_bounds,
-        x_ticks=[-75, -60, -45],
-        y_ticks=[0, -15, -30],
-        fontsize=5.5,
-    )
-    desenhar_norte(ax_brasil, fontsize=7.5, pos=(0.94, 0.92))
-    desenhar_escala(ax_brasil, 600, pos=(0.68, 0.065), largura_frac=0.20, fontsize=5.1)
+    fig = plt.figure(figsize=(8.3, 5.55), facecolor="white")
+    grid = fig.add_gridspec(1, 2, width_ratios=[1, 1], wspace=0.05)
+    ax_estado = fig.add_subplot(grid[0])
+    ax_cidade = fig.add_subplot(grid[1])
 
     estado_bounds = ampliar_altura_bounds(
         bounds_por_pontos_principais(municipios_uf, municipio, 0.42),
         1.25,
     )
     ax_estado.set_facecolor("#d8e9f7")
-    ax_estado.set_title("", pad=0)
     configurar_eixo_mapa(ax_estado, estado_bounds)
     ufs.plot(ax=ax_estado, color=cinza, edgecolor="#202020", linewidth=0.55)
     municipios_uf.plot(ax=ax_estado, color=uf_cor, edgecolor="#b78347", linewidth=0.24)
@@ -420,12 +393,11 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
     bounds_cidade = expandir_bounds(municipio.geometry.bounds, 0.75)
     configurar_eixo_mapa(ax_cidade, bounds_cidade)
     aplicar_grade_coordenadas(ax_cidade, bounds_cidade, fontsize=5.4)
-    ax_cidade.set_title("", pad=0)
     anotar_municipios_vizinhos(ax_cidade, municipios_uf, municipio)
     desenhar_norte(ax_cidade, fontsize=8.5, pos=(0.96, 0.93))
     desenhar_escala(ax_cidade, 6, pos=(0.845, 0.055), largura_frac=0.13, fontsize=5.2)
 
-    for ax in [ax_brasil, ax_estado, ax_cidade]:
+    for ax in [ax_estado, ax_cidade]:
         for spine in ax.spines.values():
             spine.set_visible(True)
             spine.set_color(limite_cor)
@@ -436,7 +408,6 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
         Patch(facecolor="#f6f6f6", edgecolor="#8a8a8a", label="Limites municipais"),
         Patch(facecolor=uf_cor, edgecolor="#424242", label=nome_uf),
         Patch(facecolor=cinza, edgecolor="#424242", label="Brasil"),
-        Patch(facecolor=cinza_claro, edgecolor="#424242", label="América do Sul"),
     ]
     ax_cidade.legend(
         handles=legendas,
