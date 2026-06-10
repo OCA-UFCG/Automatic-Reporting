@@ -156,6 +156,11 @@ def montar_capa_relatorio(
         "data_extenso": formatar_data_extenso(gerado_em),
         "cidade_nome": cidade_nome,
         "uf": uf,
+        "resumo_relatorio": "",
+        "resumo_relatorio_html": [],
+        "resumo_cidade": "",
+        "resumo_cidade_html": [],
+        "mapa_principal": "",
         "macrotema": {
             "nome": macrotema_nome,
             "icone": macrotema_icone,
