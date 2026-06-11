@@ -58,6 +58,8 @@ jobs:
         needs: build-image
         runs-on: [self-hosted, datane-beta-runner]
         steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
 
             - name: Debug environment (Runner)
               run: echo "Image is ${{ vars.DOCKER_IMAGE_BETA }}"
