@@ -1,3 +1,4 @@
+---
 name: CD Beta
 
 on: 
@@ -75,6 +76,10 @@ jobs:
                   echo "Network already exists: $DOCKER_NETWORK_NAME"
                 fi
 
+            - name: Download map shapes
+              shell: bash
+              run: python3 scripts/download_map_shapes.py --url ${{ secrets.MAP_SHAPE_ZIP_URL}}
+
             - name: Pull the latest beta image
               run: sudo docker pull ${{ vars.DOCKER_IMAGE_BETA }}:latest
 
@@ -88,6 +93,7 @@ jobs:
                     --restart unless-stopped \
                     -p ${{ vars.HOST_PORT_BETA }}:${{ vars.CONTAINER_PORT }} \
                     -v ${{ vars.VOLUME_NAME}}:/app/output \
+                    -v /opt/map_shape:/app/map_shape \
                     -d ${{ vars.DOCKER_IMAGE_BETA }}:latest
 
             - name: Connect to the Beta container network
