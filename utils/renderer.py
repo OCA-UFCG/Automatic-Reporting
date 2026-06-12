@@ -195,8 +195,6 @@ def texto_para_html(
                 html_lines.append("</ul>")
                 em_lista = False
 
-            nome_componente = marcador_componente.group(1)
-
             continue
 
         # GRÁFICOS
