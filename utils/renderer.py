@@ -1,10 +1,8 @@
 import re
 import html as html_module
 
-from utils.macrotemas import MACROTEMA_SECOES
 from utils.maps import gerar_mapa_regiao, render_mapa_geografico
 from utils.contentful import obter_url_mapa_contentful
-from utils.tables import render_tabela_resumo
 
 
 def converter_links_para_html(texto: str) -> str:
@@ -20,17 +18,6 @@ def converter_links_para_html(texto: str) -> str:
         ultimo_fim = m.end()
     resultado.append(html_module.escape(texto[ultimo_fim:]))
     return "".join(resultado)
-
-
-FALLBACK_DOC_TEXT = """deu erro.
-"""
-
-def render_chart_placeholder(chart_file: str) -> str:
-    return (
-        '<div class="chart-block">'
-        f'<img src="/output/{html_module.escape(chart_file)}" alt="Gráfico">'
-        '</div>'
-    )
 
 
 def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
@@ -80,35 +67,6 @@ def render_descricao_tema_html(descricao_tema: str, contexto: dict, namespace: s
             )
 
     return partes
-
-
-def normalizar_titulo_para_match(texto: str) -> str:
-    texto = re.sub(r"^\s*\d+\s*\.?\s*", "", texto).strip()
-    texto = re.sub(r"\s+", " ", texto)
-    return texto.casefold()
-
-
-def identificar_secao_macrotema(linha: str, namespace: str) -> dict[str, object] | None:
-    secao = MACROTEMA_SECOES.get(namespace)
-    if not secao:
-        return None
-
-    titulo_normalizado = normalizar_titulo_para_match(linha)
-    aliases = [alias.casefold() for alias in secao["aliases"]]
-    if titulo_normalizado in aliases or secao["titulo"].casefold() == titulo_normalizado:
-        return secao
-    return None
-
-
-def render_section_heading(secao: dict[str, object]) -> str:
-    numero = html_module.escape(str(secao["numero"]))
-    titulo = html_module.escape(str(secao["titulo"]))
-    return (
-        '<div class="section-heading">'
-        f'<span class="section-number">{numero}</span>'
-        f'<div class="section-title-wrap"><span class="section-title">{titulo}</span></div>'
-        '</div>'
-    )
 
 
 def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demografia") -> str:
@@ -239,15 +197,6 @@ def texto_para_html(
 
             nome_componente = marcador_componente.group(1)
 
-            if nome_componente == "tabela_resumo":
-
-                html_lines.append(
-                    render_tabela_resumo(
-                        contexto=contexto,
-                        namespace=namespace,
-                    )
-                )
-
             continue
 
         # GRÁFICOS
@@ -345,16 +294,7 @@ def texto_para_html(
             em_lista = False
 
         # SEÇÕES
-        secao_macrotema = identificar_secao_macrotema(
-            linha_limpa,
-            namespace,
-        )
-
-        if secao_macrotema:
-            proximo_paragrafo_destaque = False
-            continue
-
-        elif (
+        if (
             re.match(r"^\d+\.\s+", linha_limpa)
             or linha_limpa.lower()
             in {"apresentação", "demografia"}

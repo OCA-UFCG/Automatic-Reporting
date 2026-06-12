@@ -10,10 +10,6 @@ def formatar_data_extenso(data: datetime) -> str:
     return f"{data.day:02d} de {meses[data.month - 1]} de {data.year}"
 
 
-def formatar_data_hora_extenso(data: datetime) -> str:
-    return f"{formatar_data_extenso(data)}, {data.strftime('%H:%M')}"
-
-
 def separar_cidade_uf(nome_municipio: str) -> tuple[str, str]:
     match = re.match(r"^(.*?)\s*\(([A-Za-z]{2})\)\s*$", str(nome_municipio).strip())
     if match:

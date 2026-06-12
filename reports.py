@@ -27,7 +27,12 @@ from plotting import gerar_grafico_top_cidades
 
 logger = logging.getLogger(__name__)
 
-_CSV_CACHE: dict[str, pd.DataFrame] = {}
+
+CHART_TYPES = {
+    "sexo": gerar_grafico_sexo,
+    "porte": gerar_grafico_porte,
+    "top": gerar_grafico_top_cidades,
+}
 
 
 def _gerar_pdf(html_content: str, pdf_file: Path) -> None:
@@ -36,22 +41,6 @@ def _gerar_pdf(html_content: str, pdf_file: Path) -> None:
         HTML(string=pdf_html, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
     except Exception as e:
         logger.warning("Falha ao gerar PDF %s: %s", pdf_file, e)
-
-
-def _carregar_csv(csv_source: str | Path) -> pd.DataFrame:
-    cache_key = str(csv_source)
-    if cache_key in _CSV_CACHE:
-        return _CSV_CACHE[cache_key].copy()
-    df = pd.read_csv(csv_source, delimiter=";")
-    _CSV_CACHE[cache_key] = df.copy()
-    return df
-
-
-CHART_TYPES = {
-    "sexo": gerar_grafico_sexo,
-    "porte": gerar_grafico_porte,
-    "top": gerar_grafico_top_cidades,
-}
 
 
 def get_macrotema(slug: str) -> dict[str, str]:

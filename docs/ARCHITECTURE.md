@@ -12,101 +12,170 @@ Cada camada tem uma responsabilidade única: Python processa dados, React render
 
 ---
 
-## Fluxo detalhado
+## Fluxo de execução
+
+### Visão geral em 5 passos
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        Browser (React SPA)                          │
-│  frontend/src/App.jsx                                               │
-│  Interface pra selecionar cidade + macrotema                        │
-│  Comunica com FastAPI via fetch()                                   │
-└───────────────────────────┬─────────────────────────────────────────┘
-                            │ GET /relatorio/{cidade}?macrotema={tema}
-                            ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                FastAPI (Python) — main.py :8000                      │
-│                                                                      │
-│  reports.py — gerar_relatorio_handler():                             │
-│                                                                      │
-│  1. Lê CSV do Google Drive (pandas)                                  │
-│     └── utils/macrotemas.py — URLs de cada tema (demografia,        │
-│                                educação, saúde, etc.)                │
-│                                                                      │
-│  2. Filtra por cidade                                                │
-│     └── utils/cities.py — filtrar_linhas_por_cidade()               │
-│                                                                      │
-│  3. Lê texto descritivo do Google Docs                               │
-│     └── utils/docs.py — carregar_texto_do_docs()                    │
-│     └── extrai resumo_tema / descricao_tema via marcadores          │
-│                                                                      │
-│  4. Gera gráficos matplotlib                                         │
-│     └── plotting.py — gerar_grafico_sexo(), _porte(), _top_cidades()│
-│                                                                      │
-│  5. Monta objeto "cover" (dicionário Python)                         │
-│     └── utils/cover.py — montar_capa_relatorio()                    │
-│     ├── metricas (4 cards: área, população, IDH, PIB)              │
-│     ├── score (valor, max, status, descricao)                      │
-│     ├── macrotema (nome, icone, status, resumo, indicadores)       │
-│     └── data_extenso, cidade_nome, uf                              │
-│                                                                      │
-│  6. Converte texto markdown dos Docs → HTML                          │
-│     └── utils/renderer.py — texto_para_html()                       │
-│     ├── processa %%chart, ##componente, $placeholders              │
-│     ├── gera <p>, <ul>, <h1>, <h2>, figure-caption                 │
-│     └── output: string HTML pronta pra injetar no template         │
-│                                                                      │
-│  7. Chama React SSR (HTTP POST p/ servidor persistente) ─────┐    │
-│     └── utils/ssr.py — render_react_ssr(props)               │    │
-│                          │ httpx.post("http://127.0.0.1:3001")│    │
-│                                                                      │
-│  8. WeasyPrint converte HTML → PDF                                  │
-│     └── HTML(string=..., base_url=...).write_pdf(...)               │
-│                                                                      │
-│  9. Salva .html e .pdf em output/                                   │
-│  10. Retorna HTMLResponse pro browser                               │
-└───────────────────────────────────────────────────┬─────────────────┘
-                                                     │
-                                                     ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│               Node.js — React SSR (report/)                         │
-│                                                                      │
-│  Chamado via: subprocess.run(["node", "ssr-dist/ssr-entry.js",      │
-│                               json.dumps(props)])                    │
-│                                                                      │
-│  src/ssr-entry.jsx:                                                  │
-│    1. Lê JSON de process.argv[2]                                    │
-│    2. renderToStaticMarkup(<Report cover={} docsHtml={} dados={} />)│
-│    3. Escreve HTML em stdout                                        │
-│                                                                      │
-│  Componentes (src/components/):                                      │
-│                                                                      │
-│    Report.jsx ─── componente raiz                                   │
-│    ├── <html>, <head> (styles), <body>                              │
-│    ├── PdfPageHeader (só aparece no @media print)                   │
-│    ├── Cover ──────────────────────────────────────────────────┐   │
-│    │   ├── cover-header (brand + data)                         │   │
-│    │   ├── cover-city (nome da cidade)                         │   │
-│    │   ├── MetricCard × 4 (grid de métricas)                   │   │
-│    │   ├── RadarChart (SVG fixo)                               │   │
-│    │   ├── ScoreCard (valor + status)                          │   │
-│    │   ├── ScoreLegend (legenda fixa)                          │   │
-│    │   ├── MacrothemeCard (ícone + nome + status)              │   │
-│    │   ├── MacrothemeSummary (resumo)                          │   │
-│    │   └── IndicatorScoreCard × N (grid de indicadores)        │   │
-│    ├── ThemeDetail (se houver descricao_paragrafos)            │   │
-│    ├── <div class="doc-content"> (HTML injetado via            │   │
-│    │    dangerouslySetInnerHTML)                               │   │
-│    └── PdfFooter                                               │   │
-│                                                                      │
-│  Brand.jsx — SVGs e ícones:                                         │
-│    MACROTHEME_ICONS: health, book, people, drop, water + fallback   │
-│    INDICATOR_ICONS: hospital, vaccine, birth, shield, book, ...     │
-│    MetricIcon, ScoreIcon, CoverBrand, PdfPageHeaderBrand             │
-│                                                                      │
-│  styles.js — CSS (extraído do TEMPLATE_STRING original)             │
-│    Inclui @page, @media print, @media (max-width)                   │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────┐     GET /relatorio/{cidade}?macrotema={tema}     ┌─────────────────────┐
+│   Browser (SPA)  │ ───────────────────────────────────────────────▶  │   FastAPI :8000     │
+│   frontend/src/   │                                               │   reports.py        │
+└──────────────────┘                                               └──────────┬──────────┘
+         ▲                                                                    │
+         │ HTMLResponse                                                        ▼
+         │                                                            ┌─────────────────────┐
+         │                                                            │  1. Carrega CSV     │
+         │                                                            │  2. Filtra cidade   │
+         │                                                            │  3. Carrega Docs    │
+         │                                                            │  4. Gera gráficos   │
+         │                                                            │  5. Prepara cover   │
+         │                                                            │  6. Converte Docs→  │
+         │                                                            │     HTML            │
+         │                                                            └──────────┬──────────┘
+         │                                                                       │
+         │                                                                       ▼
+         │                                                            ┌─────────────────────┐
+         │                                                            │  React SSR (Node)   │
+         │                                                            │  render_react_ssr() │
+         │                                                            │  renderiza cover +  │
+         │                                                            │  docsHtml em HTML   │
+         │                                                            └──────────┬──────────┘
+         │                                                                       │
+         │                                                                       ▼
+         │                                                            ┌─────────────────────┐
+         │                                                            │  WeasyPrint         │
+         │                                                            │  HTML → PDF         │
+         │                                                            └─────────────────────┘
+         │
+         │ HTML (one-shot, após PDF em background)
+         ◀───────────────────────────────────────────────────────────
 ```
+
+---
+
+### Fluxo detalhado por etapas
+
+#### 1. Usuário abre formulário no browser (App.jsx)
+
+```jsx
+// frontend/src/App.jsx
+const url = `${API_BASE}/relatorio/${encodeURIComponent(cidade)}?macrotema=${macrotema}`;
+window.open(url, "_blank");
+```
+
+O browser abre uma nova aba com a URL: `GET /relatorio/{cidade}?macrotema={tema}`
+
+#### 2. FastAPI recebe a requisição (main.py)
+
+```python
+@app.get("/relatorio/{cidade}", response_class=HTMLResponse)
+async def gerar_relatorio(cidade: str, macrotema: str = "demografia", ...):
+    return await gerar_relatorio_handler(cidade, macrotema, charts, background_tasks=background_tasks)
+```
+
+#### 3. `gerar_relatorio_handler` processa dados (reports.py)
+
+O handler executa em loop para cada macrotema solicitado:
+
+**3.1 Para cada macrotema — carrega CSV:**
+```python
+df = pd.read_csv(csv_source, delimiter=";")
+df = normalizar_colunas_macrotema(df, macrotema_slug)
+linhas_df = filtrar_linhas_por_cidade(df, cidade)  # utils/cities.py
+linhas_macrotema = linhas_df.to_dict("records")
+```
+
+**3.2 Na primeira iteração — gera cover:**
+```python
+cover = montar_capa_relatorio(linhas[0], gerado_em, macrotema_dados["nome"])
+# utils/cover.py — retorna dicionário com métricas, score, macrotema, indicadores
+```
+
+**3.3 Se demografia — gera gráficos:**
+```python
+chart_file = gerar_grafico_sexo(linhas_macrotema[0], OUTPUT_DIR, safe_report)
+chart_file = gerar_grafico_porte(df, OUTPUT_DIR, safe_report)
+chart_file = gerar_grafico_top_cidades(df, OUTPUT_DIR)
+# plotting.py — matplotlib
+```
+
+**3.4 Carrega texto dos Docs:**
+```python
+docs_texto = carregar_texto_do_docs(docs_url)  # utils/docs.py
+# Busca texto do Google Docs e faz cache local
+```
+
+**3.5 Extrai seções do documento:**
+```python
+resumo_tema, docs_texto = extrair_resumo_tema(docs_texto)
+resumo_relatorio, docs_texto = extrair_resumo_relatorio(docs_texto)
+resumo_cidade, docs_texto = extrair_resumo_cidade(docs_texto)
+descricao_tema, docs_texto = extrair_descricao_tema(docs_texto)
+# Extrai blocos marcados no Docs (ex: ##resumo_tema, ##descricao_tema)
+```
+
+**3.6 Preenche cover (só na primeira iteração):**
+```python
+cover["macrotema"]["resumo"] = substituir_placeholders(resumo_tema, ...)
+cover["macrotema"]["descricao"] = substituir_placeholders(descricao_tema, ...)
+```
+
+**3.7 Detecta mapa:**
+```python
+if "*mapa_geografico" in docs_texto:
+    mapa_principal = render_mapa_marker(linhas_macrotema[0], safe_report)
+# utils/renderer.py — tenta Contentful ou gera mapa local
+```
+
+**3.8 Converte texto Docs em HTML:**
+```python
+docs_html_parts.append(
+    texto_para_html(docs_texto_sem_mapa, linhas_macrotema[0], namespace=macrotema_slug)
+)
+# utils/renderer.py — processa marcadores (%%grafico, ##componente, $placeholders)
+```
+
+#### 4. Chama React SSR (reports.py → ssr.py → Node)
+
+```python
+html_content = await render_react_ssr({
+    "cover": cover,
+    "docsHtml": docs_html,  # HTML de todos os macrotemas concatenados
+    "dados": linhas,
+})
+```
+
+O Python inicia um **subprocess Node.js** que executa React no servidor:
+
+```
+reports.py                          ssr.py                          Node.js
+    │                                  │                               │
+    │  render_react_ssr(props) ───────▶│                               │
+    │                                  │  subprocess.run(["node",     │
+    │                                  │    "entry.js", JSON]) ──────▶│
+    │                                  │                               │ React.createElement()
+    │                                  │                               │ renderToStaticMarkup()
+    │                                  │◀──── HTML via stdout ────────│
+    │◀─── HTML string ─────────────────│                               │
+```
+
+O React **não chama Python** — é puramente renderização one-shot. Node.js recebe JSON via argumento, renderiza, e devolve HTML via stdout.
+
+#### 5. Salva HTML e agenda PDF (reports.py)
+
+```python
+output_file = OUTPUT_DIR / f"relatorio_{safe_report}.html"
+output_file.write_text(html_content, encoding="utf-8")
+
+pdf_file = OUTPUT_DIR / f"relatorio_{safe_report}.pdf"
+background_tasks.add_task(_gerar_pdf, html_content, pdf_file)
+```
+
+O PDF é gerado em background via **WeasyPrint** (não é blocking).
+
+#### 6. Browser recebe HTML e mostra relatório
+
+O browser recebe o HTML já renderizado (cover + conteúdo). O PDF é gerado em paralelo.
 
 ---
 
@@ -118,14 +187,12 @@ Cada camada tem uma responsabilidade única: Python processa dados, React render
 ├── config.py                   # Config (OUTPUT_DIR, variáveis de ambiente)
 ├── reports.py                  # Lógica de geração de relatório (orquestrador)
 ├── plotting.py                 # Gráficos matplotlib (sexo, porte, top cidades)
-├── generate_report.py          # CLI tool standalone (gera HTML de CSV)
 ├── requirements.txt            # Dependências Python
 ├── Dockerfile                  # Build em 3 estágios
 │
 ├── frontend/                   # SPA React (interface do usuário)
 │   ├── package.json
 │   ├── vite.config.js
-│   ├── index.html
 │   └── src/
 │       ├── main.jsx            # Entry point
 │       ├── App.jsx             # Componente principal (formulário + lista)
@@ -134,26 +201,25 @@ Cada camada tem uma responsabilidade única: Python processa dados, React render
 ├── report/                     # React SSR (geração de PDF)
 │   ├── package.json
 │   ├── vite.config.js
-│   ├── src/
-│   │   ├── ssr-entry.jsx       # Entry point SSR (lê JSON, chama renderToStaticMarkup)
-│   │   ├── styles.js           # CSS do relatório PDF
-│   │   └── components/
-│   │       ├── Report.jsx      # Componente raiz
-│   │       ├── Cover.jsx       # Capa
-│   │       ├── Brand.jsx       # SVGs e ícones
-│   │       ├── ThemeDetail.jsx # Detalhamento do tema
-│   │       └── PdfLayout.jsx   # Header/footer do PDF
-│   └── ssr-dist/               # Build output (gitignored)
+│   └── src/
+│       ├── ssr-entry.jsx       # Entry point SSR (lê JSON, chama renderToStaticMarkup)
+│       ├── ssr-server.jsx      # Servidor HTTP persistente para SSR
+│       ├── styles.js           # CSS do relatório PDF
+│       └── components/
+│           ├── Report.jsx      # Componente raiz
+│           ├── Cover.jsx       # Capa
+│           ├── Brand.jsx       # SVGs e ícones
+│           ├── ThemeDetail.jsx # Detalhamento do tema
+│           └── PdfLayout.jsx   # Header/footer do PDF
 │
 ├── utils/
 │   ├── cover.py                # Monta objeto "cover" pros componentes
-│   ├── renderer.py             # Converte markdown dos Docs → HTML
+│   ├── renderer.py              # Converte markdown dos Docs → HTML
 │   ├── ssr.py                  # Chama Node.js SSR via subprocess
 │   ├── docs.py                 # Baixa e processa Google Docs
 │   ├── cities.py               # Filtro por cidade
-│   ├── macrotemas.py           # Config dos temas (URLs, seções, aliases)
-│   ├── tables.py               # Tabela resumo
-│   └── maps.py                 # Mapas (placeholder)
+│   ├── macrotemas.py           # Config dos temas (URLs de CSV/Docs)
+│   └── maps.py                 # Mapas (Contentful ou gerado localmente)
 │
 ├── output/                     # Relatórios gerados (.html + .pdf)
 └── assets/                     # Recursos estáticos
@@ -171,6 +237,7 @@ O Python monta um dicionário e passa como `props` pro React SSR:
         "data_extenso": str,          # "27 de maio de 2026"
         "cidade_nome": str,           # "Recife"
         "uf": str,                    # "PE" (ou "")
+        "mapa_principal": str,        # HTML do <figure> com mapa
         "metricas": [                 # 4 cards
             {"rotulo": str, "valor": str, "sufixo": str, "fonte": str, "caption": str}
         ],
@@ -186,11 +253,16 @@ O Python monta um dicionário e passa como `props` pro React SSR:
             "icone": str,             # "health" | "book" | "people" | "drop" | "water" | "chart"
             "status": str,            # "Muito acima da média nacional"
             "resumo": str,            # texto
-            "descricao_paragrafos": [str],  # parágrafos de detalhamento (ou [])
+            "descricao_paragrafos": [str],
+            "descricao_html": [str],
             "indicadores": [
                 {"nome": str, "fonte": str, "score": str, "classe": str, "icone": str}
             ]
-        }
+        },
+        "resumo_relatorio": str,
+        "resumo_relatorio_html": [str],
+        "resumo_cidade": str,
+        "resumo_cidade_html": [str],
     },
     "docsHtml": str,              # HTML do Google Docs (processado por texto_para_html)
     "dados": [dict]               # Linhas do CSV (usado pra loop, conteúdo via docsHtml)
@@ -215,7 +287,6 @@ npm run build -w report       # → report/ssr-dist/
 pip install -r requirements.txt
 
 # 5. Rodar
-node report/ssr-dist/server.js &   # Servidor SSR persistente (porta 3001)
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
@@ -230,7 +301,7 @@ O Dockerfile tem 4 estágios:
 1. `deps` — instala dependências JS (monorepo, uma única `node_modules`)
 2. `frontend-build` — compila a SPA React
 3. `ssr-build` — compila o bundle SSR (entry + server)
-4. `runtime` — Python + Node.js + WeasyPrint (rota o servidor SSR em background)
+4. `runtime` — Python + Node.js + WeasyPrint
 
 ---
 
@@ -250,47 +321,9 @@ O Dockerfile tem 4 estágios:
 
 | Aspecto | Impacto |
 |---|---|
-| **Build extra** | Precisa rodar `npm run build -w report` (antes não tinha build step) |
+| **Build extra** | Precisa rodar `npm run build -w report` |
 | **Curva** | Jinja é só HTML + tags; React JSX exige conhecimento do ecossistema |
 | **Dois runtimes** | Python + Node.js rodando lado a lado (mais processos que antes só Python) |
-
----
-
-## Sugestões de melhoria
-
-### ~~1. Servidor Node persistente~~ ✅ Implementado
-`report/src/ssr-server.jsx` roda um servidor HTTP que mantém o React carregado em memória. Python faz POST em vez de subprocess.
-
-```
-Antes:  subprocess.run → ~200ms cada requisição
-Depois: HTTP POST → ~5ms cada requisição
-```
-
-### ~~2. Monorepo com npm workspaces~~ ✅ Implementado
-`package.json` na raiz com `workspaces: ["frontend", "report"]`. React e react-dom instalados uma vez só em `/node_modules`.
-
-```
-/
-├── package.json         # workspaces: ["frontend", "report"]
-├── frontend/
-├── report/
-└── node_modules/        # único, compartilhado
-```
-
-### 3. CSS Modules ou Tailwind
-Em vez de uma string CSS gigante em `styles.js`, usar CSS Modules (`Cover.module.css`) ou Tailwind (sem impacto no bundle do cliente, já que é SSR).
-
-### 4. Testes de snapshot nos componentes
-```js
-import { renderToStaticMarkup } from 'react-dom/server';
-import Cover from './Cover';
-
-test('Cover renderiza métricas', () => {
-  const html = renderToStaticMarkup(<Cover cover={mockCover} />);
-  expect(html).toContain('metric-card');
-  expect(html).toContain('Recife');
-});
-```
 
 ---
 
@@ -306,4 +339,4 @@ test('Cover renderiza métricas', () => {
 | `report/src/components/Cover.jsx` | Componente React da capa |
 | `report/src/styles.js` | CSS do PDF |
 
-> Documento gerado em 27/05/2026. Mantenha atualizado conforme mudanças na arquitetura.
+> Documento gerado em 27/05/2026. Atualizado em 12/06/2026.
