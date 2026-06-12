@@ -1,97 +1,166 @@
 name: CD Beta
 
-on: 
-    push:
-        branches: ["main"]
+on:
+  push:
+    branches: ["main"]
+
 jobs:
-    build-image:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
-            
-            - name: Debug environment variables
-              run: echo "Image is ${{ vars.DOCKER_IMAGE_BETA }}"
-            - name: Debug image name
-              run: echo "DOCKER_IMAGE_BETA='${{ vars.DOCKER_IMAGE_BETA }}'"
-            - name: Update Docker Container metadata
-              uses: docker/metadata-action@v4
-              id: meta
-              with:
-                images: ${{ vars.DOCKER_IMAGE_BETA }}
-            
-            - name: Setup Docker Buildx
-              uses: docker/setup-buildx-action@v2
-            
-            - name: Login to OCA's Docker Hub
-              uses: docker/login-action@v2
-              with:
-                username: ${{ vars.DOCKER_USERNAME }}
-                password: ${{ secrets.DOCKER_PASSWORD }}
-            
-            - name: Build and push Docker image
-              uses: docker/build-push-action@v4
-              with: 
-                context: .
-                push: true
-                file: Dockerfile
-                labels: ${{ steps.meta.outputs.labels }}
-                tags: |
-                    ${{ vars.DOCKER_IMAGE_BETA }}:latest
-                    ${{ steps.meta.outputs.tags }}
-                build-args: |
-                  DEFAULT_DOCS_URL=${{ secrets.DEFAULT_DOCS_URL }}
-                  DEMOGRAFIA_CSV_URL=${{ secrets.DEMOGRAFIA_CSV_URL }}
-                  EDUCACAO_CSV_URL=${{ secrets.EDUCACAO_CSV_URL }}
-                  SAUDE_CSV_URL=${{ secrets.SAUDE_CSV_URL }}
-                  ECONOMIA_RENDA_CSV_URL=${{ secrets.ECONOMIA_RENDA_CSV_URL }}
-                  SANEAMENTO_CSV_URL=${{ secrets.SANEAMENTO_CSV_URL }}
-                  HIDRAULICA_CSV_URL=${{ secrets.HIDRAULICA_CSV_URL }}
-                  DEMOGRAFIA_DOCS_URL=${{ secrets.DEMOGRAFIA_DOCS_URL }}
-                  EDUCACAO_DOCS_URL=${{ secrets.EDUCACAO_DOCS_URL }}
-                  SAUDE_DOCS_URL=${{ secrets.SAUDE_DOCS_URL }}
-                  ECONOMIA_RENDA_DOCS_URL=${{ secrets.ECONOMIA_RENDA_DOCS_URL }}
-                  SANEAMENTO_DOCS_URL=${{ secrets.SANEAMENTO_DOCS_URL }}
-                  HIDRAULICA_DOCS_URL=${{ secrets.HIDRAULICA_DOCS_URL }}
-                  VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
-    push-beta:
-        needs: build-image
-        runs-on: [self-hosted, datane-beta-runner]
-        steps:
+  build-image:
+    runs-on: ubuntu-latest
 
-            - name: Debug environment (Runner)
-              run: echo "Image is ${{ vars.DOCKER_IMAGE_BETA }}"
+    steps:
+      - uses: actions/checkout@v4
 
-            - name: Ensure docker volume exists
-              run: |
-                sudo docker volume create ${{ vars.VOLUME_NAME}}
+      - name: Debug environment variables
+        run: echo "Image is ${{ vars.DOCKER_IMAGE_BETA }}"
 
-            - name: Ensure docker network exists
-              run: | 
-                DOCKER_NETWORK_NAME="${{ vars.NETWORK_NAME }}"
-                if ! sudo docker network inspect "$DOCKER_NETWORK_NAME" >/dev/null 2>&1; then
-                  sudo docker network create "$DOCKER_NETWORK_NAME"
-                  echo "Created network: $DOCKER_NETWORK_NAME"
-                else
-                  echo "Network already exists: $DOCKER_NETWORK_NAME"
-                fi
+      - name: Debug image name
+        run: echo "DOCKER_IMAGE_BETA='${{ vars.DOCKER_IMAGE_BETA }}'"
 
-            - name: Pull the latest beta image
-              run: sudo docker pull ${{ vars.DOCKER_IMAGE_BETA }}:latest
+      - name: Update Docker Container metadata
+        uses: docker/metadata-action@v4
+        id: meta
+        with:
+          images: ${{ vars.DOCKER_IMAGE_BETA }}
 
-            - name: Stop existing container
-              run: sudo docker rm -f ${{ vars.CONTAINER_NAME_BETA }} || true 
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-            - name: Run the new Beta container
-              run: |
-                sudo docker run \
-                    --name ${{ vars.CONTAINER_NAME_BETA }} \
-                    --restart unless-stopped \
-                    -p ${{ vars.HOST_PORT_BETA }}:${{ vars.CONTAINER_PORT }} \
-                    -v ${{ vars.VOLUME_NAME}}:/app/output \
-                    -d ${{ vars.DOCKER_IMAGE_BETA }}:latest
+      - name: Login to OCA's Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ vars.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-            - name: Connect to the Beta container network
-              run: sudo docker network connect ${{ vars.NETWORK_NAME }} ${{ vars.CONTAINER_NAME_BETA }}
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          file: Dockerfile
+          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ${{ vars.DOCKER_IMAGE_BETA }}:latest
+            ${{ steps.meta.outputs.tags }}
+          build-args: |
+            DEFAULT_DOCS_URL=${{ secrets.DEFAULT_DOCS_URL }}
+            DEMOGRAFIA_CSV_URL=${{ secrets.DEMOGRAFIA_CSV_URL }}
+            EDUCACAO_CSV_URL=${{ secrets.EDUCACAO_CSV_URL }}
+            SAUDE_CSV_URL=${{ secrets.SAUDE_CSV_URL }}
+            ECONOMIA_RENDA_CSV_URL=${{ secrets.ECONOMIA_RENDA_CSV_URL }}
+            SANEAMENTO_CSV_URL=${{ secrets.SANEAMENTO_CSV_URL }}
+            HIDRAULICA_CSV_URL=${{ secrets.HIDRAULICA_CSV_URL }}
+            DEMOGRAFIA_DOCS_URL=${{ secrets.DEMOGRAFIA_DOCS_URL }}
+            EDUCACAO_DOCS_URL=${{ secrets.EDUCACAO_DOCS_URL }}
+            SAUDE_DOCS_URL=${{ secrets.SAUDE_DOCS_URL }}
+            ECONOMIA_RENDA_DOCS_URL=${{ secrets.ECONOMIA_RENDA_DOCS_URL }}
+            SANEAMENTO_DOCS_URL=${{ secrets.SANEAMENTO_DOCS_URL }}
+            HIDRAULICA_DOCS_URL=${{ secrets.HIDRAULICA_DOCS_URL }}
+            VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
 
-            - name: Prune unused Docker images
-              run: sudo docker system prune -f
+  push-beta:
+    needs: build-image
+    runs-on: [self-hosted, datane-beta-runner]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Debug environment Runner
+        run: echo "Image is ${{ vars.DOCKER_IMAGE_BETA }}"
+
+      - name: Ensure docker output volume exists
+        run: |
+          sudo docker volume create ${{ vars.VOLUME_NAME }}
+
+      - name: Ensure docker map shape volume exists
+        run: |
+          sudo docker volume create ${{ vars.MAP_SHAPE_VOLUME_NAME }}
+
+      - name: Ensure docker network exists
+        run: |
+          DOCKER_NETWORK_NAME="${{ vars.NETWORK_NAME }}"
+
+          if ! sudo docker network inspect "$DOCKER_NETWORK_NAME" >/dev/null 2>&1; then
+            sudo docker network create "$DOCKER_NETWORK_NAME"
+            echo "Created network: $DOCKER_NETWORK_NAME"
+          else
+            echo "Network already exists: $DOCKER_NETWORK_NAME"
+          fi
+
+      - name: Download map shapes
+        shell: bash
+        run: |
+          rm -rf ./map_shape
+          mkdir -p ./map_shape
+
+          cd ./map_shape
+
+          python3 ../scripts/download_map_shapes.py \
+            --url "${{ secrets.MAP_SHAPE_ZIP_URL }}"
+
+      - name: Debug downloaded map shape files on runner
+        shell: bash
+        run: |
+          echo "Current directory:"
+          pwd
+
+          echo "Downloaded files:"
+          find ./map_shape -maxdepth 5 -type f | sort
+
+          echo "Shape files found:"
+          find ./map_shape -maxdepth 5 -type f | grep -E '\.shp|\.shx|\.dbf|\.prj' || true
+
+      - name: Copy map shapes into Docker volume
+        shell: bash
+        run: |
+          sudo docker run --rm \
+            -v "${{ vars.MAP_SHAPE_VOLUME_NAME }}:/target" \
+            -v "${{ github.workspace }}/map_shape:/source:ro" \
+            alpine sh -c "rm -rf /target/* && cp -a /source/. /target/"
+
+      - name: Validate map shape volume
+        shell: bash
+        run: |
+          echo "Files inside map shape volume:"
+
+          sudo docker run --rm \
+            -v "${{ vars.MAP_SHAPE_VOLUME_NAME }}:/app/map_shape:ro" \
+            alpine find /app/map_shape -maxdepth 5 -type f
+
+          echo "Checking expected .shp path..."
+
+          sudo docker run --rm \
+            -v "${{ vars.MAP_SHAPE_VOLUME_NAME }}:/app/map_shape:ro" \
+            alpine test -f /app/map_shape/BR_Municipios_2025/BR_Municipios_2025.shp
+
+      - name: Pull the latest beta image
+        run: sudo docker pull ${{ vars.DOCKER_IMAGE_BETA }}:latest
+
+      - name: Stop existing container
+        run: sudo docker rm -f ${{ vars.CONTAINER_NAME_BETA }} || true
+
+      - name: Run the new Beta container
+        run: |
+          sudo docker run \
+            --name ${{ vars.CONTAINER_NAME_BETA }} \
+            --restart unless-stopped \
+            -p ${{ vars.HOST_PORT_BETA }}:${{ vars.CONTAINER_PORT }} \
+            -v ${{ vars.VOLUME_NAME }}:/app/output \
+            -v ${{ vars.MAP_SHAPE_VOLUME_NAME }}:/app/map_shape \
+            --network ${{ vars.NETWORK_NAME }} \
+            -d ${{ vars.DOCKER_IMAGE_BETA }}:latest
+
+      - name: Validate files inside running container
+        shell: bash
+        run: |
+          echo "Files inside /app/map_shape:"
+          sudo docker exec ${{ vars.CONTAINER_NAME_BETA }} \
+            find /app/map_shape -maxdepth 5 -type f
+
+          echo "Checking expected .shp inside running container:"
+          sudo docker exec ${{ vars.CONTAINER_NAME_BETA }} \
+            test -f /app/map_shape/BR_Municipios_2025/BR_Municipios_2025.shp
+
+      - name: Prune unused Docker images
+        run: sudo docker system prune -f
