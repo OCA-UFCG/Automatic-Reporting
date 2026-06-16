@@ -39,6 +39,11 @@ def _gerar_pdf(html_content: str, pdf_file: Path) -> None:
 
 
 def _carregar_csv(csv_source: str | Path) -> pd.DataFrame:
+    """Load CSV into an in-memory cache (process lifetime only).
+
+    Stores parsed DataFrames keyed by file path to avoid repeated parsing.
+    Cache is lost on process restart.
+    """
     cache_key = str(csv_source)
     if cache_key in _CSV_CACHE:
         return _CSV_CACHE[cache_key].copy()
