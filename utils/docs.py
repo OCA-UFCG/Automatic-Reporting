@@ -18,6 +18,11 @@ def _cache_path(doc_id: str) -> Path:
 
 
 def _carregar_do_cache(doc_id: str) -> str | None:
+    """Load document content from cache if still valid.
+
+    Checks ``output/docs_cache/{doc_id}.json`` and validates TTL (1 hour).
+    Returns None if cache miss or expired.
+    """
     cache_path = _cache_path(doc_id)
     if not cache_path.exists():
         return None
@@ -31,6 +36,10 @@ def _carregar_do_cache(doc_id: str) -> str | None:
 
 
 def _salvar_no_cache(doc_id: str, texto: str) -> None:
+    """Store document content in cache with current timestamp.
+
+    Writes to ``output/docs_cache/{doc_id}.json`` with timestamp for TTL tracking.
+    """
     try:
         DOCS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
         dados = {"timestamp": time.time(), "texto": texto}

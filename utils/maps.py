@@ -436,6 +436,11 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
 
 
 def carregar_cache_geocoding() -> dict:
+    """Load geocoding cache from disk.
+
+    Returns cached city coordinates from ``output/geocoding_cache.json``.
+    Cache is permanent (no TTL) — persists until cache file is deleted.
+    """
     if not GEOCODING_CACHE_FILE.exists():
         return {}
 
@@ -446,6 +451,10 @@ def carregar_cache_geocoding() -> dict:
 
 
 def salvar_cache_geocoding(cache: dict) -> None:
+    """Write geocoding cache to disk.
+
+    Persists the entire cache dict to ``output/geocoding_cache.json``.
+    """
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     GEOCODING_CACHE_FILE.write_text(
         json.dumps(cache, ensure_ascii=False, indent=2),
