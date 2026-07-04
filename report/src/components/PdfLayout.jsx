@@ -13,7 +13,7 @@ export function PdfPageHeader({ data }) {
 export function PdfFooter() {
   return (
     <footer className="pdf-footer">
-      <span>Relatório automático do Data Nordeste</span>
+      <span className="pdf-footer-label">Relatório automático do Data Nordeste</span>
       <span className="pdf-footer-page" aria-label="Número da página" />
     </footer>
   );
