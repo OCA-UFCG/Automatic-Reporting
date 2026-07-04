@@ -8,6 +8,7 @@ report-generator-demo/frontend/dist/
 .env
 node_modules/
 frontend/dist/
+frontend/node_modules
 report/ssr-dist/
 report/node_modules/
 *.lock

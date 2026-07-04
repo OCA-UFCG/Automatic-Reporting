@@ -61,7 +61,7 @@ export function PdfCoverBrand() {
 
 export function MetricIcon() {
   return (
-    <svg className="metric-icon" viewBox="0 0 24 24" aria-hidden="true">
+    <svg className="metric-icon" viewBox="0 0 24 24" aria-hidden="true" color="#018f39">
       <path d="M4 17h16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       <path d="M7 15l3.1-4.2 2.7 2.8 3.3-5.1L20 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       <circle cx="10.1" cy="10.8" r="1.1" fill="currentColor" />
@@ -90,7 +90,7 @@ const MACROTHEME_ICONS = {
 
 export function MacrothemeIcon({ icone }) {
   return (
-    <svg className="macrotheme-icon" viewBox="0 0 24 24">
+    <svg className="macrotheme-icon" viewBox="0 0 24 24" color="#ff3045">
       {MACROTHEME_ICONS[icone] || (
         <path d="M4 17h16M7 15l3-4 3 3 4-6 3 7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       )}
@@ -111,7 +111,7 @@ const INDICATOR_ICONS = {
 
 export function IndicatorIcon({ icone }) {
   return (
-    <svg className="indicator-icon" viewBox="0 0 24 24" aria-hidden="true">
+    <svg className="indicator-icon" viewBox="0 0 24 24" aria-hidden="true" color="#ff3045">
       {INDICATOR_ICONS[icone] || (
         <path d="M4 17h16M7 15l3-4 3 3 4-6 3 7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       )}

@@ -1,99 +1,151 @@
-# report-generator-demo
+# Automatic Reporting
 
-Projeto com duas partes:
+Sistema de geração de relatórios PDF para o Data Nordeste. Combina dados de CSVs com textos descritivos do Google Docs e renderiza relatórios visuais em PDF.
 
-- **API em FastAPI** para gerar relatórios do Data Nordeste.
-- **Frontend em React + Vite** para escolher macrotema e cidade e disparar o relatório.
+## Arquitetura
 
-## Estrutura
+```
+Browser (React SPA)
+       │
+       ▼
+FastAPI (Python) ──────► Node.js (React SSR)
+       │                       │
+       │                       ▼
+       │                  HTML renderizado
+       ▼                       │
+WeasyPrint                     │
+       │                       │
+       ▼                       │
+     PDF ◄─────────────────────┘
+```
 
-- `main.py` — API FastAPI
-- `citys.txt` — lista de cidades usadas no frontend
-- `demografia.csv` — base de dados do relatório
-- `output/` — arquivos HTML/PDF e gráficos gerados
-- `frontend/` — interface web
+- **Python/FastAPI**: processa dados, gerencia CSV, Docs, gráficos
+- **React SSR**: renderiza HTML da capa e conteúdo via `renderToStaticMarkup`
+- **WeasyPrint**: converte HTML em PDF
+
+## Stack
+
+- **Backend**: FastAPI (Python 3.11+)
+- **Frontend**: React + Vite
+- **PDF**: WeasyPrint + React SSR
+- **Build**: npm workspaces (monorepo)
 
 ## Requisitos
 
-- Python 3.10+
+- Python 3.11+
 - Node.js 18+
+- npm
 
-## Instalação da API
-
-Dentro da pasta `report-generator-demo`:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-## Como executar a API
+## Quick start
 
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# Ativar ambiente virtual e rodar
+source .venv/bin/activate && ./build.sh
 ```
 
-Se quiser usar um Google Docs específico como texto-base do relatório:
+Isso instala dependências Python e JS, builda o SSR e o frontend, e sobe os servidores.
+
+## Componentes do build
 
 ```bash
-export DATANE_DOCS_URL="https://docs.google.com/document/d/SEU_DOC_ID/edit"
+pip install -r requirements.txt    # Python deps
+npm install                          # Node deps
+npm run build -w report              # Build React SSR → report/ssr-dist/
+npm run build -w frontend            # Build SPA → frontend/dist/
 ```
 
-Se essa variável não for definida, a API usa o documento padrão já configurado no `main.py`.
-
-## Instalação do frontend
-
-Dentro da pasta `report-generator-demo/frontend`:
+## Como rodar
 
 ```bash
-yarn install
+source .venv/bin/activate && ./build.sh
 ```
 
-## Como executar o frontend
+O `build.sh` inicia:
+- Servidor SSR (Node.js) na porta 3001
+- API FastAPI na porta 8000
+
+## Endpoints da API
+
+| Método | URL | Descrição |
+|--------|-----|-----------|
+| GET | `/cities` | Lista de cidades |
+| GET | `/macrotemas` | Lista de macrotemas |
+| GET | `/relatorios` | Relatórios gerados |
+| GET | `/relatorio/{cidade}?macrotema={tema}` | Gera relatório |
+| DELETE | `/relatorios/{arquivo}` | Remove relatório |
+
+## Macrotemas
+
+- `todos` — Todos os temas concatenados
+- `demografia` — Demografia
+- `educacao` — Educação
+- `saude` — Saúde
+- `economia-renda` — Economia e Renda
+- `saneamento` — Saneamento
+- `hidraulica` — Segurança Hídrica
+
+## Estrutura de diretórios
+
+```
+/
+├── main.py                # FastAPI app
+├── reports.py             # Lógica de geração (orquestrador)
+├── config.py              # Configurações e variáveis de ambiente
+├── plotting.py             # Gráficos matplotlib
+│
+├── frontend/              # SPA React (interface)
+│   └── src/App.jsx
+│
+├── report/                # React SSR (renderização PDF)
+│   └── src/components/    # Cover, Report, Brand, etc.
+│
+├── utils/
+│   ├── cover.py           # Monta objeto "cover" para o React
+│   ├── renderer.py        # Converte markdown Docs → HTML
+│   ├── ssr.py             # Chama Node.js para renderizar
+│   ├── docs.py            # Baixa Google Docs
+│   ├── cities.py          # Filtro e список cidades
+│   ├── macrotemas.py      # Config dos temas
+│   └── maps.py            # Mapas (Contentful ou gerado)
+│
+├── docs/
+│   └── ARCHITECTURE.md    # Documentação da arquitetura
+│
+└── output/                # Relatórios gerados (.html + .pdf)
+```
+
+
+### Resumo das etapas
+
+| Etapa | O que acontece |
+|-------|----------------|
+| 1 | Carrega CSV do tema selecionado (pandas) |
+| 2 | Filtra linhas pela cidade informada |
+| 3 | Gera gráficos matplotlib (só se demografia) |
+| 4 | Busca texto no Google Docs (com cache) |
+| 5 | Extrai seções marcadas (##resumo_tema, etc.) |
+| 6 | Preenche cover com métricas, score, indicadores |
+| 7 | Converte markdown dos Docs em HTML |
+| 8 | React SSR renderiza HTML final |
+| 9 | Salva HTML, PDF gerado em background |
+
+
+## Variáveis de ambiente
 
 ```bash
-yarn dev
+# URLs dos CSVs (por tema)
+DEMOGRAFIA_CSV_URL, EDUCACAO_CSV_URL, SAUDE_CSV_URL, etc.
+
+# URLs dos Docs (por tema)
+DEMOGRAFIA_DOCS_URL, EDUCACAO_DOCS_URL, etc.
+
+# Contentful (mapas)
+CONTENTFUL_SPACE_ID, CONTENTFUL_ACCESS_TOKEN
 ```
 
-O frontend abre normalmente em `http://localhost:5173`.
-
-Se quiser, também funciona:
+## Docker
 
 ```bash
-yarn start
+docker build -t automatic-reporting .
+docker run -p 8000:8000 automatic-reporting
 ```
-
-## Como usar
-
-1. Rode a API.
-2. Rode o frontend.
-3. Abra o frontend no navegador.
-4. Clique em **Gerar relatório**.
-5. Escolha o macrotema e a cidade.
-6. Clique em **Gerar relatório** novamente para abrir o relatório.
-
-Por enquanto, o macrotema é apenas visual no formulário; a API recebe apenas a cidade.
-
-## O que a API faz
-
-Quando você acessa `/relatorio/{cidade}`:
-
-1. lê o CSV `demografia.csv`;
-2. procura a cidade informada, com ou sem UF;
-3. busca o texto-base no Google Docs;
-4. renderiza o HTML do relatório;
-5. gera gráfico de população por sexo;
-6. salva os arquivos em `output/`;
-7. devolve o HTML no navegador.
-
-## Exemplo de uso direto da API
-
-- `http://127.0.0.1:8000/docs`
-- `http://127.0.0.1:8000/relatorio/Caruaru%20(PE)`
-
-## Arquivos importantes do frontend
-
-- `frontend/src/App.jsx` — tela principal
-- `frontend/src/styles.css` — estilos da interface
-- `frontend/package.json` — scripts do frontend

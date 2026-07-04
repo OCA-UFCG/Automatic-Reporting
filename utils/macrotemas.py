@@ -60,36 +60,3 @@ MACROTEMAS = {
 
 TODOS_MACROTEMAS_SLUG = "todos"
 TODOS_MACROTEMAS_NOME = "Todos"
-
-MACROTEMA_SECOES = {
-    "demografia": {
-        "numero": "01",
-        "titulo": "Demografia",
-        "aliases": ["demografia"],
-    },
-    "educacao": {
-        "numero": "02",
-        "titulo": "Educação",
-        "aliases": ["educacao", "educação"],
-    },
-    "saude": {
-        "numero": "03",
-        "titulo": "Saúde",
-        "aliases": ["saude", "saúde"],
-    },
-    "economia-renda": {
-        "numero": "04",
-        "titulo": "Economia e Renda",
-        "aliases": ["economia", "economia e renda"],
-    },
-    "saneamento": {
-        "numero": "05",
-        "titulo": "Infraestrutura e Saneamento",
-        "aliases": ["saneamento", "infraestrutura e saneamento"],
-    },
-    "hidraulica": {
-        "numero": "06",
-        "titulo": "Segurança Hídrica",
-        "aliases": ["hidraulica", "hidráulica", "seguranca hidrica", "segurança hídrica"],
-    },
-}
