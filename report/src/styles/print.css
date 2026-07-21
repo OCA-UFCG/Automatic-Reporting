@@ -57,24 +57,23 @@ color: #333333;
     justify-content: space-between;
     align-items: center;
     width: auto;
-    height: 12mm;
-    padding: 2.5mm 14mm;
-    background: #eeeeef;
+    height: 40px;
+    padding: 8px 24px;
+    background: #EFEFEF;
     box-sizing: border-box;
     font-family: var(--font-sans);
     z-index: 1000;
   }
 
   .pdf-page-header-brand {
-    display: block;
-    width: 22mm;
-    height: 8mm;
+    display: flex;
+    align-items: center;
   }
 
   .pdf-page-header-logo {
     display: block;
-    width: 22mm;
-    height: 8mm;
+    width: 50px;
+    height: 24px;
   }
 
   .pdf-footer {
