@@ -14,11 +14,11 @@ export default function Report({ cover, docsHtml, dados }) {
       </head>
       <body>
         <PdfPageHeader data={cover.data_extenso} />
+        <PdfFooter />
         <Cover cover={cover} />
         {dados.map((_, idx) => (
           <div key={idx} className="doc-content" dangerouslySetInnerHTML={{ __html: docsHtml }} />
         ))}
-        <PdfFooter />
       </body>
     </html>
   );
