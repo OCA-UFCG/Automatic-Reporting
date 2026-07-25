@@ -14,6 +14,7 @@ from utils.docs import (
     carregar_texto_do_docs,
     extrair_descricao_tema,
     extrair_resumo_tema,
+    extrair_relatorio_geral,
     extrair_resumo_relatorio,
     extrair_resumo_cidade,
     extrair_diagnostico_cidade,
@@ -227,6 +228,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
                 linhas[0],
                 gerado_em,
                 macrotema_dados["nome"],
+                macrotema_slug,
             )
             safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas[0]["nm_mun"].strip().lower())
             safe_report = f"{macrotema}__{safe_city}"
@@ -254,6 +256,18 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
         if resumo_tema and cover is not None and macrotema_slug == macrotema_slugs[0]:
             cover["macrotema"]["resumo"] = substituir_placeholders(
                 resumo_tema, linhas_macrotema[0], macrotema_slug
+            )
+
+        relatorio_geral, docs_texto = extrair_relatorio_geral(docs_texto)
+        if relatorio_geral and cover is not None and macrotema_slug == macrotema_slugs[0]:
+            cover["relatorio_geral_html"] = render_descricao_tema_html(
+                relatorio_geral,
+                linhas_macrotema[0],
+                namespace=macrotema_slug,
+                safe_report=safe_report,
+            )
+            cover["relatorio_geral"] = substituir_placeholders(
+                relatorio_geral, linhas_macrotema[0], macrotema_slug
             )
 
         resumo_relatorio, docs_texto = extrair_resumo_relatorio(docs_texto)

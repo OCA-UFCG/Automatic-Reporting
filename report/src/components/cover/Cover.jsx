@@ -1,5 +1,6 @@
 import React from 'react';
 import { CoverBrand, PdfCoverBrand } from '../Brand.jsx';
+import MacrothemeCard from './MacrothemeCard.jsx';
 import MetricCard from './MetricCard.jsx';
 import RadarChart from './RadarChart.jsx';
 import ScoreCard from './ScoreCard.jsx';
@@ -9,6 +10,7 @@ export default function Cover({ cover }) {
   const hasMaps = cover.macrotema?.descricao_html?.length > 0;
 
   return (
+    <>
     <section className="report-cover">
       <div className="cover-header">
         <div className="cover-meta">
@@ -20,9 +22,9 @@ export default function Cover({ cover }) {
       <div className="cover-content">
 
         <div className="cover-kicker">Relatório geral</div>
-        {cover.resumo_relatorio_html?.length > 0 && (
-          <div className="cover-resumo-relatorio-wrap">
-            {cover.resumo_relatorio_html.map((item, idx) => (
+        {cover.relatorio_geral_html?.length > 0 && (
+          <div className="cover-relatorio-geral-wrap">
+            {cover.relatorio_geral_html.map((item, idx) => (
               <div key={idx} dangerouslySetInnerHTML={{ __html: item }} />
             ))}
           </div>
@@ -84,9 +86,25 @@ export default function Cover({ cover }) {
           </div>
         </section>
 
-        <ThemeDetail macrotema={cover.macrotema} />
-
       </div>
     </section>
+
+    <section className="resumo-relatorio-page">
+      <h2 className="cover-kicker">Resumo do relatório</h2>
+      {cover.resumo_relatorio_html?.length > 0 ? (
+        cover.resumo_relatorio_html.map((item, idx) => (
+          <div key={idx} dangerouslySetInnerHTML={{ __html: item }} />
+        ))
+      ) : (
+        cover.resumo_relatorio ? (
+          <p className="theme-detail-text">{cover.resumo_relatorio}</p>
+        ) : null
+      )}
+    </section>
+
+    <MacrothemeCard macrotema={cover.macrotema} />
+
+    <ThemeDetail macrotema={cover.macrotema} />
+    </>
   );
 }

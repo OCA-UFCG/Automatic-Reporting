@@ -114,6 +114,9 @@ def extrair_resumo_tema(texto: str) -> tuple[str | None, str]:
 def extrair_descricao_tema(texto: str) -> tuple[str | None, str]:
     return extrair_bloco_marcado(texto, "descricao_tema")
 
+def extrair_relatorio_geral(texto: str) -> tuple[str | None, str]:
+    return extrair_bloco_marcado(texto, "relatorio_geral")
+
 def extrair_resumo_relatorio(texto: str) -> tuple[str | None, str]:
     return extrair_bloco_marcado(texto, "resumo_relatorio")
 
