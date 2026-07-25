@@ -122,6 +122,10 @@ def extrair_resumo_cidade(texto: str) -> tuple[str | None, str]:
     return extrair_bloco_marcado(texto, "resumo_cidade")
 
 
+def extrair_diagnostico_cidade(texto: str) -> tuple[str | None, str]:
+    return extrair_bloco_marcado(texto, "diagnostico_cidade")
+
+
 def carregar_texto_do_docs(link_ou_id: str) -> str:
     doc_id = extrair_doc_id(link_ou_id)
 

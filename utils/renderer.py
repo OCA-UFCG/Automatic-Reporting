@@ -39,7 +39,6 @@ def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
         cidade_segura = html_module.escape(str(contexto.get("nm_mun", "município")))
         return (
             '<figure class="map-block map-block--region">'
-            '<h2 class="region-map-title">Mapa da região</h2>'
             f'<img class="region-map-image" src="{html_module.escape(contentful_url)}" '
             f'alt="Mapa da região de {cidade_segura}">'
             '</figure>'
@@ -51,7 +50,6 @@ def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
         cidade_segura = html_module.escape(str(contexto.get("nm_mun", "município")))
         return (
             '<figure class="map-block map-block--region">'
-            '<h2 class="region-map-title">Mapa da região</h2>'
             f'<img class="region-map-image" src="/output/{html_module.escape(mapa_file)}" '
             f'alt="Mapa da região de {cidade_segura}">'
             '</figure>'

@@ -16,6 +16,7 @@ from utils.docs import (
     extrair_resumo_tema,
     extrair_resumo_relatorio,
     extrair_resumo_cidade,
+    extrair_diagnostico_cidade,
 )
 from utils.cover import montar_capa_relatorio
 from utils.renderer import render_descricao_tema_html, render_mapa_marker, substituir_placeholders, texto_para_html
@@ -277,6 +278,18 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
             )
             cover["resumo_cidade"] = substituir_placeholders(
                 resumo_cidade, linhas_macrotema[0], macrotema_slug
+            )
+
+        diagnostico_cidade, docs_texto = extrair_diagnostico_cidade(docs_texto)
+        if diagnostico_cidade and cover is not None and macrotema_slug == macrotema_slugs[0]:
+            cover["diagnostico_cidade_html"] = render_descricao_tema_html(
+                diagnostico_cidade,
+                linhas_macrotema[0],
+                namespace=macrotema_slug,
+                safe_report=safe_report,
+            )
+            cover["diagnostico_cidade"] = substituir_placeholders(
+                diagnostico_cidade, linhas_macrotema[0], macrotema_slug
             )
 
         descricao_tema, docs_texto = extrair_descricao_tema(docs_texto)

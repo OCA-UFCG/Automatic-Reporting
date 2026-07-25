@@ -160,6 +160,8 @@ def montar_capa_relatorio(
         "resumo_relatorio_html": [],
         "resumo_cidade": "",
         "resumo_cidade_html": [],
+        "diagnostico_cidade": "",
+        "diagnostico_cidade_html": [],
         "mapa_principal": "",
         "macrotema": {
             "nome": macrotema_nome,

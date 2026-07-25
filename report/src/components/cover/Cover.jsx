@@ -1,10 +1,8 @@
 import React from 'react';
 import { CoverBrand, PdfCoverBrand } from '../Brand.jsx';
 import MetricCard from './MetricCard.jsx';
-import ScoreLegend from './ScoreLegend.jsx';
-import MacrothemeCard from './MacrothemeCard.jsx';
-import MacrothemeSummary from './MacrothemeSummary.jsx';
-import IndicatorScores from './IndicatorScores.jsx';
+import RadarChart from './RadarChart.jsx';
+import ScoreCard from './ScoreCard.jsx';
 import ThemeDetail from '../ThemeDetail.jsx';
 
 export default function Cover({ cover }) {
@@ -20,6 +18,7 @@ export default function Cover({ cover }) {
         </div>
       </div>
       <div className="cover-content">
+
         <div className="cover-kicker">Relatório geral</div>
         {cover.resumo_relatorio_html?.length > 0 && (
           <div className="cover-resumo-relatorio-wrap">
@@ -28,6 +27,7 @@ export default function Cover({ cover }) {
             ))}
           </div>
         )}
+
         <h1 className="cover-city">
           {cover.cidade_nome}{cover.uf ? ` (${cover.uf})` : null}
         </h1>
@@ -38,12 +38,9 @@ export default function Cover({ cover }) {
             ))}
           </div>
         )}
+
         <div className="cover-kicker">Características Gerais</div>
-          <div className="cover-metrics">
-            {cover.metricas.map((m, idx) => (
-              <MetricCard key={idx} metrica={m} />
-            ))}
-        </div>
+
         <div className="cover-maps-group">
           {cover.mapa_principal && (
             <div className="cover-mapa-principal" dangerouslySetInnerHTML={{ __html: cover.mapa_principal }} />
@@ -59,10 +56,34 @@ export default function Cover({ cover }) {
             </div>
           )}
         </div>
-        <MacrothemeSummary macrotema={cover.macrotema} />
-        <MacrothemeCard macrotema={cover.macrotema} />
-        <IndicatorScores macrotema={cover.macrotema} />
-        <ScoreLegend />
+
+        <div className="cover-metrics">
+          {cover.metricas.map((m, idx) => (
+            <MetricCard key={idx} metrica={m} />
+          ))}
+        </div>
+
+        <section className="diagnostic-block">
+          <div className="cover-kicker">Diagnóstico do município</div>
+          <div className="diagnostic-grid">
+            <div className="radar-card">
+              <RadarChart />
+            </div>
+            <div className="score-diagnostic-card">
+              <ScoreCard score={cover.score} />
+              {cover.diagnostico_cidade_html?.length > 0 ? (
+                cover.diagnostico_cidade_html.map((item, idx) => (
+                  <div key={idx} dangerouslySetInnerHTML={{ __html: item }} />
+                ))
+              ) : (
+                <p className="score-diagnostic-text">
+                  {cover.score?.texto_apoio || cover.macrotema?.resumo || ''}
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
         <ThemeDetail macrotema={cover.macrotema} />
 
       </div>

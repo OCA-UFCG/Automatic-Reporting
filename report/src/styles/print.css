@@ -10,7 +10,7 @@
     content: "Relatório automático do Data Nordeste";
     width: 220px; /* fixo: cabe o texto + padding confortavelmente */
     font-family: 'Inter', Arial, sans-serif;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 500;
     color: #333333;
     background: #F8F7F8;
@@ -28,7 +28,7 @@
     content: counter(page, decimal-leading-zero);
     width: 90px; /* fixo: cabe "00".."99" + padding */
     font-family: 'Inter', Arial, sans-serif;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 500;
     color: #333333;
     background: #F8F7F8;
