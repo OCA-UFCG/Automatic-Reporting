@@ -32,7 +32,6 @@ jobs:
 
       - name: Build SSR bundle
         run: |
-          npm cache clean --force
           npm install
           npm run build -w report
 
