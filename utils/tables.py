@@ -1,6 +1,5 @@
 import html as html_module
 
-
 STATUS_MAP = {
     "critico": {
         "label": "Atenção prioritária",

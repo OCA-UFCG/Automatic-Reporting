@@ -1,29 +1,32 @@
 import logging
 import re
+from datetime import datetime, timezone
+from pathlib import Path
+
 import pandas as pd
-from datetime import datetime
 from fastapi import BackgroundTasks, HTTPException
 from fastapi.responses import HTMLResponse
 from weasyprint import HTML
-from pathlib import Path
 
-from config import OUTPUT_DIR, resolve_csv_source, require_config_value
-from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
+from config import OUTPUT_DIR, require_config_value, resolve_csv_source
+from plotting import gerar_grafico_porte, gerar_grafico_sexo, gerar_grafico_top_cidades
 from utils.cities import filtrar_linhas_por_cidade
+from utils.cover import montar_capa_relatorio
 from utils.docs import (
     carregar_texto_do_docs,
     extrair_descricao_tema,
-    extrair_resumo_tema,
-    extrair_resumo_relatorio,
     extrair_resumo_cidade,
+    extrair_resumo_relatorio,
+    extrair_resumo_tema,
 )
-from utils.cover import montar_capa_relatorio
-from utils.renderer import render_descricao_tema_html, render_mapa_marker, substituir_placeholders, texto_para_html
+from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
+from utils.renderer import (
+    render_descricao_tema_html,
+    render_mapa_marker,
+    substituir_placeholders,
+    texto_para_html,
+)
 from utils.ssr import render_react_ssr
-from plotting import gerar_grafico_sexo
-from plotting import gerar_grafico_porte
-from plotting import gerar_grafico_top_cidades
-
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +37,7 @@ def _gerar_pdf(html_content: str, pdf_file: Path) -> None:
     try:
         pdf_html = re.sub(r'src="/output/', 'src="', html_content)
         HTML(string=pdf_html, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
-    except Exception as e:
+    except (OSError, RuntimeError, TypeError, ValueError) as e:
         logger.warning("Falha ao gerar PDF %s: %s", pdf_file, e)
 
 
@@ -106,7 +109,7 @@ async def listar_relatorios_handler():
         mapa_file = OUTPUT_DIR / f"mapa_regiao_{slug_completo}.png"
 
         stat = pdf_file.stat()
-        criado_em = datetime.fromtimestamp(stat.st_mtime)
+        criado_em = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).astimezone()
 
         macrotema = "Demografia"
         if "__" in slug_completo:
@@ -140,7 +143,7 @@ async def listar_relatorios_handler():
     relatorios.sort(
         key=lambda item: datetime.strptime(
             f"{item['data']} {item['hora']}", "%d/%m/%Y %H:%M:%S"
-        ),
+        ).replace(tzinfo=timezone.utc),
         reverse=True
     )
 
@@ -182,7 +185,7 @@ async def apagar_relatorio_handler(arquivo_pdf: str):
 
 async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", charts: str = "all", *, background_tasks: BackgroundTasks):
     macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
-    gerado_em = datetime.now()
+    gerado_em = datetime.now().astimezone()
     allowed = set(CHART_TYPES.keys())
     requested_charts = list(CHART_TYPES.keys()) if charts == "all" else [c.strip() for c in charts.split(",")]
     invalid = set(requested_charts) - allowed
