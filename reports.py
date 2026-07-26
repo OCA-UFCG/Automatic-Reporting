@@ -206,9 +206,17 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
 
     for macrotema_slug in macrotema_slugs:
         macrotema_dados = get_macrotema(macrotema_slug)
+
+        if not macrotema_dados["docs_url"]:
+            logger.warning(
+                "Macrotema '%s' não possui docs_url configurado (%s). Pulando.",
+                macrotema_slug,
+                macrotema_dados["docs_env"],
+            )
+            continue
         csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
         csv_source = resolve_csv_source(csv_url, csv_env)
-        df = pd.read_csv(csv_source, delimiter=";")
+        df = _carregar_csv(csv_source)
         df = normalizar_colunas_macrotema(df, macrotema_slug)
 
         try:

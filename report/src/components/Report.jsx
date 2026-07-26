@@ -3,7 +3,7 @@ import { pdfStyles } from '../styles.js';
 import Cover from './cover/Cover.jsx';
 import { PdfPageHeader, PdfFooter } from './PdfLayout.jsx';
 
-export default function Report({ cover, docsHtml, dados }) {
+export default function Report({ cover, docsHtml }) {
   return (
     <html lang="pt-BR">
       <head>
@@ -16,9 +16,7 @@ export default function Report({ cover, docsHtml, dados }) {
         <PdfPageHeader data={cover.data_extenso} />
         <PdfFooter />
         <Cover cover={cover} />
-        {dados.map((_, idx) => (
-          <div key={idx} className="doc-content" dangerouslySetInnerHTML={{ __html: docsHtml }} />
-        ))}
+        <div className="doc-content" dangerouslySetInnerHTML={{ __html: docsHtml }} />
       </body>
     </html>
   );
