@@ -1,9 +1,11 @@
 import React from 'react';
 import { CoverBrand, PdfCoverBrand } from '../Brand.jsx';
+import IndicatorScores from './IndicatorScores.jsx';
 import MacrothemeCard from './MacrothemeCard.jsx';
 import MetricCard from './MetricCard.jsx';
 import RadarChart from './RadarChart.jsx';
 import ScoreCard from './ScoreCard.jsx';
+import ScoreLegend from './ScoreLegend.jsx';
 import ThemeDetail from '../ThemeDetail.jsx';
 
 export default function Cover({ cover }) {
@@ -103,6 +105,10 @@ export default function Cover({ cover }) {
     </section>
 
     <MacrothemeCard macrotema={cover.macrotema} />
+
+    <IndicatorScores macrotema={cover.macrotema} />
+
+    <ScoreLegend />
 
     <ThemeDetail macrotema={cover.macrotema} />
     </>

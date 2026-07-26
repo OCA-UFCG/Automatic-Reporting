@@ -15,21 +15,21 @@ export default function IndicatorScoreCard({ indicador }) {
   return (
     <div className="indicator-score-card">
       <div className="indicator-score-card-header">
-        <div className="indicator-score-card-info">
-          <IndicatorIcon icone={indicador.icone} className="indicator-icon" />
+        <div className="indicator-score-card-info-row">
+          <span className="indicator-icon-box">
+            <IndicatorIcon icone={indicador.icone} />
+          </span>
           <div className="indicator-text">
             <div className="indicator-name">{indicador.nome}</div>
             <div className="indicator-source">{indicador.fonte}</div>
           </div>
         </div>
-        
         <span
           className="indicator-badge"
           style={{ background: badgeColor }}
         >
           {indicador.score}
         </span>
-
       </div>
 
       <div className="indicator-score-card-footer">

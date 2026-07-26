@@ -397,160 +397,196 @@
 }
 
 .indicator-score-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.indicator-score-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
   gap: 16px;
+  width: 100%;
 }
 
 .indicator-score-card {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+  padding: 0;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 80px;
+  background: #FFFFFF;
   border: 1px solid #EFEFEF;
   border-radius: 8px;
-  background: #fff;
   overflow: hidden;
 }
 
 .indicator-score-card-header {
   display: flex;
   flex-direction: row;
-  align-items: center;
   justify-content: space-between;
-  padding: 4px 8px;
+  align-items: center;
+  padding: 0;
   gap: 6px;
+  flex-grow: 1;
+  align-self: stretch;
   background: #F8F7F8;
 }
 
-.indicator-score-card-info {
+.indicator-score-card-info-row {
   display: flex;
   flex-direction: row;
   align-items: center;
+  padding: 4px 8px 0;
   gap: 4px;
   flex: 1;
   min-width: 0;
+}
+
+.indicator-icon-box {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  padding: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  flex: 0 0 20px;
+  box-sizing: border-box;
 }
 
 .indicator-icon {
   width: 12px;
   height: 12px;
-  color: var(--color-accent);
-  flex: 0 0 12px;
+  color: #E5333F;
   display: block;
-}
-
-.indicator-name {
-  color: #292829;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.5;
-  letter-spacing: -0.03em;
-}
-
-.indicator-source {
-  color: #7E797B;
-  font-size: 11px;
-  line-height: 1.5;
-}
-
-.indicator-badge {
-  padding: 4px 8px;
-  border-radius: 4px;
-  color: #F8F7F8;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 0.9;
-  text-align: center;
-  white-space: nowrap;
-}
-
-.indicator-score-card-footer {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 4px 8px;
-  background: #EFEFEF;
-  color: #292829;
-  font-size: 11px;
-  font-weight: 400;
-  line-height: 1.5;
-  text-align: center;
-}
-
-.indicator-score-card-info {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 4px;
-  flex: 1;
-  min-width: 0;
 }
 
 .indicator-text {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  align-items: flex-start;
+  flex: 1;
   min-width: 0;
 }
 
-.indicator-icon {
-  width: 12px;
-  height: 12px;
-  flex: 0 0 12px;
-  color: var(--color-accent, #E5333F); /* vermelho do Figma */
-  display: block;
+.indicator-name {
+  font-family: 'Inter', var(--font-sans);
+  font-weight: 500;
+  font-size: 9px;
+  line-height: 150%;
+  letter-spacing: -0.03em;
+  color: #292829;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.indicator-source {
+  font-family: 'Inter', var(--font-sans);
+  font-weight: 400;
+  font-size: 6px;
+  line-height: 150%;
+  color: #7E797B;
+}
+
+.indicator-badge {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  gap: 6px;
+  margin: 0 8px 0 0;
+  border-radius: 4px;
+  color: #F8F7F8;
+  font-family: 'Inter', var(--font-sans);
+  font-weight: 500;
+  font-size: 10px;
+  line-height: 9px;
+  letter-spacing: -0.03em;
+  text-align: center;
+  white-space: nowrap;
+  align-self: center;
+}
+
+.indicator-score-card-footer {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  padding: 4px 8px;
+  gap: 10px;
+  flex-shrink: 0;
+  align-self: stretch;
+  background: #EFEFEF;
+  color: #292829;
+  font-family: 'Inter', var(--font-sans);
+  font-weight: 400;
+  font-size: 6px;
+  line-height: 150%;
+  text-align: center;
 }
 
 .score-legend {
-  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 12px;
 }
 
 .score-legend-title {
-  margin: 0 0 4px;
-  color: #292829;
-  font-size: 12px;
+  margin: 0;
+  font-family: 'Inter', var(--font-sans);
   font-weight: 500;
-  line-height: 1.5;
+  font-size: 10px;
+  line-height: 150%;
+  color: #292829;
 }
 
 .score-legend-bar {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1px;
+  width: 100%;
   border-radius: 4px;
+  overflow: hidden;
 }
 
 .score-legend-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
   padding: 4px 8px;
-  color: #F8F7F8;
-  font-size: 11px;
+  gap: 6px;
+  flex: 1 1 0;
+  font-family: 'Inter', var(--font-sans);
   font-weight: 500;
-  line-height: 1;
+  font-size: 9px;
+  line-height: 9px;
+  letter-spacing: -0.03em;
   text-align: center;
   white-space: nowrap;
 }
 
-.score-legend-item + .score-legend-item {
-  border-left: 1px solid #F8F7F8;
-}
-
-.score-legend-high {
-  background: #758F21;
-}
-
-.score-legend-medium {
-  background: #F99C07;
-}
-
-.score-legend-low {
-  background: #BF1621;
-}
-
 .score-legend-footnote {
-  margin: 4px 0 0;
-  color: #292829;
-  font-size: 12px;
+  margin: 0;
+  font-family: 'Inter', var(--font-sans);
   font-weight: 400;
-  line-height: 1.5;
+  font-size: 10px;
+  line-height: 150%;
+  color: #292829;
 }
 
 .cover-detalhamento {
@@ -579,10 +615,13 @@
 
 .cover-maps {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
+  justify-content: center;
+  gap: 8px;
   padding: 0;
   margin-top: 20px;
+  max-width: 100%;
 }
 
 .cover-maps .map-block--region {
@@ -605,8 +644,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   padding: 0;
-  margin-top: 20px;
+  margin: 20px auto 0;
+  width: 100%;
 }
 
 .cover-maps-group figure {
@@ -669,7 +710,7 @@
 .diagnostic-grid {
   display: grid;
   grid-template-columns: 370px 1fr;
-  column-gap: 24px;
+  column-gap: 8px;
   align-items: start;
   width: 100%;
   box-sizing: border-box;
@@ -817,7 +858,7 @@
 .theme-detail-page {
   font-family: var(--font-sans);
   color: #26272c;
-  margin-top: 24px;
+  margin-top: 40px;
 }
 
 .resumo-relatorio-page {
@@ -906,11 +947,6 @@
 
   .cover-metrics {
     margin: 12px 0 8px;
-  }
-
-  .theme-detail-page {
-    break-before: page;
-    page-break-before: always;
   }
 
   .cover-metrics,
