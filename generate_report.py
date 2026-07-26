@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import argparse
 import csv
-from datetime import datetime
 import html
 import io
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -20,7 +20,7 @@ def parse_drive_file_id(value: str) -> str | None:
     parsed = urlparse(value)
     query = parse_qs(parsed.query)
 
-    if "id" in query and query["id"]:
+    if query.get("id"):
         return query["id"][0]
 
     if parsed.netloc and "drive.google.com" in parsed.netloc and parsed.path:
@@ -269,7 +269,7 @@ def main() -> None:
     args = parser.parse_args()
 
     rows = fetch_csv_rows(args.source)
-    generated_at = datetime.now().strftime("%d/%m/%Y %H:%M")
+    generated_at = datetime.now().astimezone().strftime("%d/%m/%Y %H:%M")
 
     if args.city:
         if not rows:

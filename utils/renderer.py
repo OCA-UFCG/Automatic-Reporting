@@ -1,9 +1,9 @@
-import re
 import html as html_module
+import re
 
+from utils.contentful import obter_url_mapa_contentful
 from utils.macrotemas import MACROTEMA_SECOES
 from utils.maps import gerar_mapa_regiao, render_mapa_geografico
-from utils.contentful import obter_url_mapa_contentful
 from utils.tables import render_tabela_resumo
 
 

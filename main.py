@@ -1,17 +1,18 @@
 from fastapi import BackgroundTasks, FastAPI
-from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from config import BASE_DIR
-from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
-from utils.cities import carregar_cidades
-from utils.ssr import start_server as start_ssr_server, stop_server as stop_ssr_server
 from reports import (
-    listar_relatorios_handler,
     apagar_relatorio_handler,
     gerar_relatorio_handler,
+    listar_relatorios_handler,
 )
+from utils.cities import carregar_cidades
+from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
+from utils.ssr import start_server as start_ssr_server
+from utils.ssr import stop_server as stop_ssr_server
 
 app = FastAPI(on_startup=[start_ssr_server], on_shutdown=[stop_ssr_server])
 

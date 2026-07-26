@@ -1,9 +1,11 @@
+import logging
 import re
 
 import httpx
 
 from config import get_config_value
 
+logger = logging.getLogger(__name__)
 
 CONTENTFUL_SPACE_ID = get_config_value("CONTENTFUL_SPACE_ID")
 CONTENTFUL_ACCESS_TOKEN = get_config_value("CONTENTFUL_ACCESS_TOKEN")
@@ -50,7 +52,7 @@ def obter_url_mapa_contentful(nome_municipio: str) -> str | None:
             file_url = items[0].get("fields", {}).get("file", {}).get("url", "")
             if file_url:
                 return f"https:{file_url}" if file_url.startswith("//") else file_url
-    except Exception:
-        pass
+    except (httpx.HTTPError, KeyError, TypeError, AttributeError, ValueError) as e:
+        logger.debug("Conteúdo inesperado ao extrair URL do Contentful: %s", e)
 
     return None

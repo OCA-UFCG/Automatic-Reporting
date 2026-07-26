@@ -4,7 +4,7 @@ import logging
 import os
 import re
 import unicodedata
-from urllib.error import URLError, HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
@@ -213,7 +213,7 @@ def formatar_grau_decimal(valor: float, eixo: str) -> str:
     hemisferio = "W" if eixo == "lon" and valor < 0 else "E" if eixo == "lon" else "S" if valor < 0 else "N"
     absoluto = abs(valor)
     graus = int(absoluto)
-    minutos = int(round((absoluto - graus) * 60))
+    minutos = round((absoluto - graus) * 60)
     if minutos == 60:
         graus += 1
         minutos = 0
@@ -280,6 +280,7 @@ def desenhar_escala(
 ) -> None:
     """Desenha uma escala dinâmica compatível com eixos em longitude/latitude."""
     import math
+
     from matplotlib.patches import Rectangle
 
     minx, maxx = ax.get_xlim()
@@ -459,7 +460,7 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
     try:
         municipios, ufs = carregar_malhas()
         municipio = localizar_municipio(nome_municipio)
-    except Exception as e:
+    except (ImportError, OSError, ValueError, KeyError, AttributeError) as e:
         logger.warning("Falha ao carregar malhas ou localizar município '%s': %s", nome_municipio, e)
         return None
 
@@ -475,8 +476,6 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
     chart_file = OUTPUT_DIR / f"mapa_regiao_{safe_report}.png"
 
     uf = str(municipio["SIGLA_UF"]).upper()
-    nome_uf = UF_NOMES.get(uf, uf)
-    nome_cidade = str(municipio["NM_MUN"])
     municipios_uf = municipios[municipios["SIGLA_UF"].astype(str).str.upper() == uf]
     uf_alvo = ufs[ufs["SIGLA_UF"].astype(str).str.upper() == uf]
     municipio_gdf = municipios.loc[[municipio.name]]
@@ -797,7 +796,7 @@ def montar_url_busca_mapa(nome_municipio: str) -> str:
 
 def render_mapa_geografico(contexto: dict) -> str:
     nome_municipio = str(contexto.get("nm_mun", "")).strip()
-    cidade, uf = separar_cidade_uf(nome_municipio)
+    cidade, _uf = separar_cidade_uf(nome_municipio)
     nome_seguro = html.escape(nome_municipio)
     cidade_segura = html.escape(cidade)
     mapa = geocodificar_municipio(nome_municipio)

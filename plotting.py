@@ -1,5 +1,7 @@
-import matplotlib.pyplot as plt
 import pathlib
+
+import matplotlib.pyplot as plt
+
 
 def gerar_grafico_sexo(cidade, OUTPUT_DIR: pathlib.Path, safe_city: str):
     mulheres = int(str(cidade["pop_mulher"]).replace('.', ''))
