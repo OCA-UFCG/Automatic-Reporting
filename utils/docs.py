@@ -1,13 +1,15 @@
 import json
+import logging
 import re
 import time
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import urlopen
-from urllib.error import URLError, HTTPError
 
 from config import BASE_DIR
 
+logger = logging.getLogger(__name__)
 
 DOCS_CACHE_DIR = BASE_DIR / "output" / "docs_cache"
 DOCS_CACHE_TTL = 3600  # 1 hour
@@ -25,8 +27,8 @@ def _carregar_do_cache(doc_id: str) -> str | None:
         dados = json.loads(cache_path.read_text(encoding="utf-8"))
         if time.time() - dados["timestamp"] < DOCS_CACHE_TTL:
             return dados["texto"]
-    except Exception:
-        pass
+    except (OSError, json.JSONDecodeError, KeyError, TypeError) as e:
+        logger.debug("Falha ao ler cache de docs (%s): %s", cache_path, e)
     return None
 
 
@@ -37,8 +39,8 @@ def _salvar_no_cache(doc_id: str, texto: str) -> None:
         _cache_path(doc_id).write_text(
             json.dumps(dados, ensure_ascii=False), encoding="utf-8"
         )
-    except Exception:
-        pass
+    except (OSError, TypeError, ValueError) as e:
+        logger.debug("Falha ao salvar cache de docs (%s): %s", _cache_path(doc_id), e)
 
 
 def extrair_doc_id(link_ou_id: str) -> str:

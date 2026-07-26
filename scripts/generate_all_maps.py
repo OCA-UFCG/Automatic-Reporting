@@ -6,13 +6,17 @@ import sys
 import unicodedata
 from pathlib import Path
 
-
 ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR))
 
-from config import OUTPUT_DIR  # noqa: E402
-from utils.cities import carregar_cidades  # noqa: E402
-from utils.maps import carregar_malhas, gerar_mapa_regiao, localizar_municipio, separar_cidade_uf  # noqa: E402
+from config import OUTPUT_DIR
+from utils.cities import carregar_cidades
+from utils.maps import (
+    carregar_malhas,
+    gerar_mapa_regiao,
+    localizar_municipio,
+    separar_cidade_uf,
+)
 
 
 def slugify(value: object) -> str:

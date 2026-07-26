@@ -1,5 +1,6 @@
 import ast
 import re
+
 import pandas as pd
 
 from config import CITIES_FILE

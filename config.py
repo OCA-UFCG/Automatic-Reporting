@@ -1,8 +1,9 @@
 import os
 from pathlib import Path
+from urllib.parse import urlparse
+
 from dotenv import load_dotenv
 from fastapi import HTTPException
-from urllib.parse import urlparse
 
 BASE_DIR = Path(__file__).resolve().parent
 
