@@ -258,16 +258,71 @@ def aplicar_grade_coordenadas(ax, bounds, x_ticks=None, y_ticks=None, fontsize: 
     )
 
 
-def desenhar_escala(ax, km_total: int, pos=(0.70, 0.055), largura_frac: float = 0.16, fontsize: float = 5.5) -> None:
+def _escala_arredondada(km_maximo: float) -> float:
+    """Retorna uma distância cartograficamente legível menor que km_maximo."""
+    if km_maximo <= 0:
+        return 1
+    expoente = 10 ** int(__import__("math").floor(__import__("math").log10(km_maximo)))
+    for fator in (5, 2, 1):
+        candidato = fator * expoente
+        if candidato <= km_maximo:
+            return candidato
+    return expoente / 2
+
+
+def desenhar_escala(
+    ax,
+    pos=(0.62, 0.055),
+    largura_maxima_frac: float = 0.28,
+    fontsize: float = 5.5,
+    km_total: float | None = None,
+    altura: float = 0.012,
+) -> None:
+    """Desenha uma escala dinâmica compatível com eixos em longitude/latitude."""
+    import math
+    from matplotlib.patches import Rectangle
+
+    minx, maxx = ax.get_xlim()
+    miny, maxy = ax.get_ylim()
+    latitude_media = (miny + maxy) / 2
+    km_por_grau_lon = 111.32 * max(math.cos(math.radians(latitude_media)), 0.15)
+    largura_km = abs(maxx - minx) * km_por_grau_lon
+    km_total = km_total or _escala_arredondada(largura_km * largura_maxima_frac)
+    largura_frac = km_total / largura_km
+
     x0, y0 = pos
-    x1 = x0 + largura_frac
-    x_mid = x0 + largura_frac / 2
-    ax.plot([x0, x1], [y0, y0], transform=ax.transAxes, color="#111", lw=0.9, clip_on=False)
-    for x in [x0, x_mid, x1]:
-        ax.plot([x, x], [y0, y0 - 0.018], transform=ax.transAxes, color="#111", lw=0.9, clip_on=False)
-    ax.text(x0, y0 + 0.012, "0", transform=ax.transAxes, ha="center", va="bottom", fontsize=fontsize, color="#111")
-    ax.text(x_mid, y0 + 0.012, f"{km_total // 2}", transform=ax.transAxes, ha="center", va="bottom", fontsize=fontsize, color="#111")
-    ax.text(x1 + 0.012, y0 + 0.012, f"{km_total} km", transform=ax.transAxes, ha="left", va="bottom", fontsize=fontsize, color="#111")
+    metade = largura_frac / 2
+    for indice, cor in enumerate(("#111111", "#ffffff")):
+        ax.add_patch(
+            Rectangle(
+                (x0 + indice * metade, y0),
+                metade,
+                altura,
+                transform=ax.transAxes,
+                facecolor=cor,
+                edgecolor="#111111",
+                linewidth=0.7,
+                clip_on=False,
+                zorder=20,
+            )
+        )
+
+    valores = (0, km_total / 2, km_total)
+    for indice, (x, valor) in enumerate(zip((x0, x0 + metade, x0 + largura_frac), valores)):
+        rotulo = f"{valor:g}"
+        if indice == 2:
+            rotulo += " km"
+        ax.text(
+            x,
+            y0 - 0.012,
+            rotulo,
+            transform=ax.transAxes,
+            ha="center",
+            va="top",
+            fontsize=fontsize,
+            color="#111111",
+            zorder=20,
+        )
 
 
 def desenhar_nomes_ufs(ax, ufs, bounds, alvo_uf: str, fontsize: float = 7.0) -> None:
@@ -297,40 +352,106 @@ def desenhar_nomes_ufs(ax, ufs, bounds, alvo_uf: str, fontsize: float = 7.0) -> 
         )
 
 
-def anotar_municipios_vizinhos(ax, municipios, alvo, limite: int = 9) -> None:
-    municipios_metrico = municipios.to_crs(epsg=3857)
-    alvo_metrico = municipios.loc[[alvo.name]].to_crs(epsg=3857).iloc[0]
-    centro_alvo = alvo_metrico.geometry.representative_point()
-    municipios = municipios.copy()
-    municipios["_distancia"] = municipios_metrico.geometry.representative_point().distance(centro_alvo).values
-    vizinhos = municipios.sort_values("_distancia").head(limite)
+def anotar_municipios_vizinhos(ax, municipios, alvo, bounds) -> None:
+    """Nomeia o alvo e todos os municípios com área relevante no quadro."""
+    import textwrap
 
-    for _, municipio in vizinhos.iterrows():
-        ponto = municipio.geometry.representative_point()
+    from shapely.geometry import box
+
+    minx, maxx, miny, maxy = bounds
+    janela = box(minx, miny, maxx, maxy)
+    margem_x = (maxx - minx) * 0.025
+    margem_y = (maxy - miny) * 0.025
+    janela_texto = box(
+        minx + margem_x,
+        miny + margem_y,
+        maxx - margem_x,
+        maxy - margem_y,
+    )
+
+    visiveis = municipios[municipios.geometry.intersects(janela)].copy()
+    for indice, municipio in visiveis.iterrows():
+        geometria_visivel = municipio.geometry.intersection(janela_texto)
+        if geometria_visivel.is_empty:
+            continue
+
+        # Evita nomear apenas uma pequena ponta de um município cortado na borda.
+        proporcao_visivel = geometria_visivel.area / max(municipio.geometry.area, 1e-12)
+        if proporcao_visivel < 0.12 and not municipio.geometry.representative_point().within(janela_texto):
+            continue
+
+        ponto = geometria_visivel.representative_point()
+        eh_alvo = indice == alvo.name
+        nome = str(municipio["NM_MUN"])
+        linhas = textwrap.wrap(
+            nome,
+            width=18 if eh_alvo else 15,
+            break_long_words=False,
+            break_on_hyphens=False,
+        )
+        rotulo = "\n".join(linhas)
+        maior_linha = max(map(len, linhas), default=len(nome))
+        # Reserva espaço horizontal de acordo com o comprimento do rótulo.
+        # Assim nomes posicionados perto das bordas não ficam cortados.
+        meia_largura_texto = min(
+            (maxx - minx) * max(maior_linha, 5) * (0.0032 if eh_alvo else 0.00265),
+            (maxx - minx) * 0.18,
+        )
+        texto_x = min(
+            max(ponto.x, minx + margem_x + meia_largura_texto),
+            maxx - margem_x - meia_largura_texto,
+        )
+        texto_y = min(
+            max(ponto.y, miny + margem_y * 1.4),
+            maxy - margem_y * 1.4,
+        )
         ax.text(
-            ponto.x,
-            ponto.y,
-            str(municipio["NM_MUN"]),
-            fontsize=4.8,
-            color="#5e5245",
+            texto_x,
+            texto_y,
+            rotulo,
+            fontsize=5.0 if eh_alvo else 3.9,
+            color="#4b4035",
+            fontweight="bold" if eh_alvo else "normal",
             ha="center",
             va="center",
+            linespacing=0.9,
+            clip_on=True,
+            zorder=12,
         )
 
 
-def desenhar_norte(ax, fontsize: float = 8.0, pos=(0.94, 0.9)) -> None:
+def desenhar_norte(ax, fontsize: float = 8.0, pos=(0.92, 0.12), tamanho: float = 0.065) -> None:
+    from matplotlib.patches import Polygon
+
     x, y = pos
-    ax.annotate(
+    ax.text(
+        x,
+        y + tamanho * 1.25,
         "N",
-        xy=(x, y),
-        xytext=(x, y - 0.105),
-        xycoords="axes fraction",
-        textcoords="axes fraction",
+        transform=ax.transAxes,
         ha="center",
-        va="center",
+        va="bottom",
         fontsize=fontsize,
         fontweight="bold",
-        arrowprops={"arrowstyle": "-|>", "color": "#262626", "lw": 1},
+        color="#111111",
+        zorder=22,
+    )
+    ax.add_patch(
+        Polygon(
+            [
+                (x, y + tamanho),
+                (x - tamanho * 0.42, y - tamanho),
+                (x, y - tamanho * 0.38),
+                (x + tamanho * 0.42, y - tamanho),
+            ],
+            closed=True,
+            transform=ax.transAxes,
+            facecolor="white",
+            edgecolor="#111111",
+            linewidth=1,
+            clip_on=False,
+            zorder=22,
+        )
     )
 
 
@@ -348,7 +469,7 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
 
     os.environ.setdefault("MPLCONFIGDIR", str(OUTPUT_DIR / "matplotlib-cache"))
     import matplotlib.pyplot as plt
-    from matplotlib.patches import Patch
+    from matplotlib.patches import Patch, Rectangle
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"mapa_regiao_{safe_report}.png"
@@ -372,7 +493,7 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
     ax_cidade = fig.add_subplot(grid[1])
 
     estado_bounds = ampliar_altura_bounds(
-        bounds_por_pontos_principais(municipios_uf, municipio, 0.42),
+        expandir_bounds(uf_alvo.total_bounds, 0.28),
         1.25,
     )
     ax_estado.set_facecolor("#d8e9f7")
@@ -382,20 +503,67 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
     ufs.boundary.plot(ax=ax_estado, color="#202020", linewidth=0.55)
     uf_alvo.boundary.plot(ax=ax_estado, color="#202020", linewidth=0.65)
     municipio_gdf.plot(ax=ax_estado, color=municipio_cor, edgecolor="#8a3d12", linewidth=0.7)
-    aplicar_grade_coordenadas(ax_estado, estado_bounds, fontsize=5.4)
+    estado_minx, estado_maxx, estado_miny, estado_maxy = estado_bounds
+    estado_altura = estado_maxy - estado_miny
+    aplicar_grade_coordenadas(
+        ax_estado,
+        estado_bounds,
+        x_ticks=[(estado_minx + estado_maxx) / 2],
+        y_ticks=[
+            estado_miny + estado_altura * 0.08,
+            (estado_miny + estado_maxy) / 2,
+            estado_maxy - estado_altura * 0.08,
+        ],
+        fontsize=5.4,
+    )
     desenhar_nomes_ufs(ax_estado, ufs, estado_bounds, uf, fontsize=7.0)
-    desenhar_norte(ax_estado, fontsize=7.5, pos=(0.94, 0.91))
-    desenhar_escala(ax_estado, 200, pos=(0.61, 0.06), largura_frac=0.28, fontsize=5.1)
+    desenhar_norte(ax_estado, fontsize=7.5, pos=(0.93, 0.075), tamanho=0.035)
+    desenhar_escala(ax_estado, pos=(0.61, 0.06), largura_maxima_frac=0.28, fontsize=5.1)
 
     ax_cidade.set_facecolor(fundo_cor)
     municipios_uf.plot(ax=ax_cidade, color="#ffd79d", edgecolor="#c2955f", linewidth=0.35)
     municipio_gdf.plot(ax=ax_cidade, color=municipio_cor, edgecolor="#8a3d12", linewidth=1)
-    bounds_cidade = expandir_bounds(municipio.geometry.bounds, 0.75)
+    bounds_cidade = ampliar_altura_bounds(
+        expandir_bounds(municipio.geometry.bounds, 0.18),
+        1.25,
+    )
     configurar_eixo_mapa(ax_cidade, bounds_cidade)
-    aplicar_grade_coordenadas(ax_cidade, bounds_cidade, fontsize=5.4)
-    anotar_municipios_vizinhos(ax_cidade, municipios_uf, municipio)
-    desenhar_norte(ax_cidade, fontsize=8.5, pos=(0.96, 0.93))
-    desenhar_escala(ax_cidade, 6, pos=(0.845, 0.055), largura_frac=0.13, fontsize=5.2)
+    cidade_minx, cidade_maxx, cidade_miny, cidade_maxy = bounds_cidade
+    cidade_largura = cidade_maxx - cidade_minx
+    aplicar_grade_coordenadas(
+        ax_cidade,
+        bounds_cidade,
+        x_ticks=[
+            cidade_minx + cidade_largura / 3,
+            cidade_minx + cidade_largura * 2 / 3,
+        ],
+        y_ticks=[(cidade_miny + cidade_maxy) / 2],
+        fontsize=5.4,
+    )
+    anotar_municipios_vizinhos(ax_cidade, municipios_uf, municipio, bounds_cidade)
+    # Quadro cartográfico inferior, seguindo o padrão da referência.
+    ax_cidade.add_patch(
+        Rectangle(
+            (0.015, 0.012),
+            0.97,
+            0.157,
+            transform=ax_cidade.transAxes,
+            facecolor="white",
+            edgecolor=limite_cor,
+            linewidth=0.8,
+            alpha=0.96,
+            zorder=15,
+        )
+    )
+    desenhar_norte(ax_cidade, fontsize=6.2, pos=(0.82, 0.112), tamanho=0.024)
+    desenhar_escala(
+        ax_cidade,
+        pos=(0.77, 0.062),
+        largura_maxima_frac=0.18,
+        fontsize=4.5,
+        km_total=6,
+        altura=0.008,
+    )
 
     for ax in [ax_estado, ax_cidade]:
         for spine in ax.spines.values():
@@ -404,30 +572,42 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
             spine.set_linewidth(0.45)
 
     legendas = [
-        Patch(facecolor=municipio_cor, edgecolor="#8a3d12", label=nome_cidade),
-        Patch(facecolor="#f6f6f6", edgecolor="#8a8a8a", label="Limites municipais"),
-        Patch(facecolor=uf_cor, edgecolor="#424242", label=nome_uf),
-        Patch(facecolor=cinza, edgecolor="#424242", label="Brasil"),
+        Patch(facecolor="#d0d0d0", edgecolor="#555555", linewidth=0.8, label="Limite estadual"),
+        Patch(facecolor="#ffffff", edgecolor="#c2955f", linewidth=0.9, label="Limite municipal"),
     ]
-    ax_cidade.legend(
+    legenda = ax_cidade.legend(
         handles=legendas,
-        loc="lower left",
-        bbox_to_anchor=(0.01, 0.075),
-        fontsize=5.4,
-        frameon=True,
-        framealpha=0.92,
-        borderpad=0.28,
-        handlelength=1.2,
+        loc="upper left",
+        bbox_to_anchor=(0.035, 0.135),
+        fontsize=5.2,
+        frameon=False,
+        borderpad=0,
+        handlelength=1.8,
+        labelspacing=0.35,
+    )
+    legenda.set_zorder(21)
+    ax_cidade.text(
+        0.043,
+        0.155,
+        "Legenda",
+        transform=ax_cidade.transAxes,
+        fontsize=6.2,
+        fontweight="bold",
+        color="#111111",
+        ha="left",
+        va="top",
+        zorder=21,
     )
     ax_cidade.text(
-        0.015,
-        0.012,
+        0.04,
+        0.042,
         "Sistema de Coordenadas: Geográfico\nSistema Geodésico de Referência: SIRGAS 2000",
         transform=ax_cidade.transAxes,
-        fontsize=5.0,
+        fontsize=4.7,
         color="#5d5146",
         ha="left",
         va="bottom",
+        zorder=21,
     )
     fig.subplots_adjust(left=0.015, right=0.995, top=0.965, bottom=0.018)
     fig.savefig(chart_file, dpi=190, bbox_inches="tight", pad_inches=0.02)
