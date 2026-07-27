@@ -288,10 +288,18 @@ def desenhar_escala(
     latitude_media = (miny + maxy) / 2
     km_por_grau_lon = 111.32 * max(math.cos(math.radians(latitude_media)), 0.15)
     largura_km = abs(maxx - minx) * km_por_grau_lon
-    km_total = km_total or _escala_arredondada(largura_km * largura_maxima_frac)
+    x0, y0 = pos
+    # Reserva espaço para o rótulo final ("km") e impede que uma escala fixa
+    # ultrapasse a borda direita em municípios com enquadramento mais fechado.
+    largura_disponivel_frac = max(
+        0.02,
+        min(largura_maxima_frac, 1 - x0 - 0.06),
+    )
+    km_maximo = largura_km * largura_disponivel_frac
+    if km_total is None or km_total > km_maximo:
+        km_total = _escala_arredondada(km_maximo)
     largura_frac = km_total / largura_km
 
-    x0, y0 = pos
     metade = largura_frac / 2
     for indice, cor in enumerate(("#111111", "#ffffff")):
         ax.add_patch(
@@ -318,7 +326,7 @@ def desenhar_escala(
             y0 - 0.012,
             rotulo,
             transform=ax.transAxes,
-            ha="center",
+            ha=("left" if indice == 0 else "right" if indice == 2 else "center"),
             va="top",
             fontsize=fontsize,
             color="#111111",
@@ -470,7 +478,6 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
 
     os.environ.setdefault("MPLCONFIGDIR", str(OUTPUT_DIR / "matplotlib-cache"))
     import matplotlib.pyplot as plt
-    from matplotlib.patches import Patch, Rectangle
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"mapa_regiao_{safe_report}.png"
@@ -480,7 +487,7 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
     uf_alvo = ufs[ufs["SIGLA_UF"].astype(str).str.upper() == uf]
     municipio_gdf = municipios.loc[[municipio.name]]
 
-    cinza = "#9a9a9a"
+    cinza = "#d3d3d3"
     municipio_cor = "#f5822a"
     uf_cor = "#f8cd8b"
     fundo_cor = "#ffd18f"
@@ -516,8 +523,6 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
         fontsize=5.4,
     )
     desenhar_nomes_ufs(ax_estado, ufs, estado_bounds, uf, fontsize=7.0)
-    desenhar_norte(ax_estado, fontsize=7.5, pos=(0.93, 0.075), tamanho=0.035)
-    desenhar_escala(ax_estado, pos=(0.61, 0.06), largura_maxima_frac=0.28, fontsize=5.1)
 
     ax_cidade.set_facecolor(fundo_cor)
     municipios_uf.plot(ax=ax_cidade, color="#ffd79d", edgecolor="#c2955f", linewidth=0.35)
@@ -540,29 +545,6 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
         fontsize=5.4,
     )
     anotar_municipios_vizinhos(ax_cidade, municipios_uf, municipio, bounds_cidade)
-    # Quadro cartográfico inferior, seguindo o padrão da referência.
-    ax_cidade.add_patch(
-        Rectangle(
-            (0.015, 0.012),
-            0.97,
-            0.157,
-            transform=ax_cidade.transAxes,
-            facecolor="white",
-            edgecolor=limite_cor,
-            linewidth=0.8,
-            alpha=0.96,
-            zorder=15,
-        )
-    )
-    desenhar_norte(ax_cidade, fontsize=6.2, pos=(0.82, 0.112), tamanho=0.024)
-    desenhar_escala(
-        ax_cidade,
-        pos=(0.77, 0.062),
-        largura_maxima_frac=0.18,
-        fontsize=4.5,
-        km_total=6,
-        altura=0.008,
-    )
 
     for ax in [ax_estado, ax_cidade]:
         for spine in ax.spines.values():
@@ -570,44 +552,6 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
             spine.set_color(limite_cor)
             spine.set_linewidth(0.45)
 
-    legendas = [
-        Patch(facecolor="#d0d0d0", edgecolor="#555555", linewidth=0.8, label="Limite estadual"),
-        Patch(facecolor="#ffffff", edgecolor="#c2955f", linewidth=0.9, label="Limite municipal"),
-    ]
-    legenda = ax_cidade.legend(
-        handles=legendas,
-        loc="upper left",
-        bbox_to_anchor=(0.035, 0.135),
-        fontsize=5.2,
-        frameon=False,
-        borderpad=0,
-        handlelength=1.8,
-        labelspacing=0.35,
-    )
-    legenda.set_zorder(21)
-    ax_cidade.text(
-        0.043,
-        0.155,
-        "Legenda",
-        transform=ax_cidade.transAxes,
-        fontsize=6.2,
-        fontweight="bold",
-        color="#111111",
-        ha="left",
-        va="top",
-        zorder=21,
-    )
-    ax_cidade.text(
-        0.04,
-        0.042,
-        "Sistema de Coordenadas: Geográfico\nSistema Geodésico de Referência: SIRGAS 2000",
-        transform=ax_cidade.transAxes,
-        fontsize=4.7,
-        color="#5d5146",
-        ha="left",
-        va="bottom",
-        zorder=21,
-    )
     fig.subplots_adjust(left=0.015, right=0.995, top=0.965, bottom=0.018)
     fig.savefig(chart_file, dpi=190, bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)

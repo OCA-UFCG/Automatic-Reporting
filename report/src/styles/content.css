@@ -148,7 +148,8 @@ li {
 }
 
 .map-block--region {
-  max-width: 600px;
+  width: 100%;
+  max-width: 100%;
   margin: 18px 0 20px;
   border: 0;
   background: transparent;

@@ -622,12 +622,20 @@
   gap: 8px;
   padding: 0;
   margin-top: 20px;
+  width: 100%;
   max-width: 100%;
 }
 
+.cover-maps > div {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 .cover-maps .map-block--region {
+  width: 100%;
   max-width: 100%;
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .cover-maps .region-maps-container {
@@ -662,17 +670,31 @@
 }
 
 .cover-mapa-principal {
+  width: 100%;
   margin: 0 auto;
+}
+
+.cover-mapa-principal .map-block--region {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .cover-mapa-principal img,
 .cover-maps .region-map-image {
   display: block;
-  width: 420px;
   max-width: 100%;
   height: auto;
   margin: 0 auto;
   border-radius: 4px;
+}
+
+.cover-mapa-principal img {
+  width: 100%;
+}
+
+.cover-maps .region-map-image {
+  width: 100%;
 }
 
 .cover-mapa-principal figcaption,

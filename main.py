@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from config import BASE_DIR
+from config import BASE_DIR, OUTPUT_DIR
 from reports import (
     apagar_relatorio_handler,
     gerar_relatorio_handler,
@@ -16,7 +16,8 @@ from utils.ssr import stop_server as stop_ssr_server
 
 app = FastAPI(on_startup=[start_ssr_server], on_shutdown=[stop_ssr_server])
 
-app.mount("/output", StaticFiles(directory=str(BASE_DIR / "output")), name="output")
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
 
 app.add_middleware(
     CORSMiddleware,
