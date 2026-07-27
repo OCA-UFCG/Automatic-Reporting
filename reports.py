@@ -15,11 +15,11 @@ from utils.cover import montar_capa_relatorio
 from utils.docs import (
     carregar_texto_do_docs,
     extrair_descricao_tema,
-    extrair_resumo_tema,
-    extrair_relatorio_geral,
-    extrair_resumo_relatorio,
-    extrair_resumo_cidade,
     extrair_diagnostico_cidade,
+    extrair_relatorio_geral,
+    extrair_resumo_cidade,
+    extrair_resumo_relatorio,
+    extrair_resumo_tema,
 )
 from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
 from utils.renderer import (
