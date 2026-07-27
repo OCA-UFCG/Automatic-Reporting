@@ -17,7 +17,7 @@ _server_process: subprocess.Popen | None = None
 
 
 def _bundle_path() -> Path:
-    """Return the server bundle path if available, else the one-shot entry."""
+    """Return the built SSR server bundle, falling back to the one-shot entry."""
     if SSR_SERVER_BUNDLE.exists():
         return SSR_SERVER_BUNDLE
     return SSR_BUNDLE

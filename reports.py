@@ -112,6 +112,9 @@ async def listar_relatorios_handler():
 
         stat = pdf_file.stat()
         criado_em = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).astimezone()
+        pdf_version = stat.st_mtime_ns
+        html_version = html_file.stat().st_mtime_ns if html_file.exists() else None
+        mapa_version = mapa_file.stat().st_mtime_ns if mapa_file.exists() else None
 
         macrotema = "Demografia"
         if "__" in slug_completo:
@@ -137,9 +140,15 @@ async def listar_relatorios_handler():
             "arquivo_mapa": mapa_file.name if mapa_file.exists() else None,
             "data": criado_em.strftime("%d/%m/%Y"),
             "hora": criado_em.strftime("%H:%M:%S"),
-            "pdf_url": f"/output/{pdf_file.name}",
-            "html_url": f"/output/{html_file.name}" if html_file.exists() else None,
-            "mapa_url": f"/output/{mapa_file.name}" if mapa_file.exists() else None,
+            "pdf_url": f"/output/{pdf_file.name}?v={pdf_version}",
+            "html_url": (
+                f"/output/{html_file.name}?v={html_version}"
+                if html_version is not None else None
+            ),
+            "mapa_url": (
+                f"/output/{mapa_file.name}?v={mapa_version}"
+                if mapa_version is not None else None
+            ),
         })
 
     relatorios.sort(
