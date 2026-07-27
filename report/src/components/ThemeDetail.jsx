@@ -1,5 +1,4 @@
 import React from 'react';
-import { CoverBrand } from './Brand.jsx';
 
 export default function ThemeDetail({ macrotema }) {
   const items = macrotema.descricao_html || macrotema.descricao_paragrafos;
@@ -7,10 +6,7 @@ export default function ThemeDetail({ macrotema }) {
 
   return (
     <section className="theme-detail-page">
-      <div className="theme-detail-header">
-        <CoverBrand />
-      </div>
-      <h2 className="theme-detail-title">Detalhamento do tema</h2>
+      <h2 className="cover-kicker">Detalhamento do tema</h2>
       {items.map((item, idx) => {
         if (typeof item === 'string' && item.startsWith('<figure')) {
           return null;

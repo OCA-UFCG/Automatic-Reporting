@@ -46,7 +46,7 @@ li {
 
 .doc-content {
   font-family: 'Inter', var(--font-sans);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 400;
   line-height: 150%;
   color: #292829;
@@ -72,8 +72,9 @@ li {
 }
 
 .doc-content h1 {
-  font-size: 34px;
-  font-weight: 700;
+  font-family: 'Inter', var(--font-sans);
+  font-size: 16px;
+  font-weight: 600;
   margin: 0 0 18px 0;
 }
 
@@ -127,8 +128,9 @@ li {
   margin: 8px auto 16px;
   max-width: 76%;
   color: #333;
-  font-family: var(--font-sans);
-  font-size: 13px;
+  font-family: 'Inter', var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
   line-height: 1.35;
   text-align: center;
 }
@@ -321,14 +323,15 @@ li {
 
   .doc-content h1,
   .doc-content h2 {
-    font-family: var(--font-sans);
-    color: var(--color-primary-dark);
+    font-family: 'Inter', var(--font-sans);
+    color: #292829;
     break-after: avoid;
     page-break-after: avoid;
   }
 
   .doc-content h1 {
-    font-size: 18px;
+    font-size: 16px;
+    font-weight: 600;
   }
 
   .doc-content h2 {
@@ -337,7 +340,7 @@ li {
 
   .doc-content p,
   .doc-content li {
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.5;
   }
 
@@ -350,7 +353,7 @@ li {
   }
 
   .figure-caption {
-    font-size: 8px;
+    font-size: 12px;
   }
 
   .chart-block,

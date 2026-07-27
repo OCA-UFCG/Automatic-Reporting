@@ -25,22 +25,45 @@ def montar_capa_relatorio(
     linha: dict,
     gerado_em: datetime,
     macrotema_nome: str = "Saúde",
+    macrotema_slug: str = "",
 ) -> dict[str, object]:
     cidade_nome, uf = separar_cidade_uf(linha.get("nm_mun", ""))
     macrotema_normalizado = macrotema_nome.casefold()
     macrotema_icone = "chart"
-    if "saúde" in macrotema_normalizado or "saude" in macrotema_normalizado:
-        macrotema_icone = "health"
-    elif "educa" in macrotema_normalizado:
-        macrotema_icone = "book"
-    elif "demo" in macrotema_normalizado:
-        macrotema_icone = "people"
-    elif "economia" in macrotema_normalizado or "renda" in macrotema_normalizado:
-        macrotema_icone = "chart"
-    elif "saneamento" in macrotema_normalizado:
-        macrotema_icone = "drop"
-    elif "hídrica" in macrotema_normalizado or "hidrica" in macrotema_normalizado:
-        macrotema_icone = "water"
+    macrotema_cor = ""
+    if macrotema_slug:
+        from utils.macrotemas import MACROTEMAS
+        dados_macrotema = MACROTEMAS.get(macrotema_slug, {})
+        macrotema_icone = dados_macrotema.get("icone", "chart")
+        macrotema_cor = dados_macrotema.get("cor", "")
+    else:
+        if "saúde" in macrotema_normalizado or "saude" in macrotema_normalizado:
+            macrotema_icone = "health"
+            macrotema_cor = "#758F21"
+        elif "educa" in macrotema_normalizado:
+            macrotema_icone = "book"
+            macrotema_cor = "#F99C07"
+        elif "demo" in macrotema_normalizado:
+            macrotema_icone = "people"
+            macrotema_cor = "#D65384"
+        elif "desenvolvimento" in macrotema_normalizado or "social" in macrotema_normalizado:
+            macrotema_icone = "social"
+            macrotema_cor = "#7C46E1"
+        elif "economia" in macrotema_normalizado or "renda" in macrotema_normalizado:
+            macrotema_icone = "dollar"
+            macrotema_cor = "#F79339"
+        elif "saneamento" in macrotema_normalizado or "infraestrutura" in macrotema_normalizado:
+            macrotema_icone = "wrench"
+            macrotema_cor = "#001A72"
+        elif "meio" in macrotema_normalizado or "ambiente" in macrotema_normalizado:
+            macrotema_icone = "leaf"
+            macrotema_cor = "#97B42E"
+        elif "hídrica" in macrotema_normalizado or "hidrica" in macrotema_normalizado or "segurança" in macrotema_normalizado:
+            macrotema_icone = "water"
+            macrotema_cor = "#35B2DB"
+        elif "instrumentos" in macrotema_normalizado or "sudene" in macrotema_normalizado:
+            macrotema_icone = "chart"
+            macrotema_cor = "#018F39"
 
     def montar_indicadores_macrotema() -> list[dict[str, str]]:
         fonte = "Censo demográfico 2022"
@@ -156,10 +179,14 @@ def montar_capa_relatorio(
         "data_extenso": formatar_data_extenso(gerado_em),
         "cidade_nome": cidade_nome,
         "uf": uf,
+        "relatorio_geral": "",
+        "relatorio_geral_html": [],
         "resumo_relatorio": "",
         "resumo_relatorio_html": [],
         "resumo_cidade": "",
         "resumo_cidade_html": [],
+        "diagnostico_cidade": "",
+        "diagnostico_cidade_html": [],
         "mapa_principal": "",
         "macrotema": {
             "nome": macrotema_nome,
@@ -169,17 +196,41 @@ def montar_capa_relatorio(
                 "status_macrotema",
                 fallback="Muito acima da média nacional",
             ),
-            "resumo": primeiro_valor(
-                "resumo_tema",
-                fallback=(
-                    "Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
-                    "Integer gravida mi ut vestibulum vestibulum. Donec a "
-                    "fermentum est. Aliquam efficitur et purus at facilisis. "
-                    "Cras ultricies metus lacus. Duis dictum finibus turpis, "
-                    "quis euismod lorem vehicula quis. Quisque felis ante."
-                ),
-            ),
-            "descricao": "",
+"resumo": primeiro_valor(
+             "resumo_tema",
+             fallback=(
+                 "Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
+                 "Integer gravida mi ut vestibulum vestibulum. Donec a "
+                 "fermentum est. Aliquam efficitur et purus at facilisis. "
+                 "Cras ultricies metus lacus. Duis dictum finibus turpis, "
+                 "quis euismod lorem vehicula quis. Quisque felis ante."
+             ),
+         ),
+         "cor": macrotema_cor,
+         "score": {
+             "valor": primeiro_valor("score_geral", "score", fallback="3,66"),
+             "maximo": primeiro_valor("score_maximo", fallback="5"),
+             "status": primeiro_valor(
+                 "score_status",
+                 fallback="Acima da média nacional",
+             ),
+             "descricao": (
+                 "Score calculado a partir dos indicadores presentes em cada um "
+                 "dos temas e sua relação com média nacional."
+             ),
+             "texto_apoio": primeiro_valor(
+                 "score_texto_apoio",
+                 "texto_score",
+                 fallback=(
+                     "Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
+                     "Integer gravida mi ut vestibulum vestibulum. Donec a "
+                     "fermentum est. Aliquam efficitur et purus at facilisis. "
+                     "Cras ultricies metus lacus. Duis dictum finibus turpis, "
+                     "quis euismod lorem vehicula quis. Quisque felis ante."
+                 ),
+             ),
+         },
+         "descricao": "",
             "descricao_paragrafos": [],
             "indicadores": montar_indicadores_macrotema(),
         },
@@ -213,6 +264,7 @@ def montar_capa_relatorio(
                 "sufixo": "Km²",
                 "fonte": "Censo demográfico 2022",
                 "caption": "Tamanho do território",
+                "icone": "area",
             },
             {
                 "rotulo": "População",
@@ -220,20 +272,23 @@ def montar_capa_relatorio(
                 "sufixo": "",
                 "fonte": "Censo demográfico 2022",
                 "caption": "Número de residentes",
+                "icone": "populacao",
             },
             {
-                "rotulo": "IDH",
-                "valor": primeiro_valor("idh", "idhm"),
+                "rotulo": "Região geográfica imediata",
+                "valor": primeiro_valor("rgi", "regiao_imediata", "nome_rgi"),
                 "sufixo": "",
-                "fonte": "IBGE 2023",
-                "caption": "Índice de desenvolvimento humano",
+                "fonte": "IBGE 2017",
+                "caption": "Região geográfica imediata",
+                "icone": "rgi",
             },
             {
-                "rotulo": "PIB",
-                "valor": primeiro_valor("pib", "pib_total"),
+                "rotulo": "Criação do município",
+                "valor": primeiro_valor("instalacao", "data_instalacao", "ano_instalacao"),
                 "sufixo": "",
-                "fonte": "IBGE 2023",
-                "caption": "Produto Interno Bruto",
+                "fonte": "IBGE",
+                "caption": "Lei Provincial nº 11",
+                "icone": "criacao",
             },
         ],
     }

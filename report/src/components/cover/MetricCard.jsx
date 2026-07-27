@@ -6,7 +6,7 @@ export default function MetricCard({ metrica }) {
     <div className="metric-card">
       <div className="metric-heading">
         <span className="metric-icon-box">
-          <MetricIcon />
+          <MetricIcon icone={metrica.icone} />
         </span>
         <div className="metric-text">
           <div className="metric-label">{metrica.rotulo}</div>

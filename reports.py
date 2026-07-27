@@ -15,6 +15,8 @@ from utils.cover import montar_capa_relatorio
 from utils.docs import (
     carregar_texto_do_docs,
     extrair_descricao_tema,
+    extrair_diagnostico_cidade,
+    extrair_relatorio_geral,
     extrair_resumo_cidade,
     extrair_resumo_relatorio,
     extrair_resumo_tema,
@@ -204,9 +206,17 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
 
     for macrotema_slug in macrotema_slugs:
         macrotema_dados = get_macrotema(macrotema_slug)
+
+        if not macrotema_dados["docs_url"]:
+            logger.warning(
+                "Macrotema '%s' não possui docs_url configurado (%s). Pulando.",
+                macrotema_slug,
+                macrotema_dados["docs_env"],
+            )
+            continue
         csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
         csv_source = resolve_csv_source(csv_url, csv_env)
-        df = pd.read_csv(csv_source, delimiter=";")
+        df = _carregar_csv(csv_source)
         df = normalizar_colunas_macrotema(df, macrotema_slug)
 
         try:
@@ -229,6 +239,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
                 linhas[0],
                 gerado_em,
                 macrotema_dados["nome"],
+                macrotema_slug,
             )
             safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas[0]["nm_mun"].strip().lower())
             safe_report = f"{macrotema}__{safe_city}"
@@ -258,6 +269,18 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
                 resumo_tema, linhas_macrotema[0], macrotema_slug
             )
 
+        relatorio_geral, docs_texto = extrair_relatorio_geral(docs_texto)
+        if relatorio_geral and cover is not None and macrotema_slug == macrotema_slugs[0]:
+            cover["relatorio_geral_html"] = render_descricao_tema_html(
+                relatorio_geral,
+                linhas_macrotema[0],
+                namespace=macrotema_slug,
+                safe_report=safe_report,
+            )
+            cover["relatorio_geral"] = substituir_placeholders(
+                relatorio_geral, linhas_macrotema[0], macrotema_slug
+            )
+
         resumo_relatorio, docs_texto = extrair_resumo_relatorio(docs_texto)
         if resumo_relatorio and cover is not None and macrotema_slug == macrotema_slugs[0]:
             cover["resumo_relatorio_html"] = render_descricao_tema_html(
@@ -280,6 +303,18 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
             )
             cover["resumo_cidade"] = substituir_placeholders(
                 resumo_cidade, linhas_macrotema[0], macrotema_slug
+            )
+
+        diagnostico_cidade, docs_texto = extrair_diagnostico_cidade(docs_texto)
+        if diagnostico_cidade and cover is not None and macrotema_slug == macrotema_slugs[0]:
+            cover["diagnostico_cidade_html"] = render_descricao_tema_html(
+                diagnostico_cidade,
+                linhas_macrotema[0],
+                namespace=macrotema_slug,
+                safe_report=safe_report,
+            )
+            cover["diagnostico_cidade"] = substituir_placeholders(
+                diagnostico_cidade, linhas_macrotema[0], macrotema_slug
             )
 
         descricao_tema, docs_texto = extrair_descricao_tema(docs_texto)
