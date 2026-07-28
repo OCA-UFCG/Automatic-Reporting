@@ -52,13 +52,6 @@ def _carregar_csv(csv_source: str | Path) -> pd.DataFrame:
     return df
 
 
-CHART_TYPES = {
-    "sexo": gerar_grafico_sexo,
-    "porte": gerar_grafico_porte,
-    "top": gerar_grafico_top_cidades,
-}
-
-
 def get_macrotema(slug: str) -> dict[str, str]:
     macrotema = MACROTEMAS.get(slug)
     if not macrotema:
@@ -194,23 +187,14 @@ async def apagar_relatorio_handler(arquivo_pdf: str):
     return {"ok": True, "removidos": removidos}
 
 
-async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", charts: str = "all", *, background_tasks: BackgroundTasks):
+async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", *, background_tasks: BackgroundTasks):
     macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
     gerado_em = datetime.now().astimezone()
-    allowed = set(CHART_TYPES.keys())
-    requested_charts = list(CHART_TYPES.keys()) if charts == "all" else [c.strip() for c in charts.split(",")]
-    invalid = set(requested_charts) - allowed
-    if invalid:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Tipo(s) de gráfico inválido(s): {invalid}. Tipos válidos: sexo, porte, top"
-        )
 
     linhas = None
     cover = None
     safe_city = None
     safe_report = None
-    graficos = []
     docs_html_parts = []
 
     for macrotema_slug in macrotema_slugs:
@@ -254,17 +238,6 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
             safe_report = f"{macrotema}__{safe_city}"
 
         graficos_por_placeholder = {}
-        if macrotema_slug == "demografia":
-            for chart_type in requested_charts:
-                chart_func = CHART_TYPES[chart_type]
-                if chart_type == "sexo":
-                    chart_file = chart_func(linhas_macrotema[0], OUTPUT_DIR, safe_report)
-                elif chart_type == "porte":
-                    chart_file = chart_func(df, OUTPUT_DIR, safe_report)
-                elif chart_type == "top":
-                    chart_file = chart_func(df, OUTPUT_DIR)
-                graficos.append(chart_file)
-                graficos_por_placeholder[f"grafico_{chart_type}"] = chart_file
 
         docs_url = require_config_value(macrotema_dados["docs_url"], macrotema_dados["docs_env"])
         try:

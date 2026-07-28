@@ -60,8 +60,8 @@ async def apagar_relatorio(arquivo_pdf: str):
 
 
 @app.get("/relatorio/{cidade}", response_class=HTMLResponse)
-async def gerar_relatorio(cidade: str, macrotema: str = "demografia", charts: str = "all", *, background_tasks: BackgroundTasks):
-    return await gerar_relatorio_handler(cidade, macrotema, charts, background_tasks=background_tasks)
+async def gerar_relatorio(cidade: str, macrotema: str = "demografia", *, background_tasks: BackgroundTasks):
+    return await gerar_relatorio_handler(cidade, macrotema, background_tasks=background_tasks)
 
 
 # If the frontend has been built (e.g., via Docker), serve it from the same app.
