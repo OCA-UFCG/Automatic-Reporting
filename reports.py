@@ -132,6 +132,10 @@ async def listar_relatorios_handler():
 
         cidade = re.sub(r"_+", " ", slug_cidade).strip().title()
 
+        # compute stable timestamps for both UTC and local timezone
+        last_modified_utc = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
+        last_modified_local = last_modified_utc.astimezone()
+
         relatorios.append({
             "cidade": cidade,
             "macrotema": macrotema,
@@ -140,6 +144,8 @@ async def listar_relatorios_handler():
             "arquivo_mapa": mapa_file.name if mapa_file.exists() else None,
             "data": criado_em.strftime("%d/%m/%Y"),
             "hora": criado_em.strftime("%H:%M:%S"),
+            "last_modified_utc": last_modified_utc.isoformat(),
+            "last_modified_local": last_modified_local.isoformat(),
             "pdf_url": f"/output/{pdf_file.name}?v={pdf_version}",
             "html_url": (
                 f"/output/{html_file.name}?v={html_version}"
