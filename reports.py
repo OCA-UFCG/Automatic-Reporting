@@ -2,6 +2,7 @@ import logging
 import re
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 from fastapi import BackgroundTasks, HTTPException
@@ -113,7 +114,9 @@ async def listar_relatorios_handler():
         mapa_file = OUTPUT_DIR / f"mapa_regiao_{slug_completo}.png"
 
         stat = pdf_file.stat()
-        criado_em = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).astimezone()
+        # use a fixed local timezone to present dates consistently across deployments
+        local_tz = ZoneInfo("America/Fortaleza")
+        criado_em = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).astimezone(local_tz)
         pdf_version = stat.st_mtime_ns
         html_version = html_file.stat().st_mtime_ns if html_file.exists() else None
         mapa_version = mapa_file.stat().st_mtime_ns if mapa_file.exists() else None
@@ -144,6 +147,10 @@ async def listar_relatorios_handler():
 
         cidade = re.sub(r"_+", " ", slug_cidade).strip().title()
 
+        # compute stable timestamps for both UTC and local timezone
+        last_modified_utc = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
+        last_modified_local = last_modified_utc.astimezone(local_tz)
+
         relatorios.append({
             "cidade": cidade,
             "macrotema": macrotema,
@@ -152,23 +159,25 @@ async def listar_relatorios_handler():
             "arquivo_mapa": mapa_file.name if mapa_file.exists() else None,
             "data": criado_em.strftime("%d/%m/%Y"),
             "hora": criado_em.strftime("%H:%M:%S"),
-            "pdf_url": f"/output/{pdf_file.name}?v={pdf_version}",
+            "last_modified_utc": last_modified_utc.isoformat(),
+            "last_modified_local": last_modified_local.isoformat(),
+            # preformatted display fields (local timezone) to avoid client/SSR
+            # formatting inconsistencies across deployments
+            "display_date": last_modified_local.strftime("%d/%m/%Y"),
+            "display_time": last_modified_local.strftime("%H:%M:%S"),
+            "pdf_url": f"/output/v{pdf_version}/{pdf_file.name}",
             "html_url": (
-                f"/output/{html_file.name}?v={html_version}"
+                f"/output/v{html_version}/{html_file.name}"
                 if html_version is not None else None
             ),
             "mapa_url": (
-                f"/output/{mapa_file.name}?v={mapa_version}"
+                f"/output/v{mapa_version}/{mapa_file.name}"
                 if mapa_version is not None else None
             ),
         })
 
-    relatorios.sort(
-        key=lambda item: datetime.strptime(
-            f"{item['data']} {item['hora']}", "%d/%m/%Y %H:%M:%S"
-        ).replace(tzinfo=timezone.utc),
-        reverse=True
-    )
+    # sort by the ISO UTC timestamp so ordering is unambiguous
+    relatorios.sort(key=lambda item: item.get("last_modified_utc", ""), reverse=True)
 
     return relatorios
 
@@ -421,7 +430,19 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", *,
 
     # Gerar PDF em background
     pdf_file = OUTPUT_DIR / f"relatorio_{safe_report}.pdf"
-    if not pdf_file.exists():
+    # Regenerate the PDF only if it doesn't exist or was generated on a different day.
+    regenerate_pdf = True
+    if pdf_file.exists():
+        try:
+            pdf_mtime = datetime.fromtimestamp(pdf_file.stat().st_mtime, tz=timezone.utc).astimezone()
+            # If the existing PDF was generated today (local date), skip regeneration.
+            if pdf_mtime.date() == gerado_em.date():
+                regenerate_pdf = False
+        except (OSError, ValueError):
+            # If we can't read mtime for some reason, fall back to regenerating.
+            regenerate_pdf = True
+
+    if regenerate_pdf:
         background_tasks.add_task(_gerar_pdf, html_content, pdf_file)
 
     return HTMLResponse(content=html_content)

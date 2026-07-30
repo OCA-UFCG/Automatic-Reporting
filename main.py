@@ -1,4 +1,4 @@
-from fastapi import BackgroundTasks, FastAPI
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -17,7 +17,33 @@ from utils.ssr import stop_server as stop_ssr_server
 app = FastAPI(on_startup=[start_ssr_server], on_shutdown=[stop_ssr_server])
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
+
+
+# Serve output files with headers that prevent caching so clients always fetch
+# the most recent version (avoids stale PDFs from browser/proxy cache).
+@app.api_route("/output/{path:path}", methods=["GET", "HEAD"])
+async def output_file(path: str):
+    # Support versioned paths like /output/v{version}/filename.pdf where the
+    # version component is only used for cache-busting and not part of the
+    # filesystem layout. Strip a leading v{digits}/ segment if present.
+    import re
+
+    m = re.match(r"^v\d+/(.+)$", path)
+    if m:
+        safe_name = m.group(1)
+    else:
+        safe_name = path
+
+    # Prevent path traversal
+    if safe_name.startswith(("../", "/")) or ".." in safe_name:
+        raise HTTPException(status_code=400)
+
+    file_path = OUTPUT_DIR / safe_name
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404)
+    response = FileResponse(file_path)
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    return response
 
 app.add_middleware(
     CORSMiddleware,
