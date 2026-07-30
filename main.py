@@ -35,7 +35,7 @@ async def output_file(path: str):
         safe_name = path
 
     # Prevent path traversal
-    if safe_name.startswith("../") or safe_name.startswith("/") or ".." in safe_name:
+    if safe_name.startswith(("../", "/")) or ".." in safe_name:
         raise HTTPException(status_code=400)
 
     file_path = OUTPUT_DIR / safe_name
