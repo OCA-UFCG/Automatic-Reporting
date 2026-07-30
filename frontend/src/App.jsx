@@ -5,7 +5,6 @@ import React, { useEffect, useMemo, useState } from 'react'
 const API_BASE = import.meta.env.VITE_API_BASE_URL || window.location.origin;
 
 const MACROTEMAS = [
-  { slug: "todos", nome: "Todos" },
   { slug: "demografia", nome: "Demografia" },
   { slug: "educacao", nome: "Educação" },
   { slug: "saude", nome: "Saúde" },
@@ -18,7 +17,7 @@ function App() {
   const [view, setView] = useState("home");
   const [cities, setCities] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const [selectedMacrotema, setSelectedMacrotema] = useState(MACROTEMAS[0].slug);
+  const [selectedMacrotemas, setSelectedMacrotemas] = useState(["demografia"]);
   const [selectedCity, setSelectedCity] = useState("");
   const [citySearch, setCitySearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -94,8 +93,17 @@ function App() {
 
   const cityCount = useMemo(() => cities.length, [cities]);
   const selectedMacrotemaName = useMemo(() => {
-    return MACROTEMAS.find((macrotema) => macrotema.slug === selectedMacrotema)?.nome || selectedMacrotema;
-  }, [selectedMacrotema]);
+    if (selectedMacrotemas.length === 0) return "Nenhum selecionado";
+    return selectedMacrotemas
+      .map((slug) => MACROTEMAS.find((item) => item.slug === slug)?.nome || slug)
+      .join(", ");
+  }, [selectedMacrotemas]);
+
+  function toggleMacrotema(slug) {
+    setSelectedMacrotemas((prev) =>
+      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
+    );
+  }
 
   const filteredCities = useMemo(() => {
     const term = citySearch.trim().toLowerCase();
@@ -104,16 +112,22 @@ function App() {
   }, [cities, citySearch]);
 
   async function openReport() {
-    if (!selectedCity) {
+    if (!selectedCity || selectedMacrotemas.length === 0) {
       return;
     }
 
-    const params = new URLSearchParams({ macrotema: selectedMacrotema });
+    const macrotemaParam = selectedMacrotemas.join(",");
+    const params = new URLSearchParams({ macrotema: macrotemaParam });
     const url = `${API_BASE}/relatorio/${encodeURIComponent(selectedCity)}?${params.toString()}`;
     window.open(url, "_blank");
     setShowForm(false);
 
-    let found = false;
+    const nomesSelecionados = new Set(
+      selectedMacrotemas.map(
+        (slug) => MACROTEMAS.find((item) => item.slug === slug)?.nome || slug
+      )
+    );
+
     let attempts = 0;
     const maxAttempts = 60;
 
@@ -127,10 +141,9 @@ function App() {
           const reportExists = newReports.some(
             (report) =>
               report.cidade.toLowerCase() === selectedCity.toLowerCase() &&
-              report.macrotema === selectedMacrotemaName
+              nomesSelecionados.has(report.macrotema)
           );
           if (reportExists) {
-            found = true;
             setReports(newReports);
             clearInterval(pollInterval);
           }
@@ -309,18 +322,22 @@ function App() {
                 <label className="label" htmlFor="macrotema">
                   Macrotema
                 </label>
-                <select
-                  id="macrotema"
-                  className="select"
-                  value={selectedMacrotema}
-                  onChange={(event) => setSelectedMacrotema(event.target.value)}
-                >
+                <div id="macrotema" className="select" role="group" aria-label="Macrotema">
                   {MACROTEMAS.map((macrotema) => (
-                    <option key={macrotema.slug} value={macrotema.slug}>
-                      {macrotema.nome}
-                    </option>
+                    <label
+                      key={macrotema.slug}
+                      className={`macrotema-option ${selectedMacrotemas.includes(macrotema.slug) ? "macrotema-option--active" : ""}`}
+                    >
+                      <input
+                        type="checkbox"
+                        value={macrotema.slug}
+                        checked={selectedMacrotemas.includes(macrotema.slug)}
+                        onChange={() => toggleMacrotema(macrotema.slug)}
+                      />
+                      <span>{macrotema.nome}</span>
+                    </label>
                   ))}
-                </select>
+                </div>
               </div>
 
               <div>
@@ -372,7 +389,7 @@ function App() {
                 type="button"
                 className="report-button"
                 onClick={openReport}
-                disabled={!selectedCity}
+                disabled={!selectedCity || selectedMacrotemas.length === 0}
               >
                 Gerar relatório
               </button>

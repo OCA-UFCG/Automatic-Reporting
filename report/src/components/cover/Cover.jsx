@@ -10,6 +10,9 @@ import ThemeDetail from '../ThemeDetail.jsx';
 
 export default function Cover({ cover }) {
   const hasMaps = cover.macrotema?.descricao_html?.length > 0;
+  const macrotemas = cover.macrotemas && cover.macrotemas.length > 0
+    ? cover.macrotemas
+    : (cover.macrotema ? [cover.macrotema] : []);
 
   return (
     <>
@@ -94,8 +97,8 @@ export default function Cover({ cover }) {
     <section className="resumo-relatorio-page">
       <h2 className="cover-kicker">Resumo do relatório</h2>
       {cover.resumo_relatorio_html?.length > 0 ? (
-        cover.resumo_relatorio_html.map((item, idx) => (
-          <div key={idx} dangerouslySetInnerHTML={{ __html: item }} />
+        cover.resumo_relatorio_html.map((item, i) => (
+          <div key={i} dangerouslySetInnerHTML={{ __html: item }} />
         ))
       ) : (
         cover.resumo_relatorio ? (
@@ -104,13 +107,17 @@ export default function Cover({ cover }) {
       )}
     </section>
 
-    <MacrothemeCard macrotema={cover.macrotema} />
+    {macrotemas.map((macrotema, idx) => (
+      <React.Fragment key={idx}>
+        <MacrothemeCard macrotema={macrotema} />
 
-    <IndicatorScores macrotema={cover.macrotema} />
+        <IndicatorScores macrotema={macrotema} />
 
-    <ScoreLegend />
+        <ScoreLegend />
 
-    <ThemeDetail macrotema={cover.macrotema} />
+        <ThemeDetail macrotema={macrotema} />
+      </React.Fragment>
+    ))}
     </>
   );
 }
