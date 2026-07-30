@@ -393,7 +393,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
             # If the existing PDF was generated today (local date), skip regeneration.
             if pdf_mtime.date() == gerado_em.date():
                 regenerate_pdf = False
-        except Exception:
+        except (OSError, ValueError):
             # If we can't read mtime for some reason, fall back to regenerating.
             regenerate_pdf = True
 
