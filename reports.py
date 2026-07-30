@@ -149,13 +149,13 @@ async def listar_relatorios_handler():
             "hora": criado_em.strftime("%H:%M:%S"),
             "last_modified_utc": last_modified_utc.isoformat(),
             "last_modified_local": last_modified_local.isoformat(),
-            "pdf_url": f"/output/{pdf_file.name}?v={pdf_version}",
+            "pdf_url": f"/output/v{pdf_version}/{pdf_file.name}",
             "html_url": (
-                f"/output/{html_file.name}?v={html_version}"
+                f"/output/v{html_version}/{html_file.name}"
                 if html_version is not None else None
             ),
             "mapa_url": (
-                f"/output/{mapa_file.name}?v={mapa_version}"
+                f"/output/v{mapa_version}/{mapa_file.name}"
                 if mapa_version is not None else None
             ),
         })
