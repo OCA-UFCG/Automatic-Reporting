@@ -149,6 +149,10 @@ async def listar_relatorios_handler():
             "hora": criado_em.strftime("%H:%M:%S"),
             "last_modified_utc": last_modified_utc.isoformat(),
             "last_modified_local": last_modified_local.isoformat(),
+            # preformatted display fields (local timezone) to avoid client/SSR
+            # formatting inconsistencies across deployments
+            "display_date": last_modified_local.strftime("%d/%m/%Y"),
+            "display_time": last_modified_local.strftime("%H:%M:%S"),
             "pdf_url": f"/output/v{pdf_version}/{pdf_file.name}",
             "html_url": (
                 f"/output/v{html_version}/{html_file.name}"
