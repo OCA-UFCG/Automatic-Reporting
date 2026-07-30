@@ -385,7 +385,19 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
 
     # Gerar PDF em background
     pdf_file = OUTPUT_DIR / f"relatorio_{safe_report}.pdf"
-    if not pdf_file.exists():
+    # Regenerate the PDF only if it doesn't exist or was generated on a different day.
+    regenerate_pdf = True
+    if pdf_file.exists():
+        try:
+            pdf_mtime = datetime.fromtimestamp(pdf_file.stat().st_mtime, tz=timezone.utc).astimezone()
+            # If the existing PDF was generated today (local date), skip regeneration.
+            if pdf_mtime.date() == gerado_em.date():
+                regenerate_pdf = False
+        except (OSError, ValueError):
+            # If we can't read mtime for some reason, fall back to regenerating.
+            regenerate_pdf = True
+
+    if regenerate_pdf:
         background_tasks.add_task(_gerar_pdf, html_content, pdf_file)
 
     return HTMLResponse(content=html_content)
