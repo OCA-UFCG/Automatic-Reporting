@@ -193,8 +193,8 @@ function App() {
                   <tr key={report.arquivo_pdf}>
                     <td>{report.cidade}</td>
                     <td>{report.macrotema || "Demografia"}</td>
-                    <td>{report.last_modified_local ? new Date(report.last_modified_local).toLocaleDateString('pt-BR') : report.data}</td>
-                    <td>{report.last_modified_local ? new Date(report.last_modified_local).toLocaleTimeString('pt-BR') : report.hora}</td>
+                    <td>{report.last_modified_utc ? new Date(report.last_modified_utc).toLocaleDateString('pt-BR') : (report.last_modified_local ? new Date(report.last_modified_local).toLocaleDateString('pt-BR') : report.data)}</td>
+                    <td>{report.last_modified_utc ? new Date(report.last_modified_utc).toLocaleTimeString('pt-BR') : (report.last_modified_local ? new Date(report.last_modified_local).toLocaleTimeString('pt-BR') : report.hora)}</td>
                     <td>
                       <a className="report-button report-download-button" href={`${API_BASE}${report.pdf_url}`} download>
                         Download PDF

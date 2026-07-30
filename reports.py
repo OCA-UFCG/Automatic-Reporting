@@ -1,6 +1,7 @@
 import logging
 import re
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 import pandas as pd
@@ -111,7 +112,9 @@ async def listar_relatorios_handler():
         mapa_file = OUTPUT_DIR / f"mapa_regiao_{slug_completo}.png"
 
         stat = pdf_file.stat()
-        criado_em = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).astimezone()
+        # use a fixed local timezone to present dates consistently across deployments
+        local_tz = ZoneInfo("America/Fortaleza")
+        criado_em = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).astimezone(local_tz)
         pdf_version = stat.st_mtime_ns
         html_version = html_file.stat().st_mtime_ns if html_file.exists() else None
         mapa_version = mapa_file.stat().st_mtime_ns if mapa_file.exists() else None
@@ -134,7 +137,7 @@ async def listar_relatorios_handler():
 
         # compute stable timestamps for both UTC and local timezone
         last_modified_utc = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
-        last_modified_local = last_modified_utc.astimezone()
+        last_modified_local = last_modified_utc.astimezone(local_tz)
 
         relatorios.append({
             "cidade": cidade,
@@ -157,12 +160,8 @@ async def listar_relatorios_handler():
             ),
         })
 
-    relatorios.sort(
-        key=lambda item: datetime.strptime(
-            f"{item['data']} {item['hora']}", "%d/%m/%Y %H:%M:%S"
-        ).replace(tzinfo=timezone.utc),
-        reverse=True
-    )
+    # sort by the ISO UTC timestamp so ordering is unambiguous
+    relatorios.sort(key=lambda item: item.get("last_modified_utc", ""), reverse=True)
 
     return relatorios
 
