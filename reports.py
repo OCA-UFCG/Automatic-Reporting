@@ -10,7 +10,6 @@ from fastapi.responses import HTMLResponse
 from weasyprint import HTML
 
 from config import OUTPUT_DIR, require_config_value, resolve_csv_source
-from plotting import gerar_grafico_porte, gerar_grafico_sexo, gerar_grafico_top_cidades
 from utils.cities import filtrar_linhas_por_cidade
 from utils.cover import montar_capa_relatorio
 from utils.docs import (
