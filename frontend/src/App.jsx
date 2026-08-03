@@ -128,6 +128,10 @@ function App() {
       )
     );
 
+    const inicioHoje = new Date();
+    inicioHoje.setHours(0, 0, 0, 0);
+    const inicioHojeMs = inicioHoje.getTime();
+
     let attempts = 0;
     const maxAttempts = 60;
 
@@ -138,12 +142,14 @@ function App() {
         if (response.ok) {
           const data = await response.json();
           const newReports = Array.isArray(data) ? data : [];
-          const reportExists = newReports.some(
-            (report) =>
-              report.cidade.toLowerCase() === selectedCity.toLowerCase() &&
-              nomesSelecionados.has(report.macrotema)
-          );
-          if (reportExists) {
+          const reportReady = newReports.some((report) => {
+            if (report.cidade.toLowerCase() !== selectedCity.toLowerCase()) return false;
+            if (!nomesSelecionados.has(report.macrotema)) return false;
+            const stamp = report.last_modified_local || report.last_modified_utc;
+            if (!stamp) return false;
+            return new Date(stamp).getTime() >= inicioHojeMs;
+          });
+          if (reportReady) {
             setReports(newReports);
             clearInterval(pollInterval);
           }
