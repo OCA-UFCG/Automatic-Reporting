@@ -10,7 +10,6 @@ from fastapi.responses import HTMLResponse
 from weasyprint import HTML
 
 from config import OUTPUT_DIR, require_config_value, resolve_csv_source
-from plotting import gerar_grafico_porte, gerar_grafico_sexo, gerar_grafico_top_cidades
 from utils.cities import filtrar_linhas_por_cidade
 from utils.cover import montar_capa_relatorio
 from utils.docs import (
@@ -53,13 +52,6 @@ def _carregar_csv(csv_source: str | Path) -> pd.DataFrame:
     return df
 
 
-CHART_TYPES = {
-    "sexo": gerar_grafico_sexo,
-    "porte": gerar_grafico_porte,
-    "top": gerar_grafico_top_cidades,
-}
-
-
 def get_macrotema(slug: str) -> dict[str, str]:
     macrotema = MACROTEMAS.get(slug)
     if not macrotema:
@@ -71,8 +63,17 @@ def get_macrotema(slug: str) -> dict[str, str]:
 def get_macrotema_slugs_para_relatorio(macrotema: str) -> list[str]:
     if macrotema == TODOS_MACROTEMAS_SLUG:
         return list(MACROTEMAS.keys())
-    get_macrotema(macrotema)
-    return [macrotema]
+    slugs = [slug.strip() for slug in macrotema.split(",") if slug.strip()]
+    if not slugs:
+        return ["demografia"]
+    slugs_unicos: list[str] = []
+    for slug in slugs:
+        if slug == TODOS_MACROTEMAS_SLUG:
+            return list(MACROTEMAS.keys())
+        get_macrotema(slug)
+        if slug not in slugs_unicos:
+            slugs_unicos.append(slug)
+    return slugs_unicos
 
 
 def get_csv_config_for_macrotema(macrotema: dict[str, str | None]) -> tuple[str | None, str]:
@@ -125,11 +126,21 @@ async def listar_relatorios_handler():
             if primeira_parte == TODOS_MACROTEMAS_SLUG:
                 slug_cidade = restante
                 macrotema = TODOS_MACROTEMAS_NOME
-            elif primeira_parte in MACROTEMAS:
-                slug_cidade = restante
-                macrotema = MACROTEMAS[primeira_parte]["nome"]
             else:
-                slug_cidade, _timestamp = slug_completo.rsplit("__", 1)
+                slugs_encontrados = [
+                    slug for slug in primeira_parte.split("_")
+                    if slug in MACROTEMAS
+                ]
+                if slugs_encontrados and "_".join(slugs_encontrados) == primeira_parte:
+                    slug_cidade = restante
+                    macrotema = ", ".join(
+                        MACROTEMAS[slug]["nome"] for slug in slugs_encontrados
+                    )
+                elif primeira_parte in MACROTEMAS:
+                    slug_cidade = restante
+                    macrotema = MACROTEMAS[primeira_parte]["nome"]
+                else:
+                    slug_cidade, _timestamp = slug_completo.rsplit("__", 1)
         else:
             slug_cidade = slug_completo
 
@@ -203,24 +214,18 @@ async def apagar_relatorio_handler(arquivo_pdf: str):
     return {"ok": True, "removidos": removidos}
 
 
-async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", charts: str = "all", *, background_tasks: BackgroundTasks):
+async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", *, background_tasks: BackgroundTasks):
     macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
     gerado_em = datetime.now().astimezone()
-    allowed = set(CHART_TYPES.keys())
-    requested_charts = list(CHART_TYPES.keys()) if charts == "all" else [c.strip() for c in charts.split(",")]
-    invalid = set(requested_charts) - allowed
-    if invalid:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Tipo(s) de gráfico inválido(s): {invalid}. Tipos válidos: sexo, porte, top"
-        )
 
     linhas = None
     cover = None
     safe_city = None
     safe_report = None
-    graficos = []
+    macrotemas_render: list[dict[str, object]] = []
     docs_html_parts = []
+    resumo_relatorio_html_parts: list[str] = []
+    resumo_relatorio_parts: list[str] = []
 
     for macrotema_slug in macrotema_slugs:
         macrotema_dados = get_macrotema(macrotema_slug)
@@ -259,21 +264,20 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
                 macrotema_dados["nome"],
                 macrotema_slug,
             )
+            cover["macrotemas"] = macrotemas_render
             safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas[0]["nm_mun"].strip().lower())
-            safe_report = f"{macrotema}__{safe_city}"
+            primeiro_slug = macrotema_slugs[0]
+            if macrotema == TODOS_MACROTEMAS_SLUG:
+                slug_arquivo = TODOS_MACROTEMAS_SLUG
+            elif "," in macrotema:
+                slug_arquivo = "_".join(
+                    slug for slug in macrotema_slugs if slug != TODOS_MACROTEMAS_SLUG
+                ) or primeiro_slug
+            else:
+                slug_arquivo = macrotema.split(",")[0].strip()
+            safe_report = f"{slug_arquivo}__{safe_city}"
 
         graficos_por_placeholder = {}
-        if macrotema_slug == "demografia":
-            for chart_type in requested_charts:
-                chart_func = CHART_TYPES[chart_type]
-                if chart_type == "sexo":
-                    chart_file = chart_func(linhas_macrotema[0], OUTPUT_DIR, safe_report)
-                elif chart_type == "porte":
-                    chart_file = chart_func(df, OUTPUT_DIR, safe_report)
-                elif chart_type == "top":
-                    chart_file = chart_func(df, OUTPUT_DIR)
-                graficos.append(chart_file)
-                graficos_por_placeholder[f"grafico_{chart_type}"] = chart_file
 
         docs_url = require_config_value(macrotema_dados["docs_url"], macrotema_dados["docs_env"])
         try:
@@ -281,14 +285,31 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
         except ValueError as err:
             raise HTTPException(status_code=400, detail=str(err)) from err
 
+        eh_primeiro = macrotema_slug == macrotema_slugs[0]
+
+        macrotema_item: dict[str, object] = {
+            "nome": macrotema_dados["nome"],
+            "slug": macrotema_slug,
+            "icone": cover["macrotema"]["icone"],
+            "cor": cover["macrotema"]["cor"],
+            "resumo": "",
+            "descricao": "",
+            "descricao_paragrafos": [],
+            "descricao_html": [],
+            "score": cover["macrotema"]["score"],
+            "indicadores": cover["macrotema"]["indicadores"],
+        }
+
         resumo_tema, docs_texto = extrair_resumo_tema(docs_texto)
-        if resumo_tema and cover is not None and macrotema_slug == macrotema_slugs[0]:
-            cover["macrotema"]["resumo"] = substituir_placeholders(
+        if resumo_tema:
+            macrotema_item["resumo"] = substituir_placeholders(
                 resumo_tema, linhas_macrotema[0], macrotema_slug
             )
+            if eh_primeiro and cover is not None:
+                cover["macrotema"]["resumo"] = macrotema_item["resumo"]
 
         relatorio_geral, docs_texto = extrair_relatorio_geral(docs_texto)
-        if relatorio_geral and cover is not None and macrotema_slug == macrotema_slugs[0]:
+        if relatorio_geral and eh_primeiro and cover is not None:
             cover["relatorio_geral_html"] = render_descricao_tema_html(
                 relatorio_geral,
                 linhas_macrotema[0],
@@ -300,19 +321,23 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
             )
 
         resumo_relatorio, docs_texto = extrair_resumo_relatorio(docs_texto)
-        if resumo_relatorio and cover is not None and macrotema_slug == macrotema_slugs[0]:
-            cover["resumo_relatorio_html"] = render_descricao_tema_html(
-                resumo_relatorio,
-                linhas_macrotema[0],
-                namespace=macrotema_slug,
-                safe_report=safe_report,
+        if resumo_relatorio:
+            resumo_relatorio_html_parts.extend(
+                render_descricao_tema_html(
+                    resumo_relatorio,
+                    linhas_macrotema[0],
+                    namespace=macrotema_slug,
+                    safe_report=safe_report,
+                )
             )
-            cover["resumo_relatorio"] = substituir_placeholders(
-                resumo_relatorio, linhas_macrotema[0], macrotema_slug
+            resumo_relatorio_parts.append(
+                substituir_placeholders(
+                    resumo_relatorio, linhas_macrotema[0], macrotema_slug
+                )
             )
 
         resumo_cidade, docs_texto = extrair_resumo_cidade(docs_texto)
-        if resumo_cidade and cover is not None and macrotema_slug == macrotema_slugs[0]:
+        if resumo_cidade and eh_primeiro and cover is not None:
             cover["resumo_cidade_html"] = render_descricao_tema_html(
                 resumo_cidade,
                 linhas_macrotema[0],
@@ -324,7 +349,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
             )
 
         diagnostico_cidade, docs_texto = extrair_diagnostico_cidade(docs_texto)
-        if diagnostico_cidade and cover is not None and macrotema_slug == macrotema_slugs[0]:
+        if diagnostico_cidade and eh_primeiro and cover is not None:
             cover["diagnostico_cidade_html"] = render_descricao_tema_html(
                 diagnostico_cidade,
                 linhas_macrotema[0],
@@ -336,28 +361,32 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
             )
 
         descricao_tema, docs_texto = extrair_descricao_tema(docs_texto)
-        if descricao_tema and cover is not None and macrotema_slug == macrotema_slugs[0]:
-            cover["macrotema"]["descricao"] = substituir_placeholders(
+        if descricao_tema:
+            macrotema_item["descricao"] = substituir_placeholders(
                 descricao_tema, linhas_macrotema[0], macrotema_slug
             )
-            cover["macrotema"]["descricao_paragrafos"] = [
+            macrotema_item["descricao_paragrafos"] = [
                 substituir_placeholders(
                     paragrafo.strip(), linhas_macrotema[0], macrotema_slug
                 )
                 for paragrafo in re.split(r"\n\s*\n", descricao_tema)
                 if paragrafo.strip()
             ]
-            cover["macrotema"]["descricao_html"] = render_descricao_tema_html(
+            macrotema_item["descricao_html"] = render_descricao_tema_html(
                 descricao_tema,
                 linhas_macrotema[0],
                 namespace=macrotema_slug,
                 safe_report=safe_report,
             )
+            if eh_primeiro and cover is not None:
+                cover["macrotema"]["descricao"] = macrotema_item["descricao"]
+                cover["macrotema"]["descricao_paragrafos"] = macrotema_item["descricao_paragrafos"]
+                cover["macrotema"]["descricao_html"] = macrotema_item["descricao_html"]
 
         mapa_principal = None
         for paragrafo in re.split(r"\n\s*\n", docs_texto):
             if paragrafo.strip().lower() in {"*mapa_geografico", "mapa_geografico"}:
-                if cover is not None and macrotema_slug == macrotema_slugs[0]:
+                if eh_primeiro and cover is not None:
                     mapa_principal = render_mapa_marker(linhas_macrotema[0], safe_report)
                 break
 
@@ -367,6 +396,8 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
         docs_texto_sem_mapa = re.sub(
             r"(?im)^\s*\*?mapa_geografico\s*$", "", docs_texto
         ).strip()
+
+        macrotemas_render.append(macrotema_item)
 
         docs_html_parts.append(
             texto_para_html(
@@ -379,6 +410,10 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", ch
         )
 
     docs_html = "\n".join(docs_html_parts)
+
+    if cover is not None:
+        cover["resumo_relatorio_html"] = resumo_relatorio_html_parts
+        cover["resumo_relatorio"] = "\n\n".join(resumo_relatorio_parts)
 
     # React SSR rendering
     html_content = await render_react_ssr({
