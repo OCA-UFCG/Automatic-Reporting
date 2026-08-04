@@ -21,7 +21,6 @@ export default function Cover({ cover }) {
         <div className="cover-meta">
           <CoverBrand />
           <PdfCoverBrand />
-          <span className="cover-date">{cover.data_extenso}</span>
         </div>
       </div>
       <div className="cover-content">

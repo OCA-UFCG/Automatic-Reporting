@@ -177,6 +177,7 @@ def montar_capa_relatorio(
 
     return {
         "data_extenso": formatar_data_extenso(gerado_em),
+        "data_hora_extenso": formatar_data_hora_extenso(gerado_em),
         "cidade_nome": cidade_nome,
         "uf": uf,
         "relatorio_geral": "",
