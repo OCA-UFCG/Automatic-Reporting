@@ -430,6 +430,13 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", *,
     # Gerar PDF em background sempre, para manter o artefato sincronizado com o HTML
     # e evitar reaproveitar um PDF antigo quando os dados/mapas mudarem no mesmo dia.
     pdf_file = OUTPUT_DIR / f"relatorio_{safe_report}.pdf"
+
+    for stale_artifact in (pdf_file, output_file):
+        try:
+            stale_artifact.unlink()
+        except FileNotFoundError:
+            pass
+
     background_tasks.add_task(_gerar_pdf, html_content, pdf_file)
 
     return HTMLResponse(content=html_content)
