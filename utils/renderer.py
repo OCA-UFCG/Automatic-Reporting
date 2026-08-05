@@ -80,6 +80,46 @@ def render_descricao_tema_html(descricao_tema: str, contexto: dict, namespace: s
     return partes
 
 
+def _resolver_caminho_em_contexto(contexto: dict, caminho: str) -> object | None:
+    atual: object = contexto
+    for parte in caminho.split("."):
+        if not isinstance(atual, dict) or parte not in atual:
+            return None
+        atual = atual[parte]
+    return atual
+
+
+def _resolver_campo_com_alias(contexto: dict, campo: str) -> object | None:
+    valor = _resolver_caminho_em_contexto(contexto, campo)
+    if valor is not None:
+        return valor
+
+    if campo == "city":
+        return _resolver_caminho_em_contexto(contexto, "nm_mun")
+
+    if campo == "municipio":
+        return _resolver_caminho_em_contexto(contexto, "nm_mun")
+
+    if campo == "year":
+        return _resolver_caminho_em_contexto(contexto, "ano")
+
+    if campo == "ano":
+        return _resolver_caminho_em_contexto(contexto, "year")
+
+    return None
+
+
+def _resolver_contexto_por_alias(contexto: dict, alias: str, namespace: str) -> dict:
+    if alias == namespace.lower():
+        return contexto
+
+    valor_alias = contexto.get(alias)
+    if isinstance(valor_alias, dict):
+        return valor_alias
+
+    return contexto
+
+
 def normalizar_titulo_para_match(texto: str) -> str:
     texto = re.sub(r"^\s*\d+\s*\.?\s*", "", texto).strip()
     texto = re.sub(r"\s+", " ", texto)
@@ -110,6 +150,15 @@ def render_section_heading(secao: dict[str, object]) -> str:
 
 
 def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demografia") -> str:
+    alias_de_tabela = {
+        "table": _resolver_contexto_por_alias(contexto, "table", namespace),
+        "tabela": _resolver_contexto_por_alias(contexto, "tabela", namespace),
+        "sheet": _resolver_contexto_por_alias(contexto, "sheet", namespace),
+        "planilha": _resolver_contexto_por_alias(contexto, "planilha", namespace),
+        "linha": contexto,
+        "dados": contexto,
+        "csv": contexto,
+    }
 
     def _substituir_dolar(match: re.Match) -> str:
         placeholder_namespace = match.group(1).lower()
@@ -117,13 +166,17 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
 
         namespaces_validos = {
             namespace.lower(),
-            "linha",
-            "dados",
-            "csv",
         }
 
+        namespaces_validos.update(alias_de_tabela.keys())
+
         if placeholder_namespace in namespaces_validos:
-            return str(contexto.get(campo, match.group(0)))
+            contexto_alvo = alias_de_tabela[placeholder_namespace]
+            if isinstance(contexto_alvo, dict):
+                valor = _resolver_campo_com_alias(contexto_alvo, campo)
+                if valor is not None:
+                    return str(valor)
+            return match.group(0)
 
         return match.group(0)
 

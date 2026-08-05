@@ -5,37 +5,52 @@ import time
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 from config import BASE_DIR
 
 logger = logging.getLogger(__name__)
 
 DOCS_CACHE_DIR = BASE_DIR / "output" / "docs_cache"
-DOCS_CACHE_TTL = 3600  # 1 hour
 
 
 def _cache_path(doc_id: str) -> Path:
     return DOCS_CACHE_DIR / f"{doc_id}.json"
 
 
-def _carregar_do_cache(doc_id: str) -> str | None:
+def _carregar_do_cache(doc_id: str) -> dict[str, str] | None:
     cache_path = _cache_path(doc_id)
     if not cache_path.exists():
         return None
     try:
         dados = json.loads(cache_path.read_text(encoding="utf-8"))
-        if time.time() - dados["timestamp"] < DOCS_CACHE_TTL:
-            return dados["texto"]
+        if isinstance(dados, dict) and isinstance(dados.get("texto"), str):
+            return {
+                "texto": dados["texto"],
+                "timestamp": str(dados.get("timestamp", "")),
+                "etag": str(dados.get("etag", "")),
+                "last_modified": str(dados.get("last_modified", "")),
+            }
     except (OSError, json.JSONDecodeError, KeyError, TypeError) as e:
         logger.debug("Falha ao ler cache de docs (%s): %s", cache_path, e)
     return None
 
 
-def _salvar_no_cache(doc_id: str, texto: str) -> None:
+def _salvar_no_cache(
+    doc_id: str,
+    texto: str,
+    *,
+    etag: str | None = None,
+    last_modified: str | None = None,
+) -> None:
     try:
         DOCS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        dados = {"timestamp": time.time(), "texto": texto}
+        dados = {
+            "timestamp": time.time(),
+            "texto": texto,
+            "etag": etag,
+            "last_modified": last_modified,
+        }
         _cache_path(doc_id).write_text(
             json.dumps(dados, ensure_ascii=False), encoding="utf-8"
         )
@@ -134,14 +149,34 @@ def extrair_diagnostico_cidade(texto: str) -> tuple[str | None, str]:
 def carregar_texto_do_docs(link_ou_id: str) -> str:
     doc_id = extrair_doc_id(link_ou_id)
 
-    texto_cache = _carregar_do_cache(doc_id)
-    if texto_cache is not None:
-        return texto_cache
+    cache = _carregar_do_cache(doc_id)
     export_url = f"https://docs.google.com/document/d/{doc_id}/export?format=txt"
+
+    headers: dict[str, str] = {}
+    if cache:
+        if cache.get("etag"):
+            headers["If-None-Match"] = cache["etag"]
+        if cache.get("last_modified"):
+            headers["If-Modified-Since"] = cache["last_modified"]
+
     try:
-        with urlopen(export_url, timeout=20) as response:
+        request = Request(export_url, headers=headers)
+        with urlopen(request, timeout=20) as response:
             texto = response.read().decode("utf-8")
+            etag = response.headers.get("ETag")
+            last_modified = response.headers.get("Last-Modified")
     except HTTPError as err:
+        if err.code == 304 and cache is not None:
+            cache_path = _cache_path(doc_id)
+            try:
+                dados = json.loads(cache_path.read_text(encoding="utf-8"))
+                dados["timestamp"] = time.time()
+                cache_path.write_text(
+                    json.dumps(dados, ensure_ascii=False), encoding="utf-8"
+                )
+            except (OSError, json.JSONDecodeError, TypeError, ValueError):
+                logger.debug("Falha ao atualizar timestamp do cache de docs (%s)", cache_path)
+            return cache["texto"]
         if err.code in (401, 403):
             raise ValueError(
                 "Google Docs sem acesso público para exportação. "
@@ -152,8 +187,22 @@ def carregar_texto_do_docs(link_ou_id: str) -> str:
             raise ValueError("Documento do Google Docs não encontrado (404). Verifique o link/ID.") from err
         raise ValueError(f"Erro ao exportar Google Docs ({err.code}). Verifique o link e as permissões.") from err
     except (URLError, TimeoutError) as err:
+        if cache is not None:
+            logger.warning(
+                "Falha ao acessar o Google Docs %s; usando cache local temporariamente.",
+                doc_id,
+            )
+            return cache["texto"]
         raise ValueError("Não foi possível acessar o Google Docs. Verifique a conexão, o link e as permissões.") from err
 
     texto = limpar_texto_exportado_docs(texto)
-    _salvar_no_cache(doc_id, texto)
+    if cache is None or texto != cache["texto"]:
+        _salvar_no_cache(doc_id, texto, etag=etag, last_modified=last_modified)
+    else:
+        _salvar_no_cache(
+            doc_id,
+            texto,
+            etag=etag or cache.get("etag"),
+            last_modified=last_modified or cache.get("last_modified"),
+        )
     return texto

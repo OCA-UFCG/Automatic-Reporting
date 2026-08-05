@@ -1,7 +1,7 @@
 import React from 'react';
 import { pdfStyles } from '../styles.js';
 import Cover from './cover/Cover.jsx';
-import { PdfPageHeader, PdfFooter } from './PdfLayout.jsx';
+import { PdfFooter } from './PdfLayout.jsx';
 
 export default function Report({ cover, docsHtml }) {
   return (
@@ -13,7 +13,6 @@ export default function Report({ cover, docsHtml }) {
         <style dangerouslySetInnerHTML={{ __html: pdfStyles }} />
       </head>
       <body>
-        <PdfPageHeader data={cover.data_extenso} />
         <PdfFooter />
         <Cover cover={cover} />
         <div className="doc-content" dangerouslySetInnerHTML={{ __html: docsHtml }} />
