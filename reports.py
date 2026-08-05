@@ -47,7 +47,7 @@ def _carregar_csv(csv_source: str | Path) -> pd.DataFrame:
     cache_key = str(csv_source)
     if cache_key in _CSV_CACHE:
         return _CSV_CACHE[cache_key].copy()
-    df = pd.read_csv(csv_source, delimiter=";")
+    df = pd.read_csv(csv_source, sep=None, engine="python")
     _CSV_CACHE[cache_key] = df.copy()
     return df
 
