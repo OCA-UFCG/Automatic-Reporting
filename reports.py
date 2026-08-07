@@ -276,7 +276,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 macrotema_slug,
             )
             cover["macrotemas"] = macrotemas_render
-            safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas[0]["nm_mun"].strip().lower())
+            safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", cidade.strip().lower())
             primeiro_slug = macrotema_slugs[0]
             if macrotema == TODOS_MACROTEMAS_SLUG:
                 slug_arquivo = TODOS_MACROTEMAS_SLUG
