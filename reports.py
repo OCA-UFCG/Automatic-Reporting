@@ -5,7 +5,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pandas as pd
-from fastapi import BackgroundTasks, HTTPException
+from fastapi import HTTPException
 from fastapi.responses import HTMLResponse
 from weasyprint import HTML
 
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 _CSV_CACHE: dict[str, pd.DataFrame] = {}
 
 
-def _gerar_pdf(html_content: str, pdf_file: Path) -> None:
+def _gerar_pdf_sync(html_content: str, pdf_file: Path) -> None:
     try:
         pdf_html = re.sub(r'src="/output/', 'src="', html_content)
         HTML(string=pdf_html, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
@@ -43,11 +43,22 @@ def _gerar_pdf(html_content: str, pdf_file: Path) -> None:
         logger.warning("Falha ao gerar PDF %s: %s", pdf_file, e)
 
 
+async def _gerar_pdf(html_content: str, pdf_file: Path) -> None:
+    import asyncio
+    await asyncio.to_thread(_gerar_pdf_sync, html_content, pdf_file)
+
+
 def _carregar_csv(csv_source: str | Path) -> pd.DataFrame:
     cache_key = str(csv_source)
     if cache_key in _CSV_CACHE:
         return _CSV_CACHE[cache_key].copy()
-    df = pd.read_csv(csv_source, sep=None, engine="python")
+    for sep in (",", ";"):
+        try:
+            df = pd.read_csv(csv_source, sep=sep, engine="c")
+            if len(df.columns) > 1:
+                break
+        except (pd.errors.ParserError, ValueError):
+            continue
     _CSV_CACHE[cache_key] = df.copy()
     return df
 
@@ -214,7 +225,7 @@ async def apagar_relatorio_handler(arquivo_pdf: str):
     return {"ok": True, "removidos": removidos}
 
 
-async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", *, background_tasks: BackgroundTasks):
+async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
     gerado_em = datetime.now().astimezone()
 
@@ -281,7 +292,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", *,
 
         docs_url = require_config_value(macrotema_dados["docs_url"], macrotema_dados["docs_env"])
         try:
-            docs_texto = carregar_texto_do_docs(docs_url)
+            docs_texto = await carregar_texto_do_docs(docs_url)
         except ValueError as err:
             raise HTTPException(status_code=400, detail=str(err)) from err
 
@@ -437,6 +448,6 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", *,
         except FileNotFoundError:
             pass
 
-    background_tasks.add_task(_gerar_pdf, html_content, pdf_file)
+    await _gerar_pdf(html_content, pdf_file)
 
     return HTMLResponse(content=html_content)
