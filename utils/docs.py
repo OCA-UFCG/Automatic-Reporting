@@ -117,6 +117,14 @@ def extrair_bloco_marcado(
         return None, texto
 
     bloco = match.group(1).strip()
+    if len(bloco) >= 2 and (bloco[0], bloco[-1]) in {
+        ('"', '"'),
+        ("'", "'"),
+        ("“", "”"),
+    }:
+        bloco = bloco[1:-1].strip()
+    else:
+        bloco = bloco.removeprefix("“").removesuffix("”").strip()
     texto_sem_bloco = (texto[:match.start()] + texto[match.end():]).strip()
     return bloco or None, texto_sem_bloco
 
@@ -129,7 +137,15 @@ def extrair_resumo_tema(texto: str) -> tuple[str | None, str]:
 
 
 def extrair_descricao_tema(texto: str) -> tuple[str | None, str]:
-    return extrair_bloco_marcado(texto, "descricao_tema")
+    blocos: list[str] = []
+    texto_restante = texto
+    while True:
+        bloco, novo_texto = extrair_bloco_marcado(texto_restante, "descricao_tema")
+        if not bloco:
+            break
+        blocos.append(bloco)
+        texto_restante = novo_texto
+    return ("\n\n".join(blocos) or None), texto_restante
 
 def extrair_relatorio_geral(texto: str) -> tuple[str | None, str]:
     return extrair_bloco_marcado(texto, "relatorio_geral")
@@ -144,6 +160,33 @@ def extrair_resumo_cidade(texto: str) -> tuple[str | None, str]:
 
 def extrair_diagnostico_cidade(texto: str) -> tuple[str | None, str]:
     return extrair_bloco_marcado(texto, "diagnostico_cidade")
+
+
+def extrair_referencias(texto: str) -> tuple[list[str], str]:
+    referencias: list[str] = []
+    texto_restante = texto
+    while True:
+        bloco, novo_texto = extrair_bloco_marcado(texto_restante, "referencia")
+        if not bloco:
+            break
+        referencias.extend(
+            linha.strip()
+            for linha in bloco.splitlines()
+            if linha.strip()
+        )
+        texto_restante = novo_texto
+    return referencias, texto_restante
+
+
+def remover_titulos_docs(texto: str, *titulos: str) -> str:
+    if not titulos:
+        return texto
+    alternativas = "|".join(re.escape(titulo) for titulo in titulos)
+    return re.sub(
+        rf"(?im)^\s*#!\s*(?:{alternativas})\s*$\n?",
+        "",
+        texto,
+    ).strip()
 
 
 def carregar_texto_do_docs(link_ou_id: str) -> str:

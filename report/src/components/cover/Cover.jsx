@@ -37,6 +37,9 @@ export default function Cover({ cover }) {
         <h1 className="cover-city">
           {cover.cidade_nome}{cover.uf ? ` (${cover.uf})` : null}
         </h1>
+
+        <div className="cover-kicker">Características Gerais</div>
+
         {cover.resumo_cidade_html?.length > 0 && (
           <div className="cover-resumo-cidade-wrap">
             {cover.resumo_cidade_html.map((item, idx) => (
@@ -44,8 +47,6 @@ export default function Cover({ cover }) {
             ))}
           </div>
         )}
-
-        <div className="cover-kicker">Características Gerais</div>
 
         <div className="cover-maps-group">
           {cover.mapa_principal && (
