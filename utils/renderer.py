@@ -10,11 +10,14 @@ from utils.tables import render_tabela_resumo
 def converter_links_para_html(texto: str) -> str:
     resultado = []
     ultimo_fim = 0
-    for m in re.finditer(r'\[([^\]]+)\]\(([^)]+)\)', texto):
+    padrao_link = re.compile(r'\[([^\]]+)\]\(([^)]+)\)|(https?://[^\s<>“”"]+)')
+    for m in padrao_link.finditer(texto):
         resultado.append(html_module.escape(texto[ultimo_fim:m.start()]))
+        url = m.group(2) or m.group(3)
+        rotulo = m.group(1) or url
         resultado.append(
-            f'<a href="{html_module.escape(m.group(2))}">'
-            f'{html_module.escape(m.group(1))}'
+            f'<a href="{html_module.escape(url)}">'
+            f'{html_module.escape(rotulo)}'
             f'</a>'
         )
         ultimo_fim = m.end()
@@ -93,6 +96,18 @@ def _resolver_campo_com_alias(contexto: dict, campo: str) -> object | None:
     valor = _resolver_caminho_em_contexto(contexto, campo)
     if valor is not None:
         return valor
+
+    aliases_de_coluna = {
+        "fundamental_com_per": "fundamental_comp_per",
+        "comparar_analfabetismo_idade": "analfabetismo_jovens_idosos",
+        "raca_maior": "cor_maior",
+        "raca_menor": "cor_menor",
+    }
+    campo_original = aliases_de_coluna.get(campo)
+    if campo_original:
+        valor = _resolver_caminho_em_contexto(contexto, campo_original)
+        if valor is not None:
+            return valor
 
     if campo == "city":
         return _resolver_caminho_em_contexto(contexto, "nm_mun")
@@ -193,9 +208,55 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
 
     resultado = texto
 
+    # Formato completo: macrotema.nome_do_csv.$campo.
+    resultado = re.sub(
+        rf"(?i)(?<![\w]){re.escape(namespace)}\."
+        rf"{re.escape(namespace)}\.\$([A-Za-z_][\w]*)",
+        lambda m: str(
+            _resolver_campo_com_alias(contexto, m.group(1))
+            if _resolver_campo_com_alias(contexto, m.group(1)) is not None
+            else m.group(0)
+        ),
+        resultado,
+    )
+
+    # Formato usado em alguns documentos: namespace.$campo.
+    resultado = re.sub(
+        rf"(?i)(?<![\w]){re.escape(namespace)}\.\$([A-Za-z_][\w]*)",
+        lambda m: str(
+            _resolver_campo_com_alias(contexto, m.group(1))
+            if _resolver_campo_com_alias(contexto, m.group(1)) is not None
+            else m.group(0)
+        ),
+        resultado,
+    )
+
+    # Formato usado nos documentos: $Table.nome_da_tabela$campo.
+    resultado = re.sub(
+        r"\$(?:table|tabela|sheet|planilha)\.[A-Za-z_][\w]*\$([A-Za-z_][\w]*)",
+        lambda m: str(
+            _resolver_campo_com_alias(contexto, m.group(1))
+            if _resolver_campo_com_alias(contexto, m.group(1)) is not None
+            else m.group(0)
+        ),
+        resultado,
+        flags=re.IGNORECASE,
+    )
+
     resultado = re.sub(
         r"\$([A-Za-z_][\w]*)\.([A-Za-z_][\w]*)",
         _substituir_dolar,
+        resultado,
+    )
+
+    # Campos simples vêm diretamente da linha da tabela do macrotema.
+    resultado = re.sub(
+        r"\$([A-Za-z_][\w]*)",
+        lambda m: str(
+            _resolver_campo_com_alias(contexto, m.group(1))
+            if _resolver_campo_com_alias(contexto, m.group(1)) is not None
+            else m.group(0)
+        ),
         resultado,
     )
 
@@ -237,6 +298,7 @@ def texto_para_html(
 
     em_lista = False
     em_metadado_docs = False
+    metadado_visivel: list[str] | None = None
 
     proximo_paragrafo_destaque = False
 
@@ -246,6 +308,18 @@ def texto_para_html(
 
         linha_limpa = linha.lstrip("\ufeff").strip()
 
+        if metadado_visivel is not None:
+            terminou = "@@" in linha_limpa
+            conteudo = linha_limpa.split("@@", 1)[0].strip()
+            if conteudo:
+                metadado_visivel.append(conteudo)
+            if terminou:
+                texto_metadado = " ".join(metadado_visivel).strip().strip('"“”')
+                if texto_metadado:
+                    html_lines.append(f"<p>{converter_links_para_html(texto_metadado)}</p>")
+                metadado_visivel = None
+            continue
+
         if em_metadado_docs:
             if "@@" in linha_limpa:
                 em_metadado_docs = False
@@ -254,6 +328,17 @@ def texto_para_html(
         metadado_match = re.match(r"^([A-Za-z_][\w]*)\s*=", linha_limpa)
         if metadado_match:
             marcador_metadado = metadado_match.group(1).lower()
+            if marcador_metadado in {"referencia", "hyperlink"}:
+                valor = linha_limpa.split("=", 1)[1].strip()
+                terminou = "@@" in valor
+                valor = valor.split("@@", 1)[0].strip()
+                metadado_visivel = [valor] if valor else []
+                if terminou:
+                    texto_metadado = " ".join(metadado_visivel).strip().strip('"“”')
+                    if texto_metadado:
+                        html_lines.append(f"<p>{converter_links_para_html(texto_metadado)}</p>")
+                    metadado_visivel = None
+                continue
             if "@@" not in linha_limpa and marcador_metadado != "descricao_tema":
                 em_metadado_docs = True
             continue
@@ -383,9 +468,7 @@ def texto_para_html(
                 html_lines.append("<ul>")
                 em_lista = True
 
-            item = html_module.escape(
-                linha_limpa[2:].strip()
-            )
+            item = converter_links_para_html(linha_limpa[2:].strip())
 
             html_lines.append(f"<li>{item}</li>")
 

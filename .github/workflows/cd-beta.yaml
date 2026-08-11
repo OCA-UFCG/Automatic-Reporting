@@ -50,6 +50,7 @@ jobs:
             ECONOMIA_RENDA_CSV_URL=${{ secrets.ECONOMIA_RENDA_CSV_URL }}
             SANEAMENTO_CSV_URL=${{ secrets.SANEAMENTO_CSV_URL }}
             HIDRAULICA_CSV_URL=${{ secrets.HIDRAULICA_CSV_URL }}
+            CARACTERISTICAS_DOCS_URL=${{ secrets.CARACTERISTICAS_DOCS_URL }}
             DEMOGRAFIA_DOCS_URL=${{ secrets.DEMOGRAFIA_DOCS_URL }}
             EDUCACAO_DOCS_URL=${{ secrets.EDUCACAO_DOCS_URL }}
             SAUDE_DOCS_URL=${{ secrets.SAUDE_DOCS_URL }}

@@ -30,6 +30,7 @@ ECONOMIA_RENDA_CSV_URL = get_config_value("ECONOMIA_RENDA_CSV_URL")
 SANEAMENTO_CSV_URL = get_config_value("SANEAMENTO_CSV_URL")
 HIDRAULICA_CSV_URL = get_config_value("HIDRAULICA_CSV_URL")
 DEFAULT_DOCS_URL = get_config_value("DEFAULT_DOCS_URL")
+CARACTERISTICAS_DOCS_URL = get_config_value("CARACTERISTICAS_DOCS_URL")
 DEMOGRAFIA_DOCS_URL = get_config_value("DEMOGRAFIA_DOCS_URL") or DEFAULT_DOCS_URL
 EDUCACAO_DOCS_URL = get_config_value("EDUCACAO_DOCS_URL")
 SAUDE_DOCS_URL = get_config_value("SAUDE_DOCS_URL")
@@ -164,7 +165,7 @@ def _parse_google_sheets_file_id(value: str) -> str | None:
     parsed = urlparse(value)
     query = parse_qs(parsed.query)
 
-    if query.get("id"):
+    if query.get("id") and "docs.google.com" in parsed.netloc:
         return query["id"][0]
 
     if parsed.netloc and "docs.google.com" in parsed.netloc and parsed.path:
