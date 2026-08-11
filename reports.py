@@ -316,7 +316,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 # quando o relatório era iniciado por Economia e Renda.
                 contexto_caracteristicas = linhas_macrotema[0]
                 try:
-                    caracteristicas_texto = carregar_texto_do_docs(
+                    caracteristicas_texto = await carregar_texto_do_docs(
                         CARACTERISTICAS_DOCS_URL
                     )
                 except ValueError as err:
