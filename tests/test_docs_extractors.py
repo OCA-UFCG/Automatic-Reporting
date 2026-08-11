@@ -1,7 +1,7 @@
 from utils.docs import (
-    extrair_introducao,
-    extrair_inicio_relatorio,
     extrair_descricao_tema,
+    extrair_inicio_relatorio,
+    extrair_introducao,
     extrair_referencias,
     extrair_relatorio_geral,
     extrair_resumo_relatorio,
