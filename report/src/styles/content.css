@@ -74,7 +74,10 @@ li {
 .doc-content h1 {
   font-family: 'Inter', var(--font-sans);
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 500;
+  color: #085F2D;
+  line-height: 150%;
+  letter-spacing: -0.012em;
   margin: 0 0 18px 0;
 }
 
@@ -325,18 +328,19 @@ li {
   .doc-content h1,
   .doc-content h2 {
     font-family: 'Inter', var(--font-sans);
-    color: #292829;
     break-after: avoid;
     page-break-after: avoid;
   }
 
   .doc-content h1 {
     font-size: 16px;
-    font-weight: 600;
+    font-weight: 500;
+    color: #085F2D;
   }
 
   .doc-content h2 {
     font-size: 15px;
+    color: #292829;
   }
 
   .doc-content p,

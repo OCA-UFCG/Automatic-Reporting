@@ -1,7 +1,10 @@
 import logging
 import re
+import unicodedata
 from datetime import datetime, timezone
+from io import BytesIO
 from pathlib import Path
+from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -9,17 +12,26 @@ from fastapi import BackgroundTasks, HTTPException
 from fastapi.responses import HTMLResponse
 from weasyprint import HTML
 
-from config import OUTPUT_DIR, require_config_value, resolve_csv_source
+from config import (
+    CARACTERISTICAS_DOCS_URL,
+    OUTPUT_DIR,
+    require_config_value,
+    resolve_csv_source,
+)
 from utils.cities import filtrar_linhas_por_cidade
 from utils.cover import montar_capa_relatorio
 from utils.docs import (
     carregar_texto_do_docs,
     extrair_descricao_tema,
     extrair_diagnostico_cidade,
+    extrair_inicio_relatorio,
+    extrair_introducao,
+    extrair_referencias,
     extrair_relatorio_geral,
     extrair_resumo_cidade,
     extrair_resumo_relatorio,
     extrair_resumo_tema,
+    remover_titulos_docs,
 )
 from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
 from utils.renderer import (
@@ -47,7 +59,13 @@ def _carregar_csv(csv_source: str | Path) -> pd.DataFrame:
     cache_key = str(csv_source)
     if cache_key in _CSV_CACHE:
         return _CSV_CACHE[cache_key].copy()
-    df = pd.read_csv(csv_source, sep=None, engine="python")
+    if isinstance(csv_source, str) and csv_source.startswith(("http://", "https://")):
+        request = Request(csv_source, headers={"User-Agent": "Mozilla/5.0"})
+        with urlopen(request, timeout=30) as response:
+            conteudo = response.read()
+        df = pd.read_csv(BytesIO(conteudo), sep=None, engine="python")
+    else:
+        df = pd.read_csv(csv_source, sep=None, engine="python")
     _CSV_CACHE[cache_key] = df.copy()
     return df
 
@@ -224,8 +242,10 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", *,
     safe_report = None
     macrotemas_render: list[dict[str, object]] = []
     docs_html_parts = []
+    caracteristicas_html_parts: list[str] = []
     resumo_relatorio_html_parts: list[str] = []
     resumo_relatorio_parts: list[str] = []
+    referencias: list[str] = []
 
     for macrotema_slug in macrotema_slugs:
         macrotema_dados = get_macrotema(macrotema_slug)
@@ -277,6 +297,104 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", *,
                 slug_arquivo = macrotema.split(",")[0].strip()
             safe_report = f"{slug_arquivo}__{safe_city}"
 
+            if CARACTERISTICAS_DOCS_URL:
+                try:
+                    caracteristicas_texto = carregar_texto_do_docs(
+                        CARACTERISTICAS_DOCS_URL
+                    )
+                except ValueError as err:
+                    raise HTTPException(status_code=400, detail=str(err)) from err
+
+                inicio_relatorio, caracteristicas_texto = extrair_inicio_relatorio(
+                    caracteristicas_texto
+                )
+                if inicio_relatorio:
+                    linhas_inicio = [
+                        linha.strip()
+                        for linha in inicio_relatorio.splitlines()
+                        if linha.strip()
+                    ]
+                    cover["inicio_relatorio"] = linhas_inicio[0]
+                    if len(linhas_inicio) > 1:
+                        cover["inicio_relatorio_subtitulo"] = substituir_placeholders(
+                            " ".join(linhas_inicio[1:]), {}, "caract_mun"
+                        )
+
+                introducao, caracteristicas_texto = extrair_introducao(
+                    caracteristicas_texto
+                )
+                if introducao:
+                    link_data_nordeste = re.search(
+                        r"(?im)^\s*(https://datanordeste\.sudene\.gov\.br/?)\s*$",
+                        caracteristicas_texto,
+                    )
+                    if link_data_nordeste:
+                        introducao = f"{introducao}\n\n{link_data_nordeste.group(1)}"
+                        caracteristicas_texto = (
+                            caracteristicas_texto[:link_data_nordeste.start()]
+                            + caracteristicas_texto[link_data_nordeste.end():]
+                        ).strip()
+                    cover["introducao_html"] = render_descricao_tema_html(
+                        introducao, {}, namespace="caract_mun", safe_report=safe_report
+                    )
+                    cover["introducao"] = introducao
+
+                relatorio_geral, caracteristicas_texto = extrair_relatorio_geral(
+                    caracteristicas_texto
+                )
+                if relatorio_geral:
+                    cover["relatorio_geral_html"] = render_descricao_tema_html(
+                        relatorio_geral, {}, namespace="caract_mun", safe_report=safe_report
+                    )
+                    cover["relatorio_geral"] = relatorio_geral
+
+                resumo_cidade, caracteristicas_texto = extrair_resumo_cidade(
+                    caracteristicas_texto
+                )
+                if resumo_cidade:
+                    cover["resumo_cidade_html"] = render_descricao_tema_html(
+                        resumo_cidade, {}, namespace="caract_mun", safe_report=safe_report
+                    )
+                    cover["resumo_cidade"] = resumo_cidade
+
+                resumo_relatorio, caracteristicas_texto = extrair_resumo_relatorio(
+                    caracteristicas_texto
+                )
+                if resumo_relatorio:
+                    resumo_relatorio_html_parts.extend(
+                        render_descricao_tema_html(
+                            resumo_relatorio,
+                            {},
+                            namespace="caract_mun",
+                            safe_report=safe_report,
+                        )
+                    )
+                    resumo_relatorio_parts.append(resumo_relatorio)
+
+                referencias_comuns, caracteristicas_texto = extrair_referencias(
+                    caracteristicas_texto
+                )
+                referencias.extend(referencias_comuns)
+                caracteristicas_texto = remover_titulos_docs(
+                    caracteristicas_texto,
+                    "Apresentação",
+                    "Apresentacao",
+                    "Aoresentacao",
+                    "Características Gerais",
+                    "Relatório Personalizado",
+                    "caract_mun.$nm_mun (caract_mun.$sigla_uf) EM DADOS",
+                    "Referências",
+                )
+
+                caracteristicas_html_parts.append(
+                    texto_para_html(
+                        caracteristicas_texto,
+                        {},
+                        namespace="caract_mun",
+                        safe_report=safe_report,
+                    )
+                )
+
         graficos_por_placeholder = {}
 
         docs_url = require_config_value(macrotema_dados["docs_url"], macrotema_dados["docs_env"])
@@ -320,21 +438,20 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", *,
                 relatorio_geral, linhas_macrotema[0], macrotema_slug
             )
 
-        resumo_relatorio, docs_texto = extrair_resumo_relatorio(docs_texto)
-        if resumo_relatorio:
-            resumo_relatorio_html_parts.extend(
-                render_descricao_tema_html(
-                    resumo_relatorio,
-                    linhas_macrotema[0],
-                    namespace=macrotema_slug,
-                    safe_report=safe_report,
-                )
-            )
-            resumo_relatorio_parts.append(
-                substituir_placeholders(
-                    resumo_relatorio, linhas_macrotema[0], macrotema_slug
-                )
-            )
+        # O resumo do relatório é global e vem do documento de Características.
+        # Removemos uma eventual cópia antiga do documento do macrotema para que
+        # ela não seja renderizada nem concorra com a fonte comum.
+        _, docs_texto = extrair_resumo_relatorio(docs_texto)
+
+        referencias_macrotema, docs_texto = extrair_referencias(docs_texto)
+        referencias.extend(referencias_macrotema)
+        docs_texto = remover_titulos_docs(
+            docs_texto,
+            "Apresentação",
+            "Apresentacao",
+            "Aoresentacao",
+            "Referências",
+        )
 
         resumo_cidade, docs_texto = extrair_resumo_cidade(docs_texto)
         if resumo_cidade and eh_primeiro and cover is not None:
@@ -409,7 +526,35 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", *,
             )
         )
 
-    docs_html = "\n".join(docs_html_parts)
+    referencias_unicas = {
+        re.sub(r"\s+", " ", referencia).strip(): None
+        for referencia in referencias
+        if referencia.strip()
+    }
+
+    def chave_referencia(referencia: str) -> str:
+        texto_sem_acentos = "".join(
+            caractere
+            for caractere in unicodedata.normalize("NFKD", referencia)
+            if not unicodedata.combining(caractere)
+        )
+        return texto_sem_acentos.casefold()
+
+    referencias_ordenadas = sorted(referencias_unicas, key=chave_referencia)
+    if referencias_ordenadas:
+        referencias_texto = "#! Referências\n\n" + "\n\n".join(
+            referencias_ordenadas
+        )
+        docs_html_parts.append(
+            texto_para_html(
+                referencias_texto,
+                {},
+                namespace="caract_mun",
+                safe_report=safe_report,
+            )
+        )
+
+    docs_html = "\n".join([*caracteristicas_html_parts, *docs_html_parts])
 
     if cover is not None:
         cover["resumo_relatorio_html"] = resumo_relatorio_html_parts
