@@ -80,6 +80,17 @@
   text-align: center;
 }
 
+.cover-start-label,
+.pdf-page-header-label {
+  margin-left: auto;
+  color: #333333;
+  font-family: 'Inter', Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 24px;
+  white-space: nowrap;
+}
+
 .pdf-cover-brand {
   display: none;
 }
@@ -89,6 +100,30 @@
   max-width: 100%;
   box-sizing: border-box;
   padding: 0;
+}
+
+.cover-report-title {
+  margin: 0;
+  color: #292829;
+  font-family: 'Inter', var(--font-sans);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 150%;
+  text-align: center;
+}
+
+.cover-report-subtitle {
+  margin: 0;
+  color: #292829;
+  font-family: 'Inter', var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 150%;
+  text-align: center;
+}
+
+.cover-presentation {
+  margin-top: 20px;
 }
 
 .cover-kicker {

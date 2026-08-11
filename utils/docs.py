@@ -26,7 +26,7 @@ def _carregar_do_cache(doc_id: str) -> dict[str, str] | None:
         dados = json.loads(cache_path.read_text(encoding="utf-8"))
         if isinstance(dados, dict) and isinstance(dados.get("texto"), str):
             return {
-                "texto": dados["texto"],
+                "texto": limpar_texto_exportado_docs(dados["texto"]),
                 "timestamp": str(dados.get("timestamp", "")),
                 "etag": str(dados.get("etag", "")),
                 "last_modified": str(dados.get("last_modified", "")),
@@ -91,6 +91,7 @@ def linha_parece_comentario_docs(linha: str) -> bool:
 
 
 def limpar_texto_exportado_docs(texto: str) -> str:
+    texto = texto.lstrip("\ufeff")
     linhas_limpas = []
     for linha in texto.splitlines():
         if linha_parece_comentario_docs(linha):
@@ -148,7 +149,49 @@ def extrair_descricao_tema(texto: str) -> tuple[str | None, str]:
     return ("\n\n".join(blocos) or None), texto_restante
 
 def extrair_relatorio_geral(texto: str) -> tuple[str | None, str]:
+    apresentacao, texto_sem_apresentacao = extrair_bloco_marcado(texto, "apresentacao")
+    if apresentacao:
+        _, texto_sem_legado = extrair_bloco_marcado(
+            texto_sem_apresentacao, "relatorio_geral"
+        )
+        return apresentacao, texto_sem_legado
     return extrair_bloco_marcado(texto, "relatorio_geral")
+
+
+def extrair_inicio_relatorio(texto: str) -> tuple[str | None, str]:
+    padrao = re.compile(
+        r"(?ims)^\s*inicio_relatorio\s*=\s*(.*?)(?=^\s*[a-z_]+\s*=|^\s*#!|\Z)"
+    )
+    match = padrao.search(texto)
+    if not match:
+        return None, texto
+
+    bloco = match.group(1).strip().removesuffix("@@").strip()
+    texto_sem_bloco = (texto[:match.start()] + texto[match.end():]).strip()
+    return bloco or None, texto_sem_bloco
+
+
+def extrair_introducao(texto: str) -> tuple[str | None, str]:
+    padrao = re.compile(
+        r"(?ims)^\s*introducao\s*=\s*(.*?)(?=^\s*[a-z_]+\s*=|^\s*#!|\Z)"
+    )
+    match = padrao.search(texto)
+    if not match:
+        return None, texto
+
+    bloco = match.group(1).strip().removesuffix("@@").strip()
+    if len(bloco) >= 2 and (bloco[0], bloco[-1]) in {
+        ('"', '"'),
+        ("'", "'"),
+        ("“", "”"),
+    }:
+        bloco = bloco[1:-1].strip()
+    else:
+        bloco = bloco.removeprefix("“").removesuffix("”").strip()
+
+    texto_sem_bloco = (texto[:match.start()] + texto[match.end():]).strip()
+    return bloco or None, texto_sem_bloco
+
 
 def extrair_resumo_relatorio(texto: str) -> tuple[str | None, str]:
     return extrair_bloco_marcado(texto, "resumo_relatorio")
@@ -183,7 +226,7 @@ def remover_titulos_docs(texto: str, *titulos: str) -> str:
         return texto
     alternativas = "|".join(re.escape(titulo) for titulo in titulos)
     return re.sub(
-        rf"(?im)^\s*#!\s*(?:{alternativas})\s*$\n?",
+        rf"(?im)^\s*(?:#!\s*)?(?:{alternativas})\s*$\n?",
         "",
         texto,
     ).strip()

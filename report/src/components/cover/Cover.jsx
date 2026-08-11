@@ -21,22 +21,38 @@ export default function Cover({ cover }) {
         <div className="cover-meta">
           <CoverBrand />
           <PdfCoverBrand />
+          <span className="cover-start-label">{cover.inicio_relatorio}</span>
         </div>
       </div>
       <div className="cover-content">
 
-        <div className="cover-kicker">Relatório geral</div>
-        {cover.relatorio_geral_html?.length > 0 && (
-          <div className="cover-relatorio-geral-wrap">
-            {cover.relatorio_geral_html.map((item, idx) => (
-              <div key={idx} dangerouslySetInnerHTML={{ __html: item }} />
-            ))}
-          </div>
+        <h1 className="cover-report-title">RELATÓRIO</h1>
+        {cover.inicio_relatorio_subtitulo && (
+          <p className="cover-report-subtitle">{cover.inicio_relatorio_subtitulo}</p>
         )}
 
-        <h1 className="cover-city">
-          {cover.cidade_nome}{cover.uf ? ` (${cover.uf})` : null}
-        </h1>
+        {(cover.introducao_html?.length > 0 || cover.relatorio_geral_html?.length > 0) && (
+          <section className="cover-presentation">
+            {cover.introducao_html?.length > 0 && (
+              <div className="cover-introducao-wrap">
+                {cover.introducao_html.map((item, idx) => (
+                  <div key={idx} dangerouslySetInnerHTML={{ __html: item }} />
+                ))}
+              </div>
+            )}
+
+            {cover.relatorio_geral_html?.length > 0 && (
+              <>
+                <div className="cover-kicker">Apresentação</div>
+                <div className="cover-relatorio-geral-wrap">
+                  {cover.relatorio_geral_html.map((item, idx) => (
+                    <div key={idx} dangerouslySetInnerHTML={{ __html: item }} />
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
+        )}
 
         <div className="cover-kicker">Características Gerais</div>
 

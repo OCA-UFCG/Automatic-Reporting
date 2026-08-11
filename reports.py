@@ -24,6 +24,8 @@ from utils.docs import (
     carregar_texto_do_docs,
     extrair_descricao_tema,
     extrair_diagnostico_cidade,
+    extrair_inicio_relatorio,
+    extrair_introducao,
     extrair_referencias,
     extrair_relatorio_geral,
     extrair_resumo_cidade,
@@ -303,6 +305,40 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", *,
                 except ValueError as err:
                     raise HTTPException(status_code=400, detail=str(err)) from err
 
+                inicio_relatorio, caracteristicas_texto = extrair_inicio_relatorio(
+                    caracteristicas_texto
+                )
+                if inicio_relatorio:
+                    linhas_inicio = [
+                        linha.strip()
+                        for linha in inicio_relatorio.splitlines()
+                        if linha.strip()
+                    ]
+                    cover["inicio_relatorio"] = linhas_inicio[0]
+                    if len(linhas_inicio) > 1:
+                        cover["inicio_relatorio_subtitulo"] = substituir_placeholders(
+                            " ".join(linhas_inicio[1:]), {}, "caract_mun"
+                        )
+
+                introducao, caracteristicas_texto = extrair_introducao(
+                    caracteristicas_texto
+                )
+                if introducao:
+                    link_data_nordeste = re.search(
+                        r"(?im)^\s*(https://datanordeste\.sudene\.gov\.br/?)\s*$",
+                        caracteristicas_texto,
+                    )
+                    if link_data_nordeste:
+                        introducao = f"{introducao}\n\n{link_data_nordeste.group(1)}"
+                        caracteristicas_texto = (
+                            caracteristicas_texto[:link_data_nordeste.start()]
+                            + caracteristicas_texto[link_data_nordeste.end():]
+                        ).strip()
+                    cover["introducao_html"] = render_descricao_tema_html(
+                        introducao, {}, namespace="caract_mun", safe_report=safe_report
+                    )
+                    cover["introducao"] = introducao
+
                 relatorio_geral, caracteristicas_texto = extrair_relatorio_geral(
                     caracteristicas_texto
                 )
@@ -345,6 +381,8 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", *,
                     "Apresentacao",
                     "Aoresentacao",
                     "Características Gerais",
+                    "Relatório Personalizado",
+                    "caract_mun.$nm_mun (caract_mun.$sigla_uf) EM DADOS",
                     "Referências",
                 )
 
