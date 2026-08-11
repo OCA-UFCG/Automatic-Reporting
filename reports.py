@@ -298,6 +298,12 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", *,
             safe_report = f"{slug_arquivo}__{safe_city}"
 
             if CARACTERISTICAS_DOCS_URL:
+                # O documento de Características Gerais é comum a todos os
+                # macrotemas, mas seus placeholders ainda precisam dos dados da
+                # cidade do relatório. Usar um contexto vazio fazia campos como
+                # caract_mun.$nm_mun permanecerem sem resolução, especialmente
+                # quando o relatório era iniciado por Economia e Renda.
+                contexto_caracteristicas = linhas_macrotema[0]
                 try:
                     caracteristicas_texto = carregar_texto_do_docs(
                         CARACTERISTICAS_DOCS_URL
@@ -317,7 +323,9 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", *,
                     cover["inicio_relatorio"] = linhas_inicio[0]
                     if len(linhas_inicio) > 1:
                         cover["inicio_relatorio_subtitulo"] = substituir_placeholders(
-                            " ".join(linhas_inicio[1:]), {}, "caract_mun"
+                            " ".join(linhas_inicio[1:]),
+                            contexto_caracteristicas,
+                            "caract_mun",
                         )
 
                 introducao, caracteristicas_texto = extrair_introducao(
@@ -335,27 +343,42 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", *,
                             + caracteristicas_texto[link_data_nordeste.end():]
                         ).strip()
                     cover["introducao_html"] = render_descricao_tema_html(
-                        introducao, {}, namespace="caract_mun", safe_report=safe_report
+                        introducao,
+                        contexto_caracteristicas,
+                        namespace="caract_mun",
+                        safe_report=safe_report,
                     )
-                    cover["introducao"] = introducao
+                    cover["introducao"] = substituir_placeholders(
+                        introducao, contexto_caracteristicas, "caract_mun"
+                    )
 
                 relatorio_geral, caracteristicas_texto = extrair_relatorio_geral(
                     caracteristicas_texto
                 )
                 if relatorio_geral:
                     cover["relatorio_geral_html"] = render_descricao_tema_html(
-                        relatorio_geral, {}, namespace="caract_mun", safe_report=safe_report
+                        relatorio_geral,
+                        contexto_caracteristicas,
+                        namespace="caract_mun",
+                        safe_report=safe_report,
                     )
-                    cover["relatorio_geral"] = relatorio_geral
+                    cover["relatorio_geral"] = substituir_placeholders(
+                        relatorio_geral, contexto_caracteristicas, "caract_mun"
+                    )
 
                 resumo_cidade, caracteristicas_texto = extrair_resumo_cidade(
                     caracteristicas_texto
                 )
                 if resumo_cidade:
                     cover["resumo_cidade_html"] = render_descricao_tema_html(
-                        resumo_cidade, {}, namespace="caract_mun", safe_report=safe_report
+                        resumo_cidade,
+                        contexto_caracteristicas,
+                        namespace="caract_mun",
+                        safe_report=safe_report,
                     )
-                    cover["resumo_cidade"] = resumo_cidade
+                    cover["resumo_cidade"] = substituir_placeholders(
+                        resumo_cidade, contexto_caracteristicas, "caract_mun"
+                    )
 
                 resumo_relatorio, caracteristicas_texto = extrair_resumo_relatorio(
                     caracteristicas_texto
@@ -364,12 +387,18 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", *,
                     resumo_relatorio_html_parts.extend(
                         render_descricao_tema_html(
                             resumo_relatorio,
-                            {},
+                            contexto_caracteristicas,
                             namespace="caract_mun",
                             safe_report=safe_report,
                         )
                     )
-                    resumo_relatorio_parts.append(resumo_relatorio)
+                    resumo_relatorio_parts.append(
+                        substituir_placeholders(
+                            resumo_relatorio,
+                            contexto_caracteristicas,
+                            "caract_mun",
+                        )
+                    )
 
                 referencias_comuns, caracteristicas_texto = extrair_referencias(
                     caracteristicas_texto
@@ -389,7 +418,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", *,
                 caracteristicas_html_parts.append(
                     texto_para_html(
                         caracteristicas_texto,
-                        {},
+                        contexto_caracteristicas,
                         namespace="caract_mun",
                         safe_report=safe_report,
                     )
