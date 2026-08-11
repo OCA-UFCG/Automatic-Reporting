@@ -540,25 +540,16 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 cover["macrotema"]["descricao_paragrafos"] = macrotema_item["descricao_paragrafos"]
                 cover["macrotema"]["descricao_html"] = macrotema_item["descricao_html"]
 
-        mapa_principal = None
-        for paragrafo in re.split(r"\n\s*\n", docs_texto):
-            if paragrafo.strip().lower() in {"*mapa_geografico", "mapa_geografico"}:
-                if eh_primeiro and cover is not None:
-                    mapa_principal = render_mapa_marker(linhas_macrotema[0], safe_report)
-                break
-
-        if mapa_principal and cover is not None:
-            cover["mapa_principal"] = mapa_principal
-
-        docs_texto_sem_mapa = re.sub(
-            r"(?im)^\s*\*?mapa_geografico\s*$", "", docs_texto
-        ).strip()
+        if eh_primeiro and cover is not None:
+            cover["mapa_principal"] = render_mapa_marker(
+                linhas_macrotema[0], safe_report
+            )
 
         macrotemas_render.append(macrotema_item)
 
         docs_html_parts.append(
             texto_para_html(
-                docs_texto_sem_mapa,
+                docs_texto,
                 linhas_macrotema[0],
                 namespace=macrotema_slug,
                 graficos_por_placeholder=graficos_por_placeholder,
