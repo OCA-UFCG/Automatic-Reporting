@@ -3,9 +3,9 @@ import logging
 import re
 import time
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
-
-import httpx
+from urllib.request import Request, urlopen
 
 from config import BASE_DIR
 
@@ -232,7 +232,7 @@ def remover_titulos_docs(texto: str, *titulos: str) -> str:
     ).strip()
 
 
-async def carregar_texto_do_docs(link_ou_id: str) -> str:
+def carregar_texto_do_docs(link_ou_id: str) -> str:
     doc_id = extrair_doc_id(link_ou_id)
 
     cache = _carregar_do_cache(doc_id)
@@ -245,41 +245,34 @@ async def carregar_texto_do_docs(link_ou_id: str) -> str:
         if cache.get("last_modified"):
             headers["If-Modified-Since"] = cache["last_modified"]
 
-    texto: str | None = None
-    etag: str | None = None
-    last_modified: str | None = None
-    not_modified = False
-
     try:
-        async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
-            response = await client.get(export_url, headers=headers)
-            if response.status_code == 304 and cache is not None:
-                not_modified = True
-                texto = cache["texto"]
-            else:
-                response.raise_for_status()
-                texto = response.text
-                etag = response.headers.get("ETag")
-                last_modified = response.headers.get("Last-Modified")
-    except httpx.HTTPStatusError as err:
-        status = err.response.status_code if err.response is not None else 0
-        if status in (401, 403):
+        request = Request(export_url, headers=headers)
+        with urlopen(request, timeout=20) as response:
+            texto = response.read().decode("utf-8")
+            etag = response.headers.get("ETag")
+            last_modified = response.headers.get("Last-Modified")
+    except HTTPError as err:
+        if err.code == 304 and cache is not None:
+            cache_path = _cache_path(doc_id)
+            try:
+                dados = json.loads(cache_path.read_text(encoding="utf-8"))
+                dados["timestamp"] = time.time()
+                cache_path.write_text(
+                    json.dumps(dados, ensure_ascii=False), encoding="utf-8"
+                )
+            except (OSError, json.JSONDecodeError, TypeError, ValueError):
+                logger.debug("Falha ao atualizar timestamp do cache de docs (%s)", cache_path)
+            return cache["texto"]
+        if err.code in (401, 403):
             raise ValueError(
                 "Google Docs sem acesso público para exportação. "
                 "Defina o documento como 'Qualquer pessoa com o link - Leitor' "
                 "ou use um documento publicado na web."
             ) from err
-        if status == 404:
+        if err.code == 404:
             raise ValueError("Documento do Google Docs não encontrado (404). Verifique o link/ID.") from err
-        if cache is not None:
-            logger.warning(
-                "Falha ao acessar o Google Docs %s (status %s); usando cache local temporariamente.",
-                doc_id,
-                status,
-            )
-            return cache["texto"]
-        raise ValueError(f"Erro ao exportar Google Docs ({status}). Verifique o link e as permissões.") from err
-    except (httpx.HTTPError, TimeoutError) as err:
+        raise ValueError(f"Erro ao exportar Google Docs ({err.code}). Verifique o link e as permissões.") from err
+    except (URLError, TimeoutError) as err:
         if cache is not None:
             logger.warning(
                 "Falha ao acessar o Google Docs %s; usando cache local temporariamente.",
@@ -288,26 +281,14 @@ async def carregar_texto_do_docs(link_ou_id: str) -> str:
             return cache["texto"]
         raise ValueError("Não foi possível acessar o Google Docs. Verifique a conexão, o link e as permissões.") from err
 
-    if not_modified:
-        cache_path = _cache_path(doc_id)
-        try:
-            dados = json.loads(cache_path.read_text(encoding="utf-8"))
-            dados["timestamp"] = time.time()
-            cache_path.write_text(
-                json.dumps(dados, ensure_ascii=False), encoding="utf-8"
-            )
-        except (OSError, json.JSONDecodeError, TypeError, ValueError):
-            logger.debug("Falha ao atualizar timestamp do cache de docs (%s)", cache_path)
-        return texto or ""
-
-    texto_limpo = limpar_texto_exportado_docs(texto or "")
-    if cache is None or texto_limpo != cache["texto"]:
-        _salvar_no_cache(doc_id, texto_limpo, etag=etag, last_modified=last_modified)
+    texto = limpar_texto_exportado_docs(texto)
+    if cache is None or texto != cache["texto"]:
+        _salvar_no_cache(doc_id, texto, etag=etag, last_modified=last_modified)
     else:
         _salvar_no_cache(
             doc_id,
-            texto_limpo,
+            texto,
             etag=etag or cache.get("etag"),
             last_modified=last_modified or cache.get("last_modified"),
         )
-    return texto_limpo
+    return texto

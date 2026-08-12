@@ -8,7 +8,7 @@ from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 import pandas as pd
-from fastapi import HTTPException
+from fastapi import BackgroundTasks, HTTPException
 from fastapi.responses import HTMLResponse
 from weasyprint import HTML
 
@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 _CSV_CACHE: dict[str, pd.DataFrame] = {}
 
 
-def _gerar_pdf_sync(html_content: str, pdf_file: Path) -> None:
+def _gerar_pdf(html_content: str, pdf_file: Path) -> None:
     try:
         pdf_html = re.sub(r'src="/output/', 'src="', html_content)
         HTML(string=pdf_html, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
@@ -55,28 +55,17 @@ def _gerar_pdf_sync(html_content: str, pdf_file: Path) -> None:
         logger.warning("Falha ao gerar PDF %s: %s", pdf_file, e)
 
 
-async def _gerar_pdf(html_content: str, pdf_file: Path) -> None:
-    import asyncio
-    await asyncio.to_thread(_gerar_pdf_sync, html_content, pdf_file)
-
-
 def _carregar_csv(csv_source: str | Path) -> pd.DataFrame:
     cache_key = str(csv_source)
     if cache_key in _CSV_CACHE:
         return _CSV_CACHE[cache_key].copy()
-    conteudo_bytes = None
     if isinstance(csv_source, str) and csv_source.startswith(("http://", "https://")):
         request = Request(csv_source, headers={"User-Agent": "Mozilla/5.0"})
         with urlopen(request, timeout=30) as response:
-            conteudo_bytes = response.read()
-    for sep in (",", ";"):
-        fonte = BytesIO(conteudo_bytes) if conteudo_bytes is not None else csv_source
-        try:
-            df = pd.read_csv(fonte, sep=sep, engine="c")
-            if len(df.columns) > 1:
-                break
-        except (pd.errors.ParserError, ValueError):
-            continue
+            conteudo = response.read()
+        df = pd.read_csv(BytesIO(conteudo), sep=None, engine="python")
+    else:
+        df = pd.read_csv(csv_source, sep=None, engine="python")
     _CSV_CACHE[cache_key] = df.copy()
     return df
 
@@ -243,7 +232,7 @@ async def apagar_relatorio_handler(arquivo_pdf: str):
     return {"ok": True, "removidos": removidos}
 
 
-async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
+async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia", *, background_tasks: BackgroundTasks):
     macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
     gerado_em = datetime.now().astimezone()
 
@@ -296,7 +285,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 macrotema_slug,
             )
             cover["macrotemas"] = macrotemas_render
-            safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", cidade.strip().lower())
+            safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", linhas[0]["nm_mun"].strip().lower())
             primeiro_slug = macrotema_slugs[0]
             if macrotema == TODOS_MACROTEMAS_SLUG:
                 slug_arquivo = TODOS_MACROTEMAS_SLUG
@@ -316,7 +305,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 # quando o relatório era iniciado por Economia e Renda.
                 contexto_caracteristicas = linhas_macrotema[0]
                 try:
-                    caracteristicas_texto = await carregar_texto_do_docs(
+                    caracteristicas_texto = carregar_texto_do_docs(
                         CARACTERISTICAS_DOCS_URL
                     )
                 except ValueError as err:
@@ -439,7 +428,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
 
         docs_url = require_config_value(macrotema_dados["docs_url"], macrotema_dados["docs_env"])
         try:
-            docs_texto = await carregar_texto_do_docs(docs_url)
+            docs_texto = carregar_texto_do_docs(docs_url)
         except ValueError as err:
             raise HTTPException(status_code=400, detail=str(err)) from err
 
@@ -540,16 +529,25 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 cover["macrotema"]["descricao_paragrafos"] = macrotema_item["descricao_paragrafos"]
                 cover["macrotema"]["descricao_html"] = macrotema_item["descricao_html"]
 
-        if eh_primeiro and cover is not None:
-            cover["mapa_principal"] = render_mapa_marker(
-                linhas_macrotema[0], safe_report
-            )
+        mapa_principal = None
+        for paragrafo in re.split(r"\n\s*\n", docs_texto):
+            if paragrafo.strip().lower() in {"*mapa_geografico", "mapa_geografico"}:
+                if eh_primeiro and cover is not None:
+                    mapa_principal = render_mapa_marker(linhas_macrotema[0], safe_report)
+                break
+
+        if mapa_principal and cover is not None:
+            cover["mapa_principal"] = mapa_principal
+
+        docs_texto_sem_mapa = re.sub(
+            r"(?im)^\s*\*?mapa_geografico\s*$", "", docs_texto
+        ).strip()
 
         macrotemas_render.append(macrotema_item)
 
         docs_html_parts.append(
             texto_para_html(
-                docs_texto,
+                docs_texto_sem_mapa,
                 linhas_macrotema[0],
                 namespace=macrotema_slug,
                 graficos_por_placeholder=graficos_por_placeholder,
@@ -613,6 +611,6 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         except FileNotFoundError:
             pass
 
-    await _gerar_pdf(html_content, pdf_file)
+    background_tasks.add_task(_gerar_pdf, html_content, pdf_file)
 
     return HTMLResponse(content=html_content)
