@@ -57,6 +57,8 @@ jobs:
             ECONOMIA_RENDA_DOCS_URL=${{ secrets.ECONOMIA_RENDA_DOCS_URL }}
             SANEAMENTO_DOCS_URL=${{ secrets.SANEAMENTO_DOCS_URL }}
             HIDRAULICA_DOCS_URL=${{ secrets.HIDRAULICA_DOCS_URL }}
+            DESENVOLVIMENTO_SOCIAL_DOCS_URL=${{ secrets.DESENVOLVIMENTO_SOCIAL_DOCS_URL }}
+            MEIO_AMBIENTE_DOCS_URL=${{ secrets.MEIO_AMBIENTE_DOCS_URL }}
             VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
 
   push-beta:
