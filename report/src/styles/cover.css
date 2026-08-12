@@ -432,25 +432,29 @@
 }
 
 .indicator-score-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   width: 100%;
   max-width: 100%;
 }
 
-.indicator-score-grid > .indicator-score-row + .indicator-score-row {
-  margin-top: 12px;
-}
-
 .indicator-score-row {
-  display: table;
-  border-spacing: 8px 0;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 16px;
   width: 100%;
 }
 
 .indicator-score-card {
   box-sizing: border-box;
-  display: table-cell;
-  vertical-align: top;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   padding: 0;
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 80px;
   background: #FFFFFF;
   border: 1px solid #EFEFEF;
@@ -459,39 +463,53 @@
 }
 
 .indicator-score-card-header {
-  display: table;
-  width: 100%;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0;
+  gap: 6px;
+  flex-grow: 1;
+  align-self: stretch;
   background: #F8F7F8;
 }
 
 .indicator-score-card-info-row {
-  display: table-cell;
-  vertical-align: middle;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
   padding: 4px 8px 0;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
 }
 
 .indicator-icon-box {
-  display: inline-block;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  padding: 4px;
   width: 20px;
   height: 20px;
   border-radius: 4px;
+  flex: 0 0 20px;
   box-sizing: border-box;
-  padding: 4px;
-  text-align: center;
-  vertical-align: middle;
 }
 
 .indicator-icon {
   width: 12px;
   height: 12px;
   color: #E5333F;
-  display: inline-block;
+  display: block;
 }
 
 .indicator-text {
-  display: inline-block;
-  vertical-align: middle;
-  padding-left: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 1;
+  min-width: 0;
 }
 
 .indicator-name {
@@ -516,10 +534,13 @@
 }
 
 .indicator-badge {
-  display: table-cell;
-  width: 1px;
-  white-space: nowrap;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
   padding: 4px 8px;
+  gap: 6px;
+  margin: 0 8px 0 0;
   border-radius: 4px;
   color: #F8F7F8;
   font-family: 'Inter', var(--font-sans);
@@ -528,12 +549,19 @@
   line-height: 9px;
   letter-spacing: -0.03em;
   text-align: center;
-  vertical-align: middle;
+  white-space: nowrap;
+  align-self: center;
 }
 
 .indicator-score-card-footer {
-  display: block;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
   padding: 4px 8px;
+  gap: 10px;
+  flex-shrink: 0;
+  align-self: stretch;
   background: #EFEFEF;
   color: #292829;
   font-family: 'Inter', var(--font-sans);

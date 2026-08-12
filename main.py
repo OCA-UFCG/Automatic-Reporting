@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -86,8 +86,8 @@ async def apagar_relatorio(arquivo_pdf: str):
 
 
 @app.get("/relatorio/{cidade}", response_class=HTMLResponse)
-async def gerar_relatorio(cidade: str, macrotema: str = "demografia"):
-    return await gerar_relatorio_handler(cidade, macrotema)
+async def gerar_relatorio(cidade: str, macrotema: str = "demografia", *, background_tasks: BackgroundTasks):
+    return await gerar_relatorio_handler(cidade, macrotema, background_tasks=background_tasks)
 
 
 # If the frontend has been built (e.g., via Docker), serve it from the same app.
