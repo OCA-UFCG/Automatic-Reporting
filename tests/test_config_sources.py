@@ -1,8 +1,11 @@
+from datetime import datetime, timezone
+
 from config import (
     DESENVOLVIMENTO_SOCIAL_DOCS_URL,
     MEIO_AMBIENTE_DOCS_URL,
     resolve_csv_source,
 )
+from utils.cover import montar_capa_relatorio
 from utils.macrotemas import MACROTEMAS
 
 
@@ -18,3 +21,15 @@ def test_google_drive_csv_download_is_not_rewritten_as_google_sheets():
 def test_new_macrothemes_use_their_configured_docs_sources():
     assert MACROTEMAS["desenvolvimento-social"]["docs_url"] == DESENVOLVIMENTO_SOCIAL_DOCS_URL
     assert MACROTEMAS["meio-ambiente"]["docs_url"] == MEIO_AMBIENTE_DOCS_URL
+
+
+def test_cover_does_not_use_lorem_ipsum_when_diagnostic_is_missing():
+    cover = montar_capa_relatorio(
+        {"nm_mun": "Recife (PE)"},
+        datetime(2026, 1, 1, tzinfo=timezone.utc),
+        "Demografia",
+        "demografia",
+    )
+
+    assert cover["score"]["texto_apoio"] == ""
+    assert cover["macrotema"]["resumo"] == ""
