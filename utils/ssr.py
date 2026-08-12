@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import subprocess
+import time
+from collections import OrderedDict
 from pathlib import Path
 
 import httpx
@@ -14,6 +17,12 @@ SSR_SERVER_BUNDLE = BASE_DIR / "report" / "ssr-dist" / "server.js"
 SSR_PORT = int(os.environ.get("SSR_PORT", "3001"))
 
 _server_process: subprocess.Popen | None = None
+
+_SSR_CACHE_MAX = int(os.environ.get("SSR_CACHE_MAX", "64"))
+_SSR_CACHE_TTL = int(os.environ.get("SSR_CACHE_TTL", "3600"))
+_ssr_cache: OrderedDict[str, tuple[float, str]] = OrderedDict()
+_ssr_cache_hits = 0
+_ssr_cache_misses = 0
 
 
 def _bundle_path() -> Path:
@@ -57,7 +66,54 @@ def stop_server() -> None:
         _server_process = None
 
 
+def _normalizar_para_cache(valor):
+    if isinstance(valor, dict):
+        return {
+            k: (v.split(",")[0] if k == "data_hora_extenso" and isinstance(v, str) else _normalizar_para_cache(v))
+            for k, v in valor.items()
+            if k not in {"hora_relatorio", "hora_geracao"}
+        }
+    if isinstance(valor, list):
+        return [_normalizar_para_cache(item) for item in valor]
+    return valor
+
+
+def _ssr_cache_key(props: dict) -> str:
+    payload = _normalizar_para_cache(props)
+    serializado = json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(serializado.encode("utf-8")).hexdigest()
+
+
+def _ssr_cache_get(key: str) -> str | None:
+    item = _ssr_cache.get(key)
+    if item is None:
+        return None
+    timestamp, html = item
+    if time.time() - timestamp > _SSR_CACHE_TTL:
+        _ssr_cache.pop(key, None)
+        return None
+    _ssr_cache.move_to_end(key)
+    return html
+
+
+def _ssr_cache_put(key: str, html: str) -> None:
+    _ssr_cache[key] = (time.time(), html)
+    _ssr_cache.move_to_end(key)
+    while len(_ssr_cache) > _SSR_CACHE_MAX:
+        _ssr_cache.popitem(last=False)
+
+
 async def render_react_ssr(props: dict, timeout: int = 30) -> str:
+    global _ssr_cache_hits, _ssr_cache_misses
+
+    key = _ssr_cache_key(props)
+    cached = _ssr_cache_get(key)
+    if cached is not None:
+        _ssr_cache_hits += 1
+        return cached
+
+    _ssr_cache_misses += 1
+
     bundle = _bundle_path()
 
     if not bundle.exists():
@@ -67,9 +123,12 @@ async def render_react_ssr(props: dict, timeout: int = 30) -> str:
         )
 
     if bundle == SSR_SERVER_BUNDLE:
-        return await _render_via_http(props, timeout)
+        html = await _render_via_http(props, timeout)
     else:
-        return await _render_via_subprocess(props, timeout)
+        html = await _render_via_subprocess(props, timeout)
+
+    _ssr_cache_put(key, html)
+    return html
 
 
 async def _render_via_http(props: dict, timeout: int = 30) -> str:
