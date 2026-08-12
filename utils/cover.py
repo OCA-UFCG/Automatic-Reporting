@@ -201,16 +201,7 @@ def montar_capa_relatorio(
                 "status_macrotema",
                 fallback="Muito acima da média nacional",
             ),
-"resumo": primeiro_valor(
-             "resumo_tema",
-             fallback=(
-                 "Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
-                 "Integer gravida mi ut vestibulum vestibulum. Donec a "
-                 "fermentum est. Aliquam efficitur et purus at facilisis. "
-                 "Cras ultricies metus lacus. Duis dictum finibus turpis, "
-                 "quis euismod lorem vehicula quis. Quisque felis ante."
-             ),
-         ),
+         "resumo": primeiro_valor("resumo_tema", fallback=""),
          "cor": macrotema_cor,
          "score": {
              "valor": primeiro_valor("score_geral", "score", fallback="3,66"),
@@ -224,15 +215,7 @@ def montar_capa_relatorio(
                  "dos temas e sua relação com média nacional."
              ),
              "texto_apoio": primeiro_valor(
-                 "score_texto_apoio",
-                 "texto_score",
-                 fallback=(
-                     "Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
-                     "Integer gravida mi ut vestibulum vestibulum. Donec a "
-                     "fermentum est. Aliquam efficitur et purus at facilisis. "
-                     "Cras ultricies metus lacus. Duis dictum finibus turpis, "
-                     "quis euismod lorem vehicula quis. Quisque felis ante."
-                 ),
+                 "score_texto_apoio", "texto_score", fallback=""
              ),
          },
          "descricao": "",
@@ -251,15 +234,7 @@ def montar_capa_relatorio(
                 "dos temas e sua relação com média nacional."
             ),
             "texto_apoio": primeiro_valor(
-                "score_texto_apoio",
-                "texto_score",
-                fallback=(
-                    "Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
-                    "Integer gravida mi ut vestibulum vestibulum. Donec a "
-                    "fermentum est. Aliquam efficitur et purus at facilisis. "
-                    "Cras ultricies metus lacus. Duis dictum finibus turpis, "
-                    "quis euismod lorem vehicula quis. Quisque felis ante."
-                ),
+                "score_texto_apoio", "texto_score", fallback=""
             ),
         },
         "metricas": [
