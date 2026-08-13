@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
 import os
 import subprocess
 import time
@@ -23,6 +24,35 @@ _SSR_CACHE_TTL = int(os.environ.get("SSR_CACHE_TTL", "3600"))
 _ssr_cache: OrderedDict[str, tuple[float, str]] = OrderedDict()
 _ssr_cache_hits = 0
 _ssr_cache_misses = 0
+
+
+def normalizar_para_json(valor):
+    """Converte valores de dados ausentes/não finitos em JSON ``null``."""
+    if isinstance(valor, dict):
+        return {chave: normalizar_para_json(item) for chave, item in valor.items()}
+    if isinstance(valor, (list, tuple)):
+        return [normalizar_para_json(item) for item in valor]
+    if isinstance(valor, float):
+        return valor if math.isfinite(valor) else None
+
+    # Scalars NumPy/Pandas podem não ser aceitos pelo encoder JSON. ``item``
+    # converte esses valores para o tipo Python correspondente; NaN/Inf são
+    # tratados na chamada recursiva seguinte.
+    item = getattr(valor, "item", None)
+    if callable(item):
+        try:
+            convertido = item()
+        except (TypeError, ValueError):
+            pass
+        else:
+            if convertido is not valor:
+                return normalizar_para_json(convertido)
+
+    # ``pandas.NA`` não permite conversão para bool e não possui um ``item``
+    # útil. A comparação pelo nome evita importar pandas nesta camada.
+    if type(valor).__name__ == "NAType":
+        return None
+    return valor
 
 
 def _bundle_path() -> Path:
@@ -106,6 +136,7 @@ def _ssr_cache_put(key: str, html: str) -> None:
 async def render_react_ssr(props: dict, timeout: int = 30) -> str:
     global _ssr_cache_hits, _ssr_cache_misses
 
+    props = normalizar_para_json(props)
     key = _ssr_cache_key(props)
     cached = _ssr_cache_get(key)
     if cached is not None:
