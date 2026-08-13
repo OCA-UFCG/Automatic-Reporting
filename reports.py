@@ -261,12 +261,13 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     for macrotema_slug in macrotema_slugs:
         macrotema_dados = get_macrotema(macrotema_slug)
 
-        # Um macrotema solicitado explicitamente nunca deve ser ignorado. Além
-        # de esconder a configuração ausente, isso deixava ``cover`` vazio e
-        # terminava como um erro 500 genérico durante o SSR.
-        docs_url = require_config_value(
-            macrotema_dados["docs_url"], macrotema_dados["docs_env"]
-        )
+        if not macrotema_dados["docs_url"]:
+            logger.warning(
+                "Macrotema '%s' não possui docs_url configurado (%s). Pulando.",
+                macrotema_slug,
+                macrotema_dados["docs_env"],
+            )
+            continue
         csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
         csv_source = resolve_csv_source(csv_url, csv_env)
         df = _carregar_csv(csv_source)
@@ -436,6 +437,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
 
         graficos_por_placeholder = {}
 
+        docs_url = require_config_value(macrotema_dados["docs_url"], macrotema_dados["docs_env"])
         try:
             docs_texto = await carregar_texto_do_docs(docs_url)
         except ValueError as err:
@@ -465,16 +467,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 cover["macrotema"]["resumo"] = macrotema_item["resumo"]
 
         relatorio_geral, docs_texto = extrair_relatorio_geral(docs_texto)
-        # A apresentação global vem prioritariamente do documento comum de
-        # Características. Alguns documentos antigos de macrotema ainda possuem
-        # uma cópia de ``relatorio_geral`` (inclusive com texto provisório), que
-        # deve funcionar apenas como fallback e nunca sobrescrever a fonte comum.
-        if (
-            relatorio_geral
-            and eh_primeiro
-            and cover is not None
-            and not cover.get("relatorio_geral_html")
-        ):
+        if relatorio_geral and eh_primeiro and cover is not None:
             cover["relatorio_geral_html"] = render_descricao_tema_html(
                 relatorio_geral,
                 linhas_macrotema[0],
@@ -501,15 +494,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         )
 
         resumo_cidade, docs_texto = extrair_resumo_cidade(docs_texto)
-        # Assim como a apresentação, as Características Gerais pertencem ao
-        # documento comum. Mantemos o bloco legado do macrotema somente para
-        # instalações que ainda não configuraram esse conteúdo comum.
-        if (
-            resumo_cidade
-            and eh_primeiro
-            and cover is not None
-            and not cover.get("resumo_cidade_html")
-        ):
+        if resumo_cidade and eh_primeiro and cover is not None:
             cover["resumo_cidade_html"] = render_descricao_tema_html(
                 resumo_cidade,
                 linhas_macrotema[0],
