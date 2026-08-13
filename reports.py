@@ -8,7 +8,7 @@ from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 import pandas as pd
-from fastapi import HTTPException
+from fastapi import BackgroundTasks, HTTPException
 from fastapi.responses import HTMLResponse
 from weasyprint import HTML
 
@@ -243,7 +243,12 @@ async def apagar_relatorio_handler(arquivo_pdf: str):
     return {"ok": True, "removidos": removidos}
 
 
-async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
+async def gerar_relatorio_handler(
+    cidade: str,
+    macrotema: str = "demografia",
+    *,
+    background_tasks: BackgroundTasks,
+):
     macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
     gerado_em = datetime.now().astimezone()
 
@@ -613,6 +618,6 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         except FileNotFoundError:
             pass
 
-    await _gerar_pdf(html_content, pdf_file)
+    background_tasks.add_task(_gerar_pdf, html_content, pdf_file)
 
     return HTMLResponse(content=html_content)
