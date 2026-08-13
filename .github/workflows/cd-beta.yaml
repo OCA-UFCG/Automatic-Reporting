@@ -17,6 +17,14 @@ jobs:
       - name: Debug image name
         run: echo "DOCKER_IMAGE_BETA='${{ vars.DOCKER_IMAGE_BETA }}'"
 
+      - name: Validate required Saúde sources
+        env:
+          SAUDE_CSV_URL: ${{ secrets.SAUDE_CSV_URL }}
+          SAUDE_DOCS_URL: ${{ secrets.SAUDE_DOCS_URL }}
+        run: |
+          test -n "$SAUDE_CSV_URL" || { echo "SAUDE_CSV_URL is empty or unavailable"; exit 1; }
+          test -n "$SAUDE_DOCS_URL" || { echo "SAUDE_DOCS_URL is empty or unavailable"; exit 1; }
+
       - name: Update Docker Container metadata
         uses: docker/metadata-action@v4
         id: meta
