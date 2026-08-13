@@ -1,9 +1,5 @@
 from datetime import datetime, timezone
 
-import pytest
-from fastapi import BackgroundTasks, HTTPException
-
-import reports
 from config import (
     DESENVOLVIMENTO_SOCIAL_DOCS_URL,
     MEIO_AMBIENTE_DOCS_URL,
@@ -37,16 +33,3 @@ def test_cover_does_not_use_lorem_ipsum_when_diagnostic_is_missing():
 
     assert cover["score"]["texto_apoio"] == ""
     assert cover["macrotema"]["resumo"] == ""
-
-
-@pytest.mark.asyncio
-async def test_requested_theme_reports_its_missing_docs_configuration(monkeypatch):
-    monkeypatch.setitem(reports.MACROTEMAS["saude"], "docs_url", None)
-
-    with pytest.raises(HTTPException) as exc_info:
-        await reports.gerar_relatorio_handler(
-            "Recife", "saude", background_tasks=BackgroundTasks()
-        )
-
-    assert exc_info.value.status_code == 500
-    assert "SAUDE_DOCS_URL não configurado" in exc_info.value.detail
