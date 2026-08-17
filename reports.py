@@ -18,6 +18,7 @@ from config import (
     require_config_value,
     resolve_csv_source,
 )
+from plotting.educacao import gerar_grafico_cor_faixa_etaria
 from utils.cities import filtrar_linhas_por_cidade
 from utils.cover import montar_capa_relatorio
 from utils.docs import (
@@ -41,7 +42,6 @@ from utils.renderer import (
     texto_para_html,
 )
 from utils.ssr import render_react_ssr
-from plotting.educacao import gerar_grafico_cor_faixa_etaria
 
 logger = logging.getLogger(__name__)
 

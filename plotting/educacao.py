@@ -54,7 +54,7 @@ def gerar_grafico_cor_faixa_etaria(
 
     largura = 0.15
 
-    fig, ax = plt.subplots(figsize=(8, 3.2))
+    _fig, ax = plt.subplots(figsize=(8, 3.2))
 
     cores_grafico = {
         "Amarela": "#E88BC0",
