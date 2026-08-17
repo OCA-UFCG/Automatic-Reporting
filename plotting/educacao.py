@@ -46,6 +46,21 @@ def gerar_grafico_cor_faixa_etaria(
         "Preta": "preta",
     }
 
+    colunas_necessarias = [
+        f"taxa_{sufixo_idade}_{sufixo_cor}"
+        for sufixo_cor in cores.values()
+        for _, sufixo_idade in faixas_etarias
+    ]
+
+    colunas_faltantes = [
+        coluna for coluna in colunas_necessarias if coluna not in cidade
+    ]
+    if colunas_faltantes:
+        raise ValueError(
+            "Colunas necessárias ausentes para gerar o gráfico de educação: "
+            + ", ".join(sorted(colunas_faltantes))
+        )
+
     dados = {}
 
     for nome_cor, sufixo_cor in cores.items():
