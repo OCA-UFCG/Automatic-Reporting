@@ -6,6 +6,13 @@ from utils.macrotemas import MACROTEMA_SECOES
 from utils.maps import gerar_mapa_regiao, render_mapa_geografico
 from utils.tables import render_tabela_resumo
 
+_figura_contador = 0
+
+
+def reset_figura_contador() -> None:
+    global _figura_contador
+    _figura_contador = 0
+
 
 def converter_links_para_html(texto: str) -> str:
     resultado = []
@@ -281,13 +288,6 @@ def texto_para_html(
     classe_paragrafo: str = "",
 ) -> str:
 
-    LEGENDAS_GRAFICOS = {
-        "grafico_sexo": "População por sexo",
-        "grafico_porte": "Distribuição por porte",
-        "grafico_top_cidades": "Top cidades",
-        "grafico_cor_faixa_etaria": "Cor e faixa etária",
-    }
-
     graficos_por_placeholder = graficos_por_placeholder or {}
     componentes_html = componentes_html or {}
 
@@ -302,8 +302,6 @@ def texto_para_html(
     metadado_visivel: list[str] | None = None
 
     proximo_paragrafo_destaque = False
-
-    figura_contador = 0
 
     for linha in linhas:
 
@@ -413,25 +411,11 @@ def texto_para_html(
 
             if figuras:
 
-                figura_contador += 1
-
-                legenda = " e ".join(
-                    LEGENDAS_GRAFICOS.get(tipo, tipo)
-                    for tipo in tipos
-                )
-
                 html_lines.append(
                     '<div style="display:flex; gap:24px; justify-content:center; '
                     'align-items:flex-start; margin:32px 0; flex-wrap:wrap;">'
                     + "".join(figuras)
                     + "</div>"
-                )
-
-                html_lines.append(
-                    f'<p class="figure-caption">'
-                    f'Figura {figura_contador} - '
-                    f'{html_module.escape(legenda)}'
-                    f"</p>"
                 )
 
             continue
@@ -492,16 +476,26 @@ def texto_para_html(
             proximo_paragrafo_destaque = False
 
         elif re.match(
-            r"^figura\s+(?:[&x]|\d+)\s*[–-]",
+            r"^figura\s+(?:[&a-z]|\d+)\s*[–-]",
             linha_limpa,
             flags=re.IGNORECASE,
         ):
+
+            global _figura_contador
+            _figura_contador += 1
 
             legenda = re.sub(
                 r"\[[A-Za-z0-9]{1,3}\]",
                 "",
                 linha_limpa,
             ).replace("&", "")
+
+            legenda = re.sub(
+                r"^figura\s+[^–-]*[–-]",
+                f"Figura {_figura_contador} –",
+                legenda,
+                flags=re.IGNORECASE,
+            )
 
             html_lines.append(
                 f'<p class="figure-caption">'

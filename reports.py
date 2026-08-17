@@ -38,6 +38,7 @@ from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS
 from utils.renderer import (
     render_descricao_tema_html,
     render_mapa_marker,
+    reset_figura_contador,
     substituir_placeholders,
     texto_para_html,
 )
@@ -245,6 +246,7 @@ async def apagar_relatorio_handler(arquivo_pdf: str):
 
 
 async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
+    reset_figura_contador()
     macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
     gerado_em = datetime.now().astimezone()
 
