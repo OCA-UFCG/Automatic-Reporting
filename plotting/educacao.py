@@ -1,7 +1,27 @@
+import math
 import pathlib
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+
+def _coerce_para_float(valor) -> float:
+    """Converte um valor do CSV em float, tratando ausentes/NaN como 0.0."""
+    if valor is None:
+        return 0.0
+
+    if isinstance(valor, str):
+        valor = valor.strip().replace(",", ".")
+
+    try:
+        numero = float(valor)
+    except (TypeError, ValueError):
+        return 0.0
+
+    if not math.isfinite(numero):
+        return 0.0
+
+    return numero
 
 
 def gerar_grafico_cor_faixa_etaria(
@@ -34,12 +54,7 @@ def gerar_grafico_cor_faixa_etaria(
         for _, sufixo_idade in faixas_etarias:
             coluna = f"taxa_{sufixo_idade}_{sufixo_cor}"
 
-            valor = cidade[coluna]
-
-            if isinstance(valor, str):
-                valor = valor.replace(",", ".")
-
-            valor = float(valor)
+            valor = _coerce_para_float(cidade[coluna])
 
             dados[nome_cor].append(valor)
 
