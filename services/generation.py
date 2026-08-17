@@ -13,6 +13,7 @@ from config import (
     resolve_csv_source,
 )
 from plotting.educacao import gerar_grafico_cor_faixa_etaria
+from plotting.saude import gerar_grafico_publico_etario
 from services.csv_loader import (
     _carregar_csv,
     get_csv_config_for_macrotema,
@@ -250,6 +251,14 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 safe_city=safe_city or "relatorio",
             )
             graficos_por_placeholder["grafico_cor_faixa_etaria"] = chart_file_name
+
+        if macrotema_slug == "saude":
+            chart_file_name = gerar_grafico_publico_etario(
+                cidade=linhas_macrotema[0],
+                OUTPUT_DIR=OUTPUT_DIR,
+                safe_city=safe_city or "relatorio",
+            )
+            graficos_por_placeholder["grafico_publico_etario"] = chart_file_name
 
         docs_url = require_config_value(macrotema_dados["docs_url"], macrotema_dados["docs_env"])
         try:
