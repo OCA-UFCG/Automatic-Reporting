@@ -9,6 +9,7 @@ from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 from config import BASE_DIR, OUTPUT_DIR
+from utils.geografia import separar_cidade_uf
 
 logger = logging.getLogger(__name__)
 
@@ -112,14 +113,6 @@ ESTADOS_COORDENADAS = {
     "SP": (-48.5, -22.5),
     "TO": (-48.3, -10.2),
 }
-
-
-def separar_cidade_uf(nome_municipio: str) -> tuple[str, str]:
-    nome = str(nome_municipio).strip()
-    if nome.endswith(")") and "(" in nome:
-        cidade, uf = nome.rsplit("(", 1)
-        return cidade.strip(), uf.rstrip(")").strip().upper()
-    return nome, ""
 
 
 def normalizar_texto(valor: object) -> str:

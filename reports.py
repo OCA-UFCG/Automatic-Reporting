@@ -18,9 +18,9 @@ from config import (
     require_config_value,
     resolve_csv_source,
 )
-from utils.cities import filtrar_linhas_por_cidade
+from utils.data.cities import filtrar_linhas_por_cidade
 from utils.cover import montar_capa_relatorio
-from utils.docs import (
+from utils.external.docs import (
     carregar_texto_do_docs,
     extrair_descricao_tema,
     extrair_diagnostico_cidade,
@@ -33,8 +33,8 @@ from utils.docs import (
     extrair_resumo_tema,
     remover_titulos_docs,
 )
-from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
-from utils.renderer import (
+from utils.data.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
+from utils.render.renderer import (
     render_descricao_tema_html,
     render_mapa_marker,
     substituir_placeholders,

@@ -1,4 +1,4 @@
-from utils.docs import (
+from utils.external.docs import (
     extrair_descricao_tema,
     extrair_inicio_relatorio,
     extrair_introducao,
