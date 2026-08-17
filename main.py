@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from config import BASE_DIR, OUTPUT_DIR
-from reports import (
+from services import (
     apagar_relatorio_handler,
     gerar_relatorio_handler,
     listar_relatorios_handler,
