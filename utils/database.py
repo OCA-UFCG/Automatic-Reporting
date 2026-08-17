@@ -1,9 +1,7 @@
 import psycopg2
-from config import DB_HOST
-from config import DB_DATABASE
-from config import DB_USER
-from config import DB_PASSWORD
-from config import DB_PORT
+
+from config import DB_DATABASE, DB_HOST, DB_PASSWORD, DB_PORT, DB_USER
+
 
 def get_connection():
     try:
@@ -27,7 +25,7 @@ def get_connection():
         
     except psycopg2.OperationalError as e:
         print(f"Ocorreu um erro operacional (provavelmente rede ou credenciais): {e}")
-    except Exception as e:
+    except psycopg2.Error as e:
         print(f"Erro: {e}")
 
 def test_connection():
@@ -39,7 +37,7 @@ def test_connection():
         cursor.close()
         conn.close()
         return {"status": "connected", "version": version[0]}
-    except Exception as e:
+    except psycopg2.Error as e:
         return {"status": "error", "message": str(e)}
 
 def main():
