@@ -81,10 +81,17 @@ def gerar_grafico_cor_faixa_etaria(
         fontsize=8,
     )
 
-    ax.set_ylim(0, 35)
-    ax.set_yticks([0, 10, 20, 30])
+    valor_maximo = max(
+        max(valores) for valores in dados.values()
+    )
+
+    limite_superior = max(10, int(np.ceil(valor_maximo / 10)) * 10)
+    ticks_y = list(range(0, limite_superior + 1, 10))
+
+    ax.set_ylim(0, limite_superior)
+    ax.set_yticks(ticks_y)
     ax.set_yticklabels(
-        ["0%", "10%", "20%", "30%"],
+        [f"{tick}%" for tick in ticks_y],
         fontsize=8,
     )
 
