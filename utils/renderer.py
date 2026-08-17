@@ -1,376 +1,32 @@
+import html as html_module
 import re
-import html as html_module  #renomeado para evitar conflito com a variável local 'html_content'
-from jinja2 import Environment
 
+from utils.contentful import obter_url_mapa_contentful
 from utils.macrotemas import MACROTEMA_SECOES
+from utils.maps import gerar_mapa_regiao, render_mapa_geografico
 from utils.tables import render_tabela_resumo
+
+
+def converter_links_para_html(texto: str) -> str:
+    resultado = []
+    ultimo_fim = 0
+    padrao_link = re.compile(r'\[([^\]]+)\]\(([^)]+)\)|(https?://[^\s<>“”"]+)')
+    for m in padrao_link.finditer(texto):
+        resultado.append(html_module.escape(texto[ultimo_fim:m.start()]))
+        url = m.group(2) or m.group(3)
+        rotulo = m.group(1) or url
+        resultado.append(
+            f'<a href="{html_module.escape(url)}">'
+            f'{html_module.escape(rotulo)}'
+            f'</a>'
+        )
+        ultimo_fim = m.end()
+    resultado.append(html_module.escape(texto[ultimo_fim:]))
+    return "".join(resultado)
 
 
 FALLBACK_DOC_TEXT = """deu erro.
 """
-
-TEMPLATE_STRING = """
-<html lang="pt-BR">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Data Nordeste – Relatório modelo</title>
-    <style>
-        body {
-            font-family: Georgia, "Times New Roman", serif;
-            max-width: 920px;
-            margin: 32px auto;
-            padding: 0 24px;
-            line-height: 1.48;
-            font-size: 16px;
-            color: #222;
-        }
-        h1 {
-            font-size: 30px;
-            font-weight: 700;
-            margin: 0 0 14px 0;
-        }
-        h2 {
-            font-size: 24px;
-            font-weight: 700;
-            margin: 30px 0 10px 0;
-        }
-        p {
-            margin: 0 0 14px 0;
-            text-align: justify;
-        }
-        .field {
-            font-size: 17px;
-            margin-bottom: 8px;
-        }
-        .field strong {
-            font-weight: 700;
-        }
-        .indent {
-            text-indent: 1.5em;
-        }
-        ul {
-            margin: 8px 0 16px 28px;
-        }
-        li {
-            margin-bottom: 6px;
-        }
-        .doc-content p {
-            font-family: Arial, sans-serif;
-            text-indent: 0;
-        }
-        .doc-content p.lead {
-            font-family: Georgia, "Times New Roman", serif;
-            font-size: 18px;
-            font-style: italic;
-            line-height: 1.38;
-            color: #3d3d3d;
-            margin: 10px 0 24px;
-        }
-        .doc-content h1 {
-            font-size: 34px;
-            font-weight: 700;
-            margin: 0 0 18px 0;
-        }
-        .doc-content ul {
-            text-indent: 0;
-        }
-        .section-heading {
-            display: grid;
-            grid-template-columns: auto 1fr;
-            align-items: end;
-            column-gap: 16px;
-            margin: 14px 0 10px;
-        }
-        .section-number {
-            color: #c68a2c;
-            font-size: 56px;
-            line-height: 0.9;
-            font-weight: 400;
-        }
-        .section-title-wrap {
-            padding-bottom: 7px;
-            border-bottom: 1px solid #d99a37;
-        }
-        .section-title {
-            color: #255235;
-            font-size: 29px;
-            line-height: 1;
-            font-weight: 400;
-        }
-        .chart-block {
-            margin: 18px auto 20px;
-            text-align: center;
-            break-inside: avoid;
-        }
-        .chart-block img {
-            display: block;
-            max-width: 78%;
-            height: auto;
-            margin: 0 auto;
-        }
-        .figure-caption {
-            margin: 8px auto 16px;
-            max-width: 76%;
-            color: #333;
-            font-family: Arial, sans-serif;
-            font-size: 13px;
-            line-height: 1.35;
-            text-align: center;
-        }
-        .map-block {
-            width: 100%;
-            max-width: 420px;
-            margin: 16px auto 22px;
-            break-inside: avoid;
-            text-align: center;
-            overflow: hidden;
-            border: 1px solid #b9b9b9;
-            background: #f7f7f7;
-            padding: 6px 6px 4px;
-        }
-        .map-title {
-            color: #111;
-            font-family: Arial, sans-serif;
-            font-size: 12px;
-            line-height: 1.2;
-            margin: 0 0 4px;
-            text-align: center;
-        }
-        .map-frame {
-            width: 100%;
-            aspect-ratio: 220 / 194;
-            height: auto;
-            border: 1px solid #c8d6dd;
-            box-sizing: border-box;
-            overflow: hidden;
-            background: #bfe3f1;
-            position: relative;
-        }
-        .locator-map {
-            display: block;
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-        .map-block figcaption {
-            margin-top: 4px;
-            color: #111;
-            font-family: Arial, sans-serif;
-            font-size: 12px;
-            line-height: 1.2;
-        }
-        .locator-label {
-            position: absolute;
-            transform: translate(-100%, -50%);
-            margin-left: -8px;
-            color: #111;
-            font: 700 12px Arial, sans-serif;
-            text-shadow: 0 1px 2px #fff, 0 -1px 2px #fff, 1px 0 2px #fff, -1px 0 2px #fff;
-            white-space: nowrap;
-            pointer-events: none;
-        }
-        .state-label {
-            position: absolute;
-            transform: translate(-50%, -50%);
-            color: #111;
-            font: 700 9px Arial, sans-serif;
-            line-height: 1;
-            text-shadow: 0 1px 2px #fff, 0 -1px 2px #fff, 1px 0 2px #fff, -1px 0 2px #fff;
-            pointer-events: none;
-        }
-        .locator-dot {
-            position: absolute;
-            width: 9px;
-            height: 9px;
-            transform: translate(-50%, -50%);
-            border: 1.5px solid #8f1d14;
-            border-radius: 999px;
-            background: #d7191c;
-            box-sizing: border-box;
-            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.75);
-            pointer-events: none;
-        }
-        .region-legend {
-            display: grid;
-            grid-template-columns: repeat(2, max-content);
-            gap: 4px 12px;
-            justify-content: center;
-            margin: 7px 0 3px;
-            font-family: Arial, sans-serif;
-            font-size: 11px;
-            color: #111;
-        }
-        .region-legend-item {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            white-space: nowrap;
-        }
-        .region-legend-swatch {
-            width: 10px;
-            height: 10px;
-            border: 1px solid rgba(0, 0, 0, 0.35);
-            border-radius: 2px;
-        }
-        .map-fallback {
-            display: grid;
-            gap: 6px;
-            place-items: center;
-            min-height: 220px;
-            border: 1px solid #d8d0bf;
-            background: #f5f0e8;
-            color: #255235;
-            font-family: Arial, sans-serif;
-        }
-        .map-fallback a {
-            color: #bd6039;
-            font-size: 13px;
-            font-weight: 700;
-        }
-        .report-cover {
-            margin: 56px 0 34px;
-            font-family: Arial, sans-serif;
-            color: #555;
-        }
-        .cover-stripe {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            height: 5px;
-            margin-bottom: 12px;
-        }
-        .cover-stripe span:nth-child(1) { background: #225236; }
-        .cover-stripe span:nth-child(2) { background: #bd6039; }
-        .cover-stripe span:nth-child(3) { background: #d79a3b; }
-        .cover-meta {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 28px;
-            font-size: 14px;
-        }
-        .cover-brand,
-        .cover-kicker,
-        .executive-title {
-            color: #bd6039;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-        .cover-kicker {
-            margin-bottom: 8px;
-            font-size: 15px;
-        }
-        .cover-city {
-            margin: 0;
-            color: #255235;
-            font-family: Georgia, "Times New Roman", serif;
-            font-size: 60px;
-            font-weight: 400;
-            line-height: 0.95;
-            letter-spacing: -1px;
-        }
-        .cover-city-separator {
-            color: #d19a3a;
-        }
-        .cover-subtitle {
-            margin: 6px 0 32px;
-            color: #5e5e5e;
-            font-family: Georgia, "Times New Roman", serif;
-            font-size: 18px;
-            font-style: italic;
-            line-height: 1.35;
-            text-align: left;
-        }
-        .cover-metrics {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 22px;
-            margin-bottom: 20px;
-        }
-        .metric-card {
-            border-left: 3px solid #d19a3a;
-            padding-left: 12px;
-        }
-        .metric-label {
-            margin-bottom: 6px;
-            color: #666;
-            font-size: 12px;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-        .metric-value {
-            color: #255235;
-            font-family: Georgia, "Times New Roman", serif;
-            font-size: 32px;
-            line-height: 1;
-        }
-        .metric-caption {
-            margin-top: 6px;
-            font-size: 12px;
-        }
-        .executive-summary {
-            border-top: 1px solid #dfd6c5;
-            padding-top: 20px;
-        }
-        .executive-title {
-            margin: 0 0 6px;
-            font-family: Arial, sans-serif;
-            font-size: 21px;
-        }
-        .executive-summary p {
-            margin: 0;
-            color: #555;
-            font-family: Arial, sans-serif;
-            font-size: 14px;
-            line-height: 1.45;
-            text-align: left;
-        }
-    </style>
-</head>
-<body>
-<section class="report-cover">
-    <div class="cover-stripe"><span></span><span></span><span></span></div>
-    <div class="cover-meta">
-        <span class="cover-brand">Plataforma Data NE</span>
-        <span>{{ cover.data_extenso }}</span>
-    </div>
-    <div class="cover-kicker">Relatório Municipal</div>
-    <h1 class="cover-city">{{ cover.cidade_nome }}<span class="cover-city-separator">·</span>{{ cover.uf }}</h1>
-    <p class="cover-subtitle">{{ cover.descricao }}</p>
-    <div class="cover-metrics">
-        <div class="metric-card">
-            <div class="metric-label">População</div>
-            <div class="metric-value">{{ cover.populacao }}</div>
-            <div class="metric-caption">habitantes · Censo 2022</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">PIB</div>
-            <div class="metric-value">R$ 6,48 bi</div>
-            <div class="metric-caption">per capita R$ 29.711</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">Alfabetização</div>
-            <div class="metric-value">86,90%</div>
-            <div class="metric-caption">população 15+ anos</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">Vacinação</div>
-            <div class="metric-value">76,55%</div>
-            <div class="metric-caption">cobertura em 2024</div>
-        </div>
-    </div>
-    <div class="executive-summary">
-        <h2 class="executive-title">Resumo Executivo Por Tema</h2>
-        <p>A síntese a seguir classifica os sete temas estratégicos do município segundo os parâmetros de referência adotados pela plataforma Data NE. Cada tema é detalhado nas seções subsequentes.</p>
-    </div>
-</section>
-{% for linha in dados %}
-<div class="doc-content">{{ docs_html | safe }}</div>
-{% endfor %}
-</body>
-</html>
-"""
-
 
 def render_chart_placeholder(chart_file: str) -> str:
     return (
@@ -378,6 +34,99 @@ def render_chart_placeholder(chart_file: str) -> str:
         f'<img src="/output/{html_module.escape(chart_file)}" alt="Gráfico">'
         '</div>'
     )
+
+
+def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
+    contentful_url = obter_url_mapa_contentful(contexto.get("nm_mun", ""))
+    if contentful_url:
+        cidade_segura = html_module.escape(str(contexto.get("nm_mun", "município")))
+        return (
+            '<figure class="map-block map-block--region">'
+            f'<img class="region-map-image" src="{html_module.escape(contentful_url)}" '
+            f'alt="Mapa da região de {cidade_segura}">'
+            '</figure>'
+            '<!-- fonte: contentful -->'
+        )
+
+    mapa_file = gerar_mapa_regiao(contexto.get("nm_mun", ""), safe_report or "relatorio")
+    if mapa_file:
+        cidade_segura = html_module.escape(str(contexto.get("nm_mun", "município")))
+        return (
+            '<figure class="map-block map-block--region">'
+            f'<img class="region-map-image" src="/output/{html_module.escape(mapa_file)}" '
+            f'alt="Mapa da região de {cidade_segura}">'
+            '</figure>'
+            '<!-- fonte: gerado_localmente -->'
+        )
+
+    return render_mapa_geografico(contexto) + '\n<!-- fonte: svg_locator -->'
+
+
+def render_descricao_tema_html(descricao_tema: str, contexto: dict, namespace: str = "demografia", safe_report: str | None = None) -> list[str]:
+    partes = []
+    for paragrafo in re.split(r"\n\s*\n", descricao_tema):
+        paragrafo = paragrafo.strip()
+        if not paragrafo:
+            continue
+
+        paragrafo = substituir_placeholders(paragrafo, contexto, namespace)
+        partes.append(
+            f'<p class="theme-detail-text">{converter_links_para_html(paragrafo)}</p>'
+        )
+
+    return partes
+
+
+def _resolver_caminho_em_contexto(contexto: dict, caminho: str) -> object | None:
+    atual: object = contexto
+    for parte in caminho.split("."):
+        if not isinstance(atual, dict) or parte not in atual:
+            return None
+        atual = atual[parte]
+    return atual
+
+
+def _resolver_campo_com_alias(contexto: dict, campo: str) -> object | None:
+    valor = _resolver_caminho_em_contexto(contexto, campo)
+    if valor is not None:
+        return valor
+
+    aliases_de_coluna = {
+        "fundamental_com_per": "fundamental_comp_per",
+        "comparar_analfabetismo_idade": "analfabetismo_jovens_idosos",
+        "raca_maior": "cor_maior",
+        "raca_menor": "cor_menor",
+    }
+    campo_original = aliases_de_coluna.get(campo)
+    if campo_original:
+        valor = _resolver_caminho_em_contexto(contexto, campo_original)
+        if valor is not None:
+            return valor
+
+    if campo == "city":
+        return _resolver_caminho_em_contexto(contexto, "nm_mun")
+
+    if campo == "municipio":
+        return _resolver_caminho_em_contexto(contexto, "nm_mun")
+
+    if campo == "year":
+        return _resolver_caminho_em_contexto(contexto, "ano")
+
+    if campo == "ano":
+        return _resolver_caminho_em_contexto(contexto, "year")
+
+    return None
+
+
+def _resolver_contexto_por_alias(contexto: dict, alias: str, namespace: str) -> dict:
+    if alias == namespace.lower():
+        return contexto
+
+    valor_alias = contexto.get(alias)
+    if isinstance(valor_alias, dict):
+        return valor_alias
+
+    return contexto
 
 
 def normalizar_titulo_para_match(texto: str) -> str:
@@ -409,27 +158,34 @@ def render_section_heading(secao: dict[str, object]) -> str:
     )
 
 
-def texto_para_html(
-    texto: str,
-    contexto: dict,
-    namespace: str = "demografia",
-    graficos_por_placeholder: dict[str, str] | None = None,
-    componentes_html: dict[str, str] | None = None,
-) -> str:
+def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demografia") -> str:
+    alias_de_tabela = {
+        "table": _resolver_contexto_por_alias(contexto, "table", namespace),
+        "tabela": _resolver_contexto_por_alias(contexto, "tabela", namespace),
+        "sheet": _resolver_contexto_por_alias(contexto, "sheet", namespace),
+        "planilha": _resolver_contexto_por_alias(contexto, "planilha", namespace),
+        "linha": contexto,
+        "dados": contexto,
+        "csv": contexto,
+    }
 
-    def substituir_placeholder_dolar(match: re.Match) -> str:
+    def _substituir_dolar(match: re.Match) -> str:
         placeholder_namespace = match.group(1).lower()
         campo = match.group(2)
 
         namespaces_validos = {
             namespace.lower(),
-            "linha",
-            "dados",
-            "csv",
         }
 
+        namespaces_validos.update(alias_de_tabela.keys())
+
         if placeholder_namespace in namespaces_validos:
-            return str(contexto.get(campo, match.group(0)))
+            contexto_alvo = alias_de_tabela[placeholder_namespace]
+            if isinstance(contexto_alvo, dict):
+                valor = _resolver_campo_com_alias(contexto_alvo, campo)
+                if valor is not None:
+                    return str(valor)
+            return match.group(0)
 
         return match.group(0)
 
@@ -444,6 +200,81 @@ def texto_para_html(
         "hora_geracao": contexto.get("hora_relatorio", ""),
     }
 
+    resultado = texto
+
+    # Formato completo: macrotema.nome_do_csv.$campo.
+    resultado = re.sub(
+        rf"(?i)(?<![\w]){re.escape(namespace)}\."
+        rf"{re.escape(namespace)}\.\$([A-Za-z_][\w]*)",
+        lambda m: str(
+            _resolver_campo_com_alias(contexto, m.group(1))
+            if _resolver_campo_com_alias(contexto, m.group(1)) is not None
+            else m.group(0)
+        ),
+        resultado,
+    )
+
+    # Formato usado em alguns documentos: namespace.$campo.
+    resultado = re.sub(
+        rf"(?i)(?<![\w]){re.escape(namespace)}\.\$([A-Za-z_][\w]*)",
+        lambda m: str(
+            _resolver_campo_com_alias(contexto, m.group(1))
+            if _resolver_campo_com_alias(contexto, m.group(1)) is not None
+            else m.group(0)
+        ),
+        resultado,
+    )
+
+    # Formato usado nos documentos: $Table.nome_da_tabela$campo.
+    resultado = re.sub(
+        r"\$(?:table|tabela|sheet|planilha)\.[A-Za-z_][\w]*\$([A-Za-z_][\w]*)",
+        lambda m: str(
+            _resolver_campo_com_alias(contexto, m.group(1))
+            if _resolver_campo_com_alias(contexto, m.group(1)) is not None
+            else m.group(0)
+        ),
+        resultado,
+        flags=re.IGNORECASE,
+    )
+
+    resultado = re.sub(
+        r"\$([A-Za-z_][\w]*)\.([A-Za-z_][\w]*)",
+        _substituir_dolar,
+        resultado,
+    )
+
+    # Campos simples vêm diretamente da linha da tabela do macrotema.
+    resultado = re.sub(
+        r"\$([A-Za-z_][\w]*)",
+        lambda m: str(
+            _resolver_campo_com_alias(contexto, m.group(1))
+            if _resolver_campo_com_alias(contexto, m.group(1)) is not None
+            else m.group(0)
+        ),
+        resultado,
+    )
+
+    for alias, valor in alias_map.items():
+        resultado = resultado.replace(f"${alias}", str(valor))
+
+    resultado = re.sub(
+        r'\{\{\s*(\w+)\s*\}\}',
+        lambda m: str(contexto.get(m.group(1), m.group(0))),
+        resultado,
+    )
+
+    return resultado
+
+
+def texto_para_html(
+    texto: str,
+    contexto: dict,
+    namespace: str = "demografia",
+    graficos_por_placeholder: dict[str, str] | None = None,
+    componentes_html: dict[str, str] | None = None,
+    safe_report: str | None = None,
+) -> str:
+
     LEGENDAS_GRAFICOS = {
         "grafico_sexo": "População por sexo",
         "grafico_porte": "Distribuição por porte",
@@ -453,31 +284,17 @@ def texto_para_html(
     graficos_por_placeholder = graficos_por_placeholder or {}
     componentes_html = componentes_html or {}
 
-    texto_normalizado = texto
-
-    texto_normalizado = re.sub(
-        r"\$([A-Za-z_][\w]*)\.([A-Za-z_][\w]*)",
-        substituir_placeholder_dolar,
-        texto_normalizado,
-    )
-
-    for alias, valor in alias_map.items():
-        texto_normalizado = texto_normalizado.replace(
-            f"${alias}",
-            str(valor),
-        )
-
-    texto_renderizado = Environment().from_string(
-        texto_normalizado
-    ).render(**contexto)
+    texto_renderizado = substituir_placeholders(texto, contexto, namespace)
 
     linhas = [linha.rstrip() for linha in texto_renderizado.splitlines()]
 
     html_lines = []
 
     em_lista = False
+    em_metadado_docs = False
+    metadado_visivel: list[str] | None = None
 
-    proximo_paragrafo_destaque = namespace in MACROTEMA_SECOES
+    proximo_paragrafo_destaque = False
 
     figura_contador = 0
 
@@ -485,25 +302,46 @@ def texto_para_html(
 
         linha_limpa = linha.lstrip("\ufeff").strip()
 
+        if metadado_visivel is not None:
+            terminou = "@@" in linha_limpa
+            conteudo = linha_limpa.split("@@", 1)[0].strip()
+            if conteudo:
+                metadado_visivel.append(conteudo)
+            if terminou:
+                texto_metadado = " ".join(metadado_visivel).strip().strip('"“”')
+                if texto_metadado:
+                    html_lines.append(f"<p>{converter_links_para_html(texto_metadado)}</p>")
+                metadado_visivel = None
+            continue
+
+        if em_metadado_docs:
+            if "@@" in linha_limpa:
+                em_metadado_docs = False
+            continue
+
+        metadado_match = re.match(r"^([A-Za-z_][\w]*)\s*=", linha_limpa)
+        if metadado_match:
+            marcador_metadado = metadado_match.group(1).lower()
+            if marcador_metadado in {"referencia", "hyperlink"}:
+                valor = linha_limpa.split("=", 1)[1].strip()
+                terminou = "@@" in valor
+                valor = valor.split("@@", 1)[0].strip()
+                metadado_visivel = [valor] if valor else []
+                if terminou:
+                    texto_metadado = " ".join(metadado_visivel).strip().strip('"“”')
+                    if texto_metadado:
+                        html_lines.append(f"<p>{converter_links_para_html(texto_metadado)}</p>")
+                    metadado_visivel = None
+                continue
+            if "@@" not in linha_limpa and marcador_metadado != "descricao_tema":
+                em_metadado_docs = True
+            continue
+
         # LINHA VAZIA
         if not linha_limpa:
             if em_lista:
                 html_lines.append("</ul>")
                 em_lista = False
-
-            continue
-
-        # MAPA GEOGRÁFICO
-        if linha_limpa.lower() in {"*mapa_geografico", "mapa_geografico"}:
-
-            if em_lista:
-                html_lines.append("</ul>")
-                em_lista = False
-
-            mapa_html = componentes_html.get("mapa_geografico")
-
-            if mapa_html:
-                html_lines.append(mapa_html)
 
             continue
 
@@ -614,9 +452,7 @@ def texto_para_html(
                 html_lines.append("<ul>")
                 em_lista = True
 
-            item = html_module.escape(
-                linha_limpa[2:].strip()
-            )
+            item = converter_links_para_html(linha_limpa[2:].strip())
 
             html_lines.append(f"<li>{item}</li>")
 
@@ -633,12 +469,8 @@ def texto_para_html(
         )
 
         if secao_macrotema:
-
-            html_lines.append(
-                render_section_heading(secao_macrotema)
-            )
-
-            proximo_paragrafo_destaque = True
+            proximo_paragrafo_destaque = False
+            continue
 
         elif (
             re.match(r"^\d+\.\s+", linha_limpa)
@@ -688,7 +520,7 @@ def texto_para_html(
 
             html_lines.append(
                 f"<p{classe}>"
-                f"{html_module.escape(linha_limpa)}"
+                f"{converter_links_para_html(linha_limpa)}"
                 f"</p>"
             )
 

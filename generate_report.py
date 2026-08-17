@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import argparse
 import csv
-from datetime import datetime
+import html
 import io
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 import requests
-from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 
 def parse_drive_file_id(value: str) -> str | None:
@@ -20,7 +20,7 @@ def parse_drive_file_id(value: str) -> str | None:
     parsed = urlparse(value)
     query = parse_qs(parsed.query)
 
-    if "id" in query and query["id"]:
+    if query.get("id"):
         return query["id"][0]
 
     if parsed.netloc and "drive.google.com" in parsed.netloc and parsed.path:
@@ -182,17 +182,49 @@ def maybe_generate_pdf(html_path: Path, pdf_path: Path) -> None:
     HTML(filename=str(html_path)).write_pdf(str(pdf_path))
 
 
-def render_html(template_path: Path, output_path: Path, context: dict[str, Any]) -> None:
+def render_html(output_path: Path, title: str, generated_at: str, city: str = "", year: str = "", demografia: dict[str, Any] | None = None) -> None:
 
-    env = Environment(
-        loader=FileSystemLoader(str(template_path.parent)),
-        autoescape=select_autoescape(["html", "xml"]),
-    )
-    template = env.get_template(template_path.name)
-    html = template.render(**context)
+    e = html.escape
+    ctx = {
+        "title": e(title),
+        "generated_at": e(generated_at),
+        "city": e(city),
+        "year": e(year),
+    }
+
+    rows_html = ""
+    if demografia:
+        rows_html = "<table>\n"
+        for key, value in demografia.items():
+            rows_html += f"<tr><td><strong>{e(key)}</strong></td><td>{e(str(value))}</td></tr>\n"
+        rows_html += "</table>"
+
+    html_content = f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <title>{ctx["title"]}</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }}
+        h1 {{ color: #005e2f; }}
+        .meta {{ color: #666; font-size: 14px; margin-bottom: 20px; }}
+        table {{ width: 100%; border-collapse: collapse; }}
+        td {{ padding: 8px; border-bottom: 1px solid #eee; }}
+    </style>
+</head>
+<body>
+    <h1>{ctx["title"]}</h1>
+    <div class="meta">
+        Cidade: <strong>{ctx["city"]}</strong> &bull;
+        Ano: <strong>{ctx["year"]}</strong> &bull;
+        Gerado em: {ctx["generated_at"]}
+    </div>
+    {rows_html}
+</body>
+</html>"""
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(html, encoding="utf-8")
+    output_path.write_text(html_content, encoding="utf-8")
 
 
 def main() -> None:
@@ -202,11 +234,6 @@ def main() -> None:
     parser.add_argument(
         "source",
         help="Caminho local, URL do CSV, URL do Google Drive ou apenas file_id do Drive.",
-    )
-    parser.add_argument(
-        "--template",
-        default="templates/report.html.j2",
-        help="Caminho do template Jinja2.",
     )
     parser.add_argument(
         "--output",
@@ -242,7 +269,7 @@ def main() -> None:
     args = parser.parse_args()
 
     rows = fetch_csv_rows(args.source)
-    generated_at = datetime.now().strftime("%d/%m/%Y %H:%M")
+    generated_at = datetime.now().astimezone().strftime("%d/%m/%Y %H:%M")
 
     if args.city:
         if not rows:
@@ -251,35 +278,29 @@ def main() -> None:
         columns = list(rows[0].keys())
         city_column = find_city_column(columns, args.city_column)
         selected_row = select_city_row(rows, args.city, city_column)
-        row = nest_dot_keys(selected_row)
         demografia_context = build_demografia_context(selected_row)
         city_value = selected_row.get(city_column, args.city)
 
         year_column = find_year_column(columns, args.year_column)
         year_value = args.year or (selected_row.get(year_column, "") if year_column else "")
 
-        context = {
-            "title": args.title,
-            "generated_at": generated_at,
-            "city": city_value,
-            "year": year_value,
-            "row": row,
-            "demografia": demografia_context,
-        }
+        render_html(
+            output_path=Path(args.output),
+            title=args.title,
+            generated_at=generated_at,
+            city=city_value,
+            year=year_value,
+            demografia=demografia_context,
+        )
     else:
-        context = {
-            "title": args.title,
-            "generated_at": generated_at,
-            "row_count": len(rows),
-            "columns": list(rows[0].keys()) if rows else [],
-            "rows": rows,
-        }
-
-    render_html(
-        template_path=Path(args.template),
-        output_path=Path(args.output),
-        context=context,
-    )
+        # Fallback: render table with all rows
+        render_html(
+            output_path=Path(args.output),
+            title=args.title,
+            generated_at=generated_at,
+            city=f"{len(rows)} linhas",
+            year="",
+        )
 
     print(f"Relatório gerado em: {args.output}")
     if args.pdf_output:

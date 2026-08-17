@@ -1,20 +1,49 @@
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from config import BASE_DIR
-from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
-from utils.cities import carregar_cidades
+from config import BASE_DIR, OUTPUT_DIR
 from reports import (
-    listar_relatorios_handler,
     apagar_relatorio_handler,
     gerar_relatorio_handler,
+    listar_relatorios_handler,
 )
+from utils.cities import carregar_cidades
+from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
+from utils.ssr import start_server as start_ssr_server
+from utils.ssr import stop_server as stop_ssr_server
 
-app = FastAPI()
+app = FastAPI(on_startup=[start_ssr_server], on_shutdown=[stop_ssr_server])
 
-app.mount("/output", StaticFiles(directory=str(BASE_DIR / "output")), name="output")
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+
+# Serve output files with headers that prevent caching so clients always fetch
+# the most recent version (avoids stale PDFs from browser/proxy cache).
+@app.api_route("/output/{path:path}", methods=["GET", "HEAD"])
+async def output_file(path: str):
+    # Support versioned paths like /output/v{version}/filename.pdf where the
+    # version component is only used for cache-busting and not part of the
+    # filesystem layout. Strip a leading v{digits}/ segment if present.
+    import re
+
+    m = re.match(r"^v\d+/(.+)$", path)
+    if m:
+        safe_name = m.group(1)
+    else:
+        safe_name = path
+
+    # Prevent path traversal
+    if safe_name.startswith(("../", "/")) or ".." in safe_name:
+        raise HTTPException(status_code=400)
+
+    file_path = OUTPUT_DIR / safe_name
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404)
+    response = FileResponse(file_path)
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    return response
 
 app.add_middleware(
     CORSMiddleware,
@@ -57,8 +86,8 @@ async def apagar_relatorio(arquivo_pdf: str):
 
 
 @app.get("/relatorio/{cidade}", response_class=HTMLResponse)
-async def gerar_relatorio(cidade: str, macrotema: str = "demografia", charts: str = "all"):
-    return await gerar_relatorio_handler(cidade, macrotema, charts)
+async def gerar_relatorio(cidade: str, macrotema: str = "demografia"):
+    return await gerar_relatorio_handler(cidade, macrotema)
 
 
 # If the frontend has been built (e.g., via Docker), serve it from the same app.

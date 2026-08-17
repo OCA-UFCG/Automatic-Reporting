@@ -1,0 +1,106 @@
+@page {
+  margin: 16mm 8mm 16mm;
+
+  /* IMPORTANT: WeasyPrint resolves counters inside fixed elements only once,
+     then repeats that value on every page. Margin boxes are evaluated per page. */
+  @bottom-right {
+    content: counter(page, decimal-leading-zero);
+    width: 24px;
+    padding: 8px 24px 8px 0;
+    font-family: 'Inter', Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: #333333;
+    text-align: right;
+  }
+}
+
+.pdf-footer {
+  display: none;
+}
+
+.pdf-page-header {
+  display: none;
+}
+
+.pdf-page-header-brand {
+  display: inline-grid;
+  gap: 2px;
+  line-height: 1;
+}
+
+@media print {
+  html,
+  body {
+    width: auto;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    background: var(--color-white);
+  }
+
+  .pdf-page-header {
+    position: fixed;
+    top: -16mm;
+    left: -8mm;
+    right: -8mm;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    width: auto;
+    height: 48px;
+    padding: 8px 24px;
+    background: #EFEFEF;
+    box-sizing: border-box;
+    font-family: 'Inter', Arial, sans-serif;
+    z-index: 1000;
+  }
+
+  .pdf-page-header-brand {
+    display: flex;
+    align-items: center;
+  }
+
+  .pdf-page-header-logo {
+    display: block;
+    width: 50px;
+    height: 24px;
+  }
+
+  .pdf-footer {
+    position: fixed;
+    bottom: -16mm;
+    left: -8mm;
+    right: -8mm;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    width: auto;
+    min-height: 48px;
+    padding: 10px 24px 9px;
+    background: #EFEFEF;
+    border-top: 1px solid #DFDFDF;
+    box-sizing: border-box;
+    font-family: 'Inter', Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: #333333;
+    z-index: 1000;
+  }
+
+  .pdf-footer-generation {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pdf-footer-page {
+    flex: 0 0 auto;
+    min-width: 24px;
+    text-align: right;
+  }
+
+}

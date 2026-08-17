@@ -8,4 +8,5 @@ frontend/dist/
 *.png
 *.html
 node_modules
+map_shape/
 

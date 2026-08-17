@@ -147,6 +147,40 @@ h1 {
   box-shadow: 0 0 0 4px rgba(79, 127, 224, 0.12);
 }
 
+#macrotema.select {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 180px;
+  overflow: auto;
+  padding: 10px;
+}
+
+.macrotema-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid #d8e0ef;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  color: #20314a;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.macrotema-option input {
+  margin: 0;
+  accent-color: #1f4f9a;
+}
+
+.macrotema-option--active {
+  background: linear-gradient(135deg, #e8f0ff 0%, #f5f8ff 100%);
+  border-color: #5b87e6;
+}
+
 .actions {
   display: flex;
   gap: 8px;
@@ -184,6 +218,21 @@ h1 {
   box-shadow: 0 6px 14px rgba(44, 116, 255, 0.18);
   text-decoration: none;
   font-weight: 500;
+}
+
+.map-download-button {
+  background: linear-gradient(135deg, #006b3f 0%, #19a061 100%);
+  box-shadow: 0 6px 14px rgba(0, 107, 63, 0.16);
+}
+
+.map-download-button:hover {
+  box-shadow: 0 10px 22px rgba(0, 107, 63, 0.22);
+}
+
+.report-unavailable {
+  display: inline-block;
+  color: #7c8798;
+  font-size: 13px;
 }
 
 .trash-button {

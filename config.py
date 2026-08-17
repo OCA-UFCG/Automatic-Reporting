@@ -1,8 +1,10 @@
 import os
+import re
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
+
 from dotenv import load_dotenv
 from fastapi import HTTPException
-from urllib.parse import urlparse
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -27,7 +29,10 @@ SAUDE_CSV_URL = get_config_value("SAUDE_CSV_URL")
 ECONOMIA_RENDA_CSV_URL = get_config_value("ECONOMIA_RENDA_CSV_URL")
 SANEAMENTO_CSV_URL = get_config_value("SANEAMENTO_CSV_URL")
 HIDRAULICA_CSV_URL = get_config_value("HIDRAULICA_CSV_URL")
+DESENVOLVIMENTO_SOCIAL_DOCS_URL = get_config_value("DESENVOLVIMENTO_SOCIAL_DOCS_URL")
+MEIO_AMBIENTE_DOCS_URL = get_config_value("MEIO_AMBIENTE_DOCS_URL")
 DEFAULT_DOCS_URL = get_config_value("DEFAULT_DOCS_URL")
+CARACTERISTICAS_DOCS_URL = get_config_value("CARACTERISTICAS_DOCS_URL")
 DEMOGRAFIA_DOCS_URL = get_config_value("DEMOGRAFIA_DOCS_URL") or DEFAULT_DOCS_URL
 EDUCACAO_DOCS_URL = get_config_value("EDUCACAO_DOCS_URL")
 SAUDE_DOCS_URL = get_config_value("SAUDE_DOCS_URL")
@@ -131,6 +136,9 @@ def resolve_csv_source(source: str | None, env_name: str = "CSV_URL") -> str | P
     parsed = urlparse(source)
 
     if parsed.scheme in {"http", "https"}:
+        sheets_url = build_google_sheets_csv_url(source)
+        if sheets_url:
+            return sheets_url
         return source
 
     csv_path = Path(source).expanduser()
@@ -154,3 +162,52 @@ def require_config_value(value: str | None, env_name: str) -> str:
             detail=f"{env_name} não configurado. Defina no arquivo .config, .env ou nas variáveis de ambiente.",
         )
     return value
+  
+
+def _parse_google_sheets_file_id(value: str) -> str | None:
+    if "/d/" in value:
+        marker = value.split("/d/", 1)[1]
+        return marker.split("/", 1)[0]
+
+    parsed = urlparse(value)
+    query = parse_qs(parsed.query)
+
+    if query.get("id") and "docs.google.com" in parsed.netloc:
+        return query["id"][0]
+
+    if parsed.netloc and "docs.google.com" in parsed.netloc and parsed.path:
+        parts = [part for part in parsed.path.split("/") if part]
+        if len(parts) >= 3 and parts[0] == "spreadsheets" and parts[1] == "d":
+            return parts[2]
+
+    if "/" not in value and len(value) > 20:
+        return value
+
+    return None
+
+
+def _parse_google_sheets_gid(value: str) -> str:
+    parsed = urlparse(value)
+    query = parse_qs(parsed.query)
+    if query.get("gid"):
+        return query["gid"][0]
+
+    if parsed.fragment:
+        fragment_query = parse_qs(parsed.fragment)
+        if fragment_query.get("gid"):
+            return fragment_query["gid"][0]
+
+        match = re.search(r"gid=(\d+)", parsed.fragment)
+        if match:
+            return match.group(1)
+
+    return "0"
+
+
+def build_google_sheets_csv_url(value: str) -> str | None:
+    file_id = _parse_google_sheets_file_id(value)
+    if not file_id:
+        return None
+
+    gid = _parse_google_sheets_gid(value)
+    return f"https://docs.google.com/spreadsheets/d/{file_id}/export?format=csv&gid={gid}"
