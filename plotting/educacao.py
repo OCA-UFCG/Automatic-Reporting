@@ -78,7 +78,7 @@ def gerar_grafico_cor_faixa_etaria(
     ax.set_xticks(x)
     ax.set_xticklabels(
         [nome for nome, _ in faixas_etarias],
-        fontsize=8,
+        fontsize=9,
     )
 
     valor_maximo = max(
@@ -92,7 +92,7 @@ def gerar_grafico_cor_faixa_etaria(
     ax.set_yticks(ticks_y)
     ax.set_yticklabels(
         [f"{tick}%" for tick in ticks_y],
-        fontsize=8,
+        fontsize=9,
     )
 
     ax.grid(
@@ -115,7 +115,7 @@ def gerar_grafico_cor_faixa_etaria(
         bbox_to_anchor=(0.5, -0.12),
         ncol=5,
         frameon=False,
-        fontsize=8,
+        fontsize=9,
     )
 
     plt.tight_layout()
