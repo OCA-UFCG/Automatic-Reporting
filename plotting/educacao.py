@@ -115,7 +115,7 @@ def gerar_grafico_cor_faixa_etaria(
         max(valores) for valores in dados.values()
     )
 
-    limite_superior = max(10, int(np.ceil(valor_maximo / 10)) * 10)
+    limite_superior = max(10, int(np.ceil(valor_maximo * 1.1 / 10)) * 10)
     ticks_y = list(range(0, limite_superior + 1, 10))
 
     ax.set_ylim(0, limite_superior)
