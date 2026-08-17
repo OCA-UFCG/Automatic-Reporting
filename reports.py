@@ -41,6 +41,7 @@ from utils.renderer import (
     texto_para_html,
 )
 from utils.ssr import render_react_ssr
+from plotting.educacao import gerar_grafico_cor_faixa_etaria
 
 logger = logging.getLogger(__name__)
 
@@ -437,6 +438,15 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
 
         graficos_por_placeholder = {}
 
+        if macrotema_slug == "educacao":
+            cidade_series = pd.Series(linhas_macrotema[0])
+            chart_file_name = gerar_grafico_cor_faixa_etaria(
+                cidade=cidade_series,
+                OUTPUT_DIR=OUTPUT_DIR,
+                safe_city=safe_city or "relatorio",
+            )
+            graficos_por_placeholder["grafico_cor_faixa_etaria"] = chart_file_name
+
         docs_url = require_config_value(macrotema_dados["docs_url"], macrotema_dados["docs_env"])
         try:
             docs_texto = await carregar_texto_do_docs(docs_url)
@@ -534,6 +544,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 linhas_macrotema[0],
                 namespace=macrotema_slug,
                 safe_report=safe_report,
+                graficos_por_placeholder=graficos_por_placeholder,
             )
             if eh_primeiro and cover is not None:
                 cover["macrotema"]["descricao"] = macrotema_item["descricao"]

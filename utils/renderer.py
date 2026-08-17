@@ -28,13 +28,6 @@ def converter_links_para_html(texto: str) -> str:
 FALLBACK_DOC_TEXT = """deu erro.
 """
 
-def render_chart_placeholder(chart_file: str) -> str:
-    return (
-        '<div class="chart-block">'
-        f'<img src="/output/{html_module.escape(chart_file)}" alt="Gráfico">'
-        '</div>'
-    )
-
 
 def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
     contentful_url = obter_url_mapa_contentful(contexto.get("nm_mun", ""))
@@ -62,17 +55,29 @@ def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
     return render_mapa_geografico(contexto) + '\n<!-- fonte: svg_locator -->'
 
 
-def render_descricao_tema_html(descricao_tema: str, contexto: dict, namespace: str = "demografia", safe_report: str | None = None) -> list[str]:
+def render_descricao_tema_html(
+    descricao_tema: str,
+    contexto: dict,
+    namespace: str = "demografia",
+    safe_report: str | None = None,
+    graficos_por_placeholder: dict[str, str] | None = None,
+) -> list[str]:
     partes = []
     for paragrafo in re.split(r"\n\s*\n", descricao_tema):
         paragrafo = paragrafo.strip()
         if not paragrafo:
             continue
 
-        paragrafo = substituir_placeholders(paragrafo, contexto, namespace)
-        partes.append(
-            f'<p class="theme-detail-text">{converter_links_para_html(paragrafo)}</p>'
+        html = texto_para_html(
+            paragrafo,
+            contexto,
+            namespace=namespace,
+            graficos_por_placeholder=graficos_por_placeholder,
+            safe_report=safe_report,
+            classe_paragrafo="theme-detail-text",
         )
+        if html:
+            partes.append(html)
 
     return partes
 
@@ -273,12 +278,14 @@ def texto_para_html(
     graficos_por_placeholder: dict[str, str] | None = None,
     componentes_html: dict[str, str] | None = None,
     safe_report: str | None = None,
+    classe_paragrafo: str = "",
 ) -> str:
 
     LEGENDAS_GRAFICOS = {
         "grafico_sexo": "População por sexo",
         "grafico_porte": "Distribuição por porte",
         "grafico_top_cidades": "Top cidades",
+        "grafico_cor_faixa_etaria": "Cor e faixa etária",
     }
 
     graficos_por_placeholder = graficos_por_placeholder or {}
@@ -512,11 +519,12 @@ def texto_para_html(
                 linha_limpa,
             )
 
-            classe = (
-                ' class="lead"'
-                if proximo_paragrafo_destaque
-                else ""
-            )
+            if classe_paragrafo:
+                classe = f' class="{classe_paragrafo}"'
+            elif proximo_paragrafo_destaque:
+                classe = ' class="lead"'
+            else:
+                classe = ""
 
             html_lines.append(
                 f"<p{classe}>"
