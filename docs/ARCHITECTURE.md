@@ -118,7 +118,6 @@ Cada camada tem uma responsabilidade única: Python processa dados, React render
 ├── config.py                   # Config (OUTPUT_DIR, variáveis de ambiente)
 ├── reports.py                  # Lógica de geração de relatório (orquestrador)
 ├── plotting.py                 # Gráficos matplotlib (sexo, porte, top cidades)
-├── generate_report.py          # CLI tool standalone (gera HTML de CSV)
 ├── requirements.txt            # Dependências Python
 ├── Dockerfile                  # Build em 3 estágios
 │
