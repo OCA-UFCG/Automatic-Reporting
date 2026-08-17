@@ -2,9 +2,7 @@ import logging
 import re
 import unicodedata
 from datetime import datetime
-from pathlib import Path
 
-import pandas as pd
 from fastapi import HTTPException
 from fastapi.responses import HTMLResponse
 
@@ -21,8 +19,8 @@ from services.csv_loader import (
 )
 from services.macrotemas import get_macrotema, get_macrotema_slugs_para_relatorio
 from services.pdf import _gerar_pdf
-from utils.data.cities import filtrar_linhas_por_cidade
 from utils.cover import montar_capa_relatorio
+from utils.data.cities import filtrar_linhas_por_cidade
 from utils.data.macrotemas import TODOS_MACROTEMAS_SLUG
 from utils.external.docs import (
     carregar_texto_do_docs,

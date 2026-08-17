@@ -5,7 +5,11 @@ from zoneinfo import ZoneInfo
 from fastapi import HTTPException
 
 from config import OUTPUT_DIR
-from utils.data.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
+from utils.data.macrotemas import (
+    MACROTEMAS,
+    TODOS_MACROTEMAS_NOME,
+    TODOS_MACROTEMAS_SLUG,
+)
 
 
 async def listar_relatorios_handler():

@@ -10,7 +10,11 @@ from services import (
     listar_relatorios_handler,
 )
 from utils.data.cities import carregar_cidades
-from utils.data.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
+from utils.data.macrotemas import (
+    MACROTEMAS,
+    TODOS_MACROTEMAS_NOME,
+    TODOS_MACROTEMAS_SLUG,
+)
 from utils.ssr import start_server as start_ssr_server
 from utils.ssr import stop_server as stop_ssr_server
 

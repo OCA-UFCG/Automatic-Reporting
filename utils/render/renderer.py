@@ -9,9 +9,9 @@ from utils.render.sections import identificar_secao_macrotema
 
 __all__ = [
     "converter_links_para_html",
-    "substituir_placeholders",
     "render_descricao_tema_html",
     "render_mapa_marker",
+    "substituir_placeholders",
     "texto_para_html",
 ]
 

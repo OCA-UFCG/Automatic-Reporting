@@ -1,4 +1,3 @@
-import re
 from datetime import datetime
 
 from utils.geografia import separar_cidade_uf
