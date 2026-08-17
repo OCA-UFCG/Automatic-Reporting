@@ -1,3 +1,4 @@
+import math
 import pathlib
 
 import matplotlib.pyplot as plt
@@ -6,9 +7,21 @@ from matplotlib.ticker import FuncFormatter
 
 
 def _coerce_numero(valor) -> float:
+    if valor is None:
+        return 0.0
+
     if isinstance(valor, str):
-        valor = valor.replace(",", ".")
-    return float(valor)
+        valor = valor.strip().replace(",", ".")
+
+    try:
+        numero = float(valor)
+    except (TypeError, ValueError):
+        return 0.0
+
+    if not math.isfinite(numero):
+        return 0.0
+
+    return numero
 
 
 def gerar_grafico_publico_etario(
@@ -79,7 +92,7 @@ def gerar_grafico_publico_etario(
     ax.set_ylabel("")
 
     valor_maximo = max([*publico_alvo, *doses_aplicadas])
-    ax.set_ylim(0, valor_maximo * 1.15)
+    ax.set_ylim(0, max(valor_maximo * 1.15, 10))
 
     ax.yaxis.set_major_formatter(
         FuncFormatter(
