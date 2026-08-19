@@ -1,4 +1,5 @@
 import React from 'react';
+import headerLogosSvg from '../assets/header-logos.svg?raw';
 
 export function BrandSquares() {
   return (
@@ -21,6 +22,16 @@ export function CoverBrand() {
 }
 
 export function PdfPageHeaderBrand() {
+  return (
+    <div
+      className="pdf-page-header-brand pdf-page-header-brand--official"
+      aria-label="Data Nordeste e Sudene"
+      dangerouslySetInnerHTML={{ __html: headerLogosSvg }}
+    />
+  );
+}
+
+function LegacyPdfPageHeaderBrand() {
   return (
     <div className="pdf-page-header-brand" aria-label="Data Nordeste e Sudene">
       <svg className="pdf-page-header-logo" viewBox="0 0 51 24" role="img" aria-label="Data Nordeste">
