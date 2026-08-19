@@ -19,7 +19,7 @@ def _strip_trailing_punctuation(url: str) -> tuple[str, str]:
 def convert_links_to_html(text: str) -> str:
     result = []
     last_end = 0
-    link_pattern = re.compile(r'\[([^\]]+)\]\(([^)]+)\)|(https?://[^\s<>“”"]+)')
+    link_pattern = re.compile(r'\[([^\]]+)\]\(((?:[^()]|\([^()]*\))*)\)|(https?://[^\s<>“”"]+)')
     for m in link_pattern.finditer(text):
         result.append(html_module.escape(text[last_end:m.start()]))
         url = m.group(2) or m.group(3)
