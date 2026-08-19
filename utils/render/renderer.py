@@ -3,12 +3,12 @@ import re
 
 from utils.external.contentful import obter_url_mapa_contentful
 from utils.maps import gerar_mapa_regiao, render_mapa_geografico
-from utils.render.links import converter_links_para_html
+from utils.render.links import convert_links_to_html
 from utils.render.placeholders import substituir_placeholders
 from utils.render.sections import identificar_secao_macrotema
 
 __all__ = [
-    "converter_links_para_html",
+    "convert_links_to_html",
     "render_descricao_tema_html",
     "render_mapa_marker",
     "substituir_placeholders",
@@ -62,7 +62,7 @@ def render_descricao_tema_html(descricao_tema: str, contexto: dict, namespace: s
 
         paragrafo = substituir_placeholders(paragrafo, contexto, namespace)
         partes.append(
-            f'<p class="theme-detail-text">{converter_links_para_html(paragrafo)}</p>'
+            f'<p class="theme-detail-text">{convert_links_to_html(paragrafo)}</p>'
         )
 
     return partes
@@ -112,7 +112,7 @@ def texto_para_html(
             if terminou:
                 texto_metadado = " ".join(metadado_visivel).strip().strip('"“”')
                 if texto_metadado:
-                    html_lines.append(f"<p>{converter_links_para_html(texto_metadado)}</p>")
+                    html_lines.append(f"<p>{convert_links_to_html(texto_metadado)}</p>")
                 metadado_visivel = None
             continue
 
@@ -132,7 +132,7 @@ def texto_para_html(
                 if terminou:
                     texto_metadado = " ".join(metadado_visivel).strip().strip('"“”')
                     if texto_metadado:
-                        html_lines.append(f"<p>{converter_links_para_html(texto_metadado)}</p>")
+                        html_lines.append(f"<p>{convert_links_to_html(texto_metadado)}</p>")
                     metadado_visivel = None
                 continue
             if "@@" not in linha_limpa and marcador_metadado != "descricao_tema":
@@ -229,7 +229,7 @@ def texto_para_html(
                 html_lines.append("<ul>")
                 em_lista = True
 
-            item = converter_links_para_html(linha_limpa[2:].strip())
+            item = convert_links_to_html(linha_limpa[2:].strip())
 
             html_lines.append(f"<li>{item}</li>")
 
@@ -297,7 +297,7 @@ def texto_para_html(
 
             html_lines.append(
                 f"<p{classe}>"
-                f"{converter_links_para_html(linha_limpa)}"
+                f"{convert_links_to_html(linha_limpa)}"
                 f"</p>"
             )
 
