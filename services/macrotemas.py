@@ -1,9 +1,9 @@
 from fastapi import HTTPException
 
-from utils.data.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_SLUG
+from utils.data.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_SLUG, Macrotema
 
 
-def get_macrotema(slug: str) -> dict[str, str]:
+def get_macrotema(slug: str) -> Macrotema:
     macrotema = MACROTEMAS.get(slug)
     if not macrotema:
         validos = ", ".join([TODOS_MACROTEMAS_SLUG, *MACROTEMAS.keys()])

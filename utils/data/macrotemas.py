@@ -1,3 +1,5 @@
+from typing import TypedDict
+
 from config import (
     DEMOGRAFIA_CSV_URL,
     DEMOGRAFIA_DOCS_URL,
@@ -15,7 +17,18 @@ from config import (
     SAUDE_DOCS_URL,
 )
 
-MACROTEMAS = {
+
+class Macrotema(TypedDict):
+    nome: str
+    cor: str
+    icone: str
+    docs_url: str | None
+    docs_env: str
+    csv_url: str | None
+    csv_env: str
+
+
+MACROTEMAS: dict[str, Macrotema] = {
     "demografia": {
         "nome": "Demografia",
         "cor": "#D65384",

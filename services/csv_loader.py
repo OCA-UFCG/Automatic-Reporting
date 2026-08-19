@@ -7,7 +7,7 @@ from urllib.request import Request, urlopen
 
 import pandas as pd
 
-from utils.data.macrotemas import MACROTEMAS
+from utils.data.macrotemas import MACROTEMAS, Macrotema
 
 _CACHE_TTL_SECONDS = 3600
 _CSV_CACHE: dict[str, dict] = {}
@@ -85,7 +85,7 @@ def carregar_csv(csv_source: str | Path) -> pd.DataFrame:
     return _carregar_csv_local(csv_source, cache_key, registro, agora)
 
 
-def get_csv_config_for_macrotema(macrotema: dict[str, str | None]) -> tuple[str | None, str]:
+def get_csv_config_for_macrotema(macrotema: Macrotema) -> tuple[str | None, str]:
     if macrotema["csv_url"]:
         return macrotema["csv_url"], macrotema["csv_env"]
     return MACROTEMAS["demografia"]["csv_url"], "DEMOGRAFIA_CSV_URL"
