@@ -49,9 +49,10 @@
     justify-content: space-between;
     align-items: center;
     width: auto;
-    height: 48px;
+    height: 16mm;
     padding: 8px 24px;
     background: #EFEFEF;
+    border-bottom: 1px solid #018F39;
     box-sizing: border-box;
     font-family: 'Inter', Arial, sans-serif;
     z-index: 1000;
@@ -60,12 +61,37 @@
   .pdf-page-header-brand {
     display: flex;
     align-items: center;
+    gap: 10px;
   }
 
   .pdf-page-header-logo {
     display: block;
     width: 50px;
     height: 24px;
+  }
+
+  .pdf-page-header-divider {
+    width: 1px;
+    height: 25px;
+    background: #c7c7c7;
+  }
+
+  .pdf-page-header-sudene {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #565656;
+    font-size: 14px;
+    font-style: italic;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .pdf-page-header-sudene-mark {
+    display: inline-block;
+    color: #565656;
+    font-size: 16px;
+    transform: skewX(-12deg);
   }
 
   .pdf-footer {

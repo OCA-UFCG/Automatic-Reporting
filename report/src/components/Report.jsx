@@ -13,7 +13,7 @@ export default function Report({ cover, docsHtml }) {
         <style dangerouslySetInnerHTML={{ __html: pdfStyles }} />
       </head>
       <body>
-        <PdfPageHeader label={cover.inicio_relatorio} />
+        <PdfPageHeader label="Dados municipais reunidos em uma única plataforma" />
         <PdfFooter data={cover.data_extenso} />
         <Cover cover={cover} />
         <div className="doc-content" dangerouslySetInnerHTML={{ __html: docsHtml }} />

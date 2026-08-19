@@ -102,7 +102,7 @@ MACROTEMAS: dict[str, Macrotema] = {
         "csv_env": "HIDRAULICA_CSV_URL",
     },
     "instrumentos-sudene": {
-        "nome": "Instrumentos SUDENE",
+        "nome": "Ações Institucionais",
         "cor": "#018F39",
         "icone": "chart",
         "docs_url": "",
