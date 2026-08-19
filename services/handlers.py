@@ -1,5 +1,6 @@
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
@@ -92,6 +93,18 @@ async def listar_relatorios_handler():
     return relatorios
 
 
+def _artefatos_do_relatorio(nome_base: str) -> list[Path]:
+    sufixo = nome_base.replace("relatorio_", "", 1)
+    cidade = sufixo.rsplit("__", 1)[-1]
+    artefatos = [
+        OUTPUT_DIR / f"{nome_base}.pdf",
+        OUTPUT_DIR / f"{nome_base}.html",
+        OUTPUT_DIR / f"mapa_regiao_{sufixo}.png",
+    ]
+    artefatos.extend(sorted(OUTPUT_DIR.glob(f"grafico_*{cidade}.png")))
+    return artefatos
+
+
 async def apagar_relatorio_handler(arquivo_pdf: str):
     nome_arquivo = arquivo_pdf.strip()
 
@@ -103,18 +116,9 @@ async def apagar_relatorio_handler(arquivo_pdf: str):
 
     pdf_path = OUTPUT_DIR / nome_arquivo
     nome_base = pdf_path.stem
-    html_path = OUTPUT_DIR / f"{nome_base}.html"
-
-    sufixo_relatorio = nome_base.replace("relatorio_", "", 1)
-    chart_paths = [
-        OUTPUT_DIR / f"grafico_sexo_{sufixo_relatorio}.png",
-        OUTPUT_DIR / f"grafico_porte_{sufixo_relatorio}.png",
-        OUTPUT_DIR / f"grafico_top_{sufixo_relatorio}.png",
-        OUTPUT_DIR / f"mapa_regiao_{sufixo_relatorio}.png",
-    ]
 
     removidos = []
-    for caminho in [pdf_path, html_path, *chart_paths]:
+    for caminho in _artefatos_do_relatorio(nome_base):
         if caminho.exists() and caminho.is_file():
             caminho.unlink()
             removidos.append(caminho.name)
