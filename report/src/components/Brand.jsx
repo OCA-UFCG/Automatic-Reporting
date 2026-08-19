@@ -23,11 +23,14 @@ export function CoverBrand() {
 
 export function PdfPageHeaderBrand() {
   return (
-    <div
-      className="pdf-page-header-brand pdf-page-header-brand--official"
-      aria-label="Data Nordeste e Sudene"
-      dangerouslySetInnerHTML={{ __html: headerLogosSvg }}
-    />
+    <div className="pdf-page-header-brand pdf-page-header-brand--official" aria-label="Data Nordeste e Sudene">
+      <PdfCoverBrand />
+      <span
+        className="pdf-page-header-sudene-official"
+        aria-label="Sudene"
+        dangerouslySetInnerHTML={{ __html: headerLogosSvg }}
+      />
+    </div>
   );
 }
 

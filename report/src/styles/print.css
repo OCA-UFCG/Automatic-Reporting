@@ -65,15 +65,46 @@
   }
 
   .pdf-page-header-brand--official {
-    width: 116px;
-    height: 34px;
+    width: auto;
+    height: 28px;
+    gap: 10px;
+  }
+
+  .pdf-page-header-brand--official svg path,
+  .pdf-page-header-brand--official svg rect,
+  .pdf-page-header-brand--official svg circle,
+  .pdf-page-header-brand--official svg polygon {
+    fill: #1B1918 !important;
+    stroke: #1B1918 !important;
+  }
+
+  .pdf-page-header-brand--official svg [fill="none"] {
+    fill: none !important;
+  }
+
+  .pdf-page-header-brand--official .pdf-cover-brand {
+    display: block;
+    width: 50px;
+    height: 24px;
+  }
+
+  .pdf-page-header-brand--official .pdf-cover-brand svg {
+    width: 50px;
+    height: 24px;
+  }
+
+  .pdf-page-header-sudene-official {
+    display: block;
+    width: 49px;
+    height: 28px;
     overflow: hidden;
   }
 
-  .pdf-page-header-brand--official svg {
+  .pdf-page-header-sudene-official svg {
     display: block;
-    width: 100%;
-    height: 100%;
+    width: 97px;
+    height: 28px;
+    max-width: none;
   }
 
   .pdf-page-header-logo {
