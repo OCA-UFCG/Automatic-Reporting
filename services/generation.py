@@ -13,7 +13,7 @@ from config import (
     resolve_csv_source,
 )
 from services.csv_loader import (
-    _carregar_csv,
+    carregar_csv,
     get_csv_config_for_macrotema,
     normalizar_colunas_macrotema,
 )
@@ -73,7 +73,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             continue
         csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
         csv_source = resolve_csv_source(csv_url, csv_env)
-        df = _carregar_csv(csv_source)
+        df = carregar_csv(csv_source)
         df = normalizar_colunas_macrotema(df, macrotema_slug)
 
         try:
