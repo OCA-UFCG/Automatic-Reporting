@@ -18,6 +18,7 @@ def _carregar_csv(csv_source: str | Path) -> pd.DataFrame:
         request = Request(csv_source, headers={"User-Agent": "Mozilla/5.0"})
         with urlopen(request, timeout=30) as response:
             conteudo_bytes = response.read()
+    df = None
     for sep in (",", ";"):
         fonte = BytesIO(conteudo_bytes) if conteudo_bytes is not None else csv_source
         try:
@@ -26,6 +27,8 @@ def _carregar_csv(csv_source: str | Path) -> pd.DataFrame:
                 break
         except (pd.errors.ParserError, ValueError):
             continue
+    if df is None:
+        raise ValueError("Unable to parse CSV with separators ',;'")
     _CSV_CACHE[cache_key] = df.copy()
     return df
 
