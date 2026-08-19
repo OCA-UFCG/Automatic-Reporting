@@ -145,7 +145,11 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
     )
 
     for alias, valor in alias_map.items():
-        resultado = resultado.replace(f"${alias}", str(valor))
+        resultado = re.sub(
+            rf"\${re.escape(alias)}(?![\w])",
+            str(valor),
+            resultado,
+        )
 
     resultado = re.sub(
         r'\{\{\s*(\w+)\s*\}\}',
