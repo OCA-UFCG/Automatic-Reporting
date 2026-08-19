@@ -13,6 +13,23 @@ from utils.data.macrotemas import (
 )
 
 
+def _extrair_slugs_macrotemas(texto: str) -> list[str] | None:
+    slugs_ordenados = sorted(MACROTEMAS, key=len, reverse=True)
+    slugs: list[str] = []
+    restante = texto
+    while restante:
+        slug = next((s for s in slugs_ordenados if restante.startswith(s)), None)
+        if slug is None:
+            return None
+        slugs.append(slug)
+        restante = restante[len(slug):]
+        if restante:
+            if not restante.startswith("_"):
+                return None
+            restante = restante[1:]
+    return slugs
+
+
 async def listar_relatorios_handler():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -39,10 +56,7 @@ async def listar_relatorios_handler():
                 slug_cidade = restante
                 macrotema = TODOS_MACROTEMAS_NOME
             else:
-                slugs_encontrados = [
-                    slug for slug in primeira_parte.split("_")
-                    if slug in MACROTEMAS
-                ]
+                slugs_encontrados = _extrair_slugs_macrotemas(primeira_parte)
                 if slugs_encontrados and "_".join(slugs_encontrados) == primeira_parte:
                     slug_cidade = restante
                     macrotema = ", ".join(
