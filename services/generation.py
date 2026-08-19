@@ -3,10 +3,9 @@ import re
 import unicodedata
 from datetime import datetime
 
+import pandas as pd
 from fastapi import HTTPException
 from fastapi.responses import HTMLResponse
-
-import pandas as pd
 
 from config import (
     CARACTERISTICAS_DOCS_URL,
