@@ -15,7 +15,7 @@ from config import (
 from plotting.educacao import gerar_grafico_cor_faixa_etaria
 from plotting.saude import gerar_grafico_publico_etario
 from services.csv_loader import (
-    _carregar_csv,
+    carregar_csv,
     get_csv_config_for_macrotema,
     normalizar_colunas_macrotema,
 )
@@ -51,7 +51,10 @@ logger = logging.getLogger(__name__)
 
 async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     reset_figura_contador()
-    macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
+    try:
+        macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err))
     gerado_em = datetime.now().astimezone()
 
     linhas = None
@@ -66,7 +69,10 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     referencias: list[str] = []
 
     for macrotema_slug in macrotema_slugs:
-        macrotema_dados = get_macrotema(macrotema_slug)
+        try:
+            macrotema_dados = get_macrotema(macrotema_slug)
+        except ValueError as err:
+            raise HTTPException(status_code=400, detail=str(err))
 
         if not macrotema_dados["docs_url"]:
             logger.warning(
@@ -77,7 +83,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             continue
         csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
         csv_source = resolve_csv_source(csv_url, csv_env)
-        df = _carregar_csv(csv_source)
+        df = carregar_csv(csv_source)
         df = normalizar_colunas_macrotema(df, macrotema_slug)
 
         try:
@@ -437,6 +443,10 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         except FileNotFoundError:
             pass
 
-    await _gerar_pdf(html_content, pdf_file)
+    if not await _gerar_pdf(html_content, pdf_file):
+        raise HTTPException(
+            status_code=500,
+            detail="Falha ao gerar o PDF do relatório.",
+        )
 
     return HTMLResponse(content=html_content)

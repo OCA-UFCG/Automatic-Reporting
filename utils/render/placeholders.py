@@ -68,20 +68,15 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
         placeholder_namespace = match.group(1).lower()
         campo = match.group(2)
 
-        namespaces_validos = {
-            namespace.lower(),
-        }
+        if placeholder_namespace == namespace.lower():
+            contexto_alvo = contexto
+        else:
+            contexto_alvo = alias_de_tabela.get(placeholder_namespace)
 
-        namespaces_validos.update(alias_de_tabela.keys())
-
-        if placeholder_namespace in namespaces_validos:
-            contexto_alvo = alias_de_tabela[placeholder_namespace]
-            if isinstance(contexto_alvo, dict):
-                valor = _resolver_campo_com_alias(contexto_alvo, campo)
-                if valor is not None:
-                    return str(valor)
-            return match.group(0)
-
+        if isinstance(contexto_alvo, dict):
+            valor = _resolver_campo_com_alias(contexto_alvo, campo)
+            if valor is not None:
+                return str(valor)
         return match.group(0)
 
     alias_map = {
@@ -150,7 +145,11 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
     )
 
     for alias, valor in alias_map.items():
-        resultado = resultado.replace(f"${alias}", str(valor))
+        resultado = re.sub(
+            rf"\${re.escape(alias)}(?![\w])",
+            str(valor),
+            resultado,
+        )
 
     resultado = re.sub(
         r'\{\{\s*(\w+)\s*\}\}',
