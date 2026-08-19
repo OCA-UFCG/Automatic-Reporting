@@ -105,6 +105,14 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 macrotema_slug,
             )
             cover["macrotemas"] = macrotemas_render
+            cover["macrotemas_tags"] = [
+                {
+                    "nome": get_macrotema(slug)["nome"],
+                    "slug": slug,
+                    "cor": get_macrotema(slug)["cor"],
+                }
+                for slug in macrotema_slugs
+            ]
             safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", cidade.strip().lower())
             primeiro_slug = macrotema_slugs[0]
             if macrotema == TODOS_MACROTEMAS_SLUG:
@@ -257,8 +265,8 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         macrotema_item: dict[str, object] = {
             "nome": macrotema_dados["nome"],
             "slug": macrotema_slug,
-            "icone": cover["macrotema"]["icone"],
-            "cor": cover["macrotema"]["cor"],
+            "icone": macrotema_dados["icone"],
+            "cor": macrotema_dados["cor"],
             "resumo": "",
             "descricao": "",
             "descricao_paragrafos": [],

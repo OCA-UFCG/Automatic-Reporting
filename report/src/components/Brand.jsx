@@ -22,7 +22,7 @@ export function CoverBrand() {
 
 export function PdfPageHeaderBrand() {
   return (
-    <div className="pdf-page-header-brand" aria-label="Data Nordeste">
+    <div className="pdf-page-header-brand" aria-label="Data Nordeste e Sudene">
       <svg className="pdf-page-header-logo" viewBox="0 0 51 24" role="img" aria-label="Data Nordeste">
         <rect x="3" y="8" width="3" height="3" rx="0.5" fill="#EF424C" />
         <rect x="11" y="6" width="2" height="2" rx="0.5" fill="#F99A3A" />
@@ -49,6 +49,11 @@ export function PdfPageHeaderBrand() {
         <path d="M44.9506 24H44.0154V21.5047H42.7383V20.6419H46.2278V21.5047H44.9506V24Z" fill="#514C50"/>
         <path d="M49.9275 22.6723H47.8755V21.9542H49.9275V22.6723ZM49.9703 24H46.6305V20.6419H49.9649V21.5047H47.5656V23.1321H49.9703V24Z" fill="#514C50"/>
       </svg>
+      <span className="pdf-page-header-divider" aria-hidden="true" />
+      <span className="pdf-page-header-sudene" aria-label="Sudene">
+        <span className="pdf-page-header-sudene-mark" aria-hidden="true">◼</span>
+        <span>Sudene</span>
+      </span>
     </div>
   );
 }

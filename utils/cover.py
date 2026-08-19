@@ -22,6 +22,13 @@ def montar_capa_relatorio(
     macrotema_slug: str = "",
 ) -> dict[str, object]:
     cidade_nome, uf = separar_cidade_uf(linha.get("nm_mun", ""))
+    if not uf:
+        uf = str(
+            linha.get("sigla_uf")
+            or linha.get("uf")
+            or linha.get("sg_uf")
+            or ""
+        ).strip().upper()
     macrotema_normalizado = macrotema_nome.casefold()
     macrotema_icone = "chart"
     macrotema_cor = ""
@@ -174,7 +181,7 @@ def montar_capa_relatorio(
         "data_hora_extenso": formatar_data_hora_extenso(gerado_em),
         "cidade_nome": cidade_nome,
         "uf": uf,
-        "inicio_relatorio": "Relatório Personalizado",
+        "inicio_relatorio": "Dados municipais reunidos em uma única plataforma",
         "inicio_relatorio_subtitulo": "",
         "introducao": "",
         "introducao_html": [],
