@@ -10,12 +10,12 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR))
 
 from config import OUTPUT_DIR
-from utils.cities import carregar_cidades
+from utils.data.cities import carregar_cidades
+from utils.geografia import separar_cidade_uf
 from utils.maps import (
     carregar_malhas,
     gerar_mapa_regiao,
     localizar_municipio,
-    separar_cidade_uf,
 )
 
 

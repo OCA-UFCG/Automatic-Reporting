@@ -4,20 +4,13 @@ import re
 import httpx
 
 from config import get_config_value
+from utils.geografia import separar_cidade_uf
 
 logger = logging.getLogger(__name__)
 
 CONTENTFUL_SPACE_ID = get_config_value("CONTENTFUL_SPACE_ID")
 CONTENTFUL_ACCESS_TOKEN = get_config_value("CONTENTFUL_ACCESS_TOKEN")
 CONTENTFUL_ENVIRONMENT = get_config_value("CONTENTFUL_ENVIRONMENT") or "master"
-
-
-def separar_cidade_uf(nome_municipio: str) -> tuple[str, str]:
-    nome = nome_municipio.strip()
-    if "(" in nome:
-        cidade, uf = nome.rsplit("(", 1)
-        return cidade.strip(), uf.rstrip(")").strip().upper()
-    return nome_municipio, ""
 
 
 def slugificar(texto: str) -> str:
