@@ -47,7 +47,10 @@ logger = logging.getLogger(__name__)
 
 
 async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
-    macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
+    try:
+        macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err))
     gerado_em = datetime.now().astimezone()
 
     linhas = None
@@ -62,7 +65,10 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     referencias: list[str] = []
 
     for macrotema_slug in macrotema_slugs:
-        macrotema_dados = get_macrotema(macrotema_slug)
+        try:
+            macrotema_dados = get_macrotema(macrotema_slug)
+        except ValueError as err:
+            raise HTTPException(status_code=400, detail=str(err))
 
         if not macrotema_dados["docs_url"]:
             logger.warning(
