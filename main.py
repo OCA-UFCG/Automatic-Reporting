@@ -80,13 +80,13 @@ async def listar_macrotemas():
 
 
 @app.get("/relatorios")
-async def listar_relatorios():
-    return await listar_relatorios_handler()
+def listar_relatorios():
+    return listar_relatorios_handler()
 
 
 @app.delete("/relatorios/{arquivo_pdf}")
-async def apagar_relatorio(arquivo_pdf: str):
-    return await apagar_relatorio_handler(arquivo_pdf)
+def apagar_relatorio(arquivo_pdf: str):
+    return apagar_relatorio_handler(arquivo_pdf)
 
 
 @app.get("/relatorio/{cidade}", response_class=HTMLResponse)
