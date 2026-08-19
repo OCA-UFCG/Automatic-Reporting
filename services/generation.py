@@ -422,6 +422,10 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         except FileNotFoundError:
             pass
 
-    await _gerar_pdf(html_content, pdf_file)
+    if not await _gerar_pdf(html_content, pdf_file):
+        raise HTTPException(
+            status_code=500,
+            detail="Falha ao gerar o PDF do relatório.",
+        )
 
     return HTMLResponse(content=html_content)
