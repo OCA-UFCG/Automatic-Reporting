@@ -107,4 +107,11 @@ def normalizar_colunas_macrotema(df: pd.DataFrame, namespace: str) -> pd.DataFra
     if colunas_renomeadas:
         df = df.rename(columns=colunas_renomeadas)
 
+    duplicadas = df.columns[df.columns.duplicated()].tolist()
+    if duplicadas:
+        raise ValueError(
+            f"Colunas duplicadas após normalizar o macrotema '{namespace}': {duplicadas}. "
+            "Verifique se o CSV possui colunas com e sem prefixo simultaneamente."
+        )
+
     return df
