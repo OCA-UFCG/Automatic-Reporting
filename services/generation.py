@@ -1,16 +1,10 @@
 import logging
 import re
 import unicodedata
-from datetime import datetime, timezone
-from io import BytesIO
-from pathlib import Path
-from urllib.request import Request, urlopen
-from zoneinfo import ZoneInfo
+from datetime import datetime
 
-import pandas as pd
 from fastapi import HTTPException
 from fastapi.responses import HTMLResponse
-from weasyprint import HTML
 
 from config import (
     CARACTERISTICAS_DOCS_URL,
@@ -18,9 +12,17 @@ from config import (
     require_config_value,
     resolve_csv_source,
 )
-from utils.cities import filtrar_linhas_por_cidade
+from services.csv_loader import (
+    carregar_csv,
+    get_csv_config_for_macrotema,
+    normalizar_colunas_macrotema,
+)
+from services.macrotemas import get_macrotema, get_macrotema_slugs_para_relatorio
+from services.pdf import _gerar_pdf
 from utils.cover import montar_capa_relatorio
-from utils.docs import (
+from utils.data.cities import filtrar_linhas_por_cidade
+from utils.data.macrotemas import TODOS_MACROTEMAS_SLUG
+from utils.external.docs import (
     carregar_texto_do_docs,
     extrair_descricao_tema,
     extrair_diagnostico_cidade,
@@ -33,8 +35,7 @@ from utils.docs import (
     extrair_resumo_tema,
     remover_titulos_docs,
 )
-from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
-from utils.renderer import (
+from utils.render.renderer import (
     render_descricao_tema_html,
     render_mapa_marker,
     substituir_placeholders,
@@ -44,207 +45,12 @@ from utils.ssr import render_react_ssr
 
 logger = logging.getLogger(__name__)
 
-_CSV_CACHE: dict[str, pd.DataFrame] = {}
-
-
-def _gerar_pdf_sync(html_content: str, pdf_file: Path) -> None:
-    try:
-        pdf_html = re.sub(r'src="/output/', 'src="', html_content)
-        HTML(string=pdf_html, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
-    except (OSError, RuntimeError, TypeError, ValueError) as e:
-        logger.warning("Falha ao gerar PDF %s: %s", pdf_file, e)
-
-
-async def _gerar_pdf(html_content: str, pdf_file: Path) -> None:
-    import asyncio
-    await asyncio.to_thread(_gerar_pdf_sync, html_content, pdf_file)
-
-
-def _carregar_csv(csv_source: str | Path) -> pd.DataFrame:
-    cache_key = str(csv_source)
-    if cache_key in _CSV_CACHE:
-        return _CSV_CACHE[cache_key].copy()
-    conteudo_bytes = None
-    if isinstance(csv_source, str) and csv_source.startswith(("http://", "https://")):
-        request = Request(csv_source, headers={"User-Agent": "Mozilla/5.0"})
-        with urlopen(request, timeout=30) as response:
-            conteudo_bytes = response.read()
-    for sep in (",", ";"):
-        fonte = BytesIO(conteudo_bytes) if conteudo_bytes is not None else csv_source
-        try:
-            df = pd.read_csv(fonte, sep=sep, engine="c")
-            if len(df.columns) > 1:
-                break
-        except (pd.errors.ParserError, ValueError):
-            continue
-    _CSV_CACHE[cache_key] = df.copy()
-    return df
-
-
-def get_macrotema(slug: str) -> dict[str, str]:
-    macrotema = MACROTEMAS.get(slug)
-    if not macrotema:
-        validos = ", ".join([TODOS_MACROTEMAS_SLUG, *MACROTEMAS.keys()])
-        raise HTTPException(status_code=400, detail=f"Macrotema inválido. Use um destes: {validos}")
-    return macrotema
-
-
-def get_macrotema_slugs_para_relatorio(macrotema: str) -> list[str]:
-    if macrotema == TODOS_MACROTEMAS_SLUG:
-        return list(MACROTEMAS.keys())
-    slugs = [slug.strip() for slug in macrotema.split(",") if slug.strip()]
-    if not slugs:
-        return ["demografia"]
-    slugs_unicos: list[str] = []
-    for slug in slugs:
-        if slug == TODOS_MACROTEMAS_SLUG:
-            return list(MACROTEMAS.keys())
-        get_macrotema(slug)
-        if slug not in slugs_unicos:
-            slugs_unicos.append(slug)
-    return slugs_unicos
-
-
-def get_csv_config_for_macrotema(macrotema: dict[str, str | None]) -> tuple[str | None, str]:
-    if macrotema["csv_url"]:
-        return macrotema["csv_url"], macrotema["csv_env"]
-    return MACROTEMAS["demografia"]["csv_url"], "DEMOGRAFIA_CSV_URL"
-
-
-def normalizar_colunas_macrotema(df: pd.DataFrame, namespace: str) -> pd.DataFrame:
-    df = df.copy()
-    df.columns = [str(coluna).lstrip("\ufeff").strip() for coluna in df.columns]
-
-    if "nm_mun" not in df.columns and "city" in df.columns:
-        df = df.rename(columns={"city": "nm_mun"})
-
-    prefixo = f"{namespace}."
-    colunas_renomeadas = {
-        coluna: coluna[len(prefixo):]
-        for coluna in df.columns
-        if coluna.startswith(prefixo)
-    }
-    if colunas_renomeadas:
-        df = df.rename(columns=colunas_renomeadas)
-
-    return df
-
-
-async def listar_relatorios_handler():
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-    relatorios = []
-
-    for pdf_file in OUTPUT_DIR.glob("relatorio_*.pdf"):
-        nome_base = pdf_file.stem
-        html_file = OUTPUT_DIR / f"{nome_base}.html"
-        slug_completo = nome_base.replace("relatorio_", "", 1)
-        mapa_file = OUTPUT_DIR / f"mapa_regiao_{slug_completo}.png"
-
-        stat = pdf_file.stat()
-        # use a fixed local timezone to present dates consistently across deployments
-        local_tz = ZoneInfo("America/Fortaleza")
-        criado_em = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).astimezone(local_tz)
-        pdf_version = stat.st_mtime_ns
-        html_version = html_file.stat().st_mtime_ns if html_file.exists() else None
-        mapa_version = mapa_file.stat().st_mtime_ns if mapa_file.exists() else None
-
-        macrotema = "Demografia"
-        if "__" in slug_completo:
-            primeira_parte, restante = slug_completo.split("__", 1)
-            if primeira_parte == TODOS_MACROTEMAS_SLUG:
-                slug_cidade = restante
-                macrotema = TODOS_MACROTEMAS_NOME
-            else:
-                slugs_encontrados = [
-                    slug for slug in primeira_parte.split("_")
-                    if slug in MACROTEMAS
-                ]
-                if slugs_encontrados and "_".join(slugs_encontrados) == primeira_parte:
-                    slug_cidade = restante
-                    macrotema = ", ".join(
-                        MACROTEMAS[slug]["nome"] for slug in slugs_encontrados
-                    )
-                elif primeira_parte in MACROTEMAS:
-                    slug_cidade = restante
-                    macrotema = MACROTEMAS[primeira_parte]["nome"]
-                else:
-                    slug_cidade, _timestamp = slug_completo.rsplit("__", 1)
-        else:
-            slug_cidade = slug_completo
-
-        cidade = re.sub(r"_+", " ", slug_cidade).strip().title()
-
-        # compute stable timestamps for both UTC and local timezone
-        last_modified_utc = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
-        last_modified_local = last_modified_utc.astimezone(local_tz)
-
-        relatorios.append({
-            "cidade": cidade,
-            "macrotema": macrotema,
-            "arquivo_pdf": pdf_file.name,
-            "arquivo_html": html_file.name if html_file.exists() else None,
-            "arquivo_mapa": mapa_file.name if mapa_file.exists() else None,
-            "data": criado_em.strftime("%d/%m/%Y"),
-            "hora": criado_em.strftime("%H:%M:%S"),
-            "last_modified_utc": last_modified_utc.isoformat(),
-            "last_modified_local": last_modified_local.isoformat(),
-            # preformatted display fields (local timezone) to avoid client/SSR
-            # formatting inconsistencies across deployments
-            "display_date": last_modified_local.strftime("%d/%m/%Y"),
-            "display_time": last_modified_local.strftime("%H:%M:%S"),
-            "pdf_url": f"/output/v{pdf_version}/{pdf_file.name}",
-            "html_url": (
-                f"/output/v{html_version}/{html_file.name}"
-                if html_version is not None else None
-            ),
-            "mapa_url": (
-                f"/output/v{mapa_version}/{mapa_file.name}"
-                if mapa_version is not None else None
-            ),
-        })
-
-    # sort by the ISO UTC timestamp so ordering is unambiguous
-    relatorios.sort(key=lambda item: item.get("last_modified_utc", ""), reverse=True)
-
-    return relatorios
-
-
-async def apagar_relatorio_handler(arquivo_pdf: str):
-    nome_arquivo = arquivo_pdf.strip()
-
-    if "/" in nome_arquivo or "\\" in nome_arquivo:
-        raise HTTPException(status_code=400, detail="Nome de arquivo inválido.")
-
-    if not nome_arquivo.startswith("relatorio_") or not nome_arquivo.endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Arquivo de relatório inválido.")
-
-    pdf_path = OUTPUT_DIR / nome_arquivo
-    nome_base = pdf_path.stem
-    html_path = OUTPUT_DIR / f"{nome_base}.html"
-
-    sufixo_relatorio = nome_base.replace("relatorio_", "", 1)
-    chart_paths = [
-        OUTPUT_DIR / f"grafico_sexo_{sufixo_relatorio}.png",
-        OUTPUT_DIR / f"grafico_porte_{sufixo_relatorio}.png",
-        OUTPUT_DIR / f"grafico_top_{sufixo_relatorio}.png",
-        OUTPUT_DIR / f"mapa_regiao_{sufixo_relatorio}.png",
-    ]
-
-    removidos = []
-    for caminho in [pdf_path, html_path, *chart_paths]:
-        if caminho.exists() and caminho.is_file():
-            caminho.unlink()
-            removidos.append(caminho.name)
-
-    if not removidos:
-        raise HTTPException(status_code=404, detail="Relatório não encontrado.")
-
-    return {"ok": True, "removidos": removidos}
-
 
 async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
-    macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
+    try:
+        macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err))
     gerado_em = datetime.now().astimezone()
 
     linhas = None
@@ -259,7 +65,10 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     referencias: list[str] = []
 
     for macrotema_slug in macrotema_slugs:
-        macrotema_dados = get_macrotema(macrotema_slug)
+        try:
+            macrotema_dados = get_macrotema(macrotema_slug)
+        except ValueError as err:
+            raise HTTPException(status_code=400, detail=str(err))
 
         if not macrotema_dados["docs_url"]:
             logger.warning(
@@ -270,7 +79,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             continue
         csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
         csv_source = resolve_csv_source(csv_url, csv_env)
-        df = _carregar_csv(csv_source)
+        df = carregar_csv(csv_source)
         df = normalizar_colunas_macrotema(df, macrotema_slug)
 
         try:
@@ -613,6 +422,10 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         except FileNotFoundError:
             pass
 
-    await _gerar_pdf(html_content, pdf_file)
+    if not await _gerar_pdf(html_content, pdf_file):
+        raise HTTPException(
+            status_code=500,
+            detail="Falha ao gerar o PDF do relatório.",
+        )
 
     return HTMLResponse(content=html_content)

@@ -1,4 +1,4 @@
-from utils.renderer import substituir_placeholders, texto_para_html
+from utils.render.renderer import substituir_placeholders, texto_para_html
 
 
 def test_references_and_related_content_render_as_html():

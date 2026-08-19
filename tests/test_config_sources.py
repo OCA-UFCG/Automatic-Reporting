@@ -6,7 +6,7 @@ from config import (
     resolve_csv_source,
 )
 from utils.cover import montar_capa_relatorio
-from utils.macrotemas import MACROTEMAS
+from utils.data.macrotemas import MACROTEMAS
 
 
 def test_google_drive_csv_download_is_not_rewritten_as_google_sheets():

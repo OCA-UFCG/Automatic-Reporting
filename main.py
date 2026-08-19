@@ -4,13 +4,17 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from config import BASE_DIR, OUTPUT_DIR
-from reports import (
+from services import (
     apagar_relatorio_handler,
     gerar_relatorio_handler,
     listar_relatorios_handler,
 )
-from utils.cities import carregar_cidades
-from utils.macrotemas import MACROTEMAS, TODOS_MACROTEMAS_NOME, TODOS_MACROTEMAS_SLUG
+from utils.data.cities import carregar_cidades
+from utils.data.macrotemas import (
+    MACROTEMAS,
+    TODOS_MACROTEMAS_NOME,
+    TODOS_MACROTEMAS_SLUG,
+)
 from utils.ssr import start_server as start_ssr_server
 from utils.ssr import stop_server as stop_ssr_server
 
@@ -76,13 +80,13 @@ async def listar_macrotemas():
 
 
 @app.get("/relatorios")
-async def listar_relatorios():
-    return await listar_relatorios_handler()
+def listar_relatorios():
+    return listar_relatorios_handler()
 
 
 @app.delete("/relatorios/{arquivo_pdf}")
-async def apagar_relatorio(arquivo_pdf: str):
-    return await apagar_relatorio_handler(arquivo_pdf)
+def apagar_relatorio(arquivo_pdf: str):
+    return apagar_relatorio_handler(arquivo_pdf)
 
 
 @app.get("/relatorio/{cidade}", response_class=HTMLResponse)
