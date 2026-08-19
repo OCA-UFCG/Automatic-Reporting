@@ -68,10 +68,9 @@ def _carregar_csv_local(
     csv_source: str | Path, cache_key: str, registro: dict | None, agora: float
 ) -> pd.DataFrame:
     mtime = os.path.getmtime(csv_source)
-    if registro:
-        if mtime == registro["mtime"]:
-            registro["fetched_at"] = agora
-            return registro["df"].copy()
+    if registro and mtime == registro["mtime"]:
+        registro["fetched_at"] = agora
+        return registro["df"].copy()
     df = _parse_csv(csv_source, None)
     _CSV_CACHE[cache_key] = {"df": df.copy(), "fetched_at": agora, "mtime": mtime}
     return df
