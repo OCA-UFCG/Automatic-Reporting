@@ -37,6 +37,8 @@ from utils.external.docs import (
     extrair_resumo_tema,
     remover_titulos_docs,
 )
+from utils.geografia import separar_cidade_uf
+from utils.queries import buscar_caracteristicas_municipio
 from utils.render.renderer import (
     render_descricao_tema_html,
     render_mapa_marker,
@@ -136,6 +138,19 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 # caract_mun.$nm_mun permanecerem sem resolução, especialmente
                 # quando o relatório era iniciado por Economia e Renda.
                 contexto_caracteristicas = linhas_macrotema[0]
+                nome_cidade_db, uf_db = separar_cidade_uf(
+                    contexto_caracteristicas.get("nm_mun", "")
+                )
+                if not uf_db:
+                    uf_db = str(
+                        contexto_caracteristicas.get("sigla_uf")
+                        or contexto_caracteristicas.get("uf")
+                        or contexto_caracteristicas.get("sg_uf")
+                        or ""
+                    ).strip().upper()
+                dados_db = buscar_caracteristicas_municipio(nome_cidade_db, uf_db)
+                if dados_db:
+                    contexto_caracteristicas.update(dados_db)
                 try:
                     caracteristicas_texto = await carregar_texto_do_docs(
                         CARACTERISTICAS_DOCS_URL
