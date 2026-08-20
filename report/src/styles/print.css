@@ -1,5 +1,5 @@
 @page {
-  margin: 16mm 8mm 16mm;
+  margin: 40px 8mm 16mm;
 
   /* IMPORTANT: WeasyPrint resolves counters inside fixed elements only once,
      then repeats that value on every page. Margin boxes are evaluated per page. */
@@ -40,16 +40,13 @@
   }
 
   .pdf-page-header {
+    display: block;
     position: fixed;
-    top: -16mm;
+    top: -40px;
     left: -8mm;
     right: -8mm;
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
     width: auto;
-    height: 16mm;
+    height: 40px;
     padding: 8px 24px;
     background: #EFEFEF;
     border-bottom: 1px solid #018F39;
@@ -59,15 +56,16 @@
   }
 
   .pdf-page-header-brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    display: block;
+    line-height: 1;
   }
 
   .pdf-page-header-brand--official {
-    width: auto;
-    height: 28px;
-    gap: 10px;
+    position: absolute;
+    left: 24px;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 24px;
   }
 
   .pdf-page-header-brand--official svg path,
@@ -82,29 +80,15 @@
     fill: none !important;
   }
 
-  .pdf-page-header-brand--official .pdf-cover-brand {
+  .pdf-page-header-brand--official svg mask path {
+    fill: #FFFFFF !important;
+    stroke: #FFFFFF !important;
+  }
+
+  .pdf-page-header-brand--official .pdf-page-header-brand-sprite {
     display: block;
-    width: 50px;
+    width: 132px;
     height: 24px;
-  }
-
-  .pdf-page-header-brand--official .pdf-cover-brand svg {
-    width: 50px;
-    height: 24px;
-  }
-
-  .pdf-page-header-sudene-official {
-    display: block;
-    width: 49px;
-    height: 28px;
-    overflow: hidden;
-  }
-
-  .pdf-page-header-sudene-official svg {
-    display: block;
-    width: 97px;
-    height: 28px;
-    max-width: none;
   }
 
   .pdf-page-header-logo {

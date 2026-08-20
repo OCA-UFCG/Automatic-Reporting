@@ -6,6 +6,8 @@ import MetricCard from './MetricCard.jsx';
 import ScoreLegend from './ScoreLegend.jsx';
 import ThemeDetail from '../ThemeDetail.jsx';
 
+const LIGHT_BADGE_COLORS = new Set(['#FFD65A', '#B0CC41']);
+
 export default function Cover({ cover }) {
   const hasMaps = cover.macrotema?.descricao_html?.length > 0;
   const macrotemas = cover.macrotemas && cover.macrotemas.length > 0
@@ -34,7 +36,10 @@ export default function Cover({ cover }) {
             {macrotemasTags.map((macrotema, idx) => (
               <span
                 className="cover-macrotheme-tag"
-                style={{ backgroundColor: macrotema.cor || '#018F39' }}
+                style={{
+                  backgroundColor: macrotema.cor || '#018F39',
+                  color: LIGHT_BADGE_COLORS.has(macrotema.cor) ? '#292829' : '#FFFFFF',
+                }}
                 key={macrotema.slug || `${macrotema.nome}-${idx}`}
               >
                 {macrotema.nome}

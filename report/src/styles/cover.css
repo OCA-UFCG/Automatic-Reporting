@@ -16,9 +16,7 @@
 }
 
 .cover-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  position: relative;
   width: 100%;
   height: 40px;
 }
@@ -82,13 +80,20 @@
 
 .cover-start-label,
 .pdf-page-header-label {
-  margin-left: auto;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
   color: #333333;
   font-family: 'Inter', Arial, sans-serif;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 500;
   line-height: 24px;
   white-space: nowrap;
+}
+
+.pdf-page-header-label {
+  right: 24px;
 }
 
 .pdf-cover-brand {
@@ -139,9 +144,11 @@
 .cover-macrotheme-tag {
   display: inline-block;
   vertical-align: middle;
-  margin: 0 4px 4px 0;
+  box-sizing: border-box;
+  height: 15px;
   min-height: 15px;
-  padding: 1.4px 7.16px;
+  margin: 0 4px 4px 0;
+  padding: 1.43px 7.16px;
   border-radius: 999px;
   color: #fff;
   font-family: 'Inter', var(--font-sans);
@@ -1080,9 +1087,6 @@
   }
 
   .cover-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
     width: 100%;
     height: auto;
   }
