@@ -37,8 +37,14 @@ from utils.external.docs import (
     extrair_resumo_tema,
     remover_titulos_docs,
 )
-from utils.geografia import separar_cidade_uf
-from utils.queries import buscar_caracteristicas_municipio
+from utils.geografia import resolver_nome_uf
+from utils.queries.caracteristicas import buscar_caracteristicas_municipio
+from utils.queries.demografia import (
+    buscar_demografia_sexo_faixa_etaria,
+    buscar_populacao_demografia,
+    buscar_populacao_indigena,
+    buscar_populacao_rua,
+)
 from utils.render.renderer import (
     render_descricao_tema_html,
     render_mapa_marker,
@@ -69,6 +75,19 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     resumo_relatorio_html_parts: list[str] = []
     resumo_relatorio_parts: list[str] = []
     referencias: list[str] = []
+
+    # Dados do banco não variam por macrotema (mesma cidade), então são
+    # buscados uma única vez (na primeira linha de CSV disponível, que tem o
+    # fallback de UF que o parâmetro `cidade` isolado não tem) e mesclados na
+    # linha de cada macrotema mais abaixo. Cada macrotema com dados no banco
+    # tem sua própria consulta em utils/queries.py, mas o merge é sempre o
+    # mesmo dict simples.
+    db_consultado = False
+    dados_caracteristicas_db = None
+    dados_demografia_db = None
+    dados_sexo_faixa = None
+    dados_indigena = None
+    dados_rua = None
 
     for macrotema_slug in macrotema_slugs:
         try:
@@ -102,22 +121,43 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             linha["data_relatorio"] = gerado_em.strftime("%d/%m/%Y")
             linha["hora_relatorio"] = gerado_em.strftime("%H:%M")
 
+        if not db_consultado:
+            nome_cidade_db, uf_db = resolver_nome_uf(linhas_macrotema[0])
+            dados_caracteristicas_db = buscar_caracteristicas_municipio(nome_cidade_db, uf_db)
+            if "demografia" in macrotema_slugs:
+                dados_demografia_db = buscar_populacao_demografia(nome_cidade_db, uf_db)
+                # Additional demographic breakdowns
+                dados_sexo_faixa = buscar_demografia_sexo_faixa_etaria(nome_cidade_db, uf_db)
+                dados_indigena = buscar_populacao_indigena(nome_cidade_db, uf_db)
+            dados_rua = buscar_populacao_rua(nome_cidade_db, uf_db)
+            db_consultado = True
+
+        # Dados vindos do banco sobrescrevem os do CSV para os campos que já
+        # foram migrados — nenhum placeholder precisa de tratamento especial
+        # além de existir na query correspondente (ver comentário acima).
+        if dados_caracteristicas_db:
+            for linha in linhas_macrotema:
+                linha.update(dados_caracteristicas_db)
+
+        if macrotema_slug == "demografia" and dados_demografia_db:
+            for linha in linhas_macrotema:
+                linha.update(dados_demografia_db)
+
+        # Merge additional demographic breakdowns (sexo, faixa etária, raça, indígena)
+        if "demografia" in macrotema_slugs and dados_sexo_faixa:
+            for linha in linhas_macrotema:
+                linha.update(dados_sexo_faixa)
+        if "demografia" in macrotema_slugs and dados_indigena:
+            for linha in linhas_macrotema:
+                linha.update(dados_indigena)
+
+        # Merge population in street situation data
+        if dados_rua:
+            for linha in linhas_macrotema:
+                linha.update(dados_rua)
+
         if linhas is None:
             linhas = linhas_macrotema
-
-            # Merge database data (area_territorial, pop_total, aniversario) into the
-            # first row so montar_capa_relatorio can use them for the metric cards.
-            nome_cidade_db, uf_db = separar_cidade_uf(linhas[0].get("nm_mun", ""))
-            if not uf_db:
-                uf_db = str(
-                    linhas[0].get("sigla_uf")
-                    or linhas[0].get("uf")
-                    or linhas[0].get("sg_uf")
-                    or ""
-                ).strip().upper()
-            dados_db = buscar_caracteristicas_municipio(nome_cidade_db, uf_db)
-            if dados_db:
-                linhas[0].update(dados_db)
 
             cover = montar_capa_relatorio(
                 linhas[0],
@@ -153,9 +193,8 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 # caract_mun.$nm_mun permanecerem sem resolução, especialmente
                 # quando o relatório era iniciado por Economia e Renda.
                 contexto_caracteristicas = linhas_macrotema[0]
-                # Database data (area_territorial, pop_total, aniversario) was
-                # already merged into linhas[0] above; linha_macrotema[0] is the
-                # same object, so it already has the DB fields.
+                # Os dados do banco (area_territorial, pop_total, aniversario
+                # etc.) já foram mesclados nessa linha acima.
                 try:
                     caracteristicas_texto = await carregar_texto_do_docs(
                         CARACTERISTICAS_DOCS_URL

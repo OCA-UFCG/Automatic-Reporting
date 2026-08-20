@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from utils.formatting import formatar_numero_ptbr
 from utils.geografia import separar_cidade_uf
 
 
@@ -181,16 +182,7 @@ def montar_capa_relatorio(
             valor = linha.get(chave)
             if valor is None or not str(valor).strip():
                 continue
-            try:
-                numero = float(valor)
-            except (TypeError, ValueError):
-                texto_valor = str(valor).strip()
-                try:
-                    numero = float(texto_valor.replace(".", "").replace(",", "."))
-                except ValueError:
-                    return texto_valor
-            texto = f"{numero:,.{decimais}f}"
-            return texto.replace(",", "_").replace(".", ",").replace("_", ".")
+            return formatar_numero_ptbr(valor, decimais=decimais)
         return fallback
 
     return {

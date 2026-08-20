@@ -1,10 +1,4 @@
-import logging
-
-import psycopg2
-
-from utils.database import get_connection
-
-logger = logging.getLogger(__name__)
+from utils.queries.base import executar_query
 
 MESES_PT = {
     1: "janeiro",
@@ -48,27 +42,11 @@ CARACTERISTICAS_MUNICIPIO = """
 def buscar_caracteristicas_municipio(
     nome_municipio: str, sigla_uf: str
 ) -> dict[str, object] | None:
-    try:
-        conn = get_connection()
-    except psycopg2.Error as err:
-        logger.warning("Falha ao conectar ao banco de dados: %s", err)
-        return None
-
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(CARACTERISTICAS_MUNICIPIO, (nome_municipio, sigla_uf))
-            linha = cursor.fetchone()
-    except psycopg2.Error as err:
-        logger.warning(
-            "Falha ao buscar características do município '%s (%s)': %s",
-            nome_municipio,
-            sigla_uf,
-            err,
-        )
-        return None
-    finally:
-        conn.close()
-
+    linha = executar_query(
+        CARACTERISTICAS_MUNICIPIO,
+        (nome_municipio, sigla_uf),
+        f"características de '{nome_municipio} ({sigla_uf})'",
+    )
     if linha is None:
         return None
 

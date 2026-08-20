@@ -1,4 +1,7 @@
 import re
+from decimal import Decimal
+
+from utils.formatting import formatar_numero_ptbr
 
 
 def _resolver_caminho_em_contexto(contexto: dict, caminho: str) -> object | None:
@@ -8,6 +11,27 @@ def _resolver_caminho_em_contexto(contexto: dict, caminho: str) -> object | None
             return None
         atual = atual[parte]
     return atual
+
+
+def _resolver_percentual_derivado(contexto: dict, campo: str) -> object | None:
+    """Resolve genericamente qualquer $campo_per como percentual de $campo
+    sobre $pop_total, sem exigir que a query tenha calculado esse percentual
+    especificamente. Só funciona se ambos os valores forem números crus (não
+    strings já formatadas) — por isso as queries em utils/queries.py devem
+    devolver números, deixando a formatação para a hora de montar o texto."""
+    if not campo.endswith("_per"):
+        return None
+
+    campo_base = campo[: -len("_per")]
+    valor_base = _resolver_caminho_em_contexto(contexto, campo_base)
+    total = _resolver_caminho_em_contexto(contexto, "pop_total")
+    if valor_base is None or not total:
+        return None
+
+    try:
+        return round(float(valor_base) / float(total) * 100, 1)
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
 
 
 def _resolver_campo_com_alias(contexto: dict, campo: str) -> object | None:
@@ -39,7 +63,21 @@ def _resolver_campo_com_alias(contexto: dict, campo: str) -> object | None:
     if campo == "ano":
         return _resolver_caminho_em_contexto(contexto, "year")
 
+    valor = _resolver_percentual_derivado(contexto, campo)
+    if valor is not None:
+        return valor
+
     return None
+
+
+def _formatar_valor(valor: object) -> str:
+    if isinstance(valor, bool):
+        return str(valor)
+    if isinstance(valor, (int, float, Decimal)):
+        numero = float(valor)
+        decimais = 0 if numero == int(numero) else 1
+        return formatar_numero_ptbr(numero, decimais=decimais)
+    return str(valor)
 
 
 def _resolver_contexto_por_alias(contexto: dict, alias: str, namespace: str) -> dict:
@@ -64,6 +102,10 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
         "csv": contexto,
     }
 
+    def _resolver_ou_manter(match: re.Match) -> str:
+        valor = _resolver_campo_com_alias(contexto, match.group(1))
+        return _formatar_valor(valor) if valor is not None else match.group(0)
+
     def _substituir_dolar(match: re.Match) -> str:
         placeholder_namespace = match.group(1).lower()
         campo = match.group(2)
@@ -76,7 +118,7 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
         if isinstance(contexto_alvo, dict):
             valor = _resolver_campo_com_alias(contexto_alvo, campo)
             if valor is not None:
-                return str(valor)
+                return _formatar_valor(valor)
         return match.group(0)
 
     alias_map = {
@@ -96,33 +138,21 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
     resultado = re.sub(
         rf"(?i)(?<![\w]){re.escape(namespace)}\."
         rf"{re.escape(namespace)}\.\$([A-Za-z_][\w]*)",
-        lambda m: str(
-            _resolver_campo_com_alias(contexto, m.group(1))
-            if _resolver_campo_com_alias(contexto, m.group(1)) is not None
-            else m.group(0)
-        ),
+        _resolver_ou_manter,
         resultado,
     )
 
     # Formato usado em alguns documentos: namespace.$campo.
     resultado = re.sub(
         rf"(?i)(?<![\w]){re.escape(namespace)}\.\$([A-Za-z_][\w]*)",
-        lambda m: str(
-            _resolver_campo_com_alias(contexto, m.group(1))
-            if _resolver_campo_com_alias(contexto, m.group(1)) is not None
-            else m.group(0)
-        ),
+        _resolver_ou_manter,
         resultado,
     )
 
     # Formato usado nos documentos: $Table.nome_da_tabela$campo.
     resultado = re.sub(
         r"\$(?:table|tabela|sheet|planilha)\.[A-Za-z_][\w]*\$([A-Za-z_][\w]*)",
-        lambda m: str(
-            _resolver_campo_com_alias(contexto, m.group(1))
-            if _resolver_campo_com_alias(contexto, m.group(1)) is not None
-            else m.group(0)
-        ),
+        _resolver_ou_manter,
         resultado,
         flags=re.IGNORECASE,
     )
@@ -136,11 +166,7 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
     # Campos simples vêm diretamente da linha da tabela do macrotema.
     resultado = re.sub(
         r"\$([A-Za-z_][\w]*)",
-        lambda m: str(
-            _resolver_campo_com_alias(contexto, m.group(1))
-            if _resolver_campo_com_alias(contexto, m.group(1)) is not None
-            else m.group(0)
-        ),
+        _resolver_ou_manter,
         resultado,
     )
 
