@@ -330,11 +330,6 @@ li {
   .doc-content {
     width: 100%;
     margin: 0;
-    /* padding-top (não margin-top): margin no topo de uma página nova
-       colapsa na paginação do WeasyPrint, colando o texto no cabeçalho.
-       box-decoration-break: clone repete esse padding-top em toda página
-       de continuação (não só na primeira), já que o elemento é bem mais
-       longo que uma página e quebra em vários fragmentos. */
     padding: 18.67px 33.76px 0;
     box-sizing: border-box;
     box-decoration-break: clone;

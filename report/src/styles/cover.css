@@ -749,8 +749,6 @@
 
 @media print {
   .cover-report-header {
-    /* sem margin-bottom: o gap até "Apresentação" já vem do padding-top
-       de .cover-content — somar os dois dobrava o espaçamento. */
     margin: 0 -8mm;
     padding: 21.33px calc(8mm + 33.76px) 10.67px;
     background: #F8F7F8;
@@ -1019,9 +1017,6 @@
     margin: 0;
     padding: 32px 33.76px;
     box-sizing: border-box;
-    /* repete o padding-top em toda página de continuação, caso o conteúdo
-       de um macrotema seja longo o suficiente pra quebrar em mais de uma
-       página. */
     box-decoration-break: clone;
   }
 

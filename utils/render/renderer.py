@@ -66,9 +66,7 @@ def render_descricao_tema_html(
 ) -> list[str]:
     partes = []
     for paragrafo in re.split(r"\n\s*\n", descricao_tema):
-        # preserva tabs/espaços iniciais (usados para indentar o parágrafo no
-        # PDF); remove apenas quebras de linha ao redor do bloco.
-        paragrafo = paragrafo.strip("\n\r")
+        paragrafo = paragrafo.strip("\n\r") 
         if not paragrafo:
             continue
 
@@ -132,10 +130,6 @@ def texto_para_html(
         linha_sem_bom = linha.lstrip("\ufeff")
         sem_tabs = linha_sem_bom.lstrip("\t")
         n_tabs = len(linha_sem_bom) - len(sem_tabs)
-        # o Google Docs converte um Tab digitado no in\u00edcio do par\u00e1grafo em
-        # recuo de formata\u00e7\u00e3o (n\u00e3o um caractere), que se perde na exporta\u00e7\u00e3o
-        # em texto puro \u2014 por isso tamb\u00e9m aceitamos espa\u00e7os (a cada 4) como
-        # marcador de indenta\u00e7\u00e3o, j\u00e1 que esses sobrevivem \u00e0 exporta\u00e7\u00e3o.
         sem_espacos = sem_tabs.lstrip(" ")
         n_espacos = len(sem_tabs) - len(sem_espacos)
         nivel_indentacao = n_tabs + n_espacos // 4

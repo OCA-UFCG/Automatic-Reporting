@@ -104,14 +104,8 @@ def limpar_texto_exportado_docs(texto: str) -> str:
 
 
 def _remover_separador_apos_marcador(bloco: str) -> str:
-    """Remove só as quebras de linha e o separador curto "= texto" iniciais.
-
-    O Google Docs converte um Tab digitado no início do parágrafo em recuo de
-    formatação (não um caractere), que não sobrevive à exportação em texto
-    puro — por isso um recuo intencional é digitado como 4+ espaços (ou um
-    tab literal, se sobreviver). Isso precisa ser distinguido do espaço único
-    de "marcador = texto", que deve ser removido normalmente.
-    """
+    """Remove quebras de linha e o separador curto "= texto"; preserva um
+    recuo intencional (tab ou 4+ espaços) logo após o marcador."""
     bloco = bloco.lstrip("\n\r")
     if bloco.startswith("\t"):
         return bloco
