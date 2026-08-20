@@ -6,3 +6,4 @@ matplotlib
 geopandas
 weasyprint
 dotenv
+sqlalchemy
