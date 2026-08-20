@@ -99,65 +99,67 @@
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  padding: 0;
+  padding: 16px 48px;
 }
 
 .cover-report-header {
-  margin: 0 0 20px;
-  padding: 12px 16px;
-  background: #f8f7f8;
+  margin: 0;
+  padding: 16px 48px 8px;
+  background: #F8F7F8;
+  border-top: 2px solid #018F39;
   box-sizing: border-box;
 }
 
 .cover-report-eyebrow {
-  margin: 0 0 2px;
+  margin: 0 0 4px;
   color: #085F2D;
   font-family: 'Inter', var(--font-sans);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 400;
   line-height: 150%;
+  letter-spacing: -0.012em;
 }
 
 .cover-report-title {
-  margin: 0 0 5px;
+  margin: 0 0 4px;
   color: #292829;
   font-family: 'Inter', var(--font-sans);
   font-size: 20px;
-  font-weight: 800;
-  line-height: 125%;
+  font-weight: 600;
+  line-height: 28px;
+  letter-spacing: -0.0075em;
   text-align: left;
 }
 
 .cover-macrotheme-tags {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
+  display: block;
+  margin: 0;
 }
 
 .cover-macrotheme-tag {
-  display: inline-flex;
-  align-items: center;
-  min-height: 14px;
-  padding: 2px 7px;
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 4px 4px 0;
+  min-height: 15px;
+  padding: 1.4px 7.16px;
   border-radius: 999px;
   color: #fff;
   font-family: 'Inter', var(--font-sans);
-  font-size: 8px;
+  font-size: 8.59px;
   font-weight: 600;
-  line-height: 125%;
+  line-height: 11px;
   white-space: nowrap;
 }
 
 .cover-presentation {
-  margin-top: 20px;
+  margin: 0 0 16px;
 }
 
 .cover-kicker {
-  margin: 0 0 8px;
+  margin: 0 0 2px;
   color: #085F2D;
   font-family: 'Inter', var(--font-sans);
-  font-size: 16px;
+  font-size: 12px;
   font-weight: 500;
   line-height: 150%;
   letter-spacing: -0.012em;
@@ -178,16 +180,17 @@
   font-family: 'Inter', var(--font-sans);
   font-size: 12px;
   font-weight: 400;
-  line-height: 150%;
+  line-height: 130%;
   letter-spacing: 0%;
   color: #292829;
 }
 
+.cover-relatorio-geral-wrap,
 .cover-resumo-cidade-wrap {
-  margin: 8px 0 12px;
+  margin: 0;
   font-family: 'Inter', var(--font-sans);
   font-size: 12px;
-  line-height: 150%;
+  line-height: 130%;
   letter-spacing: 0%;
   color: #292829;
   font-weight: 400;
@@ -196,6 +199,7 @@
 .cover-resumo-relatorio-wrap p,
 .cover-resumo-cidade-wrap p,
 .cover-resumo-relatorio-wrap > div,
+.cover-relatorio-geral-wrap > div,
 .cover-resumo-cidade-wrap > div {
   margin: 0;
 }
@@ -361,7 +365,7 @@
   background: #F8F7F8;
   border-left: 3px solid var(--macrotheme-color, #D65384);
   border-radius: 8px;
-  margin-bottom: 16px;
+  margin: 0 48px 16px;
   box-sizing: border-box;
 }
 
@@ -447,6 +451,8 @@
 
 .indicator-scores {
   margin: 0;
+  padding: 0 48px;
+  box-sizing: border-box;
 }
 
 .indicator-scores-title {
@@ -577,6 +583,8 @@
   gap: 4px;
   margin-top: 16px;
   margin-bottom: 16px;
+  padding: 0 48px;
+  box-sizing: border-box;
 }
 
 .score-legend-title {
@@ -644,8 +652,9 @@
   font-size: 12px;
   font-weight: 400;
   font-style: normal;
-  line-height: 150%;
+  line-height: 130%;
   letter-spacing: 0%;
+  text-align: justify;
 }
 
 .cover-maps {
@@ -745,10 +754,10 @@
 
 @media print {
   .cover-report-header {
-    width: auto;
     margin: 0 -8mm 16px;
-    padding: 12px 16mm 10px;
-    background: #f8f7f8;
+    padding: 16px calc(8mm + 48px) 8px;
+    background: #F8F7F8;
+    border-top: 2px solid #018F39;
   }
 
   .cover-maps-group {
@@ -922,12 +931,16 @@
   font-family: var(--font-sans);
   color: #26272c;
   margin-top: 80px;
+  padding: 0 48px;
+  box-sizing: border-box;
 }
 
 .resumo-relatorio-page {
   font-family: var(--font-sans);
   color: #26272c;
   margin-top: 0;
+  padding: 0 48px;
+  box-sizing: border-box;
 }
 
 .theme-detail-header {
@@ -961,9 +974,9 @@
   font-size: 12px;
   font-weight: 400;
   font-style: normal;
-  line-height: 150%;
+  line-height: 130%;
   letter-spacing: 0%;
-  text-align: left;
+  text-align: justify;
 }
 
 @media print {
@@ -971,11 +984,17 @@
     display: none;
   }
 
-  .report-cover,
-  .theme-detail-page {
+  .report-cover {
     width: 100%;
     margin: 0;
     padding: 0;
+    box-sizing: border-box;
+  }
+
+  .theme-detail-page {
+    width: 100%;
+    margin: 0;
+    padding: 0 48px;
     box-sizing: border-box;
   }
 
@@ -987,8 +1006,8 @@
   }
 
   .cover-kicker {
-    margin-bottom: 8px;
-    font-size: 16px;
+    margin-bottom: 2px;
+    font-size: 12px;
     font-weight: 500;
   }
 
@@ -1039,7 +1058,7 @@
   .theme-detail-text {
     margin-bottom: 8px;
     font-size: 12px;
-    line-height: 150%;
+    line-height: 130%;
   }
 
   .cover-brand {

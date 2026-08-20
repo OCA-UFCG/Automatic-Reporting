@@ -28,25 +28,25 @@ export default function Cover({ cover }) {
           <span className="cover-start-label">Dados municipais reunidos em uma única plataforma</span>
         </div>
       </div>
-      <div className="cover-content">
-        <header className="cover-report-header">
-          <p className="cover-report-eyebrow">Relatório</p>
-          <h1 className="cover-report-title">{cidade || 'Município'}</h1>
-          {macrotemasTags.length > 0 && (
-            <div className="cover-macrotheme-tags" aria-label="Macrotemas selecionados">
-              {macrotemasTags.map((macrotema, idx) => (
-                <span
-                  className="cover-macrotheme-tag"
-                  style={{ backgroundColor: macrotema.cor || '#018F39' }}
-                  key={macrotema.slug || `${macrotema.nome}-${idx}`}
-                >
-                  {macrotema.nome}
-                </span>
-              ))}
-            </div>
-          )}
-        </header>
+      <header className="cover-report-header">
+        <p className="cover-report-eyebrow">Relatório</p>
+        <h1 className="cover-report-title">{cidade || 'Município'}</h1>
+        {macrotemasTags.length > 0 && (
+          <div className="cover-macrotheme-tags" aria-label="Macrotemas selecionados">
+            {macrotemasTags.map((macrotema, idx) => (
+              <span
+                className="cover-macrotheme-tag"
+                style={{ backgroundColor: macrotema.cor || '#018F39' }}
+                key={macrotema.slug || `${macrotema.nome}-${idx}`}
+              >
+                {macrotema.nome}
+              </span>
+            ))}
+          </div>
+        )}
+      </header>
 
+      <div className="cover-content">
         {cover.relatorio_geral_html?.length > 0 && (
           <section className="cover-presentation">
             <div className="cover-kicker">Apresentação</div>
