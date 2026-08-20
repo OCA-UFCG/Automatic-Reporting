@@ -5,9 +5,9 @@ from config import (
     MEIO_AMBIENTE_DOCS_URL,
     resolve_csv_source,
 )
+from services.macrotemas import get_macrotema_slugs_para_relatorio
 from utils.cover import montar_capa_relatorio
 from utils.data.macrotemas import MACROTEMAS
-from services.macrotemas import get_macrotema_slugs_para_relatorio
 
 
 def test_google_drive_csv_download_is_not_rewritten_as_google_sheets():
