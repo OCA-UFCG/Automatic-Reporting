@@ -14,9 +14,9 @@ export default function Report({ cover, docsHtml }) {
       </head>
       <body>
         <PdfPageHeader label="Dados municipais reunidos em uma única plataforma" />
-        <PdfFooter data={cover.data_extenso} />
         <Cover cover={cover} />
         <div className="doc-content" dangerouslySetInnerHTML={{ __html: docsHtml }} />
+        <PdfFooter data={cover.data_extenso} />
       </body>
     </html>
   );

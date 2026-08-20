@@ -749,7 +749,9 @@
 
 @media print {
   .cover-report-header {
-    margin: 0 -8mm 21.33px;
+    /* sem margin-bottom: o gap até "Apresentação" já vem do padding-top
+       de .cover-content — somar os dois dobrava o espaçamento. */
+    margin: 0 -8mm;
     padding: 21.33px calc(8mm + 33.76px) 10.67px;
     background: #F8F7F8;
     border-top: 2px solid #018F39;
