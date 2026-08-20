@@ -4,8 +4,8 @@
   /* IMPORTANT: WeasyPrint resolves counters inside fixed elements only once,
      then repeats that value on every page. Margin boxes are evaluated per page. */
   @bottom-right {
-    content: counter(page, decimal-leading-zero);
-    width: 24px;
+    content: counter(page) "/" counter(pages);
+    width: 48px;
     padding: 8px 24px 8px 0;
     font-family: 'Inter', Arial, sans-serif;
     font-size: 12px;
@@ -62,6 +62,49 @@
     display: flex;
     align-items: center;
     gap: 10px;
+  }
+
+  .pdf-page-header-brand--official {
+    width: auto;
+    height: 28px;
+    gap: 10px;
+  }
+
+  .pdf-page-header-brand--official svg path,
+  .pdf-page-header-brand--official svg rect,
+  .pdf-page-header-brand--official svg circle,
+  .pdf-page-header-brand--official svg polygon {
+    fill: #1B1918 !important;
+    stroke: #1B1918 !important;
+  }
+
+  .pdf-page-header-brand--official svg [fill="none"] {
+    fill: none !important;
+  }
+
+  .pdf-page-header-brand--official .pdf-cover-brand {
+    display: block;
+    width: 50px;
+    height: 24px;
+  }
+
+  .pdf-page-header-brand--official .pdf-cover-brand svg {
+    width: 50px;
+    height: 24px;
+  }
+
+  .pdf-page-header-sudene-official {
+    display: block;
+    width: 49px;
+    height: 28px;
+    overflow: hidden;
+  }
+
+  .pdf-page-header-sudene-official svg {
+    display: block;
+    width: 97px;
+    height: 28px;
+    max-width: none;
   }
 
   .pdf-page-header-logo {

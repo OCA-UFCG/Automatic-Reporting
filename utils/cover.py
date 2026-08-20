@@ -40,10 +40,10 @@ def montar_capa_relatorio(
     else:
         if "saúde" in macrotema_normalizado or "saude" in macrotema_normalizado:
             macrotema_icone = "health"
-            macrotema_cor = "#758F21"
+            macrotema_cor = "#E5333F"
         elif "educa" in macrotema_normalizado:
             macrotema_icone = "book"
-            macrotema_cor = "#F99C07"
+            macrotema_cor = "#FFD65A"
         elif "demo" in macrotema_normalizado:
             macrotema_icone = "people"
             macrotema_cor = "#D65384"
@@ -58,7 +58,7 @@ def montar_capa_relatorio(
             macrotema_cor = "#001A72"
         elif "meio" in macrotema_normalizado or "ambiente" in macrotema_normalizado:
             macrotema_icone = "leaf"
-            macrotema_cor = "#97B42E"
+            macrotema_cor = "#B0CC41"
         elif "hídrica" in macrotema_normalizado or "hidrica" in macrotema_normalizado or "segurança" in macrotema_normalizado:
             macrotema_icone = "water"
             macrotema_cor = "#35B2DB"
