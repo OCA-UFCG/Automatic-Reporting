@@ -104,6 +104,21 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
 
         if linhas is None:
             linhas = linhas_macrotema
+
+            # Merge database data (area_territorial, pop_total, aniversario) into the
+            # first row so montar_capa_relatorio can use them for the metric cards.
+            nome_cidade_db, uf_db = separar_cidade_uf(linhas[0].get("nm_mun", ""))
+            if not uf_db:
+                uf_db = str(
+                    linhas[0].get("sigla_uf")
+                    or linhas[0].get("uf")
+                    or linhas[0].get("sg_uf")
+                    or ""
+                ).strip().upper()
+            dados_db = buscar_caracteristicas_municipio(nome_cidade_db, uf_db)
+            if dados_db:
+                linhas[0].update(dados_db)
+
             cover = montar_capa_relatorio(
                 linhas[0],
                 gerado_em,
@@ -138,19 +153,9 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 # caract_mun.$nm_mun permanecerem sem resolução, especialmente
                 # quando o relatório era iniciado por Economia e Renda.
                 contexto_caracteristicas = linhas_macrotema[0]
-                nome_cidade_db, uf_db = separar_cidade_uf(
-                    contexto_caracteristicas.get("nm_mun", "")
-                )
-                if not uf_db:
-                    uf_db = str(
-                        contexto_caracteristicas.get("sigla_uf")
-                        or contexto_caracteristicas.get("uf")
-                        or contexto_caracteristicas.get("sg_uf")
-                        or ""
-                    ).strip().upper()
-                dados_db = buscar_caracteristicas_municipio(nome_cidade_db, uf_db)
-                if dados_db:
-                    contexto_caracteristicas.update(dados_db)
+                # Database data (area_territorial, pop_total, aniversario) was
+                # already merged into linhas[0] above; linha_macrotema[0] is the
+                # same object, so it already has the DB fields.
                 try:
                     caracteristicas_texto = await carregar_texto_do_docs(
                         CARACTERISTICAS_DOCS_URL

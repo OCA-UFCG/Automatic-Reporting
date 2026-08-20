@@ -215,16 +215,17 @@
 .cover-metrics {
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: stretch;
   padding: 0;
-  gap: 10.67px;
+  gap: 8px;
   margin: 21.33px 0 0;
 }
 
 .metric-card {
-  flex: 1 1 160px;
-  min-width: 160px;
+  flex: 0 0 327.33px;
+  width: 327.33px;
+  height: 93.33px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -240,11 +241,13 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
+  gap: 5.33px;
   padding: 5.33px 10.67px;
   background: #F8F7F8;
   box-sizing: border-box;
   align-self: stretch;
+  width: 327.33px;
+  height: 41.33px;
 }
 
 .metric-icon-box {
@@ -274,7 +277,7 @@
   flex-direction: column;
   flex: 1 1 auto;
   min-width: 0;
-  gap: 1.33px;
+  gap: 0px;
 }
 
 .metric-label {
@@ -289,6 +292,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   width: 100%;
+  height: 18.67px;
 }
 
 .metric-source {
@@ -302,6 +306,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   width: 100%;
+  height: 12px;
 }
 
 .metric-content {
@@ -312,6 +317,8 @@
   gap: 5.33px;
   box-sizing: border-box;
   align-self: stretch;
+  width: 327.33px;
+  height: 52px;
 }
 
 .metric-value {
@@ -325,6 +332,8 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  width: 306px;
+  height: 24px;
 }
 
 .metric-unit {
@@ -342,6 +351,8 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  width: 306px;
+  height: 12px;
 }
 
 .macrotheme-summary {

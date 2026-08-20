@@ -176,6 +176,23 @@ def montar_capa_relatorio(
                 return str(valor)
         return fallback
 
+    def numero_formatado(*chaves: str, decimais: int = 0, fallback: str = "N/D") -> str:
+        for chave in chaves:
+            valor = linha.get(chave)
+            if valor is None or not str(valor).strip():
+                continue
+            try:
+                numero = float(valor)
+            except (TypeError, ValueError):
+                texto_valor = str(valor).strip()
+                try:
+                    numero = float(texto_valor.replace(".", "").replace(",", "."))
+                except ValueError:
+                    return texto_valor
+            texto = f"{numero:,.{decimais}f}"
+            return texto.replace(",", "_").replace(".", ",").replace("_", ".")
+        return fallback
+
     return {
         "data_extenso": formatar_data_extenso(gerado_em),
         "data_hora_extenso": formatar_data_hora_extenso(gerado_em),
@@ -241,7 +258,9 @@ def montar_capa_relatorio(
         "metricas": [
             {
                 "rotulo": "Área territorial",
-                "valor": primeiro_valor("area_territorial", "area", "area_km2"),
+                "valor": numero_formatado(
+                    "area_territorial", "area", "area_km2", decimais=1
+                ),
                 "sufixo": "Km²",
                 "fonte": "Censo demográfico 2022",
                 "caption": "Tamanho do território",
@@ -249,7 +268,7 @@ def montar_capa_relatorio(
             },
             {
                 "rotulo": "População",
-                "valor": primeiro_valor("pop_total", fallback="N/D"),
+                "valor": numero_formatado("pop_total", fallback="N/D"),
                 "sufixo": "",
                 "fonte": "Censo demográfico 2022",
                 "caption": "Número de residentes",
