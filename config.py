@@ -39,6 +39,11 @@ SAUDE_DOCS_URL = get_config_value("SAUDE_DOCS_URL")
 ECONOMIA_RENDA_DOCS_URL = get_config_value("ECONOMIA_RENDA_DOCS_URL")
 SANEAMENTO_DOCS_URL = get_config_value("SANEAMENTO_DOCS_URL")
 HIDRAULICA_DOCS_URL = get_config_value("HIDRAULICA_DOCS_URL")
+DB_HOST = get_config_value("DB_HOST")
+DB_DATABASE = get_config_value("DB_DATABASE")
+DB_USER = get_config_value("DB_USER")
+DB_PASSWORD = get_config_value("DB_PASSWORD")
+DB_PORT = get_config_value("DB_PORT")
 
 MACROTEMAS = {
     "demografia": {
@@ -157,7 +162,7 @@ def require_config_value(value: str | None, env_name: str) -> str:
             detail=f"{env_name} não configurado. Defina no arquivo .config, .env ou nas variáveis de ambiente.",
         )
     return value
-
+  
 
 def _parse_google_sheets_file_id(value: str) -> str | None:
     if "/d/" in value:
