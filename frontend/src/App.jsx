@@ -7,12 +7,12 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || window.location.origin;
 const MACROTEMAS = [
   { slug: "demografia", nome: "Demografia" },
   { slug: "educacao", nome: "Educação" },
-  { slug: "desenvolvimento-social", nome: "Desenvolvimento Social" },
   { slug: "saude", nome: "Saúde" },
   { slug: "economia-renda", nome: "Economia e Renda" },
-  { slug: "saneamento", nome: "Saneamento" },
+  { slug: "hidraulica", nome: "Segurança Hídrica" },
+  { slug: "desenvolvimento-social", nome: "Desenvolvimento Social" },
   { slug: "meio-ambiente", nome: "Meio Ambiente" },
-  { slug: "hidraulica", nome: "Hidráulica" },
+  { slug: "saneamento", nome: "Infraestrutura e Saneamento" },
 ]
 
 function App() {

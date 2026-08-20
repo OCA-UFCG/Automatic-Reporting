@@ -7,6 +7,7 @@ from config import (
 )
 from utils.cover import montar_capa_relatorio
 from utils.data.macrotemas import MACROTEMAS
+from services.macrotemas import get_macrotema_slugs_para_relatorio
 
 
 def test_google_drive_csv_download_is_not_rewritten_as_google_sheets():
@@ -21,6 +22,24 @@ def test_google_drive_csv_download_is_not_rewritten_as_google_sheets():
 def test_new_macrothemes_use_their_configured_docs_sources():
     assert MACROTEMAS["desenvolvimento-social"]["docs_url"] == DESENVOLVIMENTO_SOCIAL_DOCS_URL
     assert MACROTEMAS["meio-ambiente"]["docs_url"] == MEIO_AMBIENTE_DOCS_URL
+
+
+def test_all_macrothemes_use_the_expected_colors_and_order():
+    expected = [
+        ("demografia", "#D65384"),
+        ("educacao", "#FFD65A"),
+        ("saude", "#E5333F"),
+        ("economia-renda", "#F79339"),
+        ("hidraulica", "#35B2DB"),
+        ("desenvolvimento-social", "#7C46E1"),
+        ("meio-ambiente", "#B0CC41"),
+        ("saneamento", "#001A72"),
+    ]
+
+    assert get_macrotema_slugs_para_relatorio("todos") == [slug for slug, _ in expected]
+    assert [MACROTEMAS[slug]["cor"] for slug, _ in expected] == [
+        color for _, color in expected
+    ]
 
 
 def test_cover_does_not_use_lorem_ipsum_when_diagnostic_is_missing():
