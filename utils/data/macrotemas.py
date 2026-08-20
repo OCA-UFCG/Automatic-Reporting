@@ -40,25 +40,16 @@ MACROTEMAS: dict[str, Macrotema] = {
     },
     "educacao": {
         "nome": "Educação",
-        "cor": "#F99C07",
+        "cor": "#FFD65A",
         "icone": "book",
         "docs_url": EDUCACAO_DOCS_URL,
         "docs_env": "EDUCACAO_DOCS_URL",
         "csv_url": EDUCACAO_CSV_URL,
         "csv_env": "EDUCACAO_CSV_URL",
     },
-    "desenvolvimento-social": {
-        "nome": "Desenvolvimento Social",
-        "cor": "#7C46E1",
-        "icone": "social",
-        "docs_url": DESENVOLVIMENTO_SOCIAL_DOCS_URL,
-        "docs_env": "DESENVOLVIMENTO_SOCIAL_DOCS_URL",
-        "csv_url": "",
-        "csv_env": "DESENVOLVIMENTO_SOCIAL_CSV_URL",
-    },
     "saude": {
         "nome": "Saúde",
-        "cor": "#758F21",
+        "cor": "#E5333F",
         "icone": "health",
         "docs_url": SAUDE_DOCS_URL,
         "docs_env": "SAUDE_DOCS_URL",
@@ -74,24 +65,6 @@ MACROTEMAS: dict[str, Macrotema] = {
         "csv_url": ECONOMIA_RENDA_CSV_URL,
         "csv_env": "ECONOMIA_RENDA_CSV_URL",
     },
-    "saneamento": {
-        "nome": "Infraestrutura e Saneamento",
-        "cor": "#001A72",
-        "icone": "wrench",
-        "docs_url": SANEAMENTO_DOCS_URL,
-        "docs_env": "SANEAMENTO_DOCS_URL",
-        "csv_url": SANEAMENTO_CSV_URL,
-        "csv_env": "SANEAMENTO_CSV_URL",
-    },
-    "meio-ambiente": {
-        "nome": "Meio Ambiente",
-        "cor": "#97B42E",
-        "icone": "leaf",
-        "docs_url": MEIO_AMBIENTE_DOCS_URL,
-        "docs_env": "MEIO_AMBIENTE_DOCS_URL",
-        "csv_url": "",
-        "csv_env": "MEIO_AMBIENTE_CSV_URL",
-    },
     "hidraulica": {
         "nome": "Segurança Hídrica",
         "cor": "#35B2DB",
@@ -100,6 +73,33 @@ MACROTEMAS: dict[str, Macrotema] = {
         "docs_env": "HIDRAULICA_DOCS_URL",
         "csv_url": HIDRAULICA_CSV_URL,
         "csv_env": "HIDRAULICA_CSV_URL",
+    },
+    "desenvolvimento-social": {
+        "nome": "Desenvolvimento Social",
+        "cor": "#7C46E1",
+        "icone": "social",
+        "docs_url": DESENVOLVIMENTO_SOCIAL_DOCS_URL,
+        "docs_env": "DESENVOLVIMENTO_SOCIAL_DOCS_URL",
+        "csv_url": "",
+        "csv_env": "DESENVOLVIMENTO_SOCIAL_CSV_URL",
+    },
+    "meio-ambiente": {
+        "nome": "Meio Ambiente",
+        "cor": "#B0CC41",
+        "icone": "leaf",
+        "docs_url": MEIO_AMBIENTE_DOCS_URL,
+        "docs_env": "MEIO_AMBIENTE_DOCS_URL",
+        "csv_url": "",
+        "csv_env": "MEIO_AMBIENTE_CSV_URL",
+    },
+    "saneamento": {
+        "nome": "Infraestrutura e Saneamento",
+        "cor": "#001A72",
+        "icone": "wrench",
+        "docs_url": SANEAMENTO_DOCS_URL,
+        "docs_env": "SANEAMENTO_DOCS_URL",
+        "csv_url": SANEAMENTO_CSV_URL,
+        "csv_env": "SANEAMENTO_CSV_URL",
     },
     "instrumentos-sudene": {
         "nome": "Ações Institucionais",
@@ -114,6 +114,16 @@ MACROTEMAS: dict[str, Macrotema] = {
 
 TODOS_MACROTEMAS_SLUG = "todos"
 TODOS_MACROTEMAS_NOME = "Todos"
+TODOS_MACROTEMAS_ORDEM = [
+    "demografia",
+    "educacao",
+    "saude",
+    "economia-renda",
+    "hidraulica",
+    "desenvolvimento-social",
+    "meio-ambiente",
+    "saneamento",
+]
 
 MACROTEMA_SECOES = {
     "demografia": {
