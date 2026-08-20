@@ -26,8 +26,6 @@ def buscar_populacao_demografia(
 
     pop_por_ano = {ano: pop_total for ano, pop_total in linhas}
 
-    # Números crus: a formatação pt-BR acontece na hora de montar o texto
-    # (utils/render/placeholders.py), não aqui.
     dados: dict[str, object] = {
         f"pop_total_{ano}": pop_por_ano[ano] for ano in anos if ano in pop_por_ano
     }
@@ -92,13 +90,6 @@ def buscar_demografia_sexo_faixa_etaria(
         pop_branca, pop_preta, pop_parda, pop_amarela, pop_indigena
     ) = linha
 
-    # Números crus (não formatados) de propósito: "pop_mulher_per",
-    # "pop_homem_per" etc. são resolvidos automaticamente pelo motor de
-    # placeholders (utils/render/placeholders.py) como percentual sobre
-    # "pop_total" — não precisam de código aqui. A formatação pt-BR também
-    # acontece só na hora de montar o texto, não na query. "pop_total" não
-    # entra no dict retornado de propósito: já vem de
-    # buscar_caracteristicas_municipio/buscar_populacao_demografia.
     dados: dict[str, object] = {
         "pop_mulher": pop_mulher,
         "pop_homem": pop_homem,
@@ -113,7 +104,6 @@ def buscar_demografia_sexo_faixa_etaria(
         "pop_indigena": pop_indigena,
     }
 
-    # Determina a faixa etária predominante
     faixas = {
         "0_14": pop_etaria_0_14,
         "15_29": pop_etaria_15_29,
@@ -122,11 +112,8 @@ def buscar_demografia_sexo_faixa_etaria(
     }
     faixa_maior = max(faixas, key=faixas.get)
     dados["cat_etaria_maior"] = FAIXAS_ETARIAS_LABELS[faixa_maior]
-    # Nome cru para o percentual genérico ($etaria_maior_per) resolver contra
-    # "pop_total".
     dados["etaria_maior"] = faixas[faixa_maior]
 
-    # Determina a raça/cor predominante
     racas = {
         "branca": pop_branca,
         "preta": pop_preta,

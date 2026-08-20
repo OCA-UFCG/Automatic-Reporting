@@ -43,7 +43,7 @@ def test_new_demography_placeholder_formats_use_the_current_table_row():
     texto = "$Table.demo$nm_mun tem $pop_total_2022 habitantes"
 
     assert substituir_placeholders(texto, contexto) == (
-        "Campina Grande tem 419379 habitantes"
+        "Campina Grande tem 419.379 habitantes"
     )
 
 

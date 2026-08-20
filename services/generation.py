@@ -45,6 +45,8 @@ from utils.queries.demografia import (
     buscar_populacao_indigena,
     buscar_populacao_rua,
 )
+from utils.queries.educacao import buscar_taxas_educacao_cor_faixa_etaria
+from utils.queries.saude import buscar_publico_etario_vacinas
 from utils.render.renderer import (
     render_descricao_tema_html,
     render_mapa_marker,
@@ -76,18 +78,14 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     resumo_relatorio_parts: list[str] = []
     referencias: list[str] = []
 
-    # Dados do banco não variam por macrotema (mesma cidade), então são
-    # buscados uma única vez (na primeira linha de CSV disponível, que tem o
-    # fallback de UF que o parâmetro `cidade` isolado não tem) e mesclados na
-    # linha de cada macrotema mais abaixo. Cada macrotema com dados no banco
-    # tem sua própria consulta em utils/queries.py, mas o merge é sempre o
-    # mesmo dict simples.
     db_consultado = False
     dados_caracteristicas_db = None
     dados_demografia_db = None
     dados_sexo_faixa = None
     dados_indigena = None
     dados_rua = None
+    dados_publico_etario = None
+    dados_taxas_educacao = None
 
     for macrotema_slug in macrotema_slugs:
         try:
@@ -126,15 +124,15 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             dados_caracteristicas_db = buscar_caracteristicas_municipio(nome_cidade_db, uf_db)
             if "demografia" in macrotema_slugs:
                 dados_demografia_db = buscar_populacao_demografia(nome_cidade_db, uf_db)
-                # Additional demographic breakdowns
                 dados_sexo_faixa = buscar_demografia_sexo_faixa_etaria(nome_cidade_db, uf_db)
                 dados_indigena = buscar_populacao_indigena(nome_cidade_db, uf_db)
+            if "saude" in macrotema_slugs:
+                dados_publico_etario = buscar_publico_etario_vacinas(nome_cidade_db, uf_db)
+            if "educacao" in macrotema_slugs:
+                dados_taxas_educacao = buscar_taxas_educacao_cor_faixa_etaria(nome_cidade_db, uf_db)
             dados_rua = buscar_populacao_rua(nome_cidade_db, uf_db)
             db_consultado = True
 
-        # Dados vindos do banco sobrescrevem os do CSV para os campos que já
-        # foram migrados — nenhum placeholder precisa de tratamento especial
-        # além de existir na query correspondente (ver comentário acima).
         if dados_caracteristicas_db:
             for linha in linhas_macrotema:
                 linha.update(dados_caracteristicas_db)
@@ -143,7 +141,6 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             for linha in linhas_macrotema:
                 linha.update(dados_demografia_db)
 
-        # Merge additional demographic breakdowns (sexo, faixa etária, raça, indígena)
         if "demografia" in macrotema_slugs and dados_sexo_faixa:
             for linha in linhas_macrotema:
                 linha.update(dados_sexo_faixa)
@@ -151,10 +148,17 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             for linha in linhas_macrotema:
                 linha.update(dados_indigena)
 
-        # Merge population in street situation data
         if dados_rua:
             for linha in linhas_macrotema:
                 linha.update(dados_rua)
+
+        if "saude" in macrotema_slugs and dados_publico_etario:
+            for linha in linhas_macrotema:
+                linha.update(dados_publico_etario)
+
+        if "educacao" in macrotema_slugs and dados_taxas_educacao:
+            for linha in linhas_macrotema:
+                linha.update(dados_taxas_educacao)
 
         if linhas is None:
             linhas = linhas_macrotema
@@ -193,8 +197,6 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 # caract_mun.$nm_mun permanecerem sem resolução, especialmente
                 # quando o relatório era iniciado por Economia e Renda.
                 contexto_caracteristicas = linhas_macrotema[0]
-                # Os dados do banco (area_territorial, pop_total, aniversario
-                # etc.) já foram mesclados nessa linha acima.
                 try:
                     caracteristicas_texto = await carregar_texto_do_docs(
                         CARACTERISTICAS_DOCS_URL

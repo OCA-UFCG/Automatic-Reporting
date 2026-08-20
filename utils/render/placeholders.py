@@ -14,11 +14,6 @@ def _resolver_caminho_em_contexto(contexto: dict, caminho: str) -> object | None
 
 
 def _resolver_percentual_derivado(contexto: dict, campo: str) -> object | None:
-    """Resolve genericamente qualquer $campo_per como percentual de $campo
-    sobre $pop_total, sem exigir que a query tenha calculado esse percentual
-    especificamente. Só funciona se ambos os valores forem números crus (não
-    strings já formatadas) — por isso as queries em utils/queries.py devem
-    devolver números, deixando a formatação para a hora de montar o texto."""
     if not campo.endswith("_per"):
         return None
 
