@@ -1,15 +1,16 @@
 @page {
-  margin: 40px 8mm 16mm;
+  margin: 53.33px 8mm 16mm;
 
   /* IMPORTANT: WeasyPrint resolves counters inside fixed elements only once,
      then repeats that value on every page. Margin boxes are evaluated per page. */
   @bottom-right {
     content: counter(page) "/" counter(pages);
-    width: 48px;
-    padding: 8px 24px 8px 0;
-    font-family: 'Inter', Arial, sans-serif;
-    font-size: 12px;
+    width: 36px;
+    padding: 10.67px 32px 10.67px 0;
+    font-family: "Inter", Arial, sans-serif;
+    font-size: 13.33px;
     font-weight: 500;
+    line-height: 32px;
     color: #333333;
     text-align: right;
   }
@@ -25,7 +26,7 @@
 
 .pdf-page-header-brand {
   display: inline-grid;
-  gap: 2px;
+  gap: 2.67px;
   line-height: 1;
 }
 
@@ -42,16 +43,16 @@
   .pdf-page-header {
     display: block;
     position: fixed;
-    top: -40px;
+    top: -53.33px;
     left: -8mm;
     right: -8mm;
     width: auto;
-    height: 40px;
-    padding: 8px 24px;
+    height: 53.33px;
+    padding: 10.67px 32px;
     background: #EFEFEF;
     border-bottom: 1px solid #018F39;
     box-sizing: border-box;
-    font-family: 'Inter', Arial, sans-serif;
+    font-family: "Inter", Arial, sans-serif;
     z-index: 1000;
   }
 
@@ -62,10 +63,10 @@
 
   .pdf-page-header-brand--official {
     position: absolute;
-    left: 24px;
+    left: 32px;
     top: 50%;
     transform: translateY(-50%);
-    height: 24px;
+    height: 32px;
   }
 
   .pdf-page-header-brand--official svg path,
@@ -87,28 +88,28 @@
 
   .pdf-page-header-brand--official .pdf-page-header-brand-sprite {
     display: block;
-    width: 132px;
-    height: 24px;
+    width: 176px;
+    height: 32px;
   }
 
   .pdf-page-header-logo {
     display: block;
-    width: 50px;
-    height: 24px;
+    width: 66.67px;
+    height: 32px;
   }
 
   .pdf-page-header-divider {
-    width: 1px;
-    height: 25px;
+    width: 1.33px;
+    height: 33.33px;
     background: #c7c7c7;
   }
 
   .pdf-page-header-sudene {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 5.33px;
     color: #565656;
-    font-size: 14px;
+    font-size: 18.67px;
     font-style: italic;
     font-weight: 800;
     line-height: 1;
@@ -117,7 +118,7 @@
   .pdf-page-header-sudene-mark {
     display: inline-block;
     color: #565656;
-    font-size: 16px;
+    font-size: 21.33px;
     transform: skewX(-12deg);
   }
 
@@ -131,14 +132,15 @@
     justify-content: space-between;
     align-items: center;
     width: auto;
-    min-height: 48px;
-    padding: 10px 24px 9px;
-    background: #EFEFEF;
+    height: 53.33px;
+    padding: 10.67px 32px;
+    background: #F8F7F8;
     border-top: 1px solid #DFDFDF;
     box-sizing: border-box;
-    font-family: 'Inter', Arial, sans-serif;
-    font-size: 12px;
+    font-family: "Inter", Arial, sans-serif;
+    font-size: 13.33px;
     font-weight: 500;
+    line-height: 32px;
     color: #333333;
     z-index: 1000;
   }
@@ -152,7 +154,7 @@
 
   .pdf-footer-page {
     flex: 0 0 auto;
-    min-width: 24px;
+    min-width: 32px;
     text-align: right;
   }
 

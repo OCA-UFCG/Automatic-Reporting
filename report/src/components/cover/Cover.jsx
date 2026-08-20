@@ -96,29 +96,18 @@ export default function Cover({ cover }) {
       </div>
     </section>
 
-    <section className="resumo-relatorio-page">
-      <h2 className="cover-kicker">Resumo do relatório</h2>
-      {cover.resumo_relatorio_html?.length > 0 ? (
-        cover.resumo_relatorio_html.map((item, i) => (
-          <div key={i} dangerouslySetInnerHTML={{ __html: item }} />
-        ))
-      ) : (
-        cover.resumo_relatorio ? (
-          <p className="theme-detail-text">{cover.resumo_relatorio}</p>
-        ) : null
-      )}
-    </section>
-
     {macrotemas.map((macrotema, idx) => (
-      <React.Fragment key={idx}>
-        <MacrothemeCard macrotema={macrotema} />
+      <section className="theme-detail-page" key={idx}>
+        <div className="theme-detail-top">
+          <MacrothemeCard macrotema={macrotema} />
 
-        <IndicatorScores macrotema={macrotema} />
+          <IndicatorScores macrotema={macrotema} />
 
-        <ScoreLegend />
+          <ScoreLegend />
+        </div>
 
         <ThemeDetail macrotema={macrotema} />
-      </React.Fragment>
+      </section>
     ))}
     </>
   );

@@ -1,5 +1,5 @@
 .report-cover {
-  margin: 0 0 34px;
+  margin: 0 0 45.33px;
   font-family: var(--font-sans);
   color: var(--color-text);
   break-inside: avoid;
@@ -9,8 +9,8 @@
   width: 100vw;
   margin-left: calc(50% - 50vw);
   margin-right: calc(50% - 50vw);
-  padding: 8px 24px;
-  margin-bottom: 24px;
+  padding: 10.67px 32px;
+  margin-bottom: 32px;
   background: #EFEFEF;
   box-sizing: border-box;
 }
@@ -18,33 +18,33 @@
 .cover-meta {
   position: relative;
   width: 100%;
-  height: 40px;
+  height: 53.33px;
 }
 
 .cover-brand {
   display: inline-grid;
-  gap: 2px;
+  gap: 2.67px;
   line-height: 1;
 }
 
 .brand-mark {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5.33px;
   color: var(--color-primary);
-  font-size: 26px;
+  font-size: 34.67px;
   font-weight: 900;
   letter-spacing: 0;
 }
 
 .brand-squares {
   display: grid;
-  grid-template-columns: repeat(3, 4px);
-  gap: 2px;
+  grid-template-columns: repeat(3, 5.33px);
+  gap: 2.67px;
 }
 .brand-squares span {
-  width: 4px;
-  height: 4px;
+  width: 5.33px;
+  height: 5.33px;
 }
 .brand-squares span:nth-child(1),
 .brand-squares span:nth-child(5) {
@@ -61,18 +61,18 @@
 
 .brand-subtitle {
   color: #222;
-  font-size: 5px;
+  font-size: 6.67px;
   font-weight: 700;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.4px;
   text-transform: uppercase;
 }
 
 .cover-date {
-  font-family: 'Inter', Arial, sans-serif;
+  font-family: "Inter", Arial, sans-serif;
   font-style: normal;
   font-weight: 500;
-  font-size: 12px;
-  line-height: 24px;
+  font-size: 16px;
+  line-height: 32px;
   color: #333333;
   white-space: nowrap;
   text-align: center;
@@ -85,15 +85,15 @@
   top: 50%;
   transform: translateY(-50%);
   color: #333333;
-  font-family: 'Inter', Arial, sans-serif;
-  font-size: 10px;
+  font-family: "Inter", Arial, sans-serif;
+  font-size: 13.33px;
   font-weight: 500;
-  line-height: 24px;
+  line-height: 32px;
   white-space: nowrap;
 }
 
 .pdf-page-header-label {
-  right: 24px;
+  right: 32px;
 }
 
 .pdf-cover-brand {
@@ -104,34 +104,34 @@
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  padding: 16px 48px;
+  padding: 21.33px 33.76px;
 }
 
 .cover-report-header {
   margin: 0;
-  padding: 16px 48px 8px;
+  padding: 21.33px 33.76px 10.67px;
   background: #F8F7F8;
   border-top: 2px solid #018F39;
   box-sizing: border-box;
 }
 
 .cover-report-eyebrow {
-  margin: 0 0 4px;
+  margin: 0 0 5.33px;
   color: #085F2D;
-  font-family: 'Inter', var(--font-sans);
-  font-size: 12px;
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
   font-weight: 400;
   line-height: 150%;
   letter-spacing: -0.012em;
 }
 
 .cover-report-title {
-  margin: 0 0 4px;
+  margin: 0 0 5.33px;
   color: #292829;
-  font-family: 'Inter', var(--font-sans);
-  font-size: 20px;
+  font-family: "Inter", var(--font-sans);
+  font-size: 26.67px;
   font-weight: 600;
-  line-height: 28px;
+  line-height: 37.33px;
   letter-spacing: -0.0075em;
   text-align: left;
 }
@@ -145,28 +145,28 @@
   display: inline-block;
   vertical-align: middle;
   box-sizing: border-box;
-  height: 15px;
-  min-height: 15px;
-  margin: 0 4px 4px 0;
-  padding: 1.43px 7.16px;
-  border-radius: 999px;
+  height: 20px;
+  min-height: 20px;
+  margin: 0 5.33px 5.33px 0;
+  padding: 1.91px 9.55px;
+  border-radius: 1332px;
   color: #fff;
-  font-family: 'Inter', var(--font-sans);
-  font-size: 8.59px;
+  font-family: "Inter", var(--font-sans);
+  font-size: 11.45px;
   font-weight: 600;
-  line-height: 11px;
+  line-height: 14.67px;
   white-space: nowrap;
 }
 
 .cover-presentation {
-  margin: 0 0 16px;
+  margin: 0 0 21.33px;
 }
 
 .cover-kicker {
-  margin: 0 0 2px;
+  margin: 0 0 2.67px;
   color: #085F2D;
-  font-family: 'Inter', var(--font-sans);
-  font-size: 12px;
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
   font-weight: 500;
   line-height: 150%;
   letter-spacing: -0.012em;
@@ -175,17 +175,17 @@
 .cover-city {
   margin: 0;
   color: #292829;
-  font-family: 'Inter', var(--font-sans);
-  font-size: 24px;
+  font-family: "Inter", var(--font-sans);
+  font-size: 32px;
   font-weight: 800;
   line-height: 150%;
   letter-spacing: -0.012em;
 }
 
 .cover-resumo-relatorio-wrap {
-  margin: 0 0 14px;
-  font-family: 'Inter', var(--font-sans);
-  font-size: 12px;
+  margin: 0 0 18.67px;
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
   font-weight: 400;
   line-height: 130%;
   letter-spacing: 0%;
@@ -195,12 +195,13 @@
 .cover-relatorio-geral-wrap,
 .cover-resumo-cidade-wrap {
   margin: 0;
-  font-family: 'Inter', var(--font-sans);
-  font-size: 12px;
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
   line-height: 130%;
   letter-spacing: 0%;
   color: #292829;
   font-weight: 400;
+  text-align: justify;
 }
 
 .cover-resumo-relatorio-wrap p,
@@ -217,13 +218,13 @@
   flex-wrap: wrap;
   align-items: stretch;
   padding: 0;
-  gap: 8px;
-  margin: 16px 0 0;
+  gap: 10.67px;
+  margin: 21.33px 0 0;
 }
 
 .metric-card {
-  flex: 1 1 120px;
-  min-width: 120px;
+  flex: 1 1 160px;
+  min-width: 160px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -231,7 +232,7 @@
   padding: 0;
   background: #FFFFFF;
   border: 1px solid #EFEFEF;
-  border-radius: 8px;
+  border-radius: 10.67px;
   overflow: hidden;
 }
 
@@ -239,8 +240,8 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
+  gap: 8px;
+  padding: 5.33px 10.67px;
   background: #F8F7F8;
   box-sizing: border-box;
   align-self: stretch;
@@ -251,19 +252,19 @@
   flex-direction: row;
   justify-content: center;
   align-items: center;
-  padding: 4px;
-  gap: 10px;
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
+  padding: 5.33px;
+  gap: 13.33px;
+  width: 26.67px;
+  height: 26.67px;
+  border-radius: 5.33px;
   box-sizing: border-box;
-  flex: 0 0 20px;
+  flex: 0 0 26.67px;
   overflow: hidden;
 }
 
 .metric-icon {
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
   color: #018f39;
   display: block;
 }
@@ -273,15 +274,15 @@
   flex-direction: column;
   flex: 1 1 auto;
   min-width: 0;
-  gap: 1px;
+  gap: 1.33px;
 }
 
 .metric-label {
   color: #292829;
-  font-family: 'Inter', var(--font-sans);
+  font-family: "Inter", var(--font-sans);
   font-style: normal;
   font-weight: 500;
-  font-size: 9px;
+  font-size: 12px;
   line-height: 150%;
   letter-spacing: -0.03em;
   white-space: nowrap;
@@ -292,10 +293,10 @@
 
 .metric-source {
   color: #7e797b;
-  font-family: 'Inter', var(--font-sans);
+  font-family: "Inter", var(--font-sans);
   font-style: normal;
   font-weight: 400;
-  font-size: 6px;
+  font-size: 8px;
   line-height: 150%;
   white-space: nowrap;
   overflow: hidden;
@@ -307,19 +308,19 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 4px 8px;
-  gap: 4px;
+  padding: 5.33px 10.67px;
+  gap: 5.33px;
   box-sizing: border-box;
   align-self: stretch;
 }
 
 .metric-value {
   color: #018f39;
-  font-family: 'Inter', var(--font-sans);
+  font-family: "Inter", var(--font-sans);
   font-style: normal;
   font-weight: 700;
-  font-size: 12px;
-  line-height: 18px;
+  font-size: 16px;
+  line-height: 24px;
   letter-spacing: -0.015em;
   white-space: nowrap;
   overflow: hidden;
@@ -327,16 +328,16 @@
 }
 
 .metric-unit {
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 700;
 }
 
 .metric-caption {
   color: #7e797b;
-  font-family: 'Inter', var(--font-sans);
+  font-family: "Inter", var(--font-sans);
   font-style: normal;
   font-weight: 400;
-  font-size: 6px;
+  font-size: 8px;
   line-height: 150%;
   white-space: nowrap;
   overflow: hidden;
@@ -348,109 +349,105 @@
 }
 
 .macrotheme-summary-title {
-  margin: 0 0 8px;
+  margin: 0 0 10.67px;
   color: #085F2D;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 500;
   line-height: 1.5;
   letter-spacing: -0.012em;
 }
 
 .macrotheme-summary-text {
-  margin: 0 0 16px;
+  margin: 0 0 21.33px;
   color: #292829;
-  font-size: 12px;
+  font-size: 16px;
   line-height: 1.5;
 }
 
 .macrotheme-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 20px;
-  min-height: 64px;
+  display: table;
+  width: 100%;
+  padding: 10.67px 21.33px;
+  min-height: 72px;
   background: #F8F7F8;
   border-left: 3px solid var(--macrotheme-color, #D65384);
-  border-radius: 8px;
-  margin: 0 48px 16px;
+  border-radius: 10.67px;
+  margin: 0;
   box-sizing: border-box;
 }
 
 .macrotheme-card-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  display: table-cell;
+  vertical-align: middle;
+  width: 100%;
 }
 
 .macrotheme-card-right {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-end;
-  margin-left: auto;
-  width: 96px;
-  flex-shrink: 0;
+  display: table-cell;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 .macrotheme-score-label {
   width: 100%;
-  margin: 0 0 2px;
+  margin: 0 0 2.67px;
   text-align: right;
   white-space: nowrap;
-  font-family: 'Inter', var(--font-sans);
+  font-family: "Inter", var(--font-sans);
   font-weight: 500;
-  font-size: 9px;
+  font-size: 12px;
   line-height: 150%;
   letter-spacing: -0.03em;
   color: #292829;
 }
 
 .macrotheme-score-value {
-  display: inline-flex;
-  align-items: baseline;
-  flex-wrap: nowrap;
+  display: inline-block;
   white-space: nowrap;
   margin: 0;
-  font-family: 'Inter', var(--font-sans);
+  font-family: "Inter", var(--font-sans);
   font-weight: 700;
-  font-size: 16px;
-  line-height: 24px;
+  font-size: 21.33px;
+  line-height: 32px;
   letter-spacing: -0.015em;
   color: #018F39;
 }
 
 .macrotheme-score-max {
-  margin-left: 1px;
+  margin-left: 1.33px;
   font-family: inherit;
   font-weight: 700;
-  font-size: 10px;
+  font-size: 13.33px;
   line-height: 1;
   color: inherit;
   white-space: nowrap;
 }
 
 .macrotheme-icon-box {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: inline-block;
+  width: 42.67px;
+  height: 42.67px;
+  padding: 5.33px;
   color: var(--macrotheme-color, var(--color-accent));
   box-sizing: border-box;
+  border-radius: 5.33px;
+  vertical-align: middle;
 }
 
 .macrotheme-icon {
-  width: 22px;
-  height: 22px;
+  width: 32px;
+  height: 32px;
   color: var(--macrotheme-color, var(--color-accent));
   display: block;
 }
 
 .macrotheme-name {
-  font-family: 'Inter', var(--font-sans);
-  font-size: 18px;
-  font-weight: 700;
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 10.67px;
+  font-family: "Inter", var(--font-sans);
+  font-size: 24px;
+  font-weight: 800;
   line-height: 150%;
   letter-spacing: -0.012em;
   color: #292829;
@@ -458,16 +455,21 @@
 
 .indicator-scores {
   margin: 0;
-  padding: 0 48px;
+  padding: 0;
+  width: 100%;
   box-sizing: border-box;
 }
 
+.indicator-scores .cover-kicker {
+  margin-bottom: 10.67px;
+}
+
 .indicator-scores-title {
-  margin: 0 0 8px;
+  margin: 0 0 10.67px;
   color: #085F2D;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 500;
-  line-height: 1.5;
+  line-height: 150%;
   letter-spacing: -0.012em;
 }
 
@@ -477,12 +479,12 @@
 }
 
 .indicator-score-grid > .indicator-score-row + .indicator-score-row {
-  margin-top: 12px;
+  margin-top: 10.67px;
 }
 
 .indicator-score-row {
   display: table;
-  border-spacing: 8px 0;
+  border-spacing: 16px 0;
   width: 100%;
 }
 
@@ -490,11 +492,10 @@
   box-sizing: border-box;
   display: table-cell;
   vertical-align: top;
-  padding: 0;
-  min-height: 80px;
+  min-height: 85.33px;
   background: #FFFFFF;
   border: 1px solid #EFEFEF;
-  border-radius: 8px;
+  border-radius: 10.67px;
   overflow: hidden;
 }
 
@@ -507,23 +508,23 @@
 .indicator-score-card-info-row {
   display: table-cell;
   vertical-align: middle;
-  padding: 4px 8px 0;
+  padding: 5.33px 10.67px 0;
 }
 
 .indicator-icon-box {
   display: inline-block;
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
+  width: 26.67px;
+  height: 26.67px;
+  border-radius: 5.33px;
   box-sizing: border-box;
-  padding: 4px;
+  padding: 5.33px;
   text-align: center;
   vertical-align: middle;
 }
 
 .indicator-icon {
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
   color: #E5333F;
   display: inline-block;
 }
@@ -531,13 +532,13 @@
 .indicator-text {
   display: inline-block;
   vertical-align: middle;
-  padding-left: 4px;
+  padding-left: 5.33px;
 }
 
 .indicator-name {
-  font-family: 'Inter', var(--font-sans);
+  font-family: "Inter", var(--font-sans);
   font-weight: 500;
-  font-size: 9px;
+  font-size: 12px;
   line-height: 150%;
   letter-spacing: -0.03em;
   color: #292829;
@@ -548,24 +549,24 @@
 }
 
 .indicator-source {
-  font-family: 'Inter', var(--font-sans);
+  font-family: "Inter", var(--font-sans);
   font-weight: 400;
-  font-size: 6px;
+  font-size: 8px;
   line-height: 150%;
   color: #7E797B;
 }
 
 .indicator-badge {
   display: table-cell;
-  width: 1px;
+  width: 1.33px;
   white-space: nowrap;
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: 5.33px 10.67px;
+  border-radius: 5.33px;
   color: #F8F7F8;
-  font-family: 'Inter', var(--font-sans);
+  font-family: "Inter", var(--font-sans);
   font-weight: 500;
-  font-size: 10px;
-  line-height: 9px;
+  font-size: 13.33px;
+  line-height: 12px;
   letter-spacing: -0.03em;
   text-align: center;
   vertical-align: middle;
@@ -573,58 +574,48 @@
 
 .indicator-score-card-footer {
   display: block;
-  padding: 4px 8px;
+  padding: 5.33px 10.67px;
   background: #EFEFEF;
   color: #292829;
-  font-family: 'Inter', var(--font-sans);
+  font-family: "Inter", var(--font-sans);
   font-weight: 400;
-  font-size: 6px;
+  font-size: 8px;
   line-height: 150%;
   text-align: center;
 }
 
 .score-legend {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  margin-top: 16px;
-  margin-bottom: 16px;
-  padding: 0 48px;
+  margin: 0;
+  padding: 0;
+  width: 100%;
   box-sizing: border-box;
 }
 
 .score-legend-title {
-  margin: 0;
-  font-family: 'Inter', var(--font-sans);
+  margin: 0 0 5.33px;
+  font-family: "Inter", var(--font-sans);
   font-weight: 500;
-  font-size: 10px;
+  font-size: 13.33px;
   line-height: 150%;
   color: #292829;
 }
 
 .score-legend-bar {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 1px;
+  display: table;
   width: 100%;
-  border-radius: 4px;
+  border-spacing: 1px 0;
+  margin: 0 0 5.33px;
+  border-radius: 5.33px;
   overflow: hidden;
 }
 
 .score-legend-item {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-  padding: 4px 8px;
-  gap: 6px;
-  flex: 1 1 0;
-  font-family: 'Inter', var(--font-sans);
+  display: table-cell;
+  padding: 5.33px 10.67px;
+  font-family: "Inter", var(--font-sans);
   font-weight: 500;
-  font-size: 9px;
-  line-height: 9px;
+  font-size: 12px;
+  line-height: 12px;
   letter-spacing: -0.03em;
   text-align: center;
   white-space: nowrap;
@@ -632,21 +623,21 @@
 
 .score-legend-footnote {
   margin: 0;
-  font-family: 'Inter', var(--font-sans);
+  font-family: "Inter", var(--font-sans);
   font-weight: 400;
-  font-size: 10px;
+  font-size: 13.33px;
   line-height: 150%;
   color: #292829;
 }
 
 .cover-detalhamento {
-  margin: 16px 0;
+  margin: 21.33px 0;
 }
 
 .cover-detalhamento-title {
-  margin: 0 0 8px;
+  margin: 0 0 10.67px;
   color: #085F2D;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 500;
   line-height: 1.5;
   letter-spacing: -0.012em;
@@ -655,13 +646,14 @@
 .cover-detalhamento .theme-detail-text {
   margin: 0;
   color: #292829;
-  font-family: 'Inter', var(--font-sans);
-  font-size: 12px;
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
   font-weight: 400;
   font-style: normal;
   line-height: 130%;
   letter-spacing: 0%;
   text-align: justify;
+  text-indent: 32px;
 }
 
 .cover-maps {
@@ -669,9 +661,9 @@
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 21.33px;
   padding: 0;
-  margin-top: 20px;
+  margin-top: 26.67px;
   width: 100%;
   max-width: 100%;
 }
@@ -694,7 +686,7 @@
   align-items: flex-start;
   justify-content: center;
   padding: 0;
-  gap: 8px;
+  gap: 10.67px;
   max-width: 100%;
   margin: 0;
 }
@@ -702,7 +694,8 @@
 .cover-maps-group {
   display: block;
   width: 100%;
-  margin: 16px auto 0;
+  max-width: 665.33px;
+  margin: 21.33px auto 0;
 }
 
 .cover-maps-group figure {
@@ -729,41 +722,35 @@
 .cover-mapa-principal img,
 .cover-maps .region-map-image {
   display: block;
-  max-width: 100%;
+  width: auto;
   height: auto;
+  max-width: 100%;
+  max-height: 344px;
   margin: 0 auto;
-  border-radius: 4px;
-}
-
-.cover-mapa-principal img {
-  width: 100%;
-}
-
-.cover-maps .region-map-image {
-  width: 100%;
+  border-radius: 5.33px;
 }
 
 .cover-mapa-principal figcaption,
 .cover-maps figure figcaption,
 .cover-maps .map-block figcaption {
-  margin: 4px 0 0;
+  margin: 5.33px 0 0;
   color: #292829;
-  font-family: 'Inter', var(--font-sans);
-  font-size: 11px;
+  font-family: "Inter", var(--font-sans);
+  font-size: 14.67px;
   font-weight: 400;
   line-height: 150%;
   text-align: center;
 }
 
 .cover-mapa-principal figcaption {
-  font-size: 10px;
+  font-size: 13.33px;
   text-align: left;
 }
 
 @media print {
   .cover-report-header {
-    margin: 0 -8mm 16px;
-    padding: 16px calc(8mm + 48px) 8px;
+    margin: 0 -8mm 21.33px;
+    padding: 21.33px calc(8mm + 33.76px) 10.67px;
     background: #F8F7F8;
     border-top: 2px solid #018F39;
   }
@@ -784,13 +771,13 @@
   padding: 0;
   gap: 0;
   width: 100%;
-  margin: 2px 0 8px;
+  margin: 2.67px 0 10.67px;
 }
 
 .diagnostic-grid {
   display: grid;
-  grid-template-columns: 370px 1fr;
-  column-gap: 8px;
+  grid-template-columns: 493.33px 1fr;
+  column-gap: 10.67px;
   align-items: start;
   width: 100%;
   box-sizing: border-box;
@@ -807,13 +794,13 @@
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  padding: 16px;
-  gap: 10px;
-  width: 370px;
-  min-width: 370px;
-  max-width: 370px;
+  padding: 21.33px;
+  gap: 13.33px;
+  width: 493.33px;
+  min-width: 493.33px;
+  max-width: 493.33px;
   background: #F8F7F8;
-  border-radius: 8px;
+  border-radius: 10.67px;
   overflow: hidden;
   break-inside: avoid;
 }
@@ -827,7 +814,7 @@
 
 .region-radar-chart {
   width: 100%;
-  max-width: 269px;
+  max-width: 358.67px;
   height: auto;
   display: block;
 }
@@ -839,7 +826,7 @@
   width: auto;
   max-width: none;
   min-width: 0;
-  gap: 20px;
+  gap: 26.67px;
   padding: 0;
   box-sizing: border-box;
 }
@@ -861,13 +848,13 @@
 .score-card {
   width: 100%;
   border: 1px solid #EFEFEF;
-  border-radius: 8px;
+  border-radius: 10.67px;
   background: #FFFFFF;
   overflow: hidden;
 }
 
 .score-header {
-  padding: 8px 12px;
+  padding: 10.67px 16px;
   background: #F8F7F8;
 }
 
@@ -875,16 +862,16 @@
   margin: 0;
   color: #292829;
   font-family: Inter, sans-serif;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 500;
   line-height: 150%;
 }
 
 .score-body {
-  padding: 12px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10.67px;
 }
 
 .score-line {
@@ -897,14 +884,14 @@
 
 .score-value {
   color: #018F39;
-  font-size: 26px;
+  font-size: 34.67px;
   font-weight: 700;
   line-height: 1;
 }
 
 .score-max {
   color: #018F39;
-  font-size: 14px;
+  font-size: 18.67px;
   font-weight: 700;
   line-height: 1;
 }
@@ -912,15 +899,15 @@
 .score-description {
   margin: 0;
   color: #7E797B;
-  font-size: 11px;
+  font-size: 14.67px;
   line-height: 150%;
 }
 
 .score-diagnostic-text,
 .score-diagnostic-card > div:not(.score-card) {
   color: #292829;
-  font-family: 'Inter', var(--font-sans);
-  font-size: 12px;
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
   font-weight: 400;
   font-style: normal;
   line-height: 150%;
@@ -932,33 +919,48 @@
 }
 
 .score-diagnostic-card p + p {
-  margin-top: 12px;
+  margin-top: 16px;
 }
 
 .theme-detail-page {
+  padding: 32px 33.76px;
   font-family: var(--font-sans);
   color: #26272c;
-  margin-top: 80px;
-  padding: 0 48px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.theme-detail-page > * + * {
+  margin-top: 21.33px;
+}
+
+.theme-detail-top {
+  width: 100%;
   box-sizing: border-box;
 }
 
-.theme-detail-page .theme-detail-heading {
-  margin: 0 0 2px;
+.theme-detail-top > * + * {
+  margin-top: 10.67px;
+}
+
+.theme-detail-page .theme-detail-heading,
+.theme-detail-section .theme-detail-heading {
+  margin: 0 0 2.67px;
   color: #085F2D;
-  font-family: 'Inter', var(--font-sans);
-  font-size: 12px;
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
   font-weight: 500;
   line-height: 150%;
   letter-spacing: -0.012em;
 }
 
-.resumo-relatorio-page {
-  font-family: var(--font-sans);
-  color: #26272c;
-  margin-top: 0;
-  padding: 0 48px;
+.theme-detail-section {
+  width: 100%;
   box-sizing: border-box;
+}
+
+.theme-detail-section > .theme-detail-heading {
+  margin: 0 0 10.67px;
 }
 
 .theme-detail-header {
@@ -969,17 +971,17 @@
 }
 
 .theme-detail-kicker {
-  margin: 0 0 20px;
+  margin: 0 0 26.67px;
   color: var(--color-text-muted);
-  font-size: 14px;
+  font-size: 18.67px;
   line-height: 1.2;
 }
 
 .theme-detail-title {
-  margin: 0 0 8px;
+  margin: 0 0 10.67px;
   color: #085F2D;
-  font-family: 'Inter', var(--font-sans);
-  font-size: 12px;
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
   font-weight: 500;
   line-height: 150%;
   letter-spacing: -0.012em;
@@ -988,13 +990,14 @@
 .theme-detail-text {
   margin: 0;
   color: #292829;
-  font-family: 'Inter', var(--font-sans);
-  font-size: 12px;
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
   font-weight: 400;
   font-style: normal;
   line-height: 130%;
   letter-spacing: 0%;
   text-align: justify;
+  text-indent: 32px;
 }
 
 @media print {
@@ -1012,8 +1015,12 @@
   .theme-detail-page {
     width: 100%;
     margin: 0;
-    padding: 0 48px;
+    padding: 32px 33.76px;
     box-sizing: border-box;
+    /* repete o padding-top em toda página de continuação, caso o conteúdo
+       de um macrotema seja longo o suficiente pra quebrar em mais de uma
+       página. */
+    box-decoration-break: clone;
   }
 
   .report-cover {
@@ -1024,14 +1031,14 @@
   }
 
   .cover-kicker {
-    margin-bottom: 2px;
-    font-size: 12px;
+    margin-bottom: 2.67px;
+    font-size: 16px;
     font-weight: 500;
   }
 
   .cover-city {
     margin: 0;
-    font-size: 24px;
+    font-size: 32px;
   }
 
   .diagnostic-block {
@@ -1040,11 +1047,11 @@
   }
 
   .diagnostic-block .cover-kicker {
-    margin: 0 0 6px;
+    margin: 0 0 8px;
   }
 
   .cover-metrics {
-    margin: 16px 0 0;
+    margin: 21.33px 0 0;
   }
 
   .cover-metrics,
@@ -1069,13 +1076,13 @@
   }
 
   .theme-detail-title {
-    margin: 0 0 8px;
-    font-size: 12px;
+    margin: 0 0 10.67px;
+    font-size: 16px;
   }
 
   .theme-detail-text {
-    margin-bottom: 8px;
-    font-size: 12px;
+    margin-bottom: 10.67px;
+    font-size: 16px;
     line-height: 130%;
   }
 
@@ -1089,8 +1096,8 @@
 
   .pdf-cover-brand svg {
     display: block;
-    width: 50px;
-    height: 24px;
+    width: 66.67px;
+    height: 32px;
   }
 
   .cover-header {
@@ -1103,16 +1110,16 @@
   }
 
   .cover-date {
-    font-size: 12px;
+    font-size: 16px;
     color: #333333;
-    line-height: 24px;
-    height: 24px;
+    line-height: 32px;
+    height: 32px;
     white-space: nowrap;
     transform: none;
   }
 
   .cover-maps {
-    margin-top: 10px;
+    margin-top: 13.33px;
   }
 
   .cover-mapa-principal img,
@@ -1127,13 +1134,13 @@
   }
 
   .metric-card {
-    flex: 1 1 calc(50% - 4px);
+    flex: 1 1 calc(50% - 5.33px);
   }
 
   .diagnostic-grid {
     grid-template-columns: 1fr;
     column-gap: 0;
-    row-gap: 12px;
+    row-gap: 16px;
   }
 
   .radar-card {
