@@ -218,7 +218,7 @@
   align-items: stretch;
   padding: 0;
   gap: 8px;
-  margin: 16px 0 16px;
+  margin: 16px 0 0;
 }
 
 .metric-card {
@@ -700,13 +700,9 @@
 }
 
 .cover-maps-group {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  margin: 20px auto 0;
+  display: block;
   width: 100%;
+  margin: 16px auto 0;
 }
 
 .cover-maps-group figure {
@@ -757,6 +753,11 @@
   font-weight: 400;
   line-height: 150%;
   text-align: center;
+}
+
+.cover-mapa-principal figcaption {
+  font-size: 10px;
+  text-align: left;
 }
 
 @media print {
@@ -942,6 +943,16 @@
   box-sizing: border-box;
 }
 
+.theme-detail-page .theme-detail-heading {
+  margin: 0 0 2px;
+  color: #085F2D;
+  font-family: 'Inter', var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 150%;
+  letter-spacing: -0.012em;
+}
+
 .resumo-relatorio-page {
   font-family: var(--font-sans);
   color: #26272c;
@@ -1006,8 +1017,8 @@
   }
 
   .report-cover {
-    break-after: auto;
-    page-break-after: auto;
+    break-after: page;
+    page-break-after: always;
     break-inside: auto;
     page-break-inside: auto;
   }
@@ -1033,7 +1044,7 @@
   }
 
   .cover-metrics {
-    margin: 12px 0 8px;
+    margin: 16px 0 0;
   }
 
   .cover-metrics,

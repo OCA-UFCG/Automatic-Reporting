@@ -7,10 +7,19 @@ from utils.render.links import convert_links_to_html
 from utils.render.placeholders import substituir_placeholders
 from utils.render.sections import identificar_secao_macrotema
 
+_figura_contador = 1
+
+
+def reset_figura_contador() -> None:
+    global _figura_contador
+    _figura_contador = 1
+
+
 __all__ = [
     "convert_links_to_html",
     "render_descricao_tema_html",
     "render_mapa_marker",
+    "reset_figura_contador",
     "substituir_placeholders",
     "texto_para_html",
 ]
@@ -18,13 +27,6 @@ __all__ = [
 
 FALLBACK_DOC_TEXT = """deu erro.
 """
-
-def render_chart_placeholder(chart_file: str) -> str:
-    return (
-        '<div class="chart-block">'
-        f'<img src="/output/{html_module.escape(chart_file)}" alt="Gráfico">'
-        '</div>'
-    )
 
 
 def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
@@ -35,6 +37,7 @@ def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
             '<figure class="map-block map-block--region">'
             f'<img class="region-map-image" src="{html_module.escape(contentful_url)}" '
             f'alt="Mapa da região de {cidade_segura}">'
+            '<figcaption>Figura 1- Localização do município.</figcaption>'
             '</figure>'
             '<!-- fonte: contentful -->'
         )
@@ -46,6 +49,7 @@ def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
             '<figure class="map-block map-block--region">'
             f'<img class="region-map-image" src="/output/{html_module.escape(mapa_file)}" '
             f'alt="Mapa da região de {cidade_segura}">'
+            '<figcaption>Figura 1- Localização do município.</figcaption>'
             '</figure>'
             '<!-- fonte: gerado_localmente -->'
         )
@@ -53,7 +57,13 @@ def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
     return render_mapa_geografico(contexto) + '\n<!-- fonte: svg_locator -->'
 
 
-def render_descricao_tema_html(descricao_tema: str, contexto: dict, namespace: str = "demografia", safe_report: str | None = None) -> list[str]:
+def render_descricao_tema_html(
+    descricao_tema: str,
+    contexto: dict,
+    namespace: str = "demografia",
+    safe_report: str | None = None,
+    graficos_por_placeholder: dict[str, str] | None = None,
+) -> list[str]:
     partes = []
     for paragrafo in re.split(r"\n\s*\n", descricao_tema):
         paragrafo = paragrafo.strip()
@@ -61,9 +71,31 @@ def render_descricao_tema_html(descricao_tema: str, contexto: dict, namespace: s
             continue
 
         paragrafo = substituir_placeholders(paragrafo, contexto, namespace)
-        partes.append(
-            f'<p class="theme-detail-text">{convert_links_to_html(paragrafo)}</p>'
+
+        if paragrafo.startswith("#!"):
+            titulo = paragrafo[2:].strip()
+            if titulo:
+                partes.append(
+                    f'<h2 class="theme-detail-heading">{convert_links_to_html(titulo)}</h2>'
+                )
+            continue
+
+        if paragrafo.casefold() in {"síntese", "sintese", "conteúdos relacionados", "conteudos relacionados", "fontes", "referências", "referencias"}:
+            partes.append(
+                f'<h2 class="theme-detail-heading">{convert_links_to_html(paragrafo)}</h2>'
+            )
+            continue
+
+        html = texto_para_html(
+            paragrafo,
+            contexto,
+            namespace=namespace,
+            graficos_por_placeholder=graficos_por_placeholder,
+            safe_report=safe_report,
+            classe_paragrafo="theme-detail-text",
         )
+        if html:
+            partes.append(html)
 
     return partes
 
@@ -75,13 +107,8 @@ def texto_para_html(
     graficos_por_placeholder: dict[str, str] | None = None,
     componentes_html: dict[str, str] | None = None,
     safe_report: str | None = None,
+    classe_paragrafo: str = "",
 ) -> str:
-
-    LEGENDAS_GRAFICOS = {
-        "grafico_sexo": "População por sexo",
-        "grafico_porte": "Distribuição por porte",
-        "grafico_top_cidades": "Top cidades",
-    }
 
     graficos_por_placeholder = graficos_por_placeholder or {}
     componentes_html = componentes_html or {}
@@ -97,8 +124,6 @@ def texto_para_html(
     metadado_visivel: list[str] | None = None
 
     proximo_paragrafo_destaque = False
-
-    figura_contador = 0
 
     for linha in linhas:
 
@@ -183,25 +208,11 @@ def texto_para_html(
 
             if figuras:
 
-                figura_contador += 1
-
-                legenda = " e ".join(
-                    LEGENDAS_GRAFICOS.get(tipo, tipo)
-                    for tipo in tipos
-                )
-
                 html_lines.append(
                     '<div style="display:flex; gap:24px; justify-content:center; '
                     'align-items:flex-start; margin:32px 0; flex-wrap:wrap;">'
                     + "".join(figuras)
                     + "</div>"
-                )
-
-                html_lines.append(
-                    f'<p class="figure-caption">'
-                    f'Figura {figura_contador} - '
-                    f'{html_module.escape(legenda)}'
-                    f"</p>"
                 )
 
             continue
@@ -262,16 +273,26 @@ def texto_para_html(
             proximo_paragrafo_destaque = False
 
         elif re.match(
-            r"^figura\s+(?:[&x]|\d+)\s*[–-]",
+            r"^figura\s+(?:[&a-z]|\d+)\s*[–-]",
             linha_limpa,
             flags=re.IGNORECASE,
         ):
+
+            global _figura_contador
+            _figura_contador += 1
 
             legenda = re.sub(
                 r"\[[A-Za-z0-9]{1,3}\]",
                 "",
                 linha_limpa,
             ).replace("&", "")
+
+            legenda = re.sub(
+                r"^figura\s+[^–-]*[–-]",
+                f"Figura {_figura_contador} –",
+                legenda,
+                flags=re.IGNORECASE,
+            )
 
             html_lines.append(
                 f'<p class="figure-caption">'
@@ -289,11 +310,12 @@ def texto_para_html(
                 linha_limpa,
             )
 
-            classe = (
-                ' class="lead"'
-                if proximo_paragrafo_destaque
-                else ""
-            )
+            if classe_paragrafo:
+                classe = f' class="{classe_paragrafo}"'
+            elif proximo_paragrafo_destaque:
+                classe = ' class="lead"'
+            else:
+                classe = ""
 
             html_lines.append(
                 f"<p{classe}>"

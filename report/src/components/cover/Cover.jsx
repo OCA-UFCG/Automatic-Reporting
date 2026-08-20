@@ -72,7 +72,7 @@ export default function Cover({ cover }) {
         )}
 
         <div className="cover-metrics">
-          {cover.metricas.map((m, idx) => (
+          {cover.metricas.slice(0, 2).map((m, idx) => (
             <MetricCard key={idx} metrica={m} />
           ))}
         </div>

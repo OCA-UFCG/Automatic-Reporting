@@ -12,6 +12,8 @@ from config import (
     require_config_value,
     resolve_csv_source,
 )
+from plotting.educacao import gerar_grafico_cor_faixa_etaria
+from plotting.saude import gerar_grafico_publico_etario
 from services.csv_loader import (
     carregar_csv,
     get_csv_config_for_macrotema,
@@ -38,6 +40,7 @@ from utils.external.docs import (
 from utils.render.renderer import (
     render_descricao_tema_html,
     render_mapa_marker,
+    reset_figura_contador,
     substituir_placeholders,
     texto_para_html,
 )
@@ -47,6 +50,7 @@ logger = logging.getLogger(__name__)
 
 
 async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
+    reset_figura_contador()
     try:
         macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
     except ValueError as err:
@@ -252,15 +256,31 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                     )
                 )
 
+        eh_primeiro = macrotema_slug == macrotema_slugs[0]
+
         graficos_por_placeholder = {}
+
+        if macrotema_slug == "educacao":
+            chart_file_name = gerar_grafico_cor_faixa_etaria(
+                cidade=linhas_macrotema[0],
+                OUTPUT_DIR=OUTPUT_DIR,
+                safe_city=safe_city or "relatorio",
+            )
+            graficos_por_placeholder["grafico_cor_faixa_etaria"] = chart_file_name
+
+        if macrotema_slug == "saude":
+            chart_file_name = gerar_grafico_publico_etario(
+                cidade=linhas_macrotema[0],
+                OUTPUT_DIR=OUTPUT_DIR,
+                safe_city=safe_city or "relatorio",
+            )
+            graficos_por_placeholder["grafico_publico_etario"] = chart_file_name
 
         docs_url = require_config_value(macrotema_dados["docs_url"], macrotema_dados["docs_env"])
         try:
             docs_texto = await carregar_texto_do_docs(docs_url)
         except ValueError as err:
             raise HTTPException(status_code=400, detail=str(err)) from err
-
-        eh_primeiro = macrotema_slug == macrotema_slugs[0]
 
         macrotema_item: dict[str, object] = {
             "nome": macrotema_dados["nome"],
@@ -351,6 +371,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 linhas_macrotema[0],
                 namespace=macrotema_slug,
                 safe_report=safe_report,
+                graficos_por_placeholder=graficos_por_placeholder,
             )
             if eh_primeiro and cover is not None:
                 cover["macrotema"]["descricao"] = macrotema_item["descricao"]
