@@ -6,6 +6,8 @@ import MetricCard from './MetricCard.jsx';
 import ScoreLegend from './ScoreLegend.jsx';
 import ThemeDetail from '../ThemeDetail.jsx';
 
+const LIGHT_BADGE_COLORS = new Set(['#FFD65A', '#B0CC41']);
+
 export default function Cover({ cover }) {
   const hasMaps = cover.macrotema?.descricao_html?.length > 0;
   const macrotemas = cover.macrotemas && cover.macrotemas.length > 0
@@ -26,25 +28,28 @@ export default function Cover({ cover }) {
           <span className="cover-start-label">Dados municipais reunidos em uma única plataforma</span>
         </div>
       </div>
-      <div className="cover-content">
-        <header className="cover-report-header">
-          <p className="cover-report-eyebrow">Relatório</p>
-          <h1 className="cover-report-title">{cidade || 'Município'}</h1>
-          {macrotemasTags.length > 0 && (
-            <div className="cover-macrotheme-tags" aria-label="Macrotemas selecionados">
-              {macrotemasTags.map((macrotema, idx) => (
-                <span
-                  className="cover-macrotheme-tag"
-                  style={{ backgroundColor: macrotema.cor || '#018F39' }}
-                  key={macrotema.slug || `${macrotema.nome}-${idx}`}
-                >
-                  {macrotema.nome}
-                </span>
-              ))}
-            </div>
-          )}
-        </header>
+      <header className="cover-report-header">
+        <p className="cover-report-eyebrow">Relatório</p>
+        <h1 className="cover-report-title">{cidade || 'Município'}</h1>
+        {macrotemasTags.length > 0 && (
+          <div className="cover-macrotheme-tags" aria-label="Macrotemas selecionados">
+            {macrotemasTags.map((macrotema, idx) => (
+              <span
+                className="cover-macrotheme-tag"
+                style={{
+                  backgroundColor: macrotema.cor || '#018F39',
+                  color: LIGHT_BADGE_COLORS.has(macrotema.cor) ? '#292829' : '#FFFFFF',
+                }}
+                key={macrotema.slug || `${macrotema.nome}-${idx}`}
+              >
+                {macrotema.nome}
+              </span>
+            ))}
+          </div>
+        )}
+      </header>
 
+      <div className="cover-content">
         {cover.relatorio_geral_html?.length > 0 && (
           <section className="cover-presentation">
             <div className="cover-kicker">Apresentação</div>
@@ -67,7 +72,7 @@ export default function Cover({ cover }) {
         )}
 
         <div className="cover-metrics">
-          {cover.metricas.map((m, idx) => (
+          {cover.metricas.slice(0, 2).map((m, idx) => (
             <MetricCard key={idx} metrica={m} />
           ))}
         </div>
@@ -91,29 +96,18 @@ export default function Cover({ cover }) {
       </div>
     </section>
 
-    <section className="resumo-relatorio-page">
-      <h2 className="cover-kicker">Resumo do relatório</h2>
-      {cover.resumo_relatorio_html?.length > 0 ? (
-        cover.resumo_relatorio_html.map((item, i) => (
-          <div key={i} dangerouslySetInnerHTML={{ __html: item }} />
-        ))
-      ) : (
-        cover.resumo_relatorio ? (
-          <p className="theme-detail-text">{cover.resumo_relatorio}</p>
-        ) : null
-      )}
-    </section>
-
     {macrotemas.map((macrotema, idx) => (
-      <React.Fragment key={idx}>
-        <MacrothemeCard macrotema={macrotema} />
+      <section className="theme-detail-page" key={idx}>
+        <div className="theme-detail-top">
+          <MacrothemeCard macrotema={macrotema} />
 
-        <IndicatorScores macrotema={macrotema} />
+          <IndicatorScores macrotema={macrotema} />
 
-        <ScoreLegend />
+          <ScoreLegend />
+        </div>
 
         <ThemeDetail macrotema={macrotema} />
-      </React.Fragment>
+      </section>
     ))}
     </>
   );

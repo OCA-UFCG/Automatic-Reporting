@@ -45,11 +45,13 @@ li {
 }
 
 .doc-content {
-  font-family: 'Inter', var(--font-sans);
-  font-size: 12px;
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
   font-weight: 400;
-  line-height: 150%;
+  line-height: 130%;
   color: #292829;
+  padding: 0 33.76px;
+  box-sizing: border-box;
 }
 
 .doc-content p {
@@ -58,7 +60,7 @@ li {
   font-weight: inherit;
   line-height: inherit;
   color: inherit;
-  text-indent: 0;
+  text-indent: 32px;
 }
 
 .doc-content p.lead {
@@ -68,17 +70,27 @@ li {
   line-height: inherit;
   color: inherit;
   font-style: normal;
-  margin: 0 0 14px;
+  margin: 0 0 18.67px;
 }
 
 .doc-content h1 {
-  font-family: 'Inter', var(--font-sans);
+  font-family: "Inter", var(--font-sans);
   font-size: 16px;
   font-weight: 500;
   color: #085F2D;
   line-height: 150%;
   letter-spacing: -0.012em;
-  margin: 0 0 18px 0;
+  margin: 0 0 2.67px 0;
+}
+
+.doc-content h2 {
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
+  font-weight: 500;
+  color: #085F2D;
+  line-height: 150%;
+  letter-spacing: -0.012em;
+  margin: 0 0 2.67px 0;
 }
 
 .doc-content ul {
@@ -89,33 +101,33 @@ li {
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: end;
-  column-gap: 12px;
-  margin: 14px 0 8px;
+  column-gap: 16px;
+  margin: 18.67px 0 10.67px;
 }
 
 .section-number {
   color: #c68a2c;
-  font-size: 32px;
+  font-size: 42.67px;
   line-height: 0.9;
   font-weight: 400;
 }
 
 .section-title-wrap {
-  padding-bottom: 4px;
+  padding-bottom: 5.33px;
   border-bottom: 1px solid #d99a37;
 }
 
 .section-title {
   color: #085F2D;
-  font-family: 'Inter', var(--font-sans);
-  font-size: 12px;
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
   font-weight: 500;
   line-height: 150%;
   letter-spacing: -0.012em;
 }
 
 .chart-block {
-  margin: 18px auto 20px;
+  margin: 24px auto 26.67px;
   text-align: center;
   break-inside: avoid;
 }
@@ -128,11 +140,11 @@ li {
 }
 
 .figure-caption {
-  margin: 8px auto 16px;
+  margin: 10.67px auto 21.33px;
   max-width: 76%;
   color: #333;
-  font-family: 'Inter', var(--font-sans);
-  font-size: 12px;
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
   font-weight: 400;
   line-height: 1.35;
   text-align: center;
@@ -318,16 +330,16 @@ li {
   .doc-content {
     width: 100%;
     margin: 0;
-    padding: 0;
+    padding: 18.67px 33.76px 0;
     box-sizing: border-box;
+    box-decoration-break: clone;
     break-before: auto;
     page-break-before: auto;
-    margin-top: 14px;
   }
 
   .doc-content h1,
   .doc-content h2 {
-    font-family: 'Inter', var(--font-sans);
+    font-family: "Inter", var(--font-sans);
     break-after: avoid;
     page-break-after: avoid;
   }
@@ -339,18 +351,22 @@ li {
   }
 
   .doc-content h2 {
-    font-size: 15px;
-    color: #292829;
+    font-size: 16px;
+    color: #085F2D;
+    font-weight: 500;
+    line-height: 150%;
+    letter-spacing: -0.012em;
+    margin: 0 0 2.67px;
   }
 
   .doc-content p,
   .doc-content li {
-    font-size: 12px;
-    line-height: 1.5;
+    font-size: 16px;
+    line-height: 1.3;
   }
 
   .chart-block {
-    margin: 10px auto 12px;
+    margin: 13.33px auto 16px;
   }
 
   .chart-block img {
@@ -358,7 +374,7 @@ li {
   }
 
   .figure-caption {
-    font-size: 12px;
+    font-size: 16px;
   }
 
   .chart-block,

@@ -103,6 +103,19 @@ def limpar_texto_exportado_docs(texto: str) -> str:
     return "\n".join(linhas_limpas)
 
 
+def _remover_separador_apos_marcador(bloco: str) -> str:
+    """Remove quebras de linha e o separador curto "= texto"; preserva um
+    recuo intencional (tab ou 4+ espaços) logo após o marcador."""
+    bloco = bloco.lstrip("\n\r")
+    if bloco.startswith("\t"):
+        return bloco
+    sem_espacos = bloco.lstrip(" ")
+    n_espacos = len(bloco) - len(sem_espacos)
+    if 0 < n_espacos < 4:
+        return sem_espacos
+    return bloco
+
+
 def extrair_bloco_marcado(
     texto: str,
     marcador: str,
@@ -111,21 +124,23 @@ def extrair_bloco_marcado(
     marcador_escapado = re.escape(marcador)
     fim = "@@" if exigir_fechamento else "@@|\\Z"
     padrao = re.compile(
-        rf"(?is){marcador_escapado}\s*=\s*(.*?)(?:{fim})"
+        rf"(?is){marcador_escapado}\s*=(.*?)(?:{fim})"
     )
     match = padrao.search(texto)
     if not match:
         return None, texto
 
-    bloco = match.group(1).strip()
+    bloco = _remover_separador_apos_marcador(match.group(1)).rstrip()
     if len(bloco) >= 2 and (bloco[0], bloco[-1]) in {
         ('"', '"'),
         ("'", "'"),
         ("“", "”"),
     }:
-        bloco = bloco[1:-1].strip()
+        bloco = _remover_separador_apos_marcador(bloco[1:-1]).rstrip()
     else:
-        bloco = bloco.removeprefix("“").removesuffix("”").strip()
+        bloco = _remover_separador_apos_marcador(
+            bloco.removeprefix("“").removesuffix("”")
+        ).rstrip()
     texto_sem_bloco = (texto[:match.start()] + texto[match.end():]).strip()
     return bloco or None, texto_sem_bloco
 
@@ -160,34 +175,36 @@ def extrair_relatorio_geral(texto: str) -> tuple[str | None, str]:
 
 def extrair_inicio_relatorio(texto: str) -> tuple[str | None, str]:
     padrao = re.compile(
-        r"(?ims)^\s*inicio_relatorio\s*=\s*(.*?)(?=^\s*[a-z_]+\s*=|^\s*#!|\Z)"
+        r"(?ims)^\s*inicio_relatorio\s*=(.*?)(?=^\s*[a-z_]+\s*=|^\s*#!|\Z)"
     )
     match = padrao.search(texto)
     if not match:
         return None, texto
 
-    bloco = match.group(1).strip().removesuffix("@@").strip()
+    bloco = _remover_separador_apos_marcador(match.group(1)).rstrip().removesuffix("@@").rstrip()
     texto_sem_bloco = (texto[:match.start()] + texto[match.end():]).strip()
     return bloco or None, texto_sem_bloco
 
 
 def extrair_introducao(texto: str) -> tuple[str | None, str]:
     padrao = re.compile(
-        r"(?ims)^\s*introducao\s*=\s*(.*?)(?=^\s*[a-z_]+\s*=|^\s*#!|\Z)"
+        r"(?ims)^\s*introducao\s*=(.*?)(?=^\s*[a-z_]+\s*=|^\s*#!|\Z)"
     )
     match = padrao.search(texto)
     if not match:
         return None, texto
 
-    bloco = match.group(1).strip().removesuffix("@@").strip()
+    bloco = _remover_separador_apos_marcador(match.group(1)).rstrip().removesuffix("@@").rstrip()
     if len(bloco) >= 2 and (bloco[0], bloco[-1]) in {
         ('"', '"'),
         ("'", "'"),
         ("“", "”"),
     }:
-        bloco = bloco[1:-1].strip()
+        bloco = _remover_separador_apos_marcador(bloco[1:-1]).rstrip()
     else:
-        bloco = bloco.removeprefix("“").removesuffix("”").strip()
+        bloco = _remover_separador_apos_marcador(
+            bloco.removeprefix("“").removesuffix("”")
+        ).rstrip()
 
     texto_sem_bloco = (texto[:match.start()] + texto[match.end():]).strip()
     return bloco or None, texto_sem_bloco
