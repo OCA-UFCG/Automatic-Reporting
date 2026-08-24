@@ -1,0 +1,70 @@
+from utils.queries.base import executar_query
+
+MESES_PT = {
+    1: "janeiro",
+    2: "fevereiro",
+    3: "março",
+    4: "abril",
+    5: "maio",
+    6: "junho",
+    7: "julho",
+    8: "agosto",
+    9: "setembro",
+    10: "outubro",
+    11: "novembro",
+    12: "dezembro",
+}
+
+CARACTERISTICAS_MUNICIPIO = """
+    SELECT
+        c.nm_mun,
+        c.sigla_uf,
+        c.estado,
+        c.regiao,
+        c.nm_rgi,
+        c.area as area_territorial,
+        c.bioma,
+        n.dia,
+        n.mes,
+        COALESCE(SUM(d.populacao_total), 0) as pop_total
+    FROM carac_mun.caracteristicas_municipais c
+    LEFT JOIN carac_mun.niver_municipais n
+        ON (c.cd_mun::int / 10) = n.codigo_municipio::int
+    LEFT JOIN dem_demografia.final_demografia d
+        ON c.cd_mun = d.cd_mun::text
+        AND d.ano = 2022
+    WHERE c.nm_mun = %s
+      AND c.sigla_uf = %s
+    GROUP BY c.nm_mun, c.sigla_uf, c.estado, c.regiao, c.nm_rgi, c.area, c.bioma, n.dia, n.mes
+"""
+
+
+def buscar_caracteristicas_municipio(
+    nome_municipio: str, sigla_uf: str
+) -> dict[str, object] | None:
+    linha = executar_query(
+        CARACTERISTICAS_MUNICIPIO,
+        (nome_municipio, sigla_uf),
+        f"características de '{nome_municipio} ({sigla_uf})'",
+    )
+    if linha is None:
+        return None
+
+    nm_mun, sigla_uf_db, estado, regiao, nm_rgi, area_territorial, bioma, dia, mes, pop_total = linha
+
+    aniversario = None
+    if dia is not None and mes is not None and mes in MESES_PT:
+        aniversario = f"{dia} de {MESES_PT[mes]}"
+
+    dados = {
+        "nm_mun": nm_mun,
+        "sigla_uf": sigla_uf_db,
+        "estado": estado,
+        "regiao": regiao,
+        "nm_rgi": nm_rgi,
+        "area_territorial": area_territorial,
+        "bioma": bioma,
+        "pop_total": pop_total,
+        "aniversario": aniversario,
+    }
+    return {campo: valor for campo, valor in dados.items() if valor is not None}

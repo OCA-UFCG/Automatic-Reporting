@@ -37,6 +37,16 @@ from utils.external.docs import (
     extrair_resumo_tema,
     remover_titulos_docs,
 )
+from utils.geografia import resolver_nome_uf
+from utils.queries.caracteristicas import buscar_caracteristicas_municipio
+from utils.queries.demografia import (
+    buscar_demografia_sexo_faixa_etaria,
+    buscar_populacao_demografia,
+    buscar_populacao_indigena,
+    buscar_populacao_rua,
+)
+from utils.queries.educacao import buscar_taxas_educacao_cor_faixa_etaria
+from utils.queries.saude import buscar_publico_etario_vacinas
 from utils.render.renderer import (
     render_descricao_tema_html,
     render_mapa_marker,
@@ -67,6 +77,15 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     resumo_relatorio_html_parts: list[str] = []
     resumo_relatorio_parts: list[str] = []
     referencias: list[str] = []
+
+    db_consultado = False
+    dados_caracteristicas_db = None
+    dados_demografia_db = None
+    dados_sexo_faixa = None
+    dados_indigena = None
+    dados_rua = None
+    dados_publico_etario = None
+    dados_taxas_educacao = None
 
     for macrotema_slug in macrotema_slugs:
         try:
@@ -100,8 +119,50 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             linha["data_relatorio"] = gerado_em.strftime("%d/%m/%Y")
             linha["hora_relatorio"] = gerado_em.strftime("%H:%M")
 
+        if not db_consultado:
+            nome_cidade_db, uf_db = resolver_nome_uf(linhas_macrotema[0])
+            dados_caracteristicas_db = buscar_caracteristicas_municipio(nome_cidade_db, uf_db)
+            if "demografia" in macrotema_slugs:
+                dados_demografia_db = buscar_populacao_demografia(nome_cidade_db, uf_db)
+                dados_sexo_faixa = buscar_demografia_sexo_faixa_etaria(nome_cidade_db, uf_db)
+                dados_indigena = buscar_populacao_indigena(nome_cidade_db, uf_db)
+            if "saude" in macrotema_slugs:
+                dados_publico_etario = buscar_publico_etario_vacinas(nome_cidade_db, uf_db)
+            if "educacao" in macrotema_slugs:
+                dados_taxas_educacao = buscar_taxas_educacao_cor_faixa_etaria(nome_cidade_db, uf_db)
+            dados_rua = buscar_populacao_rua(nome_cidade_db, uf_db)
+            db_consultado = True
+
+        if dados_caracteristicas_db:
+            for linha in linhas_macrotema:
+                linha.update(dados_caracteristicas_db)
+
+        if macrotema_slug == "demografia" and dados_demografia_db:
+            for linha in linhas_macrotema:
+                linha.update(dados_demografia_db)
+
+        if "demografia" in macrotema_slugs and dados_sexo_faixa:
+            for linha in linhas_macrotema:
+                linha.update(dados_sexo_faixa)
+        if "demografia" in macrotema_slugs and dados_indigena:
+            for linha in linhas_macrotema:
+                linha.update(dados_indigena)
+
+        if dados_rua:
+            for linha in linhas_macrotema:
+                linha.update(dados_rua)
+
+        if "saude" in macrotema_slugs and dados_publico_etario:
+            for linha in linhas_macrotema:
+                linha.update(dados_publico_etario)
+
+        if "educacao" in macrotema_slugs and dados_taxas_educacao:
+            for linha in linhas_macrotema:
+                linha.update(dados_taxas_educacao)
+
         if linhas is None:
             linhas = linhas_macrotema
+
             cover = montar_capa_relatorio(
                 linhas[0],
                 gerado_em,

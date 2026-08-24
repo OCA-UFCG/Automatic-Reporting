@@ -35,6 +35,14 @@ def normalizar_para_json(valor):
     if isinstance(valor, float):
         return valor if math.isfinite(valor) else None
 
+    from decimal import Decimal
+    if isinstance(valor, Decimal):
+        try:
+            float_val = float(valor)
+            return float_val if math.isfinite(float_val) else None
+        except (ValueError, OverflowError):
+            return None
+
     # Scalars NumPy/Pandas podem não ser aceitos pelo encoder JSON. ``item``
     # converte esses valores para o tipo Python correspondente; NaN/Inf são
     # tratados na chamada recursiva seguinte.
