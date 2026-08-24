@@ -1,99 +1,166 @@
-# report-generator-demo
+# Automatic Reporting
 
-Projeto com duas partes:
-
-- **API em FastAPI** para gerar relatórios do Data Nordeste.
-- **Frontend em React + Vite** para escolher macrotema e cidade e disparar o relatório.
-
-## Estrutura
-
-- `main.py` — API FastAPI
-- `citys.txt` — lista de cidades usadas no frontend
-- `demografia.csv` — base de dados do relatório
-- `output/` — arquivos HTML/PDF e gráficos gerados
-- `frontend/` — interface web
+Aplicação para gerar relatórios municipais em HTML e PDF. A API FastAPI combina
+dados de planilhas, PostgreSQL e Google Docs; o relatório é renderizado com React
+SSR e convertido para PDF pelo WeasyPrint.
 
 ## Requisitos
 
-- Python 3.10+
-- Node.js 18+
+- Python 3.10 ou superior
+- Node.js 18 ou superior
+- PostgreSQL com acesso às bases do Data Nordeste
 
-## Instalação da API
+> O PostgreSQL passou a ser obrigatório para gerar os relatórios. Este
+> repositório não contém dump, migrations ou dados de exemplo capazes de montar
+> essa base do zero. Para testar a geração completa, solicite à equipe as
+> credenciais da instância de desenvolvimento/homologação.
 
-Dentro da pasta `report-generator-demo`:
+## Configuração
+
+Crie o arquivo local de configuração:
+
+```bash
+cp .env.example .env
+```
+
+Preencha no `.env` as fontes CSV, os documentos e a conexão com o banco. Não
+adicione esse arquivo ao Git.
+
+```dotenv
+DEMOGRAFIA_CSV_URL=https://docs.google.com/spreadsheets/d/ID/edit#gid=0
+EDUCACAO_CSV_URL=https://docs.google.com/spreadsheets/d/ID/edit#gid=0
+SAUDE_CSV_URL=https://docs.google.com/spreadsheets/d/ID/edit#gid=0
+
+CARACTERISTICAS_DOCS_URL=https://docs.google.com/document/d/ID/edit
+DEMOGRAFIA_DOCS_URL=https://docs.google.com/document/d/ID/edit
+EDUCACAO_DOCS_URL=https://docs.google.com/document/d/ID/edit
+SAUDE_DOCS_URL=https://docs.google.com/document/d/ID/edit
+
+DB_HOST=host-do-postgres
+DB_DATABASE=nome-do-banco
+DB_USER=usuario
+DB_PASSWORD=senha
+DB_PORT=5432
+```
+
+As demais variáveis disponíveis estão documentadas em `.env.example`. Planilhas
+e documentos do Google precisam estar acessíveis para leitura pela aplicação.
+
+### Banco de dados esperado
+
+A aplicação consulta atualmente estes schemas:
+
+- `carac_mun`
+- `dem_demografia`
+- `dem_demografia_indigena`
+- `dem_demografia_quilombola`
+- `dem_rua`
+- `edu_analfabetismo`
+- `sau_imunizacao`
+
+O usuário configurado em `DB_USER` precisa de permissão `SELECT` nesses schemas.
+Não é necessário conceder permissão de escrita.
+
+Para validar as credenciais antes de subir a aplicação:
+
+```bash
+source .venv/bin/activate
+python -m utils.database
+```
+
+O resultado esperado começa com:
+
+```text
+Conexão bem-sucedida!
+```
+
+Se a aplicação estiver em Docker e o PostgreSQL estiver na máquina host, não use
+`localhost` em `DB_HOST`: dentro do container, `localhost` aponta para o próprio
+container. Use um hostname acessível pela rede Docker ou
+`host.docker.internal`, quando disponível no sistema operacional.
+
+## Execução local
+
+Instale as dependências:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+
+npm install
+npm run build -w report
 ```
 
-## Como executar a API
+Inicie a API:
 
 ```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Se quiser usar um Google Docs específico como texto-base do relatório:
+O FastAPI inicia o servidor React SSR automaticamente. Em outro terminal, rode
+o frontend em modo de desenvolvimento:
 
 ```bash
-export DATANE_DOCS_URL="https://docs.google.com/document/d/SEU_DOC_ID/edit"
+npm run dev -w frontend
 ```
 
-Se essa variável não for definida, a API usa o documento padrão já configurado no `main.py`.
+- Frontend: `http://localhost:5173`
+- Swagger da API: `http://localhost:8000/docs`
 
-## Instalação do frontend
+Um relatório também pode ser gerado diretamente pela API:
 
-Dentro da pasta `report-generator-demo/frontend`:
+```text
+http://localhost:8000/relatorio/Canapi%20(AL)?macrotema=demografia
+```
+
+Os PDFs, HTMLs, mapas e gráficos gerados ficam em `output/`.
+
+## Execução com Docker
+
+Com o `.env` preenchido:
 
 ```bash
-yarn install
+docker compose up --build
 ```
 
-## Como executar o frontend
+A aplicação fica disponível em `http://localhost:8000`. O Compose lê o `.env` e
+repassa as credenciais do PostgreSQL ao container. A pasta `output/` é montada
+como volume para preservar os relatórios.
+
+Também é possível executar a imagem diretamente:
 
 ```bash
-yarn dev
+docker build -t automatic-reporting .
+docker run --rm \
+  --env-file .env \
+  -p 8000:8000 \
+  -v "$(pwd)/output:/app/output" \
+  automatic-reporting
 ```
 
-O frontend abre normalmente em `http://localhost:5173`.
+## Testes
 
-Se quiser, também funciona:
+Com o ambiente virtual ativo:
 
 ```bash
-yarn start
+pytest -q
 ```
 
-## Como usar
+Os testes unitários de renderização não precisam acessar o PostgreSQL. A geração
+de um relatório real e os testes manuais das queries precisam das variáveis
+`DB_*` e de conectividade com a instância configurada.
 
-1. Rode a API.
-2. Rode o frontend.
-3. Abra o frontend no navegador.
-4. Clique em **Gerar relatório**.
-5. Escolha o macrotema e a cidade.
-6. Clique em **Gerar relatório** novamente para abrir o relatório.
+## Estrutura principal
 
-Por enquanto, o macrotema é apenas visual no formulário; a API recebe apenas a cidade.
+- `main.py` — rotas FastAPI
+- `services/generation.py` — orquestra a geração do relatório
+- `utils/queries/` — consultas PostgreSQL por macrotema
+- `utils/render/` — placeholders, condições editoriais e HTML
+- `utils/external/docs.py` — leitura e limpeza dos Google Docs
+- `plotting/` — geração dos gráficos
+- `report/` — componentes React usados no PDF
+- `frontend/` — interface de seleção e listagem
+- `output/` — artefatos gerados
 
-## O que a API faz
-
-Quando você acessa `/relatorio/{cidade}`:
-
-1. lê o CSV `demografia.csv`;
-2. procura a cidade informada, com ou sem UF;
-3. busca o texto-base no Google Docs;
-4. renderiza o HTML do relatório;
-5. gera gráfico de população por sexo;
-6. salva os arquivos em `output/`;
-7. devolve o HTML no navegador.
-
-## Exemplo de uso direto da API
-
-- `http://127.0.0.1:8000/docs`
-- `http://127.0.0.1:8000/relatorio/Caruaru%20(PE)`
-
-## Arquivos importantes do frontend
-
-- `frontend/src/App.jsx` — tela principal
-- `frontend/src/styles.css` — estilos da interface
-- `frontend/package.json` — scripts do frontend
+Para detalhes do fluxo interno, consulte [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
