@@ -743,8 +743,11 @@
 }
 
 .cover-mapa-principal figcaption {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
   font-size: 13.33px;
-  text-align: left;
+  text-align: left !important;
 }
 
 @media print {

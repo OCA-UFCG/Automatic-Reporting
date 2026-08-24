@@ -270,6 +270,7 @@ def desenhar_escala(
     fontsize: float = 5.5,
     km_total: float | None = None,
     altura: float = 0.012,
+    centro_x: float | None = None,
 ) -> None:
     """Desenha uma escala dinâmica compatível com eixos em longitude/latitude."""
     import math
@@ -292,6 +293,8 @@ def desenhar_escala(
     if km_total is None or km_total > km_maximo:
         km_total = _escala_arredondada(km_maximo)
     largura_frac = km_total / largura_km
+    if centro_x is not None:
+        x0 = centro_x - largura_frac / 2
 
     metade = largura_frac / 2
     for indice, cor in enumerate(("#111111", "#ffffff")):
@@ -438,22 +441,142 @@ def desenhar_norte(ax, fontsize: float = 8.0, pos=(0.92, 0.12), tamanho: float =
         color="#111111",
         zorder=22,
     )
+    topo = (x, y + tamanho)
+    esquerda = (x - tamanho * 0.48, y - tamanho)
+    centro = (x, y - tamanho * 0.40)
+    direita = (x + tamanho * 0.48, y - tamanho)
+
+    # Rosa dos ventos em duas faces, como no layout de referência.
+    for pontos, cor in (
+        ([topo, esquerda, centro], "#cfcfcf"),
+        ([topo, centro, direita], "#ffffff"),
+    ):
+        ax.add_patch(
+            Polygon(
+                pontos,
+                closed=True,
+                transform=ax.transAxes,
+                facecolor=cor,
+                edgecolor="#111111",
+                linewidth=0.8,
+                joinstyle="miter",
+                clip_on=False,
+                zorder=22,
+            )
+        )
+
+
+def desenhar_legenda_cartografica(
+    ax,
+    pos: tuple[float, float] = (0.03, 0.015),
+    largura: float = 0.94,
+    altura: float = 0.14,
+) -> None:
+    """Desenha o bloco de legenda cartográfica: limites, sistema de referência, norte e escala."""
+    from matplotlib.patches import Rectangle
+
+    x0, y0 = pos
+    # Zorder abaixo da seta norte e da escala para não sobrepô-las com o
+    # fundo opaco da caixa.
+    box_zorder = 15
+
     ax.add_patch(
-        Polygon(
-            [
-                (x, y + tamanho),
-                (x - tamanho * 0.42, y - tamanho),
-                (x, y - tamanho * 0.38),
-                (x + tamanho * 0.42, y - tamanho),
-            ],
-            closed=True,
+        Rectangle(
+            (x0, y0),
+            largura,
+            altura,
             transform=ax.transAxes,
             facecolor="white",
-            edgecolor="#111111",
-            linewidth=1,
+            edgecolor="#8c8c8c",
+            linewidth=0.6,
             clip_on=False,
-            zorder=22,
+            zorder=box_zorder,
         )
+    )
+
+    pad_x = 0.014
+    pad_y = 0.01
+    # Coluna direita reservada para bússola (topo) e escala (abaixo dela),
+    # nunca lado a lado com o texto para não haver sobreposição.
+    coluna_direita_largura = 0.14
+
+    cursor_y = y0 + altura - pad_y - 0.016
+
+    ax.text(
+        x0 + pad_x,
+        cursor_y,
+        "Legenda",
+        transform=ax.transAxes,
+        ha="left",
+        va="top",
+        fontsize=6.2,
+        fontweight="bold",
+        color="#1f1f1f",
+        zorder=box_zorder + 1,
+    )
+    cursor_y -= 0.026
+
+    swatch = 0.015
+    for rotulo, cor in (("Limite estadual", "#d3d3d3"), ("Limite municipal", "#ffffff")):
+        ax.add_patch(
+            Rectangle(
+                (x0 + pad_x, cursor_y - swatch),
+                swatch,
+                swatch,
+                transform=ax.transAxes,
+                facecolor=cor,
+                edgecolor="#6b604f",
+                linewidth=0.6,
+                clip_on=False,
+                zorder=box_zorder + 1,
+            )
+        )
+        ax.text(
+            x0 + pad_x + swatch + 0.01,
+            cursor_y - swatch / 2,
+            rotulo,
+            transform=ax.transAxes,
+            ha="left",
+            va="center",
+            fontsize=4.8,
+            color="#1f1f1f",
+            zorder=box_zorder + 1,
+        )
+        cursor_y -= 0.023
+
+    cursor_y -= 0.002
+    for texto in (
+        "Sistema de Coordenadas: Geográfico",
+        "Sistema Geodésico de Referência: SIRGAS 2000",
+    ):
+        ax.text(
+            x0 + pad_x,
+            cursor_y,
+            texto,
+            transform=ax.transAxes,
+            ha="left",
+            va="top",
+            fontsize=3.8,
+            color="#1f1f1f",
+            zorder=box_zorder + 1,
+        )
+        cursor_y -= 0.017
+
+    centro_x_direita = x0 + largura - pad_x - coluna_direita_largura / 2
+    desenhar_norte(
+        ax,
+        fontsize=5.7,
+        pos=(centro_x_direita, y0 + altura - 0.052),
+        tamanho=0.016,
+    )
+
+    desenhar_escala(
+        ax,
+        pos=(centro_x_direita - 0.10, y0 + 0.029),
+        largura_maxima_frac=0.20,
+        fontsize=3.6,
+        altura=0.009,
+        centro_x=centro_x_direita,
     )
 
 
@@ -486,14 +609,16 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
     fundo_cor = "#ffd18f"
     limite_cor = "#6b604f"
 
-    fig = plt.figure(figsize=(8.3, 5.55), facecolor="white")
+    # Proporção horizontal do layout do Figma: ocupa mais largura no relatório
+    # sem consumir tanta altura da capa.
+    fig = plt.figure(figsize=(9.4, 4.65), facecolor="white")
     grid = fig.add_gridspec(1, 2, width_ratios=[1, 1], wspace=0.05)
     ax_estado = fig.add_subplot(grid[0])
     ax_cidade = fig.add_subplot(grid[1])
 
     estado_bounds = ampliar_altura_bounds(
         expandir_bounds(uf_alvo.total_bounds, 0.28),
-        1.25,
+        1.08,
     )
     ax_estado.set_facecolor("#d8e9f7")
     configurar_eixo_mapa(ax_estado, estado_bounds)
@@ -522,7 +647,7 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
     municipio_gdf.plot(ax=ax_cidade, color=municipio_cor, edgecolor="#8a3d12", linewidth=1)
     bounds_cidade = ampliar_altura_bounds(
         expandir_bounds(municipio.geometry.bounds, 0.18),
-        1.25,
+        1.08,
     )
     configurar_eixo_mapa(ax_cidade, bounds_cidade)
     cidade_minx, cidade_maxx, cidade_miny, cidade_maxy = bounds_cidade
@@ -538,6 +663,7 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
         fontsize=5.4,
     )
     anotar_municipios_vizinhos(ax_cidade, municipios_uf, municipio, bounds_cidade)
+    desenhar_legenda_cartografica(ax_cidade)
 
     for ax in [ax_estado, ax_cidade]:
         for spine in ax.spines.values():
