@@ -12,11 +12,11 @@ from config import (
     require_config_value,
     resolve_csv_source,
 )
-from plotting.educacao import gerar_grafico_cor_faixa_etaria
 from plotting.demografia import (
     gerar_grafico_composicao_cor_raca,
     gerar_grafico_faixa_etaria_e_sexo,
 )
+from plotting.educacao import gerar_grafico_cor_faixa_etaria
 from plotting.saude import gerar_grafico_publico_etario
 from services.csv_loader import (
     carregar_csv,

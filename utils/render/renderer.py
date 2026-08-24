@@ -4,7 +4,10 @@ import re
 from utils.external.contentful import obter_url_mapa_contentful
 from utils.maps import gerar_mapa_regiao, render_mapa_geografico
 from utils.render.links import convert_links_to_html
-from utils.render.placeholders import interpretar_blocos_condicionais, substituir_placeholders
+from utils.render.placeholders import (
+    interpretar_blocos_condicionais,
+    substituir_placeholders,
+)
 from utils.render.sections import identificar_secao_macrotema
 
 _figura_contador = 1
