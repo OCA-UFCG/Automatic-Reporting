@@ -14,15 +14,17 @@ export default function ThemeDetail({ macrotema }) {
   return (
     <section className="theme-detail-section">
       <h2 className="theme-detail-heading">{diagnosticarNome(macrotema.nome)}</h2>
-      {items.map((item, idx) => {
-        if (typeof item === 'string' && item.startsWith('<figure')) {
-          return null;
-        }
-        if (macrotema.descricao_html) {
-          return <div key={idx} dangerouslySetInnerHTML={{ __html: item }} />;
-        }
-        return <p key={idx} className="theme-detail-text">{item}</p>;
-      })}
+      <div className="cover-relatorio-geral-wrap theme-detail-content">
+        {items.map((item, idx) => {
+          if (typeof item === 'string' && item.startsWith('<figure')) {
+            return null;
+          }
+          if (macrotema.descricao_html) {
+            return <div key={idx} dangerouslySetInnerHTML={{ __html: item }} />;
+          }
+          return <p key={idx} className="theme-detail-text">{item}</p>;
+        })}
+      </div>
     </section>
   );
 }

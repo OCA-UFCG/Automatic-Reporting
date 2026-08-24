@@ -13,6 +13,10 @@ from config import (
     resolve_csv_source,
 )
 from plotting.educacao import gerar_grafico_cor_faixa_etaria
+from plotting.demografia import (
+    gerar_grafico_composicao_cor_raca,
+    gerar_grafico_faixa_etaria_e_sexo,
+)
 from plotting.saude import gerar_grafico_publico_etario
 from services.csv_loader import (
     carregar_csv,
@@ -43,6 +47,7 @@ from utils.queries.demografia import (
     buscar_demografia_sexo_faixa_etaria,
     buscar_populacao_demografia,
     buscar_populacao_indigena,
+    buscar_populacao_quilombola,
     buscar_populacao_rua,
 )
 from utils.queries.educacao import buscar_taxas_educacao_cor_faixa_etaria
@@ -83,6 +88,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     dados_demografia_db = None
     dados_sexo_faixa = None
     dados_indigena = None
+    dados_quilombola = None
     dados_rua = None
     dados_publico_etario = None
     dados_taxas_educacao = None
@@ -126,6 +132,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 dados_demografia_db = buscar_populacao_demografia(nome_cidade_db, uf_db)
                 dados_sexo_faixa = buscar_demografia_sexo_faixa_etaria(nome_cidade_db, uf_db)
                 dados_indigena = buscar_populacao_indigena(nome_cidade_db, uf_db)
+                dados_quilombola = buscar_populacao_quilombola(nome_cidade_db, uf_db)
             if "saude" in macrotema_slugs:
                 dados_publico_etario = buscar_publico_etario_vacinas(nome_cidade_db, uf_db)
             if "educacao" in macrotema_slugs:
@@ -147,6 +154,9 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         if "demografia" in macrotema_slugs and dados_indigena:
             for linha in linhas_macrotema:
                 linha.update(dados_indigena)
+        if "demografia" in macrotema_slugs and dados_quilombola:
+            for linha in linhas_macrotema:
+                linha.update(dados_quilombola)
 
         if dados_rua:
             for linha in linhas_macrotema:
@@ -321,6 +331,20 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
 
         graficos_por_placeholder = {}
 
+        if macrotema_slug == "demografia":
+            chart_file_name = gerar_grafico_faixa_etaria_e_sexo(
+                cidade=linhas_macrotema[0],
+                OUTPUT_DIR=OUTPUT_DIR,
+                safe_city=safe_report or "relatorio",
+            )
+            graficos_por_placeholder["grafico_faixa_etaria_e_sexo"] = chart_file_name
+            chart_file_name = gerar_grafico_composicao_cor_raca(
+                cidade=linhas_macrotema[0],
+                OUTPUT_DIR=OUTPUT_DIR,
+                safe_city=safe_report or "relatorio",
+            )
+            graficos_por_placeholder["grafico_composicao_cor_raca"] = chart_file_name
+
         if macrotema_slug == "educacao":
             chart_file_name = gerar_grafico_cor_faixa_etaria(
                 cidade=linhas_macrotema[0],
@@ -342,6 +366,35 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             docs_texto = await carregar_texto_do_docs(docs_url)
         except ValueError as err:
             raise HTTPException(status_code=400, detail=str(err)) from err
+
+        if (
+            macrotema_slug == "demografia"
+            and not re.search(
+                r"(?m)^\s*(?:%%|\*)grafico_faixa_etaria_e_sexo\s*$",
+                docs_texto,
+            )
+        ):
+            docs_texto = re.sub(
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Popula[cç][aã]o\s+por\s+faixa\s+et[aá]ria\s+e\s+sexo[^\n]*)$",
+                "*grafico_faixa_etaria_e_sexo\n\n\\1",
+                docs_texto,
+                count=1,
+            )
+        if (
+            macrotema_slug == "demografia"
+            and not re.search(
+                r"(?m)^\s*(?:%%|\*)grafico_composicao_cor_raca\s*$",
+                docs_texto,
+            )
+        ):
+            docs_texto = re.sub(
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Composi[cç][aã]o\s+por\s+cor\s+ou\s+ra[cç]a[^\n]*)$",
+                "*grafico_composicao_cor_raca\n\n\\1",
+                docs_texto,
+                count=1,
+            )
 
         macrotema_item: dict[str, object] = {
             "nome": macrotema_dados["nome"],

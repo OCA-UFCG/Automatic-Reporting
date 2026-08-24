@@ -4,7 +4,7 @@ import re
 from utils.external.contentful import obter_url_mapa_contentful
 from utils.maps import gerar_mapa_regiao, render_mapa_geografico
 from utils.render.links import convert_links_to_html
-from utils.render.placeholders import substituir_placeholders
+from utils.render.placeholders import interpretar_blocos_condicionais, substituir_placeholders
 from utils.render.sections import identificar_secao_macrotema
 
 _figura_contador = 1
@@ -64,6 +64,7 @@ def render_descricao_tema_html(
     safe_report: str | None = None,
     graficos_por_placeholder: dict[str, str] | None = None,
 ) -> list[str]:
+    descricao_tema = interpretar_blocos_condicionais(descricao_tema, contexto)
     partes = []
     for paragrafo in re.split(r"\n\s*\n", descricao_tema):
         paragrafo = paragrafo.strip("\n\r") 
@@ -113,6 +114,7 @@ def texto_para_html(
     graficos_por_placeholder = graficos_por_placeholder or {}
     componentes_html = componentes_html or {}
 
+    texto = interpretar_blocos_condicionais(texto, contexto)
     texto_renderizado = substituir_placeholders(texto, contexto, namespace)
 
     linhas = [linha.rstrip() for linha in texto_renderizado.splitlines()]
@@ -180,7 +182,7 @@ def texto_para_html(
 
         # GRÁFICOS
         marcador_grafico = re.fullmatch(
-            r"%%(\w+(?:\+\w+)*)",
+            r"(?:%%|\*)(\w+(?:\+\w+)*)",
             linha_limpa,
         )
 
@@ -204,19 +206,25 @@ def texto_para_html(
                 if not chart_file:
                     continue
 
+                compacto = tipo == "grafico_composicao_cor_raca"
+                largura_maxima = "350px" if compacto else "480px"
+
                 figuras.append(
                     '<figure style="text-align:center; margin:0; flex:1; min-width:280px;">'
                     f'<img src="/output/{html_module.escape(chart_file)}" '
                     f'alt="{html_module.escape(tipo)}" '
-                    'style="width:100%; max-width:480px; object-fit:contain;">'
+                    f'style="width:100%; max-width:{largura_maxima}; object-fit:contain;">'
                     "</figure>"
                 )
 
             if figuras:
 
+                margem_vertical = "12px" if any(
+                    tipo == "grafico_composicao_cor_raca" for tipo in tipos
+                ) else "32px"
                 html_lines.append(
                     '<div style="display:flex; gap:24px; justify-content:center; '
-                    'align-items:flex-start; margin:32px 0; flex-wrap:wrap;">'
+                    f'align-items:flex-start; margin:{margem_vertical} 0; flex-wrap:wrap;">'
                     + "".join(figuras)
                     + "</div>"
                 )

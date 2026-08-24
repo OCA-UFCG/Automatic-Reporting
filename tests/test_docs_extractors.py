@@ -97,3 +97,20 @@ def test_presentation_marker_is_removed_with_or_without_space():
     )
 
     assert restante == "#! Hyperlink"
+
+
+def test_google_docs_comments_and_exported_footnotes_are_removed():
+    texto = """Texto com comentário[a] e outro marcador[b].
+[a] Revisora: retirar este trecho
+1 O IBGE estabeleceu uma observação usada apenas como nota.
+1. Uma lista numerada legítima.
+1 Demografia
+"""
+
+    resultado = limpar_texto_exportado_docs(texto)
+
+    assert resultado == (
+        "Texto com comentário e outro marcador.\n"
+        "1. Uma lista numerada legítima.\n"
+        "1 Demografia"
+    )

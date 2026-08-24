@@ -1,3 +1,4 @@
+from utils.render.placeholders import interpretar_blocos_condicionais
 from utils.render.renderer import substituir_placeholders, texto_para_html
 
 
@@ -66,3 +67,82 @@ def test_education_macrotheme_csv_and_column_alias_marker():
     assert substituir_placeholders(texto, contexto, namespace="educacao") == (
         "Parda; 16,43"
     )
+
+
+def test_database_column_names_support_editorial_document_placeholders():
+    contexto = {
+        "area_territorial": 593.026,
+        "centros_pop": 2,
+        "pop_total_indigena": 1042,
+        "homem_indigena": 501,
+        "mulher_indigena": 541,
+        "pop_rua_total": 120,
+        "pobreza_cadunico": 60,
+        "baixa_renda_cadunico": 30,
+        "acima_meio_sm_cadunico": 30,
+        "familias_rua_bf": 18,
+    }
+    texto = (
+        "caract_mun.$area; demografia.$centro_pop; "
+        "demografia.$pop_ind_2022; demografia.$pop_ind_homem_2022; "
+        "demografia.$pop_ind_mulher_2022; demografia.$pop_rua_2022; "
+        "demografia.$pop_rua_pobreza; demografia.$pop_rua_br; "
+        "demografia.$pop_rua_acima_br; demografia.$pop_rua_bolsaf_2022"
+    )
+
+    assert substituir_placeholders(texto, contexto, namespace="demografia") == (
+        "caract_mun.593,0; 2; 1.042; 501; 541; 120; 60; 30; 30; 18"
+    )
+
+
+def test_demography_editorial_conditions_render_only_the_matching_blocks():
+    texto = """Para quando demografia.$pop_ind_2022 for diferente de 0 e demografia.$pop_qui for igual a 0:
+Tem indígenas, sem quilombolas.
+Para quando demografia.$pop_ind_2010 for diferente de 0:
+Também havia indígenas em 2010.
+Para quando demografia.$pop_ind_2022 e demografia.$pop_qui for diferente de 0:
+Tem os dois grupos.
+Sequência do texto, sem condição:
+Texto comum.
+Para demografia.$centro_pop for igual a 0:
+Sem Centro POP.
+Para demografia.$centro_pop for igual a 1:
+Com um Centro POP.
+Para demografia.$centro_pop maior que 1:
+Com vários Centros POP."""
+    contexto = {
+        "pop_ind_2022": 470,
+        "pop_ind_2010": 579,
+        "pop_qui": 0,
+        "centros_pop": 1,
+    }
+
+    resultado = interpretar_blocos_condicionais(texto, contexto)
+
+    assert "Tem indígenas, sem quilombolas." in resultado
+    assert "Também havia indígenas em 2010." in resultado
+    assert "Tem os dois grupos." not in resultado
+    assert "Texto comum." in resultado
+    assert "Com um Centro POP." in resultado
+    assert "Sem Centro POP." not in resultado
+    assert "Com vários Centros POP." not in resultado
+    assert "Para quando" not in resultado
+
+
+def test_demography_short_namespace_is_normalized():
+    assert substituir_placeholders(
+        "demo.$etaria_maior_per%", {"etaria_maior": 40, "pop_total": 100}, "demografia"
+    ) == "40%"
+
+
+def test_single_asterisk_chart_placeholder_is_rendered():
+    html = texto_para_html(
+        "*grafico_faixa_etaria_e_sexo",
+        {},
+        namespace="demografia",
+        graficos_por_placeholder={
+            "grafico_faixa_etaria_e_sexo": "grafico_canapi.png"
+        },
+    )
+
+    assert '<img src="/output/grafico_canapi.png"' in html
