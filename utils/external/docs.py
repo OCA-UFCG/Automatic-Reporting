@@ -93,15 +93,20 @@ def linha_parece_comentario_docs(linha: str) -> bool:
 def linha_parece_nota_exportada_docs(linha: str) -> bool:
     """Detecta definições de nota de rodapé exportadas como ``1 Texto``.
 
-    Listas como ``1. Item`` e títulos como ``1 Demografia`` são preservados;
-    notas são identificadas pelo número solto seguido de uma frase iniciada por
-    artigo/pronome, que é o formato emitido pelos documentos usados no relatório.
+    Listas como ``1. Item`` e títulos como ``1 Demografia`` (ou ``1 O Perfil
+    Demográfico``) são preservados; notas são identificadas pelo número solto
+    seguido de uma frase iniciada por artigo/pronome *e* terminada em pontuação
+    de frase, já que títulos exportados não têm ponto final, diferente das
+    notas de rodapé emitidas pelos documentos usados no relatório.
     """
-    return bool(re.match(
-        r"^\s*\d{1,3}\s+(?:o|a|os|as|um|uma|este|esta|esse|essa|segundo|conforme)\b",
-        linha,
+    linha_limpa = linha.strip()
+    if not re.match(
+        r"^\d{1,3}\s+(?:o|a|os|as|um|uma|este|esta|esse|essa|segundo|conforme)\b",
+        linha_limpa,
         flags=re.IGNORECASE,
-    ))
+    ):
+        return False
+    return linha_limpa.endswith((".", "!", "?"))
 
 
 def limpar_texto_exportado_docs(texto: str) -> str:

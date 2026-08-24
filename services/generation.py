@@ -63,6 +63,23 @@ from utils.ssr import render_react_ssr
 
 logger = logging.getLogger(__name__)
 
+GRAFICOS_DEMOGRAFIA_AUTO_MARCADOR = (
+    (
+        "grafico_faixa_etaria_e_sexo",
+        (
+            r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+            r"Popula[cç][aã]o\s+por\s+faixa\s+et[aá]ria\s+e\s+sexo[^\n]*)$"
+        ),
+    ),
+    (
+        "grafico_composicao_cor_raca",
+        (
+            r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+            r"Composi[cç][aã]o\s+por\s+cor\s+ou\s+ra[cç]a[^\n]*)$"
+        ),
+    ),
+)
+
 
 async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     reset_figura_contador()
@@ -332,18 +349,23 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         graficos_por_placeholder = {}
 
         if macrotema_slug == "demografia":
-            chart_file_name = gerar_grafico_faixa_etaria_e_sexo(
-                cidade=linhas_macrotema[0],
-                OUTPUT_DIR=OUTPUT_DIR,
-                safe_city=safe_report or "relatorio",
-            )
-            graficos_por_placeholder["grafico_faixa_etaria_e_sexo"] = chart_file_name
-            chart_file_name = gerar_grafico_composicao_cor_raca(
-                cidade=linhas_macrotema[0],
-                OUTPUT_DIR=OUTPUT_DIR,
-                safe_city=safe_report or "relatorio",
-            )
-            graficos_por_placeholder["grafico_composicao_cor_raca"] = chart_file_name
+            for nome_grafico, gerar_grafico in (
+                ("grafico_faixa_etaria_e_sexo", gerar_grafico_faixa_etaria_e_sexo),
+                ("grafico_composicao_cor_raca", gerar_grafico_composicao_cor_raca),
+            ):
+                try:
+                    graficos_por_placeholder[nome_grafico] = gerar_grafico(
+                        cidade=linhas_macrotema[0],
+                        OUTPUT_DIR=OUTPUT_DIR,
+                        safe_city=safe_report or "relatorio",
+                    )
+                except ValueError as err:
+                    logger.warning(
+                        "Não foi possível gerar o gráfico '%s' para '%s': %s",
+                        nome_grafico,
+                        safe_report,
+                        err,
+                    )
 
         if macrotema_slug == "educacao":
             chart_file_name = gerar_grafico_cor_faixa_etaria(
@@ -367,34 +389,24 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         except ValueError as err:
             raise HTTPException(status_code=400, detail=str(err)) from err
 
-        if (
-            macrotema_slug == "demografia"
-            and not re.search(
-                r"(?m)^\s*(?:%%|\*)grafico_faixa_etaria_e_sexo\s*$",
-                docs_texto,
-            )
-        ):
-            docs_texto = re.sub(
-                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
-                r"Popula[cç][aã]o\s+por\s+faixa\s+et[aá]ria\s+e\s+sexo[^\n]*)$",
-                "*grafico_faixa_etaria_e_sexo\n\n\\1",
-                docs_texto,
-                count=1,
-            )
-        if (
-            macrotema_slug == "demografia"
-            and not re.search(
-                r"(?m)^\s*(?:%%|\*)grafico_composicao_cor_raca\s*$",
-                docs_texto,
-            )
-        ):
-            docs_texto = re.sub(
-                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
-                r"Composi[cç][aã]o\s+por\s+cor\s+ou\s+ra[cç]a[^\n]*)$",
-                "*grafico_composicao_cor_raca\n\n\\1",
-                docs_texto,
-                count=1,
-            )
+        if macrotema_slug == "demografia":
+            for nome_grafico, legenda_regex in GRAFICOS_DEMOGRAFIA_AUTO_MARCADOR:
+                if re.search(rf"(?m)^\s*(?:%%|\*){nome_grafico}\s*$", docs_texto):
+                    continue
+                docs_texto, n_substituicoes = re.subn(
+                    legenda_regex,
+                    f"*{nome_grafico}\n\n\\1",
+                    docs_texto,
+                    count=1,
+                )
+                if not n_substituicoes:
+                    logger.warning(
+                        "Não foi possível localizar a legenda para inserir o "
+                        "marcador do gráfico '%s' no documento de '%s'. O "
+                        "gráfico foi gerado mas não será exibido no relatório.",
+                        nome_grafico,
+                        safe_report,
+                    )
 
         macrotema_item: dict[str, object] = {
             "nome": macrotema_dados["nome"],

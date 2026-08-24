@@ -53,11 +53,12 @@ def buscar_populacao_demografia(
         f"pop_total_{ano}": pop_por_ano[ano] for ano in anos if ano in pop_por_ano
     }
 
-    ano_mais_recente = 2022 if 2022 in anos else max(anos)
-    ano_mais_antigo = 2010 if 2010 in anos else min(anos)
-    if ano_mais_recente in pop_por_ano and ano_mais_antigo in pop_por_ano:
-        pop_recente = pop_por_ano[ano_mais_recente]
-        pop_antiga = pop_por_ano[ano_mais_antigo]
+    # O crescimento e o porte do município sempre comparam 2022 com 2010,
+    # que é o par de anos fixo usado por MEDIA_CRESCIMENTO_MESMO_PORTE — não
+    # depende de quais anos foram passados em `anos`.
+    if 2022 in pop_por_ano and 2010 in pop_por_ano:
+        pop_recente = pop_por_ano[2022]
+        pop_antiga = pop_por_ano[2010]
         if pop_antiga:
             dados["cres_pop"] = round(
                 (pop_recente - pop_antiga) / pop_antiga * 100, 1
@@ -379,6 +380,9 @@ def buscar_populacao_rua(
         return None
     (pop_rua_total, criancas, pcd, idosos, centros_pop, familias_total,
      familias_bf, pobreza, baixa_renda, acima_meio) = atual
+
+    if not pop_rua_total:
+        return None
     dados = {
         "pop_rua_total": pop_rua_total, "pop_rua_2026": pop_rua_total,
         "pop_rua_criancas_adolescentes": criancas, "pop_rua_pcd": pcd,

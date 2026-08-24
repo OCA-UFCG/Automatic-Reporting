@@ -12,6 +12,15 @@ from utils.render.sections import identificar_secao_macrotema
 
 _figura_contador = 1
 
+_LARGURA_MAXIMA_GRAFICO_PADRAO = "480px"
+_MARGEM_VERTICAL_GRAFICOS_PADRAO = "32px"
+_CONFIG_GRAFICOS = {
+    "grafico_composicao_cor_raca": {
+        "largura_maxima": "350px",
+        "margem_vertical": "12px",
+    },
+}
+
 
 def reset_figura_contador() -> None:
     global _figura_contador
@@ -209,8 +218,9 @@ def texto_para_html(
                 if not chart_file:
                     continue
 
-                compacto = tipo == "grafico_composicao_cor_raca"
-                largura_maxima = "350px" if compacto else "480px"
+                largura_maxima = _CONFIG_GRAFICOS.get(tipo, {}).get(
+                    "largura_maxima", _LARGURA_MAXIMA_GRAFICO_PADRAO
+                )
 
                 figuras.append(
                     '<figure style="text-align:center; margin:0; flex:1; min-width:280px;">'
@@ -222,9 +232,14 @@ def texto_para_html(
 
             if figuras:
 
-                margem_vertical = "12px" if any(
-                    tipo == "grafico_composicao_cor_raca" for tipo in tipos
-                ) else "32px"
+                margem_vertical = next(
+                    (
+                        _CONFIG_GRAFICOS[tipo]["margem_vertical"]
+                        for tipo in tipos
+                        if tipo in _CONFIG_GRAFICOS
+                    ),
+                    _MARGEM_VERTICAL_GRAFICOS_PADRAO,
+                )
                 html_lines.append(
                     '<div style="display:flex; gap:24px; justify-content:center; '
                     f'align-items:flex-start; margin:{margem_vertical} 0; flex-wrap:wrap;">'

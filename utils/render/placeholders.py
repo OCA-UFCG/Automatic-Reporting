@@ -3,13 +3,13 @@ from decimal import Decimal
 
 from utils.formatting import formatar_numero_ptbr
 
+_MARCADOR_CAMPO_CONDICIONAL = re.compile(r"(?:[A-Za-z_][\w-]*\.)?\$([A-Za-z_][\w]*)")
 
-def _avaliar_condicao_editorial(expressao: str, contexto: dict) -> bool:
-    marcador = re.compile(r"(?:[A-Za-z_][\w-]*\.)?\$([A-Za-z_][\w]*)")
-    matches = list(marcador.finditer(expressao))
+
+def _avaliar_condicao_editorial(
+    matches: list[re.Match], expressao: str, contexto: dict
+) -> bool:
     campos = [match.group(1) for match in matches]
-    if not campos:
-        return False
 
     def numero(campo: str) -> float:
         valor = _resolver_campo_com_alias(contexto, campo)
@@ -66,18 +66,20 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
         condicao = re.match(r"(?i)^para(?:\s+quando)?\s+(.+?):\s*$", limpa)
         if condicao:
             expressao = condicao.group(1)
-            campos = set(re.findall(
-                r"(?:[A-Za-z_][\w-]*\.)?\$([A-Za-z_][\w]*)", expressao
-            ))
-            atende = _avaliar_condicao_editorial(expressao, contexto)
-            if campos & {"pop_ind_2022", "pop_qui"}:
-                bloco_populacoes_ativo = atende
-                bloco_ativo = atende
-            elif "pop_ind_2010" in campos:
-                bloco_ativo = bloco_populacoes_ativo and atende
-            else:
-                bloco_ativo = atende
-            continue
+            matches = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(expressao))
+            if matches:
+                campos = {match.group(1) for match in matches}
+                atende = _avaliar_condicao_editorial(matches, expressao, contexto)
+                if campos & {"pop_ind_2022", "pop_qui"}:
+                    bloco_populacoes_ativo = atende
+                    bloco_ativo = atende
+                elif "pop_ind_2010" in campos:
+                    bloco_ativo = bloco_populacoes_ativo and atende
+                else:
+                    bloco_ativo = atende
+                continue
+            # Sem "$campo", não é uma instrução editorial de fato — é uma frase
+            # comum do texto (ex.: "Para efeito de análise:") e deve ser mantida.
 
         if limpa.casefold() in {"síntese", "sintese"}:
             bloco_ativo = True

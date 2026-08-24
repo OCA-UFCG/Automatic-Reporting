@@ -5,6 +5,16 @@ import numpy as np
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 
+def _salvar_figura_com_fundo_branco(
+    fig, ax, chart_file: pathlib.Path, pad: float | None = None
+) -> None:
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("white")
+    plt.tight_layout() if pad is None else plt.tight_layout(pad=pad)
+    plt.savefig(chart_file, dpi=180, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+
+
 def gerar_grafico_faixa_etaria_e_sexo(
     cidade: dict,
     OUTPUT_DIR: pathlib.Path,
@@ -46,11 +56,7 @@ def gerar_grafico_faixa_etaria_e_sexo(
         borda.set_visible(False)
     ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.06), ncol=2,
               frameon=False, fontsize=9)
-    fig.patch.set_facecolor("white")
-    ax.set_facecolor("white")
-    plt.tight_layout()
-    plt.savefig(chart_file, dpi=180, bbox_inches="tight", facecolor="white")
-    plt.close(fig)
+    _salvar_figura_com_fundo_branco(fig, ax, chart_file)
     return chart_file.name
 
 
@@ -110,9 +116,5 @@ def gerar_grafico_composicao_cor_raca(
     ax.spines["top"].set_color("#ECECEC")
     ax.spines["top"].set_linewidth(7)
     ax.margins(x=0.18)
-    fig.patch.set_facecolor("white")
-    ax.set_facecolor("white")
-    plt.tight_layout(pad=1.2)
-    plt.savefig(chart_file, dpi=180, bbox_inches="tight", facecolor="white")
-    plt.close(fig)
+    _salvar_figura_com_fundo_branco(fig, ax, chart_file, pad=1.2)
     return chart_file.name
