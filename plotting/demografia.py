@@ -60,16 +60,21 @@ def gerar_grafico_faixa_etaria_e_sexo(
     return chart_file.name
 
 
-def _rotulo_abreviado(valor: float) -> str:
-    if abs(valor) >= 1_000_000:
-        numero = valor / 1_000_000
-        texto = f"{numero:.1f}".rstrip("0").rstrip(".").replace(".", ",")
-        return f"{texto} Mi"
-    if abs(valor) >= 1_000:
-        numero = valor / 1_000
-        texto = f"{numero:.1f}".rstrip("0").rstrip(".").replace(".", ",")
-        return f"{texto} mil"
-    return f"{valor:,.0f}".replace(",", ".")
+_ROTULOS_COR_RACA = {
+    "branca": "Branca",
+    "preta": "Preta",
+    "parda": "Parda",
+    "amarela": "Amarela",
+    "indigena": "Indígena",
+}
+
+_CORES_COR_RACA = {
+    "branca": "#D97AAA",
+    "preta": "#514C50",
+    "parda": "#C9A227",
+    "amarela": "#8DB52B",
+    "indigena": "#2F9E8F",
+}
 
 
 def gerar_grafico_composicao_cor_raca(
@@ -77,26 +82,32 @@ def gerar_grafico_composicao_cor_raca(
     OUTPUT_DIR: pathlib.Path,
     safe_city: str,
 ) -> str:
-    anos = (2000, 2010, 2022)
-    valores = [float(cidade.get(f"pop_total_{ano}") or 0) for ano in anos]
-    if not any(valores):
-        raise ValueError("Série histórica da população não disponível.")
+    racas = {
+        cor: float(cidade.get(f"pop_{cor}") or 0) for cor in _ROTULOS_COR_RACA
+    }
+    total = sum(racas.values())
+    if not total:
+        raise ValueError("Dados de composição por cor ou raça não disponíveis.")
+
+    itens = sorted(racas.items(), key=lambda item: item[1], reverse=True)
+    labels = [_ROTULOS_COR_RACA[cor] for cor, _ in itens]
+    percentuais = [valor / total * 100 for _, valor in itens]
+    cores = [_CORES_COR_RACA[cor] for cor, _ in itens]
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_composicao_cor_raca_{safe_city}.png"
 
     fig, ax = plt.subplots(figsize=(6.1, 4.05))
-    x = np.arange(len(anos))
-    barras = ax.bar(x, valores, width=0.54, color="#D97AAA", zorder=3)
-    maximo = max(valores)
-    limite = maximo * 1.26 if maximo else 1
+    x = np.arange(len(labels))
+    barras = ax.bar(x, percentuais, width=0.6, color=cores, zorder=3)
+    limite = max(percentuais) * 1.26 if percentuais else 1
     ax.set_ylim(0, limite)
 
-    for barra, valor in zip(barras, valores):
+    for barra, percentual in zip(barras, percentuais):
         ax.text(
             barra.get_x() + barra.get_width() / 2,
-            valor + limite * 0.025,
-            _rotulo_abreviado(valor),
+            percentual + limite * 0.025,
+            f"{percentual:.1f}%".replace(".", ","),
             ha="center",
             va="bottom",
             fontsize=10,
@@ -105,9 +116,8 @@ def gerar_grafico_composicao_cor_raca(
         )
 
     ax.set_xticks(x)
-    ax.set_xticklabels([str(ano) for ano in anos], fontsize=10, fontweight=600)
-    ax.set_xlabel("Ano", fontsize=11, color="#514C50", labelpad=4)
-    ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _: _rotulo_abreviado(valor)))
+    ax.set_xticklabels(labels, fontsize=10, fontweight=600)
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _: f"{valor:.0f}%"))
     ax.yaxis.set_major_locator(MaxNLocator(4))
     ax.grid(axis="y", linestyle=(0, (1, 4)), linewidth=0.8, color="#D9D9D9", zorder=0)
     ax.tick_params(axis="both", length=0, colors="#514C50", labelsize=9)

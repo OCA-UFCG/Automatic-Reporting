@@ -158,6 +158,9 @@ def buscar_demografia_sexo_faixa_etaria(
         pop_branca, pop_preta, pop_parda, pop_amarela, pop_indigena
     ) = linha
 
+    if pop_total is None:
+        return None
+
     dados: dict[str, object] = {
         "pop_mulher": pop_mulher,
         "pop_homem": pop_homem,
@@ -197,17 +200,17 @@ def buscar_demografia_sexo_faixa_etaria(
         "amarela": pop_amarela,
         "indigena": pop_indigena,
     }
-    raca_maior = max(racas, key=racas.get)
+    racas_ordenadas = sorted(racas.items(), key=lambda item: item[1], reverse=True)
+    raca_maior = racas_ordenadas[0][0]
     dados["cor_maior"] = raca_maior
     dados["raca_maior"] = raca_maior
 
-    racas_ordenadas = sorted(racas.items(), key=lambda item: item[1], reverse=True)
     ordinais = ("pri", "seg", "ter", "quar")
     for ordinal, (cor, populacao) in zip(ordinais, racas_ordenadas):
         dados[f"cor_{ordinal}_class"] = cor
         dados[f"cor_{ordinal}_pop"] = populacao
         dados[f"cor_{ordinal}_per"] = round(float(populacao) / float(pop_total) * 100, 1)
-    dados["cor_raca_pri_class"] = racas_ordenadas[0][0]
+    dados["cor_raca_pri_class"] = raca_maior
 
     linhas_faixa_sexo = executar_query(
         DEMOGRAFIA_SEXO_POR_FAIXA,
@@ -374,8 +377,9 @@ def buscar_populacao_rua(
         return None
 
     por_ano = {linha[0]: linha[1:] for linha in linhas}
-    atual = por_ano.get(2026) or por_ano.get(2022)
-    antigo = por_ano.get(2022)
+    dados_2026 = por_ano.get(2026)
+    dados_2022 = por_ano.get(2022)
+    atual = dados_2026 or dados_2022
     if atual is None:
         return None
     (pop_rua_total, criancas, pcd, idosos, centros_pop, familias_total,
@@ -384,11 +388,11 @@ def buscar_populacao_rua(
     if not pop_rua_total:
         return None
     dados = {
-        "pop_rua_total": pop_rua_total, "pop_rua_2026": pop_rua_total,
+        "pop_rua_total": pop_rua_total,
         "pop_rua_criancas_adolescentes": criancas, "pop_rua_pcd": pcd,
         "pop_rua_idosos": idosos, "centros_pop": centros_pop,
         "familias_rua_total": familias_total, "familias_rua_bf": familias_bf,
-        "pop_rua_bolsaf_2026": familias_bf, "pobreza_cadunico": pobreza,
+        "pobreza_cadunico": pobreza,
         "baixa_renda_cadunico": baixa_renda,
         "acima_meio_sm_cadunico": acima_meio,
     }
@@ -396,11 +400,17 @@ def buscar_populacao_rua(
         dados["pop_rua_pobreza_per"] = round(float(pobreza) / float(familias_total) * 100, 1)
         dados["pop_rua_br_per"] = round(float(baixa_renda) / float(familias_total) * 100, 1)
         dados["pop_rua_acima_br_per"] = round(float(acima_meio) / float(familias_total) * 100, 1)
-    if antigo is not None:
-        pop_2022, _, _, _, _, _, bf_2022, _, _, _ = antigo
-        dados["pop_rua_2022"] = pop_2022
-        dados["pop_rua_bolsaf_2022"] = bf_2022
-        dados["var_pop_rua_abs"] = abs(pop_rua_total - pop_2022)
-        dados["var_pop_rua_analise"] = "aumento" if pop_rua_total >= pop_2022 else "redução"
-        dados["pop_rua_bolsaf_analise"] = "aumentou" if familias_bf >= bf_2022 else "diminuiu"
+    # "pop_rua_2026" só é publicado quando há dado real de 2026; caso
+    # contrário o alias em placeholders.py já cobre "$pop_rua_2022" a
+    # partir de pop_rua_total, sem fabricar uma comparação inexistente.
+    if dados_2026 is not None:
+        dados["pop_rua_2026"] = pop_rua_total
+        dados["pop_rua_bolsaf_2026"] = familias_bf
+        if dados_2022 is not None:
+            pop_2022, _, _, _, _, _, bf_2022, _, _, _ = dados_2022
+            dados["pop_rua_2022"] = pop_2022
+            dados["pop_rua_bolsaf_2022"] = bf_2022
+            dados["var_pop_rua_abs"] = abs(pop_rua_total - pop_2022)
+            dados["var_pop_rua_analise"] = "aumento" if pop_rua_total >= pop_2022 else "redução"
+            dados["pop_rua_bolsaf_analise"] = "aumentou" if familias_bf >= bf_2022 else "diminuiu"
     return {campo: valor for campo, valor in dados.items() if valor is not None}

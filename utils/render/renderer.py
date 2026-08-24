@@ -106,6 +106,7 @@ def render_descricao_tema_html(
             graficos_por_placeholder=graficos_por_placeholder,
             safe_report=safe_report,
             classe_paragrafo="theme-detail-text",
+            blocos_condicionais_ja_interpretados=True,
         )
         if html:
             partes.append(html)
@@ -121,12 +122,14 @@ def texto_para_html(
     componentes_html: dict[str, str] | None = None,
     safe_report: str | None = None,
     classe_paragrafo: str = "",
+    blocos_condicionais_ja_interpretados: bool = False,
 ) -> str:
 
     graficos_por_placeholder = graficos_por_placeholder or {}
     componentes_html = componentes_html or {}
 
-    texto = interpretar_blocos_condicionais(texto, contexto)
+    if not blocos_condicionais_ja_interpretados:
+        texto = interpretar_blocos_condicionais(texto, contexto)
     texto_renderizado = substituir_placeholders(texto, contexto, namespace)
 
     linhas = [linha.rstrip() for linha in texto_renderizado.splitlines()]

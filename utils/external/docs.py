@@ -101,7 +101,8 @@ def linha_parece_nota_exportada_docs(linha: str) -> bool:
     """
     linha_limpa = linha.strip()
     if not re.match(
-        r"^\d{1,3}\s+(?:o|a|os|as|um|uma|este|esta|esse|essa|segundo|conforme)\b",
+        r"^\d{1,3}\s+(?:o|a|os|as|um|uma|este|esta|esse|essa|segundo|conforme)\b"
+        r"(?!\s+cada\b)",
         linha_limpa,
         flags=re.IGNORECASE,
     ):
