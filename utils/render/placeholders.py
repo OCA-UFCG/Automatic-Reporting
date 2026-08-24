@@ -125,8 +125,6 @@ def _resolver_campo_com_alias(contexto: dict, campo: str) -> object | None:
         return valor
 
     aliases_de_coluna = {
-        # Nomes mantidos nos documentos editoriais. As queries usam nomes mais
-        # descritivos, mas os templates existentes ainda dependem destes aliases.
         "area": "area_territorial",
         "centro_pop": "centros_pop",
         "fundamental_com_per": "fundamental_comp_per",
