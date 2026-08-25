@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import services.handlers as handlers
+from services import handlers
 
 
 def test_listar_relatorio_preserva_nome_e_uf_da_cidade(
