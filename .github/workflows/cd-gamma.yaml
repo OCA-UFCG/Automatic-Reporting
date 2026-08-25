@@ -151,6 +151,7 @@ jobs:
           DB_USER: ${{ secrets.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_PORT: ${{ secrets.DB_PORT }}
+          DB_SSLMODE: ${{ secrets.DB_SSLMODE }}
         run: |
           sudo docker run \
             --name ${{ vars.CONTAINER_NAME_GAMMA }} \
@@ -165,6 +166,7 @@ jobs:
             -e DB_USER="$DB_USER" \
             -e DB_PASSWORD="$DB_PASSWORD" \
             -e DB_PORT="$DB_PORT" \
+            -e DB_SSLMODE="$DB_SSLMODE" \
             -d ${{ vars.DOCKER_IMAGE_GAMMA }}:latest
 
       - name: Validate files inside running container
