@@ -19,6 +19,10 @@ _CONFIG_GRAFICOS = {
         "largura_maxima": "350px",
         "margem_vertical": "12px",
     },
+    "grafico_tecnologias_acesso_agua": {
+        "largura_maxima": "560px",
+        "margem_vertical": "16px",
+    },
 }
 
 

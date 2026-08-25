@@ -17,6 +17,7 @@ from plotting.demografia import (
     gerar_grafico_faixa_etaria_e_sexo,
 )
 from plotting.educacao import gerar_grafico_cor_faixa_etaria
+from plotting.hidraulica import gerar_grafico_tecnologias_acesso_agua
 from plotting.saude import gerar_grafico_publico_etario
 from services.csv_loader import (
     carregar_csv,
@@ -51,6 +52,7 @@ from utils.queries.demografia import (
     buscar_populacao_rua,
 )
 from utils.queries.educacao import buscar_taxas_educacao_cor_faixa_etaria
+from utils.queries.hidraulica import buscar_tecnologias_acesso_agua
 from utils.queries.saude import buscar_publico_etario_vacinas
 from utils.render.renderer import (
     render_descricao_tema_html,
@@ -109,6 +111,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     dados_rua = None
     dados_publico_etario = None
     dados_taxas_educacao = None
+    dados_tecnologias_acesso_agua = None
 
     for macrotema_slug in macrotema_slugs:
         try:
@@ -154,6 +157,10 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 dados_publico_etario = buscar_publico_etario_vacinas(nome_cidade_db, uf_db)
             if "educacao" in macrotema_slugs:
                 dados_taxas_educacao = buscar_taxas_educacao_cor_faixa_etaria(nome_cidade_db, uf_db)
+            if "hidraulica" in macrotema_slugs:
+                dados_tecnologias_acesso_agua = buscar_tecnologias_acesso_agua(
+                    nome_cidade_db, uf_db
+                )
             dados_rua = buscar_populacao_rua(nome_cidade_db, uf_db)
             db_consultado = True
 
@@ -186,6 +193,10 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         if "educacao" in macrotema_slugs and dados_taxas_educacao:
             for linha in linhas_macrotema:
                 linha.update(dados_taxas_educacao)
+
+        if "hidraulica" in macrotema_slugs and dados_tecnologias_acesso_agua:
+            for linha in linhas_macrotema:
+                linha.update(dados_tecnologias_acesso_agua)
 
         if linhas is None:
             linhas = linhas_macrotema
@@ -382,6 +393,24 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 safe_city=safe_city or "relatorio",
             )
             graficos_por_placeholder["grafico_publico_etario"] = chart_file_name
+
+        if macrotema_slug == "hidraulica":
+            try:
+                chart_file_name = gerar_grafico_tecnologias_acesso_agua(
+                    cidade=linhas_macrotema[0],
+                    OUTPUT_DIR=OUTPUT_DIR,
+                    safe_city=safe_report or "relatorio",
+                )
+                graficos_por_placeholder["grafico_tecnologias_acesso_agua"] = (
+                    chart_file_name
+                )
+            except ValueError as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de tecnologias de acesso "
+                    "à água para '%s': %s",
+                    safe_report,
+                    err,
+                )
 
         docs_url = require_config_value(macrotema_dados["docs_url"], macrotema_dados["docs_env"])
         try:
