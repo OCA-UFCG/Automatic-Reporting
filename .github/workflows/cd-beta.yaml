@@ -144,6 +144,13 @@ jobs:
         run: sudo docker rm -f ${{ vars.CONTAINER_NAME_BETA }} || true
 
       - name: Run the new Beta container
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_SSLMODE: ${{ secrets.DB_SSLMODE }}
         run: |
           sudo docker run \
             --name ${{ vars.CONTAINER_NAME_BETA }} \
@@ -153,12 +160,12 @@ jobs:
             -v ${{ vars.MAP_SHAPE_VOLUME_NAME }}:/app/map_shape \
             --network ${{ vars.NETWORK_NAME }} \
             --add-host=host.docker.internal:host-gateway \
-            -e DB_HOST="${{ secrets.DB_HOST }}" \
-            -e DB_DATABASE="${{ secrets.DB_DATABASE }}" \
-            -e DB_USER="${{ secrets.DB_USER }}" \
-            -e DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
-            -e DB_PORT="${{ secrets.DB_PORT }}" \
-            -e DB_SSLMODE="${{ secrets.DB_SSLMODE }}" \
+            -e DB_HOST="$DB_HOST" \
+            -e DB_DATABASE="$DB_DATABASE" \
+            -e DB_USER="$DB_USER" \
+            -e DB_PASSWORD="$DB_PASSWORD" \
+            -e DB_PORT="$DB_PORT" \
+            -e DB_SSLMODE="$DB_SSLMODE" \
             -d ${{ vars.DOCKER_IMAGE_BETA }}:latest
 
       - name: Validate files inside running container
