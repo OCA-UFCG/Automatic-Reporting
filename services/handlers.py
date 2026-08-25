@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from fastapi import HTTPException
 
 from config import OUTPUT_DIR
+from utils.data.cities import carregar_cidades
 from utils.data.macrotemas import (
     MACROTEMAS,
     TODOS_MACROTEMAS_NOME,
@@ -35,6 +36,13 @@ def listar_relatorios_handler():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     relatorios = []
+    # Os nomes dos artefatos perdem acentos e pontuacao. Recupere o nome
+    # original a partir da mesma lista exibida no formulario para que o
+    # frontend consiga reconhecer o relatorio que acabou de solicitar.
+    cidades_por_slug = {
+        re.sub(r"[^a-zA-Z0-9_-]+", "_", cidade.strip().lower()): cidade
+        for cidade in carregar_cidades()
+    }
 
     with os.scandir(OUTPUT_DIR) as it:
         for entrada in it:
@@ -75,7 +83,9 @@ def listar_relatorios_handler():
             else:
                 slug_cidade = slug_completo
 
-            cidade = re.sub(r"_+", " ", slug_cidade).strip().title()
+            cidade = cidades_por_slug.get(slug_cidade)
+            if cidade is None:
+                cidade = re.sub(r"_+", " ", slug_cidade).strip().title()
 
             # compute stable timestamps for both UTC and local timezone
             last_modified_utc = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
