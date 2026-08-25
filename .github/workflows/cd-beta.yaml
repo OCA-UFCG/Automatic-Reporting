@@ -152,11 +152,13 @@ jobs:
             -v ${{ vars.VOLUME_NAME }}:/app/output \
             -v ${{ vars.MAP_SHAPE_VOLUME_NAME }}:/app/map_shape \
             --network ${{ vars.NETWORK_NAME }} \
+            --add-host=host.docker.internal:host-gateway \
             -e DB_HOST="${{ secrets.DB_HOST }}" \
             -e DB_DATABASE="${{ secrets.DB_DATABASE }}" \
             -e DB_USER="${{ secrets.DB_USER }}" \
             -e DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
             -e DB_PORT="${{ secrets.DB_PORT }}" \
+            -e DB_SSLMODE="${{ secrets.DB_SSLMODE }}" \
             -d ${{ vars.DOCKER_IMAGE_BETA }}:latest
 
       - name: Validate files inside running container
