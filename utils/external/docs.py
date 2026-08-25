@@ -90,14 +90,34 @@ def linha_parece_comentario_docs(linha: str) -> bool:
     return bool(marcador_no_inicio and (palavras_de_comentario or comentario_com_autor))
 
 
+def linha_parece_nota_exportada_docs(linha: str) -> bool:
+    """Detecta definições de nota de rodapé exportadas como ``1 Texto``.
+
+    Listas como ``1. Item`` e títulos como ``1 Demografia`` (ou ``1 O Perfil
+    Demográfico``) são preservados; notas são identificadas pelo número solto
+    seguido de uma frase iniciada por artigo/pronome *e* terminada em pontuação
+    de frase, já que títulos exportados não têm ponto final, diferente das
+    notas de rodapé emitidas pelos documentos usados no relatório.
+    """
+    linha_limpa = linha.strip()
+    if not re.match(
+        r"^\d{1,3}\s+(?:o|a|os|as|um|uma|este|esta|esse|essa|segundo|conforme)\b"
+        r"(?!\s+cada\b)",
+        linha_limpa,
+        flags=re.IGNORECASE,
+    ):
+        return False
+    return linha_limpa.endswith((".", "!", "?"))
+
+
 def limpar_texto_exportado_docs(texto: str) -> str:
     texto = texto.lstrip("\ufeff")
     linhas_limpas = []
     for linha in texto.splitlines():
-        if linha_parece_comentario_docs(linha):
+        if linha_parece_comentario_docs(linha) or linha_parece_nota_exportada_docs(linha):
             continue
 
-        linha_sem_marcador = re.sub(r"(?<!\S)\[[A-Za-z0-9]{1,3}\](?!\S)", "", linha).rstrip()
+        linha_sem_marcador = re.sub(r"\[[A-Za-z0-9]{1,3}\]", "", linha).rstrip()
         linhas_limpas.append(linha_sem_marcador)
 
     return "\n".join(linhas_limpas)

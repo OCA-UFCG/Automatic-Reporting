@@ -11,9 +11,32 @@ POPULACAO_MUNICIPIO_POR_ANO = """
     GROUP BY d.ano
 """
 
+MEDIA_CRESCIMENTO_MESMO_PORTE = """
+    WITH populacoes AS (
+        SELECT cd_mun,
+               SUM(populacao_total) FILTER (WHERE ano = 2010) AS pop_2010,
+               SUM(populacao_total) FILTER (WHERE ano = 2022) AS pop_2022
+        FROM dem_demografia.final_demografia
+        WHERE ano IN (2010, 2022)
+        GROUP BY cd_mun
+    ), alvo AS (
+        SELECT p.pop_2022
+        FROM populacoes p
+        JOIN carac_mun.caracteristicas_municipais c ON c.cd_mun = p.cd_mun::text
+        WHERE c.nm_mun = %s AND c.sigla_uf = %s
+    )
+    SELECT AVG((p.pop_2022 - p.pop_2010) / NULLIF(p.pop_2010, 0) * 100.0)
+    FROM populacoes p CROSS JOIN alvo a
+    WHERE CASE
+        WHEN a.pop_2022 <= 50000 THEN p.pop_2022 <= 50000
+        WHEN a.pop_2022 <= 100000 THEN p.pop_2022 > 50000 AND p.pop_2022 <= 100000
+        ELSE p.pop_2022 > 100000
+    END
+"""
+
 
 def buscar_populacao_demografia(
-    nome_municipio: str, sigla_uf: str, anos: tuple[int, ...] = (2022, 2010)
+    nome_municipio: str, sigla_uf: str, anos: tuple[int, ...] = (2022, 2010, 2000)
 ) -> dict[str, object] | None:
     linhas = executar_query(
         POPULACAO_MUNICIPIO_POR_ANO,
@@ -30,14 +53,34 @@ def buscar_populacao_demografia(
         f"pop_total_{ano}": pop_por_ano[ano] for ano in anos if ano in pop_por_ano
     }
 
-    ano_mais_recente, ano_mais_antigo = max(anos), min(anos)
-    if ano_mais_recente in pop_por_ano and ano_mais_antigo in pop_por_ano:
-        pop_recente = pop_por_ano[ano_mais_recente]
-        pop_antiga = pop_por_ano[ano_mais_antigo]
+    # O crescimento e o porte do município sempre comparam 2022 com 2010,
+    # que é o par de anos fixo usado por MEDIA_CRESCIMENTO_MESMO_PORTE — não
+    # depende de quais anos foram passados em `anos`.
+    if 2022 in pop_por_ano and 2010 in pop_por_ano:
+        pop_recente = pop_por_ano[2022]
+        pop_antiga = pop_por_ano[2010]
         if pop_antiga:
             dados["cres_pop"] = round(
                 (pop_recente - pop_antiga) / pop_antiga * 100, 1
             )
+            dados["porte_mun"] = (
+                "baixo porte" if pop_recente <= 50000
+                else "médio porte" if pop_recente <= 100000
+                else "grande porte"
+            )
+            media_linha = executar_query(
+                MEDIA_CRESCIMENTO_MESMO_PORTE,
+                (nome_municipio, sigla_uf),
+                f"média de crescimento por porte de '{nome_municipio} ({sigla_uf})'",
+            )
+            if media_linha and media_linha[0] is not None:
+                media = round(float(media_linha[0]), 1)
+                dados["media_porte"] = media
+                dados["comparar_pop_porte"] = (
+                    "superior à" if dados["cres_pop"] > media
+                    else "inferior à" if dados["cres_pop"] < media
+                    else "igual à"
+                )
 
     return dados or None
 
@@ -47,6 +90,7 @@ DEMOGRAFIA_SEXO_FAIXA_ETARIA = """
         SUM(d.populacao_total) as pop_total,
         SUM(d.mulher) as pop_mulher,
         SUM(d.homem) as pop_homem,
+        SUM(CASE WHEN d.classificador_idade BETWEEN 1 AND 2 THEN d.populacao_total ELSE 0 END) as pop_etaria_0_9,
         SUM(CASE WHEN d.classificador_idade BETWEEN 1 AND 3 THEN d.populacao_total ELSE 0 END) as pop_etaria_0_14,
         SUM(CASE WHEN d.classificador_idade BETWEEN 4 AND 6 THEN d.populacao_total ELSE 0 END) as pop_etaria_15_29,
         SUM(CASE WHEN d.classificador_idade BETWEEN 7 AND 9 THEN d.populacao_total ELSE 0 END) as pop_etaria_30_59,
@@ -62,6 +106,30 @@ DEMOGRAFIA_SEXO_FAIXA_ETARIA = """
         AND d.ano = 2022
     WHERE c.nm_mun = %s
       AND c.sigla_uf = %s
+"""
+
+DEMOGRAFIA_SEXO_POR_FAIXA = """
+    SELECT
+        CASE
+            WHEN d.classificador_idade BETWEEN 1 AND 2 THEN '0 a 9 anos'
+            WHEN d.classificador_idade BETWEEN 3 AND 4 THEN '10 a 19 anos'
+            WHEN d.classificador_idade BETWEEN 5 AND 6 THEN '20 a 29 anos'
+            WHEN d.classificador_idade = 7 THEN '30 a 39 anos'
+            WHEN d.classificador_idade = 8 THEN '40 a 49 anos'
+            WHEN d.classificador_idade = 9 THEN '50 a 59 anos'
+            WHEN d.classificador_idade = 10 THEN '60 a 69 anos'
+            WHEN d.classificador_idade = 11 THEN '70 a 79 anos'
+            WHEN d.classificador_idade = 12 THEN '80+ anos'
+        END AS faixa,
+        SUM(d.mulher) AS mulheres,
+        SUM(d.homem) AS homens,
+        MIN(d.classificador_idade) AS ordem
+    FROM carac_mun.caracteristicas_municipais c
+    JOIN dem_demografia.final_demografia d
+        ON c.cd_mun = d.cd_mun::text AND d.ano = 2022
+    WHERE c.nm_mun = %s AND c.sigla_uf = %s
+    GROUP BY faixa
+    ORDER BY ordem
 """
 
 
@@ -85,14 +153,18 @@ def buscar_demografia_sexo_faixa_etaria(
         return None
 
     (
-        _pop_total, pop_mulher, pop_homem,
+        pop_total, pop_mulher, pop_homem, pop_etaria_0_9,
         pop_etaria_0_14, pop_etaria_15_29, pop_etaria_30_59, pop_etaria_60_mais,
         pop_branca, pop_preta, pop_parda, pop_amarela, pop_indigena
     ) = linha
 
+    if pop_total is None:
+        return None
+
     dados: dict[str, object] = {
         "pop_mulher": pop_mulher,
         "pop_homem": pop_homem,
+        "pop_etaria_0_9": pop_etaria_0_9,
         "pop_etaria_0_14": pop_etaria_0_14,
         "pop_etaria_15_29": pop_etaria_15_29,
         "pop_etaria_30_59": pop_etaria_30_59,
@@ -114,6 +186,13 @@ def buscar_demografia_sexo_faixa_etaria(
     dados["cat_etaria_maior"] = FAIXAS_ETARIAS_LABELS[faixa_maior]
     dados["etaria_maior"] = faixas[faixa_maior]
 
+    faixa_menor = min(faixas, key=faixas.get)
+    dados["cat_etaria_menor"] = FAIXAS_ETARIAS_LABELS[faixa_menor]
+    dados["etaria_menor"] = faixas[faixa_menor]
+    dados["pop_etaria_per_0_9"] = round(float(pop_etaria_0_9) / float(pop_total) * 100, 1)
+    dados["pop_etaria_per_60_mais"] = round(float(pop_etaria_60_mais) / float(pop_total) * 100, 1)
+    dados["dif_etaria_09_60"] = pop_etaria_60_mais - pop_etaria_0_9
+
     racas = {
         "branca": pop_branca,
         "preta": pop_preta,
@@ -121,9 +200,29 @@ def buscar_demografia_sexo_faixa_etaria(
         "amarela": pop_amarela,
         "indigena": pop_indigena,
     }
-    raca_maior = max(racas, key=racas.get)
+    racas_ordenadas = sorted(racas.items(), key=lambda item: item[1], reverse=True)
+    raca_maior = racas_ordenadas[0][0]
     dados["cor_maior"] = raca_maior
     dados["raca_maior"] = raca_maior
+
+    ordinais = ("pri", "seg", "ter", "quar")
+    for ordinal, (cor, populacao) in zip(ordinais, racas_ordenadas):
+        dados[f"cor_{ordinal}_class"] = cor
+        dados[f"cor_{ordinal}_pop"] = populacao
+        dados[f"cor_{ordinal}_per"] = round(float(populacao) / float(pop_total) * 100, 1)
+    dados["cor_raca_pri_class"] = raca_maior
+
+    linhas_faixa_sexo = executar_query(
+        DEMOGRAFIA_SEXO_POR_FAIXA,
+        (nome_municipio, sigla_uf),
+        f"demografia por sexo/faixa etária de '{nome_municipio} ({sigla_uf})'",
+        buscar_todas=True,
+    ) or []
+    dados["faixas_etarias_sexo"] = [
+        {"faixa": faixa, "mulheres": mulheres, "homens": homens}
+        for faixa, mulheres, homens, _ordem in linhas_faixa_sexo
+        if faixa is not None
+    ]
 
     return {campo: valor for campo, valor in dados.items() if valor is not None}
 
@@ -140,6 +239,17 @@ INDIGENA_MUNICIPIO = """
         SELECT cd_mun::int FROM carac_mun.caracteristicas_municipais
         WHERE nm_mun = %s AND sigla_uf = %s
     )
+"""
+
+INDIGENA_COMPLEMENTAR_MUNICIPIO = """
+    SELECT ano, faixa_etaria, COALESCE(SUM(pop_total_indigena), 0)
+    FROM dem_demografia_indigena.vw_populacao_indigena_geral
+    WHERE cd_mun = (
+        SELECT cd_mun::int FROM carac_mun.caracteristicas_municipais
+        WHERE nm_mun = %s AND sigla_uf = %s
+    )
+      AND ano IN (2010, 2022)
+    GROUP BY ano, faixa_etaria
 """
 
 
@@ -166,59 +276,141 @@ def buscar_populacao_indigena(
         "dentro_territorio_indigena": dentro_territorio,
         "fora_territorio_indigena": fora_territorio,
     }
+
+    faixas_por_ano = executar_query(
+        INDIGENA_COMPLEMENTAR_MUNICIPIO,
+        (nome_municipio, sigla_uf),
+        f"população indígena complementar de '{nome_municipio} ({sigla_uf})'",
+        buscar_todas=True,
+    ) or []
+    totais_por_ano: dict[int, object] = {}
+    faixas_2022: list[tuple[str, object]] = []
+    for ano, faixa, total in faixas_por_ano:
+        totais_por_ano[ano] = totais_por_ano.get(ano, 0) + total
+        if ano == 2022:
+            faixas_2022.append((faixa, total))
+    if 2010 in totais_por_ano:
+        dados["pop_ind_2010"] = totais_por_ano[2010]
+        if totais_por_ano[2010]:
+            variacao = round(
+                (float(pop_total_indigena) - float(totais_por_ano[2010]))
+                / float(totais_por_ano[2010]) * 100,
+                1,
+            )
+            dados["var_pop_ind_abs"] = abs(variacao)
+            dados["var_pop_ind_analise"] = "aumento" if variacao >= 0 else "redução"
+    if faixas_2022:
+        faixas_2022.sort(key=lambda item: item[1], reverse=True)
+        labels = {
+            "faixa_0_9": "0 a 9", "faixa_10_19": "10 a 19",
+            "faixa_20_29": "20 a 29", "faixa_30_39": "30 a 39",
+            "faixa_40_49": "40 a 49", "faixa_50_59": "50 a 59",
+            "faixa_60_69": "60 a 69", "faixa_70_79": "70 a 79",
+            "faixa_80_mais": "80 ou mais",
+        }
+        for ordinal, (faixa, total) in zip(("pri", "seg"), faixas_2022):
+            dados[f"cat_etaria_ind_{ordinal}"] = labels.get(faixa, faixa)
+            dados[f"pop_etaria_ind_{ordinal}"] = total
     return {campo: valor for campo, valor in dados.items() if valor is not None}
 
 
-POP_RUA_MUNICIPIO = """
+QUILOMBOLA_MUNICIPIO = """
     SELECT
-        numero_pessoas_situacao_rua_cadunico as pop_rua_total,
-        criancas_adolescentes_situacao_rua as pop_rua_criancas_adolescentes,
-        pcd_em_situacao_de_rua as pop_rua_pcd,
-        idosos_em_situacao_de_rua as pop_rua_idosos,
-        num_centro_pop as centros_pop,
-        total_familias_situacao_rua_cadunico as familias_rua_total,
-        familias_situacao_rua_beneficiarias_bolsa_familia as familias_rua_bf,
-        qtd_pobreza_cadunico as pobreza_cadunico,
-        qtd_baixa_renda_cadunico as baixa_renda_cadunico,
-        qtd_acima_meio_salario_minimo_cadunico as acima_meio_sm_cadunico
-    FROM dem_rua.vw_pop_2022
+        COALESCE(populacao_total_quilombola, 0),
+        COALESCE(porcentagem_populacao_quilombola, 0)
+    FROM dem_demografia_quilombola.vw_demografia_quilombola_faixas_agrupadas
     WHERE cd_mun = (
         SELECT cd_mun::int FROM carac_mun.caracteristicas_municipais
         WHERE nm_mun = %s AND sigla_uf = %s
     )
+      AND ano = 2022
+    LIMIT 1
+"""
+
+
+def buscar_populacao_quilombola(
+    nome_municipio: str, sigla_uf: str
+) -> dict[str, object] | None:
+    linha = executar_query(
+        QUILOMBOLA_MUNICIPIO,
+        (nome_municipio, sigla_uf),
+        f"população quilombola de '{nome_municipio} ({sigla_uf})'",
+    )
+    if linha is None:
+        return None
+    pop_qui, pop_qui_per = linha
+    return {"pop_qui": pop_qui, "pop_qui_per": pop_qui_per}
+
+
+POP_RUA_MUNICIPIO = """
+    SELECT
+        ano,
+        numero_pessoas_situacao_rua_cadunico,
+        criancas_adolescentes_situacao_rua,
+        pcd_em_situacao_de_rua,
+        idosos_em_situacao_de_rua,
+        num_centro_pop,
+        total_familias_situacao_rua_cadunico,
+        familias_situacao_rua_beneficiarias_bolsa_familia,
+        qtd_pobreza_cadunico,
+        qtd_baixa_renda_cadunico,
+        qtd_acima_meio_salario_minimo_cadunico
+    FROM dem_rua.vw_pop
+    WHERE cd_mun = (
+        SELECT cd_mun::int FROM carac_mun.caracteristicas_municipais
+        WHERE nm_mun = %s AND sigla_uf = %s
+    )
+      AND ano IN (2022, 2026)
 """
 
 
 def buscar_populacao_rua(
     nome_municipio: str, sigla_uf: str
 ) -> dict[str, object] | None:
-    linha = executar_query(
+    linhas = executar_query(
         POP_RUA_MUNICIPIO,
         (nome_municipio, sigla_uf),
         f"população em situação de rua de '{nome_municipio} ({sigla_uf})'",
+        buscar_todas=True,
     )
-    if linha is None:
+    if not linhas:
         return None
 
-    (
-        pop_rua_total, pop_rua_criancas_adolescentes, pop_rua_pcd, pop_rua_idosos,
-        centros_pop, familias_rua_total, familias_rua_bf,
-        pobreza_cadunico, baixa_renda_cadunico, acima_meio_sm_cadunico
-    ) = linha
-
-    if pop_rua_total == 0:
+    por_ano = {linha[0]: linha[1:] for linha in linhas}
+    dados_2026 = por_ano.get(2026)
+    dados_2022 = por_ano.get(2022)
+    atual = dados_2026 or dados_2022
+    if atual is None:
         return None
+    (pop_rua_total, criancas, pcd, idosos, centros_pop, familias_total,
+     familias_bf, pobreza, baixa_renda, acima_meio) = atual
 
+    if not pop_rua_total:
+        return None
     dados = {
         "pop_rua_total": pop_rua_total,
-        "pop_rua_criancas_adolescentes": pop_rua_criancas_adolescentes,
-        "pop_rua_pcd": pop_rua_pcd,
-        "pop_rua_idosos": pop_rua_idosos,
-        "centros_pop": centros_pop,
-        "familias_rua_total": familias_rua_total,
-        "familias_rua_bf": familias_rua_bf,
-        "pobreza_cadunico": pobreza_cadunico,
-        "baixa_renda_cadunico": baixa_renda_cadunico,
-        "acima_meio_sm_cadunico": acima_meio_sm_cadunico,
+        "pop_rua_criancas_adolescentes": criancas, "pop_rua_pcd": pcd,
+        "pop_rua_idosos": idosos, "centros_pop": centros_pop,
+        "familias_rua_total": familias_total, "familias_rua_bf": familias_bf,
+        "pobreza_cadunico": pobreza,
+        "baixa_renda_cadunico": baixa_renda,
+        "acima_meio_sm_cadunico": acima_meio,
     }
+    if familias_total:
+        dados["pop_rua_pobreza_per"] = round(float(pobreza) / float(familias_total) * 100, 1)
+        dados["pop_rua_br_per"] = round(float(baixa_renda) / float(familias_total) * 100, 1)
+        dados["pop_rua_acima_br_per"] = round(float(acima_meio) / float(familias_total) * 100, 1)
+    # "pop_rua_2026" só é publicado quando há dado real de 2026; caso
+    # contrário o alias em placeholders.py já cobre "$pop_rua_2022" a
+    # partir de pop_rua_total, sem fabricar uma comparação inexistente.
+    if dados_2026 is not None:
+        dados["pop_rua_2026"] = pop_rua_total
+        dados["pop_rua_bolsaf_2026"] = familias_bf
+        if dados_2022 is not None:
+            pop_2022, _, _, _, _, _, bf_2022, _, _, _ = dados_2022
+            dados["pop_rua_2022"] = pop_2022
+            dados["pop_rua_bolsaf_2022"] = bf_2022
+            dados["var_pop_rua_abs"] = abs(pop_rua_total - pop_2022)
+            dados["var_pop_rua_analise"] = "aumento" if pop_rua_total >= pop_2022 else "redução"
+            dados["pop_rua_bolsaf_analise"] = "aumentou" if familias_bf >= bf_2022 else "diminuiu"
     return {campo: valor for campo, valor in dados.items() if valor is not None}

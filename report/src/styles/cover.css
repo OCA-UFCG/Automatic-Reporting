@@ -1011,6 +1011,11 @@
   text-indent: 32px;
 }
 
+.theme-detail-content .theme-detail-text {
+  margin: 0 0 14px;
+  text-indent: 32px;
+}
+
 @media print {
   .theme-detail-header {
     display: none;
@@ -1089,7 +1094,7 @@
   }
 
   .theme-detail-text {
-    margin-bottom: 10.67px;
+    margin-bottom: 14px;
     font-size: 16px;
     line-height: 130%;
   }

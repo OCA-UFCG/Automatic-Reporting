@@ -84,7 +84,9 @@ def gerar_grafico_cor_faixa_etaria(
 
     largura = 0.15
 
-    _fig, ax = plt.subplots(figsize=(8, 3.2))
+    fig, ax = plt.subplots(figsize=(8, 3.2))
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("white")
 
     cores_grafico = {
         "Amarela": "#E88BC0",
@@ -154,8 +156,9 @@ def gerar_grafico_cor_faixa_etaria(
         chart_file,
         dpi=150,
         bbox_inches="tight",
+        facecolor="white",
     )
 
-    plt.close()
+    plt.close(fig)
 
     return chart_file.name

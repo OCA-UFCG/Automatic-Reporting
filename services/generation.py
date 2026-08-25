@@ -12,6 +12,10 @@ from config import (
     require_config_value,
     resolve_csv_source,
 )
+from plotting.demografia import (
+    gerar_grafico_composicao_cor_raca,
+    gerar_grafico_faixa_etaria_e_sexo,
+)
 from plotting.educacao import gerar_grafico_cor_faixa_etaria
 from plotting.saude import gerar_grafico_publico_etario
 from services.csv_loader import (
@@ -43,6 +47,7 @@ from utils.queries.demografia import (
     buscar_demografia_sexo_faixa_etaria,
     buscar_populacao_demografia,
     buscar_populacao_indigena,
+    buscar_populacao_quilombola,
     buscar_populacao_rua,
 )
 from utils.queries.educacao import buscar_taxas_educacao_cor_faixa_etaria
@@ -57,6 +62,23 @@ from utils.render.renderer import (
 from utils.ssr import render_react_ssr
 
 logger = logging.getLogger(__name__)
+
+GRAFICOS_DEMOGRAFIA_AUTO_MARCADOR = (
+    (
+        "grafico_faixa_etaria_e_sexo",
+        (
+            r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+            r"Popula[cç][aã]o\s+por\s+faixa\s+et[aá]ria\s+e\s+sexo[^\n]*)$"
+        ),
+    ),
+    (
+        "grafico_composicao_cor_raca",
+        (
+            r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+            r"Composi[cç][aã]o\s+por\s+cor\s+ou\s+ra[cç]a[^\n]*)$"
+        ),
+    ),
+)
 
 
 async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
@@ -83,6 +105,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     dados_demografia_db = None
     dados_sexo_faixa = None
     dados_indigena = None
+    dados_quilombola = None
     dados_rua = None
     dados_publico_etario = None
     dados_taxas_educacao = None
@@ -126,6 +149,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 dados_demografia_db = buscar_populacao_demografia(nome_cidade_db, uf_db)
                 dados_sexo_faixa = buscar_demografia_sexo_faixa_etaria(nome_cidade_db, uf_db)
                 dados_indigena = buscar_populacao_indigena(nome_cidade_db, uf_db)
+                dados_quilombola = buscar_populacao_quilombola(nome_cidade_db, uf_db)
             if "saude" in macrotema_slugs:
                 dados_publico_etario = buscar_publico_etario_vacinas(nome_cidade_db, uf_db)
             if "educacao" in macrotema_slugs:
@@ -147,6 +171,9 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         if "demografia" in macrotema_slugs and dados_indigena:
             for linha in linhas_macrotema:
                 linha.update(dados_indigena)
+        if "demografia" in macrotema_slugs and dados_quilombola:
+            for linha in linhas_macrotema:
+                linha.update(dados_quilombola)
 
         if dados_rua:
             for linha in linhas_macrotema:
@@ -321,6 +348,25 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
 
         graficos_por_placeholder = {}
 
+        if macrotema_slug == "demografia":
+            for nome_grafico, gerar_grafico in (
+                ("grafico_faixa_etaria_e_sexo", gerar_grafico_faixa_etaria_e_sexo),
+                ("grafico_composicao_cor_raca", gerar_grafico_composicao_cor_raca),
+            ):
+                try:
+                    graficos_por_placeholder[nome_grafico] = gerar_grafico(
+                        cidade=linhas_macrotema[0],
+                        OUTPUT_DIR=OUTPUT_DIR,
+                        safe_city=safe_report or "relatorio",
+                    )
+                except ValueError as err:
+                    logger.warning(
+                        "Não foi possível gerar o gráfico '%s' para '%s': %s",
+                        nome_grafico,
+                        safe_report,
+                        err,
+                    )
+
         if macrotema_slug == "educacao":
             chart_file_name = gerar_grafico_cor_faixa_etaria(
                 cidade=linhas_macrotema[0],
@@ -342,6 +388,25 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             docs_texto = await carregar_texto_do_docs(docs_url)
         except ValueError as err:
             raise HTTPException(status_code=400, detail=str(err)) from err
+
+        if macrotema_slug == "demografia":
+            for nome_grafico, legenda_regex in GRAFICOS_DEMOGRAFIA_AUTO_MARCADOR:
+                if re.search(rf"(?m)^\s*(?:%%|\*){nome_grafico}\s*$", docs_texto):
+                    continue
+                docs_texto, n_substituicoes = re.subn(
+                    legenda_regex,
+                    f"*{nome_grafico}\n\n\\1",
+                    docs_texto,
+                    count=1,
+                )
+                if not n_substituicoes:
+                    logger.warning(
+                        "Não foi possível localizar a legenda para inserir o "
+                        "marcador do gráfico '%s' no documento de '%s'. O "
+                        "gráfico foi gerado mas não será exibido no relatório.",
+                        nome_grafico,
+                        safe_report,
+                    )
 
         macrotema_item: dict[str, object] = {
             "nome": macrotema_dados["nome"],

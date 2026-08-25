@@ -63,7 +63,9 @@ def gerar_grafico_publico_etario(
     # Largura das barras
     largura = 0.30
 
-    _fig, ax = plt.subplots(figsize=(8, 3.2))
+    fig, ax = plt.subplots(figsize=(8, 3.2))
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("white")
 
     ax.bar(
         x - largura / 2,
@@ -144,8 +146,9 @@ def gerar_grafico_publico_etario(
         chart_file,
         dpi=150,
         bbox_inches="tight",
+        facecolor="white",
     )
 
-    plt.close()
+    plt.close(fig)
 
     return chart_file.name
