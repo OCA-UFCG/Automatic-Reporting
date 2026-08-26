@@ -62,6 +62,7 @@ from utils.render.renderer import (
     texto_para_html,
 )
 from utils.ssr import render_react_ssr
+from utils.timing import StageTimer
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +91,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err))
     gerado_em = datetime.now().astimezone()
+    timer = StageTimer(f"{macrotema}:{cidade}")
 
     linhas = None
     cover = None
@@ -141,6 +143,8 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         if not linhas_macrotema:
             raise HTTPException(status_code=404, detail=f"Cidade '{cidade}' não encontrada.")
 
+        timer.mark(f"csv_{macrotema_slug}")
+
         for linha in linhas_macrotema:
             linha["data_relatorio"] = gerado_em.strftime("%d/%m/%Y")
             linha["hora_relatorio"] = gerado_em.strftime("%H:%M")
@@ -163,6 +167,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 )
             dados_rua = buscar_populacao_rua(nome_cidade_db, uf_db)
             db_consultado = True
+            timer.mark("db_queries")
 
         if dados_caracteristicas_db:
             for linha in linhas_macrotema:
@@ -241,6 +246,8 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                     )
                 except ValueError as err:
                     raise HTTPException(status_code=400, detail=str(err)) from err
+
+                timer.mark("docs_fetch_caracteristicas")
 
                 inicio_relatorio, caracteristicas_texto = extrair_inicio_relatorio(
                     caracteristicas_texto
@@ -355,6 +362,8 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                     )
                 )
 
+                timer.mark("caracteristicas_processamento")
+
         eh_primeiro = macrotema_slug == macrotema_slugs[0]
 
         graficos_por_placeholder = {}
@@ -412,11 +421,15 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                     err,
                 )
 
+        timer.mark(f"graficos_{macrotema_slug}")
+
         docs_url = require_config_value(macrotema_dados["docs_url"], macrotema_dados["docs_env"])
         try:
             docs_texto = await carregar_texto_do_docs(docs_url)
         except ValueError as err:
             raise HTTPException(status_code=400, detail=str(err)) from err
+
+        timer.mark(f"docs_fetch_{macrotema_slug}")
 
         if macrotema_slug == "demografia":
             for nome_grafico, legenda_regex in GRAFICOS_DEMOGRAFIA_AUTO_MARCADOR:
@@ -538,6 +551,8 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 linhas_macrotema[0], safe_report
             )
 
+        timer.mark(f"mapa_principal_{macrotema_slug}")
+
         macrotemas_render.append(macrotema_item)
 
         docs_html_parts.append(
@@ -549,6 +564,8 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 safe_report=safe_report,
             )
         )
+
+        timer.mark(f"docs_processamento_{macrotema_slug}")
 
     referencias_unicas = {
         re.sub(r"\s+", " ", referencia).strip(): None
@@ -584,6 +601,8 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         cover["resumo_relatorio_html"] = resumo_relatorio_html_parts
         cover["resumo_relatorio"] = "\n\n".join(resumo_relatorio_parts)
 
+    timer.mark("montagem_referencias")
+
     # React SSR rendering
     html_content = await render_react_ssr({
         "cover": cover,
@@ -591,10 +610,14 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         "dados": linhas,
     })
 
+    timer.mark("ssr_render")
+
     # Output file handling
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output_file = OUTPUT_DIR / f"relatorio_{safe_report}.html"
     output_file.write_text(html_content, encoding="utf-8")
+
+    timer.mark("escrita_html")
 
     # Gerar PDF em background sempre, para manter o artefato sincronizado com o HTML
     # e evitar reaproveitar um PDF antigo quando os dados/mapas mudarem no mesmo dia.
@@ -606,7 +629,11 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         except FileNotFoundError:
             pass
 
-    if not await _gerar_pdf(html_content, pdf_file):
+    pdf_ok = await _gerar_pdf(html_content, pdf_file)
+    timer.mark("pdf_render")
+    logger.info("[timing][relatorio] %s", timer.resumo())
+
+    if not pdf_ok:
         raise HTTPException(
             status_code=500,
             detail="Falha ao gerar o PDF do relatório.",

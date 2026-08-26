@@ -3,6 +3,8 @@ import json
 import logging
 import os
 import re
+import shutil
+import time
 import unicodedata
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
@@ -14,6 +16,7 @@ from utils.geografia import separar_cidade_uf
 logger = logging.getLogger(__name__)
 
 GEOCODING_CACHE_FILE = OUTPUT_DIR / "geocoding_cache.json"
+MAPAS_CACHE_DIR = OUTPUT_DIR / "mapas_cache"
 BRASIL_ESTADOS_SOURCE_ASSET = "brazil-states.svg"
 BRASIL_ESTADOS_OUTPUT_ASSET = "brazil-states-regions.svg"
 BRASIL_ESTADOS_SOURCE = BASE_DIR / "assets" / BRASIL_ESTADOS_SOURCE_ASSET
@@ -457,23 +460,47 @@ def desenhar_norte(ax, fontsize: float = 8.0, pos=(0.92, 0.12), tamanho: float =
     )
 
 
+def _malhas_mtime() -> float:
+    try:
+        return max(MUNICIPIOS_SHAPE.stat().st_mtime, UF_SHAPE.stat().st_mtime)
+    except OSError:
+        return 0.0
+
+
 def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
+    t0 = time.perf_counter()
     try:
         municipios, ufs = carregar_malhas()
         municipio = localizar_municipio(nome_municipio)
     except (ImportError, OSError, ValueError, KeyError, AttributeError) as e:
         logger.warning("Falha ao carregar malhas ou localizar município '%s': %s", nome_municipio, e)
         return None
+    t_malhas = time.perf_counter()
 
     if municipio is None:
         logger.warning("Município '%s' não encontrado nas malhas shapefile", nome_municipio)
         return None
 
-    os.environ.setdefault("MPLCONFIGDIR", str(OUTPUT_DIR / "matplotlib-cache"))
-    import matplotlib.pyplot as plt
-
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"mapa_regiao_{safe_report}.png"
+
+    # O mapa depende só da geometria do município nas malhas shapefile (dado
+    # estático), não do macrotema/relatório. Cacheamos por município (código
+    # IBGE) para não pagar de novo o custo de plotagem com geopandas/matplotlib
+    # (~5s, o maior gasto do pipeline) em todo relatório da mesma cidade.
+    cache_key = str(municipio["CD_MUN"])
+    cache_file = MAPAS_CACHE_DIR / f"{cache_key}.png"
+    if cache_file.exists() and cache_file.stat().st_mtime >= _malhas_mtime():
+        shutil.copyfile(cache_file, chart_file)
+        logger.info(
+            "[timing][mapa] %s: cache_hit=%.3fs",
+            safe_report,
+            time.perf_counter() - t0,
+        )
+        return chart_file.name
+
+    os.environ.setdefault("MPLCONFIGDIR", str(OUTPUT_DIR / "matplotlib-cache"))
+    import matplotlib.pyplot as plt
 
     uf = str(municipio["SIGLA_UF"]).upper()
     municipios_uf = municipios[municipios["SIGLA_UF"].astype(str).str.upper() == uf]
@@ -516,6 +543,7 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
         fontsize=5.4,
     )
     desenhar_nomes_ufs(ax_estado, ufs, estado_bounds, uf, fontsize=7.0)
+    t_ax_estado = time.perf_counter()
 
     ax_cidade.set_facecolor(fundo_cor)
     municipios_uf.plot(ax=ax_cidade, color="#ffd79d", edgecolor="#c2955f", linewidth=0.35)
@@ -538,6 +566,7 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
         fontsize=5.4,
     )
     anotar_municipios_vizinhos(ax_cidade, municipios_uf, municipio, bounds_cidade)
+    t_ax_cidade = time.perf_counter()
 
     for ax in [ax_estado, ax_cidade]:
         for spine in ax.spines.values():
@@ -548,6 +577,20 @@ def gerar_mapa_regiao(nome_municipio: str, safe_report: str) -> str | None:
     fig.subplots_adjust(left=0.015, right=0.995, top=0.965, bottom=0.018)
     fig.savefig(chart_file, dpi=190, bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
+
+    MAPAS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(chart_file, cache_file)
+
+    t_savefig = time.perf_counter()
+    logger.info(
+        "[timing][mapa] %s: malhas=%.3fs ax_estado=%.3fs ax_cidade=%.3fs savefig=%.3fs total=%.3fs",
+        safe_report,
+        t_malhas - t0,
+        t_ax_estado - t_malhas,
+        t_ax_cidade - t_ax_estado,
+        t_savefig - t_ax_cidade,
+        t_savefig - t0,
+    )
     return chart_file.name
 
 
