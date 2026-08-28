@@ -95,6 +95,13 @@ GRAFICOS_AUTO_MARCADOR = {
     ),
     "saude": (
         (
+            "grafico_cobertura_vacinal",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Taxa\s+de\s+cobertura\s+vacinal\s+por\s+tipo\s+de\s+vacina[^\n]*)$"
+            ),
+        ),
+        (
             "grafico_mortalidade_infantil",
             (
                 r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
@@ -230,25 +237,17 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             for linha in linhas_macrotema:
                 linha.update(dados_rua)
 
-        if "saude" in macrotema_slugs and dados_publico_etario:
-            for linha in linhas_macrotema:
-                linha.update(dados_publico_etario)
-
-        if "saude" in macrotema_slugs and dados_cobertura_vacinal:
-            for linha in linhas_macrotema:
-                linha.update(dados_cobertura_vacinal)
-
-        if "saude" in macrotema_slugs and dados_mortalidade_infantil:
-            for linha in linhas_macrotema:
-                linha.update(dados_mortalidade_infantil)
-
-        if "saude" in macrotema_slugs and dados_estabelecimentos_saude:
-            for linha in linhas_macrotema:
-                linha.update(dados_estabelecimentos_saude)
-
-        if "saude" in macrotema_slugs and dados_perfil_saude:
-            for linha in linhas_macrotema:
-                linha.update(dados_perfil_saude)
+        if "saude" in macrotema_slugs:
+            for dados_saude in (
+                dados_publico_etario,
+                dados_cobertura_vacinal,
+                dados_mortalidade_infantil,
+                dados_estabelecimentos_saude,
+                dados_perfil_saude,
+            ):
+                if dados_saude:
+                    for linha in linhas_macrotema:
+                        linha.update(dados_saude)
 
         if "educacao" in macrotema_slugs and dados_taxas_educacao:
             for linha in linhas_macrotema:
@@ -454,47 +453,24 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             )
             graficos_por_placeholder["grafico_publico_etario"] = chart_file_name
 
-            try:
-                chart_file_name = gerar_grafico_cobertura_vacinal(
-                    cidade=linhas_macrotema[0],
-                    OUTPUT_DIR=OUTPUT_DIR,
-                    safe_city=safe_city or "relatorio",
-                )
-                graficos_por_placeholder["grafico_cobertura_vacinal"] = chart_file_name
-            except ValueError as err:
-                logger.warning(
-                    "Não foi possível gerar o gráfico de cobertura vacinal para '%s': %s",
-                    safe_report,
-                    err,
-                )
-
-            try:
-                chart_file_name = gerar_grafico_mortalidade_infantil(
-                    cidade=linhas_macrotema[0],
-                    OUTPUT_DIR=OUTPUT_DIR,
-                    safe_city=safe_city or "relatorio",
-                )
-                graficos_por_placeholder["grafico_mortalidade_infantil"] = chart_file_name
-            except ValueError as err:
-                logger.warning(
-                    "Não foi possível gerar o gráfico de mortalidade infantil para '%s': %s",
-                    safe_report,
-                    err,
-                )
-
-            try:
-                chart_file_name = gerar_grafico_de_estabelecimento(
-                    cidade=linhas_macrotema[0],
-                    OUTPUT_DIR=OUTPUT_DIR,
-                    safe_city=safe_city or "relatorio",
-                )
-                graficos_por_placeholder["grafico_de_estabelecimento"] = chart_file_name
-            except ValueError as err:
-                logger.warning(
-                    "Não foi possível gerar o gráfico de estabelecimentos de saúde para '%s': %s",
-                    safe_report,
-                    err,
-                )
+            for nome_grafico, gerar_grafico in (
+                ("grafico_cobertura_vacinal", gerar_grafico_cobertura_vacinal),
+                ("grafico_mortalidade_infantil", gerar_grafico_mortalidade_infantil),
+                ("grafico_de_estabelecimento", gerar_grafico_de_estabelecimento),
+            ):
+                try:
+                    graficos_por_placeholder[nome_grafico] = gerar_grafico(
+                        cidade=linhas_macrotema[0],
+                        OUTPUT_DIR=OUTPUT_DIR,
+                        safe_city=safe_city or "relatorio",
+                    )
+                except ValueError as err:
+                    logger.warning(
+                        "Não foi possível gerar o gráfico '%s' para '%s': %s",
+                        nome_grafico,
+                        safe_report,
+                        err,
+                    )
 
         if macrotema_slug == "hidraulica":
             try:

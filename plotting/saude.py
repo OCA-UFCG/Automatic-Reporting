@@ -24,6 +24,27 @@ def _coerce_numero(valor) -> float:
     return numero
 
 
+def _finalizar_grafico(fig, chart_file: pathlib.Path) -> None:
+    plt.tight_layout()
+    plt.savefig(chart_file, dpi=150, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+
+
+def _rotular_barra_vertical(ax, barra, texto: str, limite: float) -> None:
+    altura = barra.get_height()
+    pequena = altura < limite * 0.15
+    ax.text(
+        barra.get_x() + barra.get_width() / 2,
+        altura + limite * 0.05 if pequena else altura - limite * 0.05,
+        texto,
+        ha="center",
+        va="bottom" if pequena else "top",
+        fontsize=8,
+        fontweight="bold",
+        color="#4A4A4A" if pequena else "white",
+    )
+
+
 def gerar_grafico_mortalidade_infantil(
     cidade: dict,
     OUTPUT_DIR: pathlib.Path,
@@ -58,15 +79,8 @@ def gerar_grafico_mortalidade_infantil(
     ax.set_ylim(0, limite)
 
     for barra, taxa in zip(barras, taxas):
-        ax.text(
-            barra.get_x() + barra.get_width() / 2,
-            barra.get_height() - limite * 0.05,
-            f"{taxa:.2f}".replace(".", ","),
-            ha="center",
-            va="top",
-            fontsize=8,
-            fontweight="bold",
-            color="white",
+        _rotular_barra_vertical(
+            ax, barra, f"{taxa:.2f}".replace(".", ","), limite
         )
 
     ax.set_xticks(x)
@@ -89,16 +103,7 @@ def gerar_grafico_mortalidade_infantil(
         ax.spines[lado].set_visible(False)
     ax.spines["bottom"].set_color("#4A4A4A")
 
-    plt.tight_layout()
-
-    plt.savefig(
-        chart_file,
-        dpi=150,
-        bbox_inches="tight",
-        facecolor="white",
-    )
-
-    plt.close(fig)
+    _finalizar_grafico(fig, chart_file)
 
     return chart_file.name
 
@@ -144,16 +149,7 @@ def gerar_grafico_de_estabelecimento(
     ax.set_ylim(0, limite)
 
     for barra, total in zip(barras, totais):
-        ax.text(
-            barra.get_x() + barra.get_width() / 2,
-            barra.get_height() - limite * 0.05,
-            _formatar_valor_mil(total),
-            ha="center",
-            va="top",
-            fontsize=8,
-            fontweight="bold",
-            color="white",
-        )
+        _rotular_barra_vertical(ax, barra, _formatar_valor_mil(total), limite)
 
     ax.set_xticks(x)
     ax.set_xticklabels(anos, fontsize=8)
@@ -178,16 +174,7 @@ def gerar_grafico_de_estabelecimento(
         ax.spines[lado].set_visible(False)
     ax.spines["bottom"].set_color("#4A4A4A")
 
-    plt.tight_layout()
-
-    plt.savefig(
-        chart_file,
-        dpi=150,
-        bbox_inches="tight",
-        facecolor="white",
-    )
-
-    plt.close(fig)
+    _finalizar_grafico(fig, chart_file)
 
     return chart_file.name
 
@@ -265,16 +252,7 @@ def gerar_grafico_cobertura_vacinal(
     ax.set_xlabel("Taxa de cobertura vacinal (%)", fontsize=9)
     ax.set_ylabel("Imunobiológico", fontsize=9)
 
-    plt.tight_layout()
-
-    plt.savefig(
-        chart_file,
-        dpi=150,
-        bbox_inches="tight",
-        facecolor="white",
-    )
-
-    plt.close(fig)
+    _finalizar_grafico(fig, chart_file)
 
     return chart_file.name
 
