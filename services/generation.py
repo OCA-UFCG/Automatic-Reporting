@@ -18,7 +18,12 @@ from plotting.demografia import (
 )
 from plotting.educacao import gerar_grafico_cor_faixa_etaria
 from plotting.hidraulica import gerar_grafico_tecnologias_acesso_agua
-from plotting.saude import gerar_grafico_publico_etario
+from plotting.saude import (
+    gerar_grafico_cobertura_vacinal,
+    gerar_grafico_de_estabelecimento,
+    gerar_grafico_mortalidade_infantil,
+    gerar_grafico_publico_etario,
+)
 from services.csv_loader import (
     carregar_csv,
     get_csv_config_for_macrotema,
@@ -53,7 +58,13 @@ from utils.queries.demografia import (
 )
 from utils.queries.educacao import buscar_taxas_educacao_cor_faixa_etaria
 from utils.queries.hidraulica import buscar_tecnologias_acesso_agua
-from utils.queries.saude import buscar_publico_etario_vacinas
+from utils.queries.saude import (
+    buscar_cobertura_vacinal,
+    buscar_estabelecimentos_saude_serie,
+    buscar_mortalidade_infantil_serie,
+    buscar_perfil_saude_municipal,
+    buscar_publico_etario_vacinas,
+)
 from utils.render.renderer import (
     render_descricao_tema_html,
     render_mapa_marker,
@@ -65,22 +76,48 @@ from utils.ssr import render_react_ssr
 
 logger = logging.getLogger(__name__)
 
-GRAFICOS_DEMOGRAFIA_AUTO_MARCADOR = (
-    (
-        "grafico_faixa_etaria_e_sexo",
+GRAFICOS_AUTO_MARCADOR = {
+    "demografia": (
         (
-            r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
-            r"Popula[cç][aã]o\s+por\s+faixa\s+et[aá]ria\s+e\s+sexo[^\n]*)$"
+            "grafico_faixa_etaria_e_sexo",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Popula[cç][aã]o\s+por\s+faixa\s+et[aá]ria\s+e\s+sexo[^\n]*)$"
+            ),
+        ),
+        (
+            "grafico_composicao_cor_raca",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Composi[cç][aã]o\s+por\s+cor\s+ou\s+ra[cç]a[^\n]*)$"
+            ),
         ),
     ),
-    (
-        "grafico_composicao_cor_raca",
+    "saude": (
         (
-            r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
-            r"Composi[cç][aã]o\s+por\s+cor\s+ou\s+ra[cç]a[^\n]*)$"
+            "grafico_cobertura_vacinal",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Taxa\s+de\s+cobertura\s+vacinal\s+por\s+tipo\s+de\s+vacina[^\n]*)$"
+            ),
+        ),
+        (
+            "grafico_mortalidade_infantil",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Vis[aã]o\s+hist[oó]rica\s+da\s+taxa\s+de\s+mortalidade\s+infantil[^\n]*)$"
+            ),
+        ),
+        (
+            "grafico_de_estabelecimento",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Vis[aã]o\s+hist[oó]rica\s+do\s+n[uú]mero\s+de\s+"
+                r"estabelecimentos\s+de\s+sa[uú]de[^\n]*)$"
+            ),
         ),
     ),
-)
+}
 
 
 async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
@@ -110,6 +147,10 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     dados_quilombola = None
     dados_rua = None
     dados_publico_etario = None
+    dados_cobertura_vacinal = None
+    dados_mortalidade_infantil = None
+    dados_estabelecimentos_saude = None
+    dados_perfil_saude = None
     dados_taxas_educacao = None
     dados_tecnologias_acesso_agua = None
 
@@ -155,6 +196,16 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 dados_quilombola = buscar_populacao_quilombola(nome_cidade_db, uf_db)
             if "saude" in macrotema_slugs:
                 dados_publico_etario = buscar_publico_etario_vacinas(nome_cidade_db, uf_db)
+                dados_cobertura_vacinal = buscar_cobertura_vacinal(nome_cidade_db, uf_db)
+                dados_mortalidade_infantil = buscar_mortalidade_infantil_serie(
+                    nome_cidade_db, uf_db
+                )
+                dados_estabelecimentos_saude = buscar_estabelecimentos_saude_serie(
+                    nome_cidade_db, uf_db
+                )
+                dados_perfil_saude = buscar_perfil_saude_municipal(
+                    nome_cidade_db, uf_db
+                )
             if "educacao" in macrotema_slugs:
                 dados_taxas_educacao = buscar_taxas_educacao_cor_faixa_etaria(nome_cidade_db, uf_db)
             if "hidraulica" in macrotema_slugs:
@@ -186,9 +237,17 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             for linha in linhas_macrotema:
                 linha.update(dados_rua)
 
-        if "saude" in macrotema_slugs and dados_publico_etario:
-            for linha in linhas_macrotema:
-                linha.update(dados_publico_etario)
+        if "saude" in macrotema_slugs:
+            for dados_saude in (
+                dados_publico_etario,
+                dados_cobertura_vacinal,
+                dados_mortalidade_infantil,
+                dados_estabelecimentos_saude,
+                dados_perfil_saude,
+            ):
+                if dados_saude:
+                    for linha in linhas_macrotema:
+                        linha.update(dados_saude)
 
         if "educacao" in macrotema_slugs and dados_taxas_educacao:
             for linha in linhas_macrotema:
@@ -387,12 +446,25 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             graficos_por_placeholder["grafico_cor_faixa_etaria"] = chart_file_name
 
         if macrotema_slug == "saude":
-            chart_file_name = gerar_grafico_publico_etario(
-                cidade=linhas_macrotema[0],
-                OUTPUT_DIR=OUTPUT_DIR,
-                safe_city=safe_city or "relatorio",
-            )
-            graficos_por_placeholder["grafico_publico_etario"] = chart_file_name
+            for nome_grafico, gerar_grafico in (
+                ("grafico_publico_etario", gerar_grafico_publico_etario),
+                ("grafico_cobertura_vacinal", gerar_grafico_cobertura_vacinal),
+                ("grafico_mortalidade_infantil", gerar_grafico_mortalidade_infantil),
+                ("grafico_de_estabelecimento", gerar_grafico_de_estabelecimento),
+            ):
+                try:
+                    graficos_por_placeholder[nome_grafico] = gerar_grafico(
+                        cidade=linhas_macrotema[0],
+                        OUTPUT_DIR=OUTPUT_DIR,
+                        safe_city=safe_city or "relatorio",
+                    )
+                except (ValueError, KeyError) as err:
+                    logger.warning(
+                        "Não foi possível gerar o gráfico '%s' para '%s': %s",
+                        nome_grafico,
+                        safe_report,
+                        err,
+                    )
 
         if macrotema_slug == "hidraulica":
             try:
@@ -418,24 +490,23 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         except ValueError as err:
             raise HTTPException(status_code=400, detail=str(err)) from err
 
-        if macrotema_slug == "demografia":
-            for nome_grafico, legenda_regex in GRAFICOS_DEMOGRAFIA_AUTO_MARCADOR:
-                if re.search(rf"(?m)^\s*(?:%%|\*){nome_grafico}\s*$", docs_texto):
-                    continue
-                docs_texto, n_substituicoes = re.subn(
-                    legenda_regex,
-                    f"*{nome_grafico}\n\n\\1",
-                    docs_texto,
-                    count=1,
+        for nome_grafico, legenda_regex in GRAFICOS_AUTO_MARCADOR.get(macrotema_slug, ()):
+            if re.search(rf"(?m)^\s*(?:%%|\*){nome_grafico}\s*$", docs_texto):
+                continue
+            docs_texto, n_substituicoes = re.subn(
+                legenda_regex,
+                f"*{nome_grafico}\n\n\\1",
+                docs_texto,
+                count=1,
+            )
+            if not n_substituicoes:
+                logger.warning(
+                    "Não foi possível localizar a legenda para inserir o "
+                    "marcador do gráfico '%s' no documento de '%s'. O "
+                    "gráfico foi gerado mas não será exibido no relatório.",
+                    nome_grafico,
+                    safe_report,
                 )
-                if not n_substituicoes:
-                    logger.warning(
-                        "Não foi possível localizar a legenda para inserir o "
-                        "marcador do gráfico '%s' no documento de '%s'. O "
-                        "gráfico foi gerado mas não será exibido no relatório.",
-                        nome_grafico,
-                        safe_report,
-                    )
 
         macrotema_item: dict[str, object] = {
             "nome": macrotema_dados["nome"],
