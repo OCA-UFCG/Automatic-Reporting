@@ -250,6 +250,14 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
     if namespace.lower() == "demografia":
         resultado = re.sub(r"(?i)(?<![\w])demo\.\$", "demografia.$", resultado)
 
+    # Erro de digitação comum nos documentos: "namespace$.campo" em vez de
+    # "namespace.$campo" (o "$" e o "." trocados de posição).
+    resultado = re.sub(
+        rf"(?i)(?<![\w]){re.escape(namespace)}\$\.",
+        f"{namespace}.$",
+        resultado,
+    )
+
     # Formato completo: macrotema.nome_do_csv.$campo.
     resultado = re.sub(
         rf"(?i)(?<![\w]){re.escape(namespace)}\."
