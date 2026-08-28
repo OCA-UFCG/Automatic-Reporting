@@ -446,14 +446,8 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             graficos_por_placeholder["grafico_cor_faixa_etaria"] = chart_file_name
 
         if macrotema_slug == "saude":
-            chart_file_name = gerar_grafico_publico_etario(
-                cidade=linhas_macrotema[0],
-                OUTPUT_DIR=OUTPUT_DIR,
-                safe_city=safe_city or "relatorio",
-            )
-            graficos_por_placeholder["grafico_publico_etario"] = chart_file_name
-
             for nome_grafico, gerar_grafico in (
+                ("grafico_publico_etario", gerar_grafico_publico_etario),
                 ("grafico_cobertura_vacinal", gerar_grafico_cobertura_vacinal),
                 ("grafico_mortalidade_infantil", gerar_grafico_mortalidade_infantil),
                 ("grafico_de_estabelecimento", gerar_grafico_de_estabelecimento),
@@ -464,7 +458,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                         OUTPUT_DIR=OUTPUT_DIR,
                         safe_city=safe_city or "relatorio",
                     )
-                except ValueError as err:
+                except (ValueError, KeyError) as err:
                     logger.warning(
                         "Não foi possível gerar o gráfico '%s' para '%s': %s",
                         nome_grafico,

@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 
+from plotting.demografia import _salvar_figura_com_fundo_branco
+
 
 def _coerce_numero(valor) -> float:
     if valor is None:
@@ -22,12 +24,6 @@ def _coerce_numero(valor) -> float:
         return 0.0
 
     return numero
-
-
-def _finalizar_grafico(fig, chart_file: pathlib.Path) -> None:
-    plt.tight_layout()
-    plt.savefig(chart_file, dpi=150, bbox_inches="tight", facecolor="white")
-    plt.close(fig)
 
 
 def _rotular_barra_vertical(ax, barra, texto: str, limite: float) -> None:
@@ -85,6 +81,7 @@ def gerar_grafico_mortalidade_infantil(
 
     ax.set_xticks(x)
     ax.set_xticklabels(anos, fontsize=8)
+    ax.set_xlabel("Ano", fontsize=9)
 
     ax.yaxis.set_major_locator(MaxNLocator(nbins=3, integer=True))
     ax.grid(
@@ -103,7 +100,7 @@ def gerar_grafico_mortalidade_infantil(
         ax.spines[lado].set_visible(False)
     ax.spines["bottom"].set_color("#4A4A4A")
 
-    _finalizar_grafico(fig, chart_file)
+    _salvar_figura_com_fundo_branco(fig, ax, chart_file)
 
     return chart_file.name
 
@@ -174,7 +171,7 @@ def gerar_grafico_de_estabelecimento(
         ax.spines[lado].set_visible(False)
     ax.spines["bottom"].set_color("#4A4A4A")
 
-    _finalizar_grafico(fig, chart_file)
+    _salvar_figura_com_fundo_branco(fig, ax, chart_file)
 
     return chart_file.name
 
@@ -252,7 +249,7 @@ def gerar_grafico_cobertura_vacinal(
     ax.set_xlabel("Taxa de cobertura vacinal (%)", fontsize=9)
     ax.set_ylabel("Imunobiológico", fontsize=9)
 
-    _finalizar_grafico(fig, chart_file)
+    _salvar_figura_com_fundo_branco(fig, ax, chart_file)
 
     return chart_file.name
 

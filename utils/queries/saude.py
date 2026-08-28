@@ -286,9 +286,9 @@ def buscar_perfil_saude_municipal(
         "estabel_maior_4": estabel_maior_4,
         "nome_estabel_maior_4": nome_estabel_maior_4,
         "grupo_estabel_maior1": grupo_estabel_maior1,
-        "n_estabelec_maior1": n_estabel_maior1,
+        "n_estabel_maior1": n_estabel_maior1,
         "grupo_estabel_maior2": grupo_estabel_maior2,
-        "n_estabelec_maior2": n_estabel_maior2,
+        "n_estabel_maior2": n_estabel_maior2,
         "ubs_10mil": ubs_10mil,
     }
     return {campo: valor for campo, valor in dados.items() if valor is not None}
