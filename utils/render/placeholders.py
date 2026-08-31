@@ -55,6 +55,7 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
     resultado: list[str] = []
     bloco_ativo = True
     bloco_populacoes_ativo = True
+    bloco_rua_ativo = True
 
     for linha in texto.splitlines():
         limpa = linha.strip()
@@ -75,6 +76,11 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                     bloco_ativo = atende
                 elif "pop_ind_2010" in campos:
                     bloco_ativo = bloco_populacoes_ativo and atende
+                elif campos == {"centro_pop"}:
+                    # O Centro POP vem da mesma consulta da população em situação
+                    # de rua: sem esses dados, não há como afirmar se o município
+                    # tinha ou não um Centro POP.
+                    bloco_ativo = bloco_rua_ativo and atende
                 else:
                     bloco_ativo = atende
                 continue
@@ -84,11 +90,36 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
         if limpa.casefold() in {"síntese", "sintese"}:
             bloco_ativo = True
             bloco_populacoes_ativo = True
+            bloco_rua_ativo = True
 
         # Nos documentos atuais, este parágrafo encerra as condições internas
         # referentes a 2010 e volta ao bloco indígena/quilombola principal.
-        if limpa.casefold().startswith("quanto à população quilombola"):
+        if re.match(
+            r"^quanto à população (autodecl(ar)?ad[ao]\s+)?quilombola",
+            limpa.casefold(),
+        ):
             bloco_ativo = bloco_populacoes_ativo
+
+        # O parágrafo de situação de rua não tem guarda "Para quando ...:" no
+        # documento (é declarado como "sem condição"), mas depende de dados que
+        # podem não existir para o município. Sem eles, evitamos expor os
+        # placeholders crus e usamos um texto equivalente ao das outras seções
+        # quando não há registros.
+        if re.match(
+            r"(?i)^outro grupo relevante para a caracteriza[cç][aã]o da popula[cç][aã]o municipal",
+            limpa,
+        ):
+            bloco_rua_ativo = _resolver_campo_com_alias(contexto, "pop_rua_2022") is not None
+            if bloco_ativo and not bloco_rua_ativo:
+                nome_mun = _resolver_campo_com_alias(contexto, "nm_mun") or "o município"
+                resultado.append(
+                    f"Não foram encontrados registros de pessoas em situação de rua "
+                    f"para {nome_mun} na fonte de dados consultada. Contudo, esse "
+                    "resultado deve ser interpretado considerando os limites da base "
+                    "de dados utilizada, não sendo suficiente, por si só, para "
+                    "afastar a presença dessa população no município."
+                )
+                continue
 
         if bloco_ativo:
             resultado.append(linha)
