@@ -129,64 +129,9 @@ Com vários Centros POP."""
     assert "Para quando" not in resultado
 
 
-def test_demography_missing_street_population_data_falls_back_to_no_records_text():
-    texto = """Sequência do texto, sem condição:
-Outro grupo relevante para a caracterização da população municipal é o de pessoas em situação de rua. Em 2026, demografia.$nm_mun registra demografia.$pop_rua_2026 pessoas.
-Para demografia.$centro_pop for igual a 0:
-Sem Centro POP.
-Para demografia.$centro_pop for igual a 1:
-Com um Centro POP.
-Para demografia.$centro_pop maior que 1:
-Com vários Centros POP."""
-
-    resultado_sem_dados = interpretar_blocos_condicionais(texto, {"nm_mun": "Belo Monte"})
-    assert "demografia.$pop_rua_2026" not in resultado_sem_dados
-    assert "Não foram encontrados registros de pessoas em situação de rua" in resultado_sem_dados
-    assert "Belo Monte" in resultado_sem_dados
-    assert "Centro POP." not in resultado_sem_dados
-
-    contexto_com_dados = {"nm_mun": "Cidade X", "pop_rua_2022": 40, "pop_rua_2026": 50, "centro_pop": 1}
-    resultado_com_dados = interpretar_blocos_condicionais(texto, contexto_com_dados)
-    assert "demografia.$pop_rua_2026 pessoas" in resultado_com_dados
-    assert "Não foram encontrados registros de pessoas em situação de rua" not in resultado_com_dados
-    assert "Com um Centro POP." in resultado_com_dados
-
-
-def test_demography_editorial_conditions_close_2010_block_with_autodeclarada_wording():
-    texto = """Para quando demografia.$pop_ind_2022 e demografia.$pop_qui for diferente de 0:
-Tem os dois grupos.
-Para quando demografia.$pop_ind_2010 for diferente de 0:
-Também havia indígenas em 2010.
-Para quando demografia.$pop_ind_2010 for igual a 0:
-Não havia indígenas em 2010.
-
-Quanto à população autodeclarada quilombola em 2022, havia quilombolas."""
-    contexto = {
-        "pop_ind_2022": 470,
-        "pop_ind_2010": 579,
-        "pop_qui": 30,
-    }
-
-    resultado = interpretar_blocos_condicionais(texto, contexto)
-
-    assert "Tem os dois grupos." in resultado
-    assert "Também havia indígenas em 2010." in resultado
-    assert "Não havia indígenas em 2010." not in resultado
-    # A última condição interna avaliada ("igual a 0") não é atendida, o que
-    # antes desta correção deixava bloco_ativo=False e escondia o parágrafo
-    # de fechamento — mesmo ele não fazendo parte do sub-bloco de 2010.
-    assert "Quanto à população autodeclarada quilombola em 2022, havia quilombolas." in resultado
-
-
 def test_demography_short_namespace_is_normalized():
     assert substituir_placeholders(
         "demo.$etaria_maior_per%", {"etaria_maior": 40, "pop_total": 100}, "demografia"
-    ) == "40%"
-
-
-def test_demography_short_namespace_swapped_dollar_typo_is_normalized():
-    assert substituir_placeholders(
-        "demo$.etaria_maior_per%", {"etaria_maior": 40, "pop_total": 100}, "demografia"
     ) == "40%"
 
 

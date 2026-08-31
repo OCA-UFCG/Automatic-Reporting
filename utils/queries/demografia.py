@@ -385,7 +385,7 @@ def buscar_populacao_rua(
     (pop_rua_total, criancas, pcd, idosos, centros_pop, familias_total,
      familias_bf, pobreza, baixa_renda, acima_meio) = atual
 
-    if pop_rua_total is None:
+    if not pop_rua_total:
         return None
     dados = {
         "pop_rua_total": pop_rua_total,
