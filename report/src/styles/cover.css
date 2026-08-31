@@ -448,10 +448,6 @@
   max-width: 100%;
 }
 
-.indicator-score-grid > .indicator-score-row + .indicator-score-row {
-  margin-top: 10.67px;
-}
-
 .indicator-score-row {
   display: table;
   border-spacing: 16px 0;
@@ -532,7 +528,8 @@
   white-space: nowrap;
   padding: 5.33px 10.67px;
   border-radius: 5.33px;
-  color: #F8F7F8;
+  background: #EFEFEF;
+  color: #292829;
   font-family: "Inter", var(--font-sans);
   font-weight: 500;
   font-size: 13.33px;
@@ -552,52 +549,6 @@
   font-size: 8px;
   line-height: 150%;
   text-align: center;
-}
-
-.score-legend {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.score-legend-title {
-  margin: 0 0 5.33px;
-  font-family: "Inter", var(--font-sans);
-  font-weight: 500;
-  font-size: 13.33px;
-  line-height: 150%;
-  color: #292829;
-}
-
-.score-legend-bar {
-  display: table;
-  width: 100%;
-  border-spacing: 1px 0;
-  margin: 0 0 5.33px;
-  border-radius: 5.33px;
-  overflow: hidden;
-}
-
-.score-legend-item {
-  display: table-cell;
-  padding: 5.33px 10.67px;
-  font-family: "Inter", var(--font-sans);
-  font-weight: 500;
-  font-size: 12px;
-  line-height: 12px;
-  letter-spacing: -0.03em;
-  text-align: center;
-  white-space: nowrap;
-}
-
-.score-legend-footnote {
-  margin: 0;
-  font-family: "Inter", var(--font-sans);
-  font-weight: 400;
-  font-size: 13.33px;
-  line-height: 150%;
-  color: #292829;
 }
 
 .cover-detalhamento {
@@ -1124,14 +1075,5 @@
   .score-diagnostic-card {
     max-width: 100%;
     width: 100%;
-  }
-
-  .score-legend-bar {
-    grid-template-columns: 1fr;
-  }
-
-  .score-legend-item + .score-legend-item {
-    border-left: 0;
-    border-top: 1px solid #F8F7F8;
   }
 }

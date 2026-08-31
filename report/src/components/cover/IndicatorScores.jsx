@@ -12,11 +12,6 @@ export default function IndicatorScores({ macrotema }) {
             <IndicatorScoreCard key={idx} indicador={indicador} />
           ))}
         </div>
-        <div className="indicator-score-row">
-          {macrotema.indicadores.map((indicador, idx) => (
-            <IndicatorScoreCard key={idx} indicador={indicador} />
-          ))}
-        </div>
       </div>
     </div>
   );
