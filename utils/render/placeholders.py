@@ -95,7 +95,7 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
         # Nos documentos atuais, este parágrafo encerra as condições internas
         # referentes a 2010 e volta ao bloco indígena/quilombola principal.
         if re.match(
-            r"^quanto à população (autodecl(ar)?ad[ao]\s+)?quilombola",
+            r"^quanto à população (autodeclarad[ao]\s+)?quilombola",
             limpa.casefold(),
         ):
             bloco_ativo = bloco_populacoes_ativo
@@ -278,16 +278,22 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
     }
 
     resultado = texto
+    aliases = [namespace]
     if namespace.lower() == "demografia":
-        resultado = re.sub(r"(?i)(?<![\w])demo\.\$", "demografia.$", resultado)
+        aliases.append("demo")
+    alternativas = "|".join(re.escape(alias) for alias in aliases)
 
     # Erro de digitação comum nos documentos: "namespace$.campo" em vez de
-    # "namespace.$campo" (o "$" e o "." trocados de posição).
+    # "namespace.$campo" (o "$" e o "." trocados de posição). Cobre também
+    # o alias "demo" para o namespace "demografia".
     resultado = re.sub(
-        rf"(?i)(?<![\w])({re.escape(namespace)})\$\.",
+        rf"(?i)(?<![\w])({alternativas})\$\.",
         r"\1.$",
         resultado,
     )
+
+    if namespace.lower() == "demografia":
+        resultado = re.sub(r"(?i)(?<![\w])demo\.\$", "demografia.$", resultado)
 
     # Formato completo: macrotema.nome_do_csv.$campo.
     resultado = re.sub(

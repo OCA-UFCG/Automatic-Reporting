@@ -184,6 +184,12 @@ def test_demography_short_namespace_is_normalized():
     ) == "40%"
 
 
+def test_demography_short_namespace_swapped_dollar_typo_is_normalized():
+    assert substituir_placeholders(
+        "demo$.etaria_maior_per%", {"etaria_maior": 40, "pop_total": 100}, "demografia"
+    ) == "40%"
+
+
 def test_single_asterisk_chart_placeholder_is_rendered():
     html = texto_para_html(
         "*grafico_faixa_etaria_e_sexo",
