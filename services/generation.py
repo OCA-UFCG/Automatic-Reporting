@@ -16,6 +16,7 @@ from plotting.demografia import (
     gerar_grafico_composicao_cor_raca,
     gerar_grafico_faixa_etaria_e_sexo,
 )
+from plotting.economia_renda import gerar_grafico_pib
 from plotting.educacao import gerar_grafico_cor_faixa_etaria
 from plotting.hidraulica import gerar_grafico_tecnologias_acesso_agua
 from plotting.saude import (
@@ -56,6 +57,7 @@ from utils.queries.demografia import (
     buscar_populacao_quilombola,
     buscar_populacao_rua,
 )
+from utils.queries.economia_renda import buscar_pib_evolucao
 from utils.queries.educacao import buscar_taxas_educacao_cor_faixa_etaria
 from utils.queries.hidraulica import buscar_tecnologias_acesso_agua
 from utils.queries.saude import (
@@ -153,6 +155,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     dados_perfil_saude = None
     dados_taxas_educacao = None
     dados_tecnologias_acesso_agua = None
+    dados_pib = None
 
     for macrotema_slug in macrotema_slugs:
         try:
@@ -212,6 +215,8 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 dados_tecnologias_acesso_agua = buscar_tecnologias_acesso_agua(
                     nome_cidade_db, uf_db
                 )
+            if "economia-renda" in macrotema_slugs:
+                dados_pib = buscar_pib_evolucao(nome_cidade_db, uf_db)
             dados_rua = buscar_populacao_rua(nome_cidade_db, uf_db)
             db_consultado = True
 
@@ -256,6 +261,10 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         if "hidraulica" in macrotema_slugs and dados_tecnologias_acesso_agua:
             for linha in linhas_macrotema:
                 linha.update(dados_tecnologias_acesso_agua)
+
+        if "economia-renda" in macrotema_slugs and dados_pib:
+            for linha in linhas_macrotema:
+                linha.update(dados_pib)
 
         if linhas is None:
             linhas = linhas_macrotema
@@ -480,6 +489,22 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 logger.warning(
                     "Não foi possível gerar o gráfico de tecnologias de acesso "
                     "à água para '%s': %s",
+                    safe_report,
+                    err,
+                )
+
+        if macrotema_slug == "economia-renda":
+            try:
+                chart_file_name = gerar_grafico_pib(
+                    cidade=linhas_macrotema[0],
+                    OUTPUT_DIR=OUTPUT_DIR,
+                    safe_city=safe_report or "relatorio",
+                )
+                graficos_por_placeholder["grafico_pib"] = chart_file_name
+            except ValueError as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de evolução do PIB "
+                    "para '%s': %s",
                     safe_report,
                     err,
                 )
