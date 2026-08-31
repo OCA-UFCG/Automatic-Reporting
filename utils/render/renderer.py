@@ -31,6 +31,19 @@ def reset_figura_contador() -> None:
     _figura_contador = 1
 
 
+_REFERENCIA_FIGURA_INLINE = re.compile(r"(?i)\bfigura\s+[A-Za-z0-9&]{1,3}\b")
+
+
+def _substituir_referencia_figura_inline(linha: str) -> str:
+    """Substitui menções inline como "(Figura X)" pelo número real da figura.
+
+    O texto fonte referencia, no meio de um parágrafo, a figura que é
+    legendada logo em seguida usando uma letra/placeholder (``X``, ``&`` etc.)
+    em vez do número final — que só é conhecido em tempo de renderização.
+    """
+    return _REFERENCIA_FIGURA_INLINE.sub(f"Figura {_figura_contador + 1}", linha)
+
+
 __all__ = [
     "convert_links_to_html",
     "render_descricao_tema_html",
@@ -279,7 +292,9 @@ def texto_para_html(
                 html_lines.append("<ul>")
                 em_lista = True
 
-            item = convert_links_to_html(linha_limpa[2:].strip())
+            item = convert_links_to_html(
+                _substituir_referencia_figura_inline(linha_limpa[2:].strip())
+            )
 
             html_lines.append(f"<li>{item}</li>")
 
@@ -348,6 +363,7 @@ def texto_para_html(
                 "",
                 linha_limpa,
             )
+            linha_limpa = _substituir_referencia_figura_inline(linha_limpa)
 
             if classe_paragrafo:
                 classe = f' class="{classe_paragrafo}"'

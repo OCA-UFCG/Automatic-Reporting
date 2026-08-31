@@ -5,6 +5,15 @@ from utils.formatting import formatar_numero_ptbr
 
 _MARCADOR_CAMPO_CONDICIONAL = re.compile(r"(?:[A-Za-z_][\w-]*\.)?\$([A-Za-z_][\w]*)")
 
+_ALIASES_NAMESPACE = {
+    "demografia": {"demografia", "demo"},
+    "economia-renda": {"economia-renda", "economia"},
+    "hidraulica": {"hidraulica", "seg_hidrica"},
+    "saneamento": {"saneamento", "infraestrutura"},
+    "meio-ambiente": {"meio-ambiente", "ambiente"},
+    "desenvolvimento-social": {"desenvolvimento-social", "desen_social"},
+}
+
 
 def _avaliar_condicao_editorial(
     matches: list[re.Match], expressao: str, contexto: dict
@@ -45,12 +54,20 @@ def _avaliar_condicao_editorial(
     return all(atende(valor, operador) for valor, operador in zip(valores, operadores))
 
 
+_CONDICAO_GINI = re.compile(
+    r"(?i)^quando\s+o\s+[íi]ndice\s+de\s+gini\s+for\s+"
+    r"(maior\s+e\s+igual\s+a|menor\s+que)\s+([\d]+(?:[.,]\d+)?)\s*:?\s*$"
+)
+
+
 def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
-    """Interpreta as instruções editoriais usadas nos documentos demográficos.
+    """Interpreta as instruções editoriais usadas nos documentos dos macrotemas.
 
     As linhas ``Para quando ...:`` controlam os parágrafos seguintes e não são
     exibidas. Condições de 2010 ficam subordinadas ao bloco indígena/quilombola
-    imediatamente anterior.
+    imediatamente anterior. O documento de desenvolvimento social usa uma
+    variante própria, sem "Para" e sem dois-pontos: ``Quando o índice de Gini
+    for maior e igual a 0,5`` / ``... for menor que 0,5``.
     """
     resultado: list[str] = []
     bloco_ativo = True
@@ -80,6 +97,23 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                 continue
             # Sem "$campo", não é uma instrução editorial de fato — é uma frase
             # comum do texto (ex.: "Para efeito de análise:") e deve ser mantida.
+
+        condicao_gini = _CONDICAO_GINI.match(limpa)
+        if condicao_gini:
+            operador_texto, limite_texto = condicao_gini.groups()
+            limite = float(limite_texto.replace(",", "."))
+            gini = _resolver_campo_com_alias(contexto, "gini_2010")
+            try:
+                gini_numero = float(gini) if gini is not None else None
+            except (TypeError, ValueError):
+                gini_numero = None
+            if gini_numero is None:
+                bloco_ativo = False
+            elif "menor" in operador_texto.casefold():
+                bloco_ativo = gini_numero < limite
+            else:
+                bloco_ativo = gini_numero >= limite
+            continue
 
         if limpa.casefold() in {"síntese", "sintese"}:
             bloco_ativo = True
@@ -215,15 +249,7 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
         placeholder_namespace = match.group(1).lower()
         campo = match.group(2)
 
-        aliases_namespace = {
-            "demografia": {"demografia", "demo"},
-            "economia-renda": {"economia-renda", "economia"},
-            "hidraulica": {"hidraulica", "seg_hidrica"},
-            "saneamento": {"saneamento", "infraestrutura"},
-            "meio-ambiente": {"meio-ambiente", "ambiente"},
-            "desenvolvimento-social": {"desenvolvimento-social", "desen_social"},
-        }
-        namespaces_aceitos = aliases_namespace.get(namespace.lower(), {namespace.lower()})
+        namespaces_aceitos = _ALIASES_NAMESPACE.get(namespace.lower(), {namespace.lower()})
         if placeholder_namespace in namespaces_aceitos:
             contexto_alvo = contexto
         else:
@@ -247,8 +273,18 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
     }
 
     resultado = texto
-    if namespace.lower() == "demografia":
-        resultado = re.sub(r"(?i)(?<![\w])demo\.\$", "demografia.$", resultado)
+
+    # Normaliza os aliases de namespace usados nos documentos (ex.: "demo.$",
+    # "desen_social.$", "economia.$") para o slug canônico do macrotema, para
+    # que o formato "namespace.$campo" abaixo os reconheça.
+    outros_aliases = _ALIASES_NAMESPACE.get(namespace.lower(), set()) - {namespace.lower()}
+    if outros_aliases:
+        alternativas_alias = "|".join(re.escape(alias) for alias in outros_aliases)
+        resultado = re.sub(
+            rf"(?i)(?<![\w])(?:{alternativas_alias})\.\$",
+            f"{namespace}.$",
+            resultado,
+        )
 
     # Erro de digitação comum nos documentos: "namespace$.campo" em vez de
     # "namespace.$campo" (o "$" e o "." trocados de posição).
