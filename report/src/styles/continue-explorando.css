@@ -1,0 +1,54 @@
+.continue-explorando {
+  display: table;
+  width: 100%;
+  margin: 21.33px 0;
+  padding: 16px 21.33px;
+  background: #EFEFEF;
+  border-radius: 10.67px;
+  box-sizing: border-box;
+  break-inside: avoid;
+}
+
+.continue-explorando-text {
+  display: table-cell;
+  vertical-align: middle;
+  width: 100%;
+  padding-right: 21.33px;
+}
+
+.continue-explorando-title {
+  margin: 0 0 5.33px;
+  color: #085F2D;
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 150%;
+  letter-spacing: -0.012em;
+}
+
+.continue-explorando-body {
+  margin: 0;
+  color: #292829;
+  font-family: "Inter", var(--font-sans);
+  font-size: 13.33px;
+  font-weight: 400;
+  line-height: 150%;
+}
+
+.continue-explorando-qr {
+  display: table-cell;
+  vertical-align: middle;
+  width: 1.33px;
+  white-space: nowrap;
+  background: #FFFFFF;
+  border: 1px solid #E1E1E1;
+  border-radius: 10.67px;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.continue-explorando-qr img {
+  display: block;
+  width: 96px;
+  height: 96px;
+}
