@@ -105,9 +105,7 @@
   }
 
   .pdf-page-header-sudene {
-    display: inline-flex;
-    align-items: center;
-    gap: 5.33px;
+    display: inline-block;
     color: #565656;
     font-size: 18.67px;
     font-style: italic;
@@ -117,6 +115,8 @@
 
   .pdf-page-header-sudene-mark {
     display: inline-block;
+    vertical-align: middle;
+    margin-right: 5.33px;
     color: #565656;
     font-size: 21.33px;
     transform: skewX(-12deg);
@@ -127,11 +127,8 @@
     bottom: -16mm;
     left: -8mm;
     right: -8mm;
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    width: auto;
+    display: table;
+    width: 100%;
     height: 53.33px;
     padding: 10.67px 32px;
     background: #F8F7F8;
@@ -146,6 +143,9 @@
   }
 
   .pdf-footer-generation {
+    display: table-cell;
+    width: 100%;
+    vertical-align: middle;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -153,7 +153,8 @@
   }
 
   .pdf-footer-page {
-    flex: 0 0 auto;
+    display: table-cell;
+    vertical-align: middle;
     min-width: 32px;
     text-align: right;
   }

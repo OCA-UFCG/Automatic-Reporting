@@ -28,17 +28,23 @@
 }
 
 .brand-mark {
-  display: inline-flex;
-  align-items: center;
-  gap: 5.33px;
+  display: inline-block;
   color: var(--color-primary);
   font-size: 34.67px;
   font-weight: 900;
   letter-spacing: 0;
 }
 
+.brand-mark > * {
+  vertical-align: middle;
+}
+
+.brand-mark span {
+  margin-left: 5.33px;
+}
+
 .brand-squares {
-  display: grid;
+  display: inline-grid;
   grid-template-columns: repeat(3, 5.33px);
   gap: 2.67px;
 }
@@ -213,55 +219,43 @@
 }
 
 .cover-metrics {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: stretch;
-  padding: 0;
-  gap: 8px;
   margin: 21.33px 0 0;
 }
 
 .metric-card {
-  flex: 0 0 327.33px;
+  display: inline-block;
+  vertical-align: top;
   width: 327.33px;
   height: 93.33px;
   box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  padding: 0;
   background: #FFFFFF;
   border: 1px solid #EFEFEF;
   border-radius: 10.67px;
   overflow: hidden;
 }
 
+.metric-card + .metric-card {
+  margin-left: 8px;
+}
+
 .metric-heading {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 5.33px;
+  display: table;
+  width: 327.33px;
+  height: 41.33px;
   padding: 5.33px 10.67px;
   background: #F8F7F8;
   box-sizing: border-box;
-  align-self: stretch;
-  width: 327.33px;
-  height: 41.33px;
 }
 
 .metric-icon-box {
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  padding: 5.33px;
-  gap: 13.33px;
+  display: table-cell;
   width: 26.67px;
   height: 26.67px;
+  padding: 5.33px;
+  text-align: center;
+  vertical-align: middle;
   border-radius: 5.33px;
   box-sizing: border-box;
-  flex: 0 0 26.67px;
   overflow: hidden;
 }
 
@@ -273,11 +267,11 @@
 }
 
 .metric-text {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
+  display: table-cell;
+  width: 100%;
+  vertical-align: middle;
+  padding-left: 5.33px;
   min-width: 0;
-  gap: 0px;
 }
 
 .metric-label {
@@ -310,15 +304,14 @@
 }
 
 .metric-content {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
   padding: 5.33px 10.67px;
-  gap: 5.33px;
   box-sizing: border-box;
-  align-self: stretch;
   width: 327.33px;
   height: 52px;
+}
+
+.metric-content > * + * {
+  margin-top: 5.33px;
 }
 
 .metric-value {
@@ -608,20 +601,17 @@
 }
 
 .cover-maps {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 21.33px;
-  padding: 0;
-  margin-top: 26.67px;
+  display: table;
+  table-layout: fixed;
   width: 100%;
   max-width: 100%;
+  margin-top: 26.67px;
+  border-spacing: 21.33px 0;
 }
 
 .cover-maps > div {
-  flex: 1 1 0;
-  min-width: 0;
+  display: table-cell;
+  vertical-align: middle;
 }
 
 .cover-maps .map-block--region {
@@ -629,17 +619,6 @@
   max-width: 100%;
   margin: 0 auto;
   box-sizing: border-box;
-}
-
-.cover-maps .region-maps-container {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 0;
-  gap: 10.67px;
-  max-width: 100%;
-  margin: 0;
 }
 
 .cover-maps-group {
@@ -716,15 +695,6 @@
   }
 }
 
-.diagnostic-block {
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  gap: 0;
-  width: 100%;
-  margin: 2.67px 0 10.67px;
-}
-
 .diagnostic-grid {
   display: grid;
   grid-template-columns: 493.33px 1fr;
@@ -739,28 +709,11 @@
   box-sizing: border-box;
 }
 
-.radar-card {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 21.33px;
-  gap: 13.33px;
-  width: 493.33px;
-  min-width: 493.33px;
-  max-width: 493.33px;
-  background: #F8F7F8;
-  border-radius: 10.67px;
-  overflow: hidden;
-  break-inside: avoid;
-}
-
 .region-radar-card {
   width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: table-cell;
+  text-align: center;
+  vertical-align: middle;
 }
 
 .region-radar-chart {
@@ -770,31 +723,6 @@
   display: block;
 }
 
-.score-diagnostic-card {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  width: auto;
-  max-width: none;
-  min-width: 0;
-  gap: 26.67px;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-.score-diagnostic-card > div {
-  width: 100%;
-  max-width: 100%;
-}
-
-.score-diagnostic-card p {
-  width: 100%;
-  max-width: 100%;
-  margin: 0;
-  white-space: normal;
-  word-break: break-word;
-  overflow-wrap: break-word;
-}
 
 .score-card {
   width: 100%;
@@ -820,15 +748,13 @@
 
 .score-body {
   padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10.67px;
+}
+
+.score-body > * + * {
+  margin-top: 10.67px;
 }
 
 .score-line {
-  display: flex;
-  align-items: baseline;
-  gap: 0;
   width: auto;
   height: auto;
 }
