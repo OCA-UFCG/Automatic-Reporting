@@ -1,24 +1,19 @@
-import math
 import pathlib
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 
+from plotting.hidraulica import _numero
+
 _COR_LINHA = "#F0883E"
 
 
-def _numero(valor: object) -> float:
-    try:
-        numero = float(valor)
-    except (TypeError, ValueError):
-        return 0.0
-    return numero if math.isfinite(numero) else 0.0
-
-
-def _escolher_unidade(valor_maximo: float) -> tuple[float, str]:
-    if valor_maximo >= 1e9:
+def _escolher_unidade(valor: float) -> tuple[float, str]:
+    if valor >= 1e9:
         return 1e9, "bn"
-    return 1e6, "mi"
+    if valor >= 1e6:
+        return 1e6, "mi"
+    return 1e3, "mil"
 
 
 def gerar_grafico_pib(
@@ -37,7 +32,7 @@ def gerar_grafico_pib(
 
     anos = [ano for ano, _ in pontos]
     valores = [valor for _, valor in pontos]
-    divisor, unidade = _escolher_unidade(max(valores))
+    divisor_eixo, unidade_eixo = _escolher_unidade(max(valores))
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_pib_{safe_city}.png"
@@ -57,8 +52,9 @@ def gerar_grafico_pib(
     )
 
     for ano, valor in zip(anos, valores):
+        divisor_ponto, unidade_ponto = _escolher_unidade(valor)
         ax.annotate(
-            f"R$ {valor / divisor:.1f}{unidade}",
+            f"R$ {valor / divisor_ponto:.1f}{unidade_ponto}",
             (ano, valor),
             xytext=(0, 8),
             textcoords="offset points",
@@ -89,7 +85,7 @@ def gerar_grafico_pib(
     ax.grid(axis="y", linestyle=":", alpha=0.4)
 
     ax.yaxis.set_major_formatter(
-        FuncFormatter(lambda valor, _: f"R$ {valor / divisor:.0f}{unidade}")
+        FuncFormatter(lambda valor, _: f"R$ {valor / divisor_eixo:.0f}{unidade_eixo}")
     )
 
     fig.tight_layout()

@@ -58,8 +58,9 @@ from utils.queries.demografia import (
     buscar_populacao_rua,
 )
 from utils.queries.economia_renda import (
-    buscar_indicadores_economia,
-    buscar_pib_evolucao,
+    buscar_linhas_pib_municipal,
+    processar_indicadores_economia,
+    processar_pib_evolucao,
 )
 from utils.queries.educacao import buscar_taxas_educacao_cor_faixa_etaria
 from utils.queries.hidraulica import buscar_tecnologias_acesso_agua
@@ -220,8 +221,9 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                     nome_cidade_db, uf_db
                 )
             if "economia-renda" in macrotema_slugs:
-                dados_pib = buscar_pib_evolucao(nome_cidade_db, uf_db)
-                dados_indicadores_economia = buscar_indicadores_economia(nome_cidade_db, uf_db)
+                linhas_pib = buscar_linhas_pib_municipal(nome_cidade_db, uf_db)
+                dados_pib = processar_pib_evolucao(linhas_pib)
+                dados_indicadores_economia = processar_indicadores_economia(linhas_pib)
             dados_rua = buscar_populacao_rua(nome_cidade_db, uf_db)
             db_consultado = True
 
