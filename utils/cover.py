@@ -16,6 +16,113 @@ def formatar_data_hora_extenso(data: datetime) -> str:
     return f"{formatar_data_extenso(data)}, {data.strftime('%H:%M')}"
 
 
+def montar_indicadores_macrotema(
+    macrotema_nome: str, macrotema_icone: str = "chart"
+) -> list[dict[str, str]]:
+    macrotema_normalizado = macrotema_nome.casefold()
+    fonte = "Censo demográfico 2022"
+    if "saúde" in macrotema_normalizado or "saude" in macrotema_normalizado:
+        return [
+            {
+                "nome": "Estabelecimentos de saúde",
+                "fonte": fonte,
+                "score": "4/5",
+                "classe": "very-high",
+                "icone": "hospital",
+            },
+            {
+                "nome": "Taxa de Mortalidade Infantil",
+                "fonte": fonte,
+                "score": "2/5",
+                "classe": "low",
+                "icone": "health",
+            },
+            {
+                "nome": "Doses Aplicadas",
+                "fonte": fonte,
+                "score": "3/5",
+                "classe": "high",
+                "icone": "vaccine",
+            },
+            {
+                "nome": "Postos de saúde",
+                "fonte": fonte,
+                "score": "1/5",
+                "classe": "very-low",
+                "icone": "hospital",
+            },
+            {
+                "nome": "Nascidos vivos",
+                "fonte": fonte,
+                "score": "4/5",
+                "classe": "very-high",
+                "icone": "birth",
+            },
+            {
+                "nome": "Número de hospitais",
+                "fonte": fonte,
+                "score": "3/5",
+                "classe": "high",
+                "icone": "shield",
+            },
+        ]
+
+    indicadores_por_tema = {
+        "demografia": [
+            "População residente",
+            "Variação populacional",
+            "Sexo, idade, cor/raça",
+        ],
+        "educa": [
+            "Taxa de alfabetização",
+            "Grau de instrução",
+            "Analfabetismo",
+        ],
+        "economia": [
+            "PIB total e per capita",
+            "Composição setorial do VAB",
+            "Comércio exterior",
+        ],
+        "renda": [
+            "PIB total e per capita",
+            "Composição setorial do VAB",
+            "Comércio exterior",
+        ],
+        "saneamento": [
+            "Coleta de lixo",
+            "Esgotamento sanitário",
+            "Acesso à energia elétrica",
+        ],
+        "hidrica": [
+            "Cisternas",
+            "Distribuição por finalidade",
+            "Evolução temporal",
+        ],
+        "hídrica": [
+            "Cisternas",
+            "Distribuição por finalidade",
+            "Evolução temporal",
+        ],
+    }
+
+    nomes = ["Indicador 1", "Indicador 2", "Indicador 3"]
+    for chave, indicadores in indicadores_por_tema.items():
+        if chave in macrotema_normalizado:
+            nomes = indicadores
+            break
+
+    return [
+        {
+            "nome": nome,
+            "fonte": fonte,
+            "score": "N/D",
+            "classe": "unknown",
+            "icone": macrotema_icone,
+        }
+        for nome in nomes
+    ]
+
+
 def montar_capa_relatorio(
     linha: dict,
     gerado_em: datetime,
@@ -66,109 +173,6 @@ def montar_capa_relatorio(
         elif "instrumentos" in macrotema_normalizado or "sudene" in macrotema_normalizado:
             macrotema_icone = "chart"
             macrotema_cor = "#018F39"
-
-    def montar_indicadores_macrotema() -> list[dict[str, str]]:
-        fonte = "Censo demográfico 2022"
-        if "saúde" in macrotema_normalizado or "saude" in macrotema_normalizado:
-            return [
-                {
-                    "nome": "Estabelecimentos de saúde",
-                    "fonte": fonte,
-                    "score": "4/5",
-                    "classe": "very-high",
-                    "icone": "hospital",
-                },
-                {
-                    "nome": "Taxa de Mortalidade Infantil",
-                    "fonte": fonte,
-                    "score": "2/5",
-                    "classe": "low",
-                    "icone": "health",
-                },
-                {
-                    "nome": "Doses Aplicadas",
-                    "fonte": fonte,
-                    "score": "3/5",
-                    "classe": "high",
-                    "icone": "vaccine",
-                },
-                {
-                    "nome": "Postos de saúde",
-                    "fonte": fonte,
-                    "score": "1/5",
-                    "classe": "very-low",
-                    "icone": "hospital",
-                },
-                {
-                    "nome": "Nascidos vivos",
-                    "fonte": fonte,
-                    "score": "4/5",
-                    "classe": "very-high",
-                    "icone": "birth",
-                },
-                {
-                    "nome": "Número de hospitais",
-                    "fonte": fonte,
-                    "score": "3/5",
-                    "classe": "high",
-                    "icone": "shield",
-                },
-            ]
-
-        indicadores_por_tema = {
-            "demografia": [
-                "População residente",
-                "Variação populacional",
-                "Sexo, idade, cor/raça",
-            ],
-            "educa": [
-                "Taxa de alfabetização",
-                "Grau de instrução",
-                "Analfabetismo",
-            ],
-            "economia": [
-                "PIB total e per capita",
-                "Composição setorial do VAB",
-                "Comércio exterior",
-            ],
-            "renda": [
-                "PIB total e per capita",
-                "Composição setorial do VAB",
-                "Comércio exterior",
-            ],
-            "saneamento": [
-                "Coleta de lixo",
-                "Esgotamento sanitário",
-                "Acesso à energia elétrica",
-            ],
-            "hidrica": [
-                "Cisternas",
-                "Distribuição por finalidade",
-                "Evolução temporal",
-            ],
-            "hídrica": [
-                "Cisternas",
-                "Distribuição por finalidade",
-                "Evolução temporal",
-            ],
-        }
-
-        nomes = ["Indicador 1", "Indicador 2", "Indicador 3"]
-        for chave, indicadores in indicadores_por_tema.items():
-            if chave in macrotema_normalizado:
-                nomes = indicadores
-                break
-
-        return [
-            {
-                "nome": nome,
-                "fonte": fonte,
-                "score": "N/D",
-                "classe": "unknown",
-                "icone": macrotema_icone,
-            }
-            for nome in nomes
-        ]
 
     def primeiro_valor(*chaves: str, fallback: str = "N/D") -> str:
         for chave in chaves:
@@ -230,7 +234,7 @@ def montar_capa_relatorio(
          },
          "descricao": "",
             "descricao_paragrafos": [],
-            "indicadores": montar_indicadores_macrotema(),
+            "indicadores": montar_indicadores_macrotema(macrotema_nome, macrotema_icone),
         },
         "score": {
             "valor": primeiro_valor("score_geral", "score", fallback="3,66"),

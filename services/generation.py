@@ -32,7 +32,7 @@ from services.csv_loader import (
 )
 from services.macrotemas import get_macrotema, get_macrotema_slugs_para_relatorio
 from services.pdf import _gerar_pdf
-from utils.cover import montar_capa_relatorio
+from utils.cover import montar_capa_relatorio, montar_indicadores_macrotema
 from utils.data.cities import filtrar_linhas_por_cidade
 from utils.data.macrotemas import TODOS_MACROTEMAS_SLUG
 from utils.external.docs import (
@@ -552,7 +552,9 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             "descricao_paragrafos": [],
             "descricao_html": [],
             "score": cover["macrotema"]["score"],
-            "indicadores": cover["macrotema"]["indicadores"],
+            "indicadores": montar_indicadores_macrotema(
+                macrotema_dados["nome"], macrotema_dados["icone"]
+            ),
         }
 
         resumo_tema, docs_texto = extrair_resumo_tema(docs_texto)
