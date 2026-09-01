@@ -482,7 +482,6 @@
 }
 
 .indicator-score-card {
-  position: relative;
   box-sizing: border-box;
   display: table-cell;
   vertical-align: top;
@@ -530,6 +529,7 @@
 }
 
 .indicator-name {
+  min-height: 36px;
   font-family: "Inter", var(--font-sans);
   font-weight: 500;
   font-size: 12px;
@@ -552,12 +552,7 @@
 
 .indicator-value {
   margin-top: 8px;
-  /* Reserva espaço pro rodapé (.indicator-score-card-footer), que agora é
-     position:absolute pra sempre ficar colado na base do card, mesmo
-     quando os cards de uma mesma linha têm alturas diferentes (título de
-     1 ou 2 linhas). Precisa ser >= à altura do rodapé, senão ele cobre
-     esse valor. */
-  padding-bottom: 26.67px;
+  padding-bottom: 5.33px;
   font-family: "Inter", var(--font-sans);
   font-weight: 700;
   font-size: 21.33px;
@@ -567,10 +562,7 @@
 }
 
 .indicator-score-card-footer {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  display: block;
   box-sizing: border-box;
   padding: 5.33px 10.67px;
   background: #EFEFEF;

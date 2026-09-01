@@ -1,41 +1,9 @@
 @page {
-  /* A margem direita da página é 0, de propósito (diferente das outras 3).
-     Testei isoladamente e confirmei: nesta versão do WeasyPrint (69), o
-     lado direito de uma margin box (@bottom-right, abaixo) SEMPRE encosta
-     exatamente na borda da área de conteúdo (page_width - margem direita),
-     nunca na borda física da folha — não importa a `width` pedida nela.
-     Se a margem direita fosse > 0, sempre sobraria uma faixa em branco do
-     tamanho dessa margem, sem jeito de preencher via CSS. Zerando a margem,
-     a borda da área de conteúdo passa a SER a borda física, e a margin box
-     passa a alcançá-la de verdade. O respiro visual de ~8mm que a margem
-     dava é recriado como padding-right no body, mais abaixo. */
   margin: 53.33px 0 16mm 8mm;
 
-  /* O texto da esquerda é dinâmico (por relatório), então precisa viver num
-     elemento HTML de verdade (`.pdf-footer`, position:fixed) — usar
-     `content: element(...)` pra puxar esse texto pra dentro da margin box
-     depende de "running elements" (CSS GCPM), que nem toda versão do
-     WeasyPrint suporta (requirements.txt não fixa a versão). Só o contador
-     de página precisa da margin box mesmo: WeasyPrint só resolve counter()
-     uma única vez dentro de elementos fixed, então ele tem que vir de uma
-     @page margin box (contadores são um recurso bem mais básico/estável
-     do que running elements). A largura aqui precisa bater com o `right`
-     de `.pdf-footer` em print.css, senão as duas caixas desalinham.
-  */
   @bottom-right {
     content: counter(page) "/" counter(pages);
     width: 106.67px;
-    /* Margin boxes ignoram `height`: a altura real é sempre a espessura da
-       margem da página (aqui, os 16mm do "margin" acima) — por isso
-       .pdf-footer também precisa ocupar 16mm inteiros, senão as duas caixas
-       ficam com alturas diferentes.
-       Padding vertical (top/bottom) não é confiável pra alinhar o texto
-       aqui — WeasyPrint parece posicionar o conteúdo de uma margin box de
-       um jeito que não bate com o de uma <div> comum (texto ficava mais
-       alto que o do .pdf-footer). Em vez de padding, uso line-height igual
-       à altura inteira da caixa (16mm): isso centraliza a linha de texto
-       verticalmente de um jeito que não depende de como cada motor calcula
-       padding numa margin box — o mesmo truque é usado no .pdf-footer. */
     padding: 0 32px 0 0;
     background: #F8F7F8;
     border-top: 1px solid #DFDFDF;
@@ -67,17 +35,10 @@
     margin: 0;
     padding: 0;
     background: var(--color-white);
-    /* overflow-x:hidden (content.css) é pra tela, evitar rolagem horizontal
-       na SPA. No PDF isso corta o cabeçalho/rodapé fixos, que "sangram" de
-       propósito pra fora da área de conteúdo via margem negativa. */
     overflow: visible;
   }
 
   body {
-    /* A margem direita da página é 0 (ver comentário no @page) — esse
-       padding recria o respiro visual de ~8mm que a margem costumava dar,
-       pra bater com o lado esquerdo (que ainda usa a margem real da
-       página, 8mm, sem esse problema). */
     padding-right: 8mm;
   }
 
@@ -185,9 +146,6 @@
     font-family: "Inter", Arial, sans-serif;
     font-size: 13.33px;
     font-weight: 500;
-    /* Mesma altura da caixa (16mm) pra centralizar verticalmente sem
-       depender de padding-top — ver comentário no @bottom-right, no topo
-       do arquivo. */
     line-height: 16mm;
     color: #333333;
   }
