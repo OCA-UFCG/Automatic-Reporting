@@ -77,10 +77,14 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                 elif "pop_ind_2010" in campos:
                     bloco_ativo = bloco_populacoes_ativo and atende
                 elif campos == {"centro_pop"}:
-                    # O Centro POP vem da mesma consulta da população em situação
-                    # de rua: sem esses dados, não há como afirmar se o município
-                    # tinha ou não um Centro POP.
-                    bloco_ativo = bloco_rua_ativo and atende
+                    # centro_pop vem NULL do banco quando não há dado (distinto de
+                    # 0 Centros POP). Sem checar a presença, "igual a 0" também
+                    # casaria com ausência de dado e afirmaria erroneamente que o
+                    # município não tinha Centro POP.
+                    bloco_ativo = (
+                        _resolver_campo_com_alias(contexto, "centro_pop") is not None
+                        and atende
+                    )
                 else:
                     bloco_ativo = atende
                 continue
@@ -118,6 +122,33 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                     "resultado deve ser interpretado considerando os limites da base "
                     "de dados utilizada, não sendo suficiente, por si só, para "
                     "afastar a presença dessa população no município."
+                )
+                continue
+
+            # Município com levantamento de rua em 2022 mas ainda sem o de 2026:
+            # o parágrafo padrão compara os dois anos e vazaria placeholders
+            # crus (ex.: "$pop_rua_2026"). Texto provisório restrito a 2022,
+            # sem a comparação — PENDENTE de validação com o time de
+            # conteúdo/Doc antes de ir para produção.
+            if bloco_ativo and bloco_rua_ativo and (
+                _resolver_campo_com_alias(contexto, "pop_rua_2026") is None
+            ):
+                resultado.append(
+                    "Outro grupo relevante para a caracterização da população "
+                    "municipal é o de pessoas em situação de rua. Em 2022, "
+                    "demografia.$nm_mun registrava demografia.$pop_rua_2022 "
+                    "pessoas nessa condição. Entre as famílias em situação de "
+                    "rua, demografia.$pop_rua_pobreza "
+                    "(demografia.$pop_rua_pobreza_per)% estavam em situação de "
+                    "pobreza, demografia.$pop_rua_br (demografia.$pop_rua_br_per)% "
+                    "eram classificadas como de baixa renda e "
+                    "demografia.$pop_rua_acima_br "
+                    "(demografia.$pop_rua_acima_br_per)% possuíam renda acima de "
+                    "meio salário mínimo. Além disso, "
+                    "demografia.$pop_rua_bolsaf_2022 famílias em situação de rua "
+                    "eram beneficiárias do Bolsa Família. Ainda não há "
+                    "levantamento mais recente (2026) disponível na fonte "
+                    "consultada para comparação."
                 )
                 continue
 
