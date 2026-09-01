@@ -25,6 +25,20 @@ def coerce_para_float(valor: object, default: float | None = 0.0) -> float | Non
     return numero
 
 
+def categoria_variacao(variacao: object) -> str | None:
+    if variacao is None:
+        return None
+    try:
+        valor = float(variacao)
+    except (TypeError, ValueError):
+        return None
+    if valor > 0:
+        return "aumento"
+    if valor < 0:
+        return "redução"
+    return "estabilidade"
+
+
 def formatar_numero_ptbr(valor: object, decimais: int = 0) -> str:
     try:
         numero = float(valor)

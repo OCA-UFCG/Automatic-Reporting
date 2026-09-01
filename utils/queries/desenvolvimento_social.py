@@ -1,3 +1,4 @@
+from utils.formatting import categoria_variacao as _categoria_variacao
 from utils.queries.base import executar_query
 
 PERFIL_DESENVOLVIMENTO_SOCIAL_MUNICIPAL = """
@@ -23,20 +24,6 @@ PERFIL_DESENVOLVIMENTO_SOCIAL_MUNICIPAL = """
     WHERE nm_mun = %s
       AND sigla_uf = %s
 """
-
-
-def _categoria_variacao(variacao) -> str | None:
-    if variacao is None:
-        return None
-    try:
-        valor = float(variacao)
-    except (TypeError, ValueError):
-        return None
-    if valor > 0:
-        return "aumento"
-    if valor < 0:
-        return "redução"
-    return "estabilidade"
 
 
 def buscar_perfil_desenvolvimento_social(
