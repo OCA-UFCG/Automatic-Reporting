@@ -204,6 +204,21 @@ def test_inline_figure_reference_is_replaced_with_the_real_figure_number():
     assert "Figura X" not in html
 
 
+def test_inline_reference_to_an_already_numbered_figure_is_not_rewritten():
+    reset_figura_contador()
+    texto = (
+        "Como já demonstrado na Figura 1, a concentração populacional é maior "
+        "na região central.\n"
+        "\n"
+        "Figura X- População por faixa etária e sexo."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "Como já demonstrado na Figura 1," in html
+    assert "Figura 2 – População" in html
+
+
 def test_single_asterisk_chart_placeholder_is_rendered():
     html = texto_para_html(
         "*grafico_faixa_etaria_e_sexo",

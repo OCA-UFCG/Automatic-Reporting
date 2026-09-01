@@ -31,7 +31,7 @@ def reset_figura_contador() -> None:
     _figura_contador = 1
 
 
-_REFERENCIA_FIGURA_INLINE = re.compile(r"(?i)\bfigura\s+[A-Za-z0-9&]{1,3}\b")
+_REFERENCIA_FIGURA_INLINE = re.compile(r"(?i)\bfigura\s+[A-Za-z&]{1,3}\b")
 
 
 def _substituir_referencia_figura_inline(linha: str) -> str:
