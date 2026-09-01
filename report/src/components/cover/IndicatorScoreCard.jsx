@@ -14,9 +14,9 @@ export default function IndicatorScoreCard({ indicador }) {
             <div className="indicator-source">{indicador.fonte}</div>
           </div>
         </div>
-        <span className="indicator-badge">
+        <div className="indicator-value">
           {indicador.score}
-        </span>
+        </div>
       </div>
 
       <div className="indicator-score-card-footer">

@@ -477,7 +477,12 @@
   width: 100%;
 }
 
+.indicator-score-row + .indicator-score-row {
+  margin-top: 10.67px;
+}
+
 .indicator-score-card {
+  position: relative;
   box-sizing: border-box;
   display: table-cell;
   vertical-align: top;
@@ -489,15 +494,15 @@
 }
 
 .indicator-score-card-header {
-  display: table;
+  display: block;
   width: 100%;
+  box-sizing: border-box;
+  padding: 5.33px 10.67px 0;
   background: #F8F7F8;
 }
 
 .indicator-score-card-info-row {
-  display: table-cell;
-  vertical-align: middle;
-  padding: 5.33px 10.67px 0;
+  display: block;
 }
 
 .indicator-icon-box {
@@ -545,25 +550,28 @@
   color: #7E797B;
 }
 
-.indicator-badge {
-  display: table-cell;
-  width: 1.33px;
-  white-space: nowrap;
-  padding: 5.33px 10.67px;
-  border-radius: 5.33px;
-  background: #EFEFEF;
-  color: #292829;
+.indicator-value {
+  margin-top: 8px;
+  /* Reserva espaço pro rodapé (.indicator-score-card-footer), que agora é
+     position:absolute pra sempre ficar colado na base do card, mesmo
+     quando os cards de uma mesma linha têm alturas diferentes (título de
+     1 ou 2 linhas). Precisa ser >= à altura do rodapé, senão ele cobre
+     esse valor. */
+  padding-bottom: 26.67px;
   font-family: "Inter", var(--font-sans);
-  font-weight: 500;
-  font-size: 13.33px;
-  line-height: 12px;
-  letter-spacing: -0.03em;
+  font-weight: 700;
+  font-size: 21.33px;
+  line-height: normal;
+  color: #018F39;
   text-align: center;
-  vertical-align: middle;
 }
 
 .indicator-score-card-footer {
-  display: block;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  box-sizing: border-box;
   padding: 5.33px 10.67px;
   background: #EFEFEF;
   color: #292829;
