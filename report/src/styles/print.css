@@ -28,15 +28,22 @@
     /* Margin boxes ignoram `height`: a altura real é sempre a espessura da
        margem da página (aqui, os 16mm do "margin" acima) — por isso
        .pdf-footer também precisa ocupar 16mm inteiros, senão as duas caixas
-       ficam com alturas diferentes. */
-    padding: 10.67px 32px 10.67px 0;
+       ficam com alturas diferentes.
+       Padding vertical (top/bottom) não é confiável pra alinhar o texto
+       aqui — WeasyPrint parece posicionar o conteúdo de uma margin box de
+       um jeito que não bate com o de uma <div> comum (texto ficava mais
+       alto que o do .pdf-footer). Em vez de padding, uso line-height igual
+       à altura inteira da caixa (16mm): isso centraliza a linha de texto
+       verticalmente de um jeito que não depende de como cada motor calcula
+       padding numa margin box — o mesmo truque é usado no .pdf-footer. */
+    padding: 0 32px 0 0;
     background: #F8F7F8;
     border-top: 1px solid #DFDFDF;
     box-sizing: border-box;
     font-family: "Inter", Arial, sans-serif;
     font-size: 13.33px;
     font-weight: 500;
-    line-height: 32px;
+    line-height: 16mm;
     color: #333333;
     text-align: right;
   }
@@ -162,7 +169,7 @@
     left: -8mm;
     right: 106.67px;
     height: 16mm;
-    padding: 10.67px 0 10.67px 32px;
+    padding: 0 0 0 32px;
     background: #F8F7F8;
     border-top: 1px solid #DFDFDF;
     box-sizing: border-box;
@@ -178,7 +185,10 @@
     font-family: "Inter", Arial, sans-serif;
     font-size: 13.33px;
     font-weight: 500;
-    line-height: 32px;
+    /* Mesma altura da caixa (16mm) pra centralizar verticalmente sem
+       depender de padding-top — ver comentário no @bottom-right, no topo
+       do arquivo. */
+    line-height: 16mm;
     color: #333333;
   }
 
