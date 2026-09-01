@@ -67,6 +67,16 @@ def montar_indicadores_macrotema(
             },
         ]
 
+    indicadores_economia = [
+        "PIB total e per capita",
+        "Composição setorial do VAB",
+        "Comércio exterior",
+    ]
+    indicadores_hidrica = [
+        "Cisternas",
+        "Distribuição por finalidade",
+        "Evolução temporal",
+    ]
     indicadores_por_tema = {
         "demografia": [
             "População residente",
@@ -78,31 +88,15 @@ def montar_indicadores_macrotema(
             "Grau de instrução",
             "Analfabetismo",
         ],
-        "economia": [
-            "PIB total e per capita",
-            "Composição setorial do VAB",
-            "Comércio exterior",
-        ],
-        "renda": [
-            "PIB total e per capita",
-            "Composição setorial do VAB",
-            "Comércio exterior",
-        ],
+        "economia": indicadores_economia,
+        "renda": indicadores_economia,
         "saneamento": [
             "Coleta de lixo",
             "Esgotamento sanitário",
             "Acesso à energia elétrica",
         ],
-        "hidrica": [
-            "Cisternas",
-            "Distribuição por finalidade",
-            "Evolução temporal",
-        ],
-        "hídrica": [
-            "Cisternas",
-            "Distribuição por finalidade",
-            "Evolução temporal",
-        ],
+        "hidrica": indicadores_hidrica,
+        "hídrica": indicadores_hidrica,
     }
 
     nomes = ["Indicador 1", "Indicador 2", "Indicador 3"]
@@ -121,6 +115,31 @@ def montar_indicadores_macrotema(
         }
         for nome in nomes
     ]
+
+
+def montar_score_macrotema(linha: dict) -> dict[str, str]:
+    def primeiro_valor(*chaves: str, fallback: str = "N/D") -> str:
+        for chave in chaves:
+            valor = linha.get(chave)
+            if valor is not None and str(valor).strip():
+                return str(valor)
+        return fallback
+
+    return {
+        "valor": primeiro_valor("score_geral", "score", fallback="3,66"),
+        "maximo": primeiro_valor("score_maximo", fallback="5"),
+        "status": primeiro_valor(
+            "score_status",
+            fallback="Acima da média nacional",
+        ),
+        "descricao": (
+            "Score calculado a partir dos indicadores presentes em cada um "
+            "dos temas e sua relação com média nacional."
+        ),
+        "texto_apoio": primeiro_valor(
+            "score_texto_apoio", "texto_score", fallback=""
+        ),
+    }
 
 
 def montar_capa_relatorio(
@@ -217,40 +236,11 @@ def montar_capa_relatorio(
             ),
          "resumo": primeiro_valor("resumo_tema", fallback=""),
          "cor": macrotema_cor,
-         "score": {
-             "valor": primeiro_valor("score_geral", "score", fallback="3,66"),
-             "maximo": primeiro_valor("score_maximo", fallback="5"),
-             "status": primeiro_valor(
-                 "score_status",
-                 fallback="Acima da média nacional",
-             ),
-             "descricao": (
-                 "Score calculado a partir dos indicadores presentes em cada um "
-                 "dos temas e sua relação com média nacional."
-             ),
-             "texto_apoio": primeiro_valor(
-                 "score_texto_apoio", "texto_score", fallback=""
-             ),
-         },
+         "score": montar_score_macrotema(linha),
          "descricao": "",
             "descricao_paragrafos": [],
-            "indicadores": montar_indicadores_macrotema(macrotema_nome, macrotema_icone),
         },
-        "score": {
-            "valor": primeiro_valor("score_geral", "score", fallback="3,66"),
-            "maximo": primeiro_valor("score_maximo", fallback="5"),
-            "status": primeiro_valor(
-                "score_status",
-                fallback="Acima da média nacional",
-            ),
-            "descricao": (
-                "Score calculado a partir dos indicadores presentes em cada um "
-                "dos temas e sua relação com média nacional."
-            ),
-            "texto_apoio": primeiro_valor(
-                "score_texto_apoio", "texto_score", fallback=""
-            ),
-        },
+        "score": montar_score_macrotema(linha),
         "metricas": [
             {
                 "rotulo": "Área territorial",
