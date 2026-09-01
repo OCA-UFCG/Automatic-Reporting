@@ -1,12 +1,29 @@
 @page {
   margin: 53.33px 8mm 16mm;
 
-  /* IMPORTANT: WeasyPrint resolves counters inside fixed elements only once,
-     then repeats that value on every page. Margin boxes are evaluated per page. */
+  /* O texto da esquerda é dinâmico (por relatório), então precisa viver num
+     elemento HTML de verdade (`.pdf-footer`, position:fixed) — usar
+     `content: element(...)` pra puxar esse texto pra dentro da margin box
+     depende de "running elements" (CSS GCPM), que nem toda versão do
+     WeasyPrint suporta (requirements.txt não fixa a versão). Só o contador
+     de página precisa da margin box mesmo: WeasyPrint só resolve counter()
+     uma única vez dentro de elementos fixed, então ele tem que vir de uma
+     @page margin box (contadores são um recurso bem mais básico/estável
+     do que running elements). A largura aqui precisa bater exatamente com
+     o `right` de `.pdf-footer` em print.css, senão as duas caixas
+     desalinham (era o bug original).
+  */
   @bottom-right {
     content: counter(page) "/" counter(pages);
-    width: 36px;
+    width: 106.67px;
+    /* Margin boxes ignoram `height`: a altura real é sempre a espessura da
+       margem da página (aqui, os 16mm do "margin" acima) — por isso
+       .pdf-footer também precisa ocupar 16mm inteiros, senão as duas caixas
+       ficam com alturas diferentes. */
     padding: 10.67px 32px 10.67px 0;
+    background: #F8F7F8;
+    border-top: 1px solid #DFDFDF;
+    box-sizing: border-box;
     font-family: "Inter", Arial, sans-serif;
     font-size: 13.33px;
     font-weight: 500;
@@ -14,10 +31,6 @@
     color: #333333;
     text-align: right;
   }
-}
-
-.pdf-footer {
-  display: none;
 }
 
 .pdf-page-header {
@@ -38,6 +51,10 @@
     margin: 0;
     padding: 0;
     background: var(--color-white);
+    /* overflow-x:hidden (content.css) é pra tela, evitar rolagem horizontal
+       na SPA. No PDF isso corta o cabeçalho/rodapé fixos, que "sangram" de
+       propósito pra fora da área de conteúdo via margem negativa. */
+    overflow: visible;
   }
 
   .pdf-page-header {
@@ -126,37 +143,26 @@
     position: fixed;
     bottom: -16mm;
     left: -8mm;
-    right: -8mm;
-    display: table;
-    width: 100%;
-    height: 53.33px;
-    padding: 10.67px 32px;
+    right: calc(106.67px - 8mm);
+    height: 16mm;
+    padding: 10.67px 0 10.67px 32px;
     background: #F8F7F8;
     border-top: 1px solid #DFDFDF;
     box-sizing: border-box;
+    z-index: 1000;
+  }
+
+  .pdf-footer-generation {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-family: "Inter", Arial, sans-serif;
     font-size: 13.33px;
     font-weight: 500;
     line-height: 32px;
     color: #333333;
-    z-index: 1000;
-  }
-
-  .pdf-footer-generation {
-    display: table-cell;
-    width: 100%;
-    vertical-align: middle;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .pdf-footer-page {
-    display: table-cell;
-    vertical-align: middle;
-    min-width: 32px;
-    text-align: right;
   }
 
 }
