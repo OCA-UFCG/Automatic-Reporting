@@ -33,10 +33,10 @@ def _categoria_variacao(variacao) -> str | None:
     except (TypeError, ValueError):
         return None
     if valor > 0:
-        return "aumento"
+        return "um aumento"
     if valor < 0:
-        return "redução"
-    return "estabilidade"
+        return "uma diminuição"
+    return "uma estabilidade"
 
 
 def buscar_perfil_desenvolvimento_social(

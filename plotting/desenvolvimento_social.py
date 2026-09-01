@@ -79,7 +79,7 @@ def gerar_grafico_de_desenvolvimento_social(
         ax.text(
             barra.get_x() + barra.get_width() / 2,
             valor + limite * 0.025,
-            f"{valor:.2f}".replace(".", ","),
+            f"{valor:.3f}".replace(".", ","),
             ha="center",
             va="bottom",
             fontsize=9,

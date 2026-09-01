@@ -188,6 +188,41 @@ def test_demography_short_namespace_is_normalized():
     ) == "40%"
 
 
+def test_precision_suffix_overrides_the_default_one_decimal_rounding():
+    contexto = {"nm_mun": "Canapi", "idhm_2010": 0.561, "gini_2010": 0.542}
+    texto = (
+        "desen_social.$nm_mun apresentou IDHM de desen_social.$idhm_2010:3 "
+        "e Índice de Gini de desen_social.$gini_2010:3"
+    )
+
+    assert substituir_placeholders(
+        texto, contexto, namespace="desenvolvimento-social"
+    ) == "Canapi apresentou IDHM de 0,561 e Índice de Gini de 0,542"
+
+
+def test_precision_suffix_does_not_leak_into_other_fields():
+    contexto = {"idhm_2010": 0.561, "gini_2010": 0.542}
+    texto = "desen_social.$idhm_2010:3 e Gini desen_social.$gini_2010"
+
+    assert substituir_placeholders(
+        texto, contexto, namespace="desenvolvimento-social"
+    ) == "0,561 e Gini 0,5"
+
+
+def test_social_development_gini_condition_accepts_para_prefix_and_ou_wording():
+    texto = """Síntese
+Para quando o índice de Gini for maior ou igual a 0,5:
+Trecho com desigualdade.
+Para quando o índice de Gini for menor que 0,5:
+Trecho sem desigualdade."""
+
+    resultado = interpretar_blocos_condicionais(texto, {"gini_2010": 0.6})
+
+    assert "Trecho com desigualdade." in resultado
+    assert "Trecho sem desigualdade." not in resultado
+    assert "Para quando" not in resultado
+
+
 def test_inline_figure_reference_is_replaced_with_the_real_figure_number():
     reset_figura_contador()
     texto = (
@@ -202,6 +237,35 @@ def test_inline_figure_reference_is_replaced_with_the_real_figure_number():
     assert "Figura 2 – População" in html
     assert "Figura x" not in html
     assert "Figura X" not in html
+
+
+def test_multiple_inline_figure_mentions_in_one_paragraph_get_sequential_numbers():
+    reset_figura_contador()
+    texto = (
+        "Os grupos prioritários somam as metas por público-alvo (Figura X), "
+        "e entre as menores estão C (2%, Figura X).\n"
+        "\n"
+        "Figura X- Metas e doses aplicadas por público-alvo etário.\n"
+        "\n"
+        "Figura X- Taxa de cobertura vacinal por tipo de vacina."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "(Figura 2)" in html
+    assert "(2%, Figura 3)" in html
+    assert "Figura 2 – Metas" in html
+    assert "Figura 3 – Taxa" in html
+
+
+def test_inline_figure_reference_regex_does_not_match_unrelated_words():
+    reset_figura_contador()
+    texto = "A figura da variação mostra crescimento. Como visto na Figura 2, o IDHM cresceu."
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "A figura da variação mostra crescimento." in html
+    assert "Como visto na Figura 2, o IDHM cresceu." in html
 
 
 def test_single_asterisk_chart_placeholder_is_rendered():

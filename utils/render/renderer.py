@@ -31,17 +31,31 @@ def reset_figura_contador() -> None:
     _figura_contador = 1
 
 
-_REFERENCIA_FIGURA_INLINE = re.compile(r"(?i)\bfigura\s+[A-Za-z0-9&]{1,3}\b")
+_REFERENCIA_FIGURA_INLINE = re.compile(r"(?i)\bfigura\s+\[?[Xx&]\]?\b")
 
 
 def _substituir_referencia_figura_inline(linha: str) -> str:
     """Substitui menções inline como "(Figura X)" pelo número real da figura.
 
     O texto fonte referencia, no meio de um parágrafo, a figura que é
-    legendada logo em seguida usando uma letra/placeholder (``X``, ``&`` etc.)
-    em vez do número final — que só é conhecido em tempo de renderização.
+    legendada logo em seguida usando um placeholder (``X``, ``&``, opcionalmente
+    entre colchetes) em vez do número final — que só é conhecido em tempo de
+    renderização. O regex é ancorado nesses placeholders (não em qualquer
+    palavra curta após "figura") para não casar frases comuns como "a figura
+    da variação" ou menções que já trazem o número final, como "Figura 2".
+
+    Quando um parágrafo menciona mais de uma figura (ex.: "(Figura X)... e
+    (Figura X)..."), cada ocorrência é contada separadamente e aponta para a
+    figura seguinte na sequência, na ordem em que aparecem.
     """
-    return _REFERENCIA_FIGURA_INLINE.sub(f"Figura {_figura_contador + 1}", linha)
+    contador_local = _figura_contador
+
+    def _proxima_figura(_match: re.Match) -> str:
+        nonlocal contador_local
+        contador_local += 1
+        return f"Figura {contador_local}"
+
+    return _REFERENCIA_FIGURA_INLINE.sub(_proxima_figura, linha)
 
 
 __all__ = [
