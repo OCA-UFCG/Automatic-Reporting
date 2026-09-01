@@ -1,7 +1,7 @@
 import re
 from decimal import Decimal
 
-from utils.formatting import formatar_numero_ptbr
+from utils.formatting import coerce_para_float, formatar_numero_ptbr
 
 _MARCADOR_CAMPO_CONDICIONAL = re.compile(r"(?:[A-Za-z_][\w-]*\.)?\$([A-Za-z_][\w]*)")
 
@@ -103,10 +103,7 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
             operador_texto, limite_texto = condicao_gini.groups()
             limite = float(limite_texto.replace(",", "."))
             gini = _resolver_campo_com_alias(contexto, "gini_2010")
-            try:
-                gini_numero = float(gini) if gini is not None else None
-            except (TypeError, ValueError):
-                gini_numero = None
+            gini_numero = coerce_para_float(gini, default=None)
             if gini_numero is None:
                 bloco_ativo = False
             elif "menor" in operador_texto.casefold():
