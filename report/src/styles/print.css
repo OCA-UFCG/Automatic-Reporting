@@ -1,5 +1,15 @@
 @page {
-  margin: 53.33px 8mm 16mm;
+  /* A margem direita da página é 0, de propósito (diferente das outras 3).
+     Testei isoladamente e confirmei: nesta versão do WeasyPrint (69), o
+     lado direito de uma margin box (@bottom-right, abaixo) SEMPRE encosta
+     exatamente na borda da área de conteúdo (page_width - margem direita),
+     nunca na borda física da folha — não importa a `width` pedida nela.
+     Se a margem direita fosse > 0, sempre sobraria uma faixa em branco do
+     tamanho dessa margem, sem jeito de preencher via CSS. Zerando a margem,
+     a borda da área de conteúdo passa a SER a borda física, e a margin box
+     passa a alcançá-la de verdade. O respiro visual de ~8mm que a margem
+     dava é recriado como padding-right no body, mais abaixo. */
+  margin: 53.33px 0 16mm 8mm;
 
   /* O texto da esquerda é dinâmico (por relatório), então precisa viver num
      elemento HTML de verdade (`.pdf-footer`, position:fixed) — usar
@@ -9,9 +19,8 @@
      de página precisa da margin box mesmo: WeasyPrint só resolve counter()
      uma única vez dentro de elementos fixed, então ele tem que vir de uma
      @page margin box (contadores são um recurso bem mais básico/estável
-     do que running elements). A largura aqui precisa bater exatamente com
-     o `right` de `.pdf-footer` em print.css, senão as duas caixas
-     desalinham (era o bug original).
+     do que running elements). A largura aqui precisa bater com o `right`
+     de `.pdf-footer` em print.css, senão as duas caixas desalinham.
   */
   @bottom-right {
     content: counter(page) "/" counter(pages);
@@ -57,12 +66,20 @@
     overflow: visible;
   }
 
+  body {
+    /* A margem direita da página é 0 (ver comentário no @page) — esse
+       padding recria o respiro visual de ~8mm que a margem costumava dar,
+       pra bater com o lado esquerdo (que ainda usa a margem real da
+       página, 8mm, sem esse problema). */
+    padding-right: 8mm;
+  }
+
   .pdf-page-header {
     display: block;
     position: fixed;
     top: -53.33px;
     left: -8mm;
-    right: -8mm;
+    right: 0;
     width: auto;
     height: 53.33px;
     padding: 10.67px 32px;
@@ -143,7 +160,7 @@
     position: fixed;
     bottom: -16mm;
     left: -8mm;
-    right: calc(106.67px - 8mm);
+    right: 106.67px;
     height: 16mm;
     padding: 10.67px 0 10.67px 32px;
     background: #F8F7F8;
