@@ -4,16 +4,15 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 
 from plotting.hidraulica import _numero
+from utils.queries.economia_renda import _escalar_valor
 
 _COR_LINHA = "#F0883E"
 
 
 def _escolher_unidade(valor: float) -> tuple[float, str]:
-    if valor >= 1e9:
-        return 1e9, "bn"
-    if valor >= 1e6:
-        return 1e6, "mi"
-    return 1e3, "mil"
+    _, unidade = _escalar_valor(valor)
+    divisor = {"bilhões": 1e9, "milhões": 1e6, "mil": 1e3}.get(unidade, 1)
+    return divisor, unidade
 
 
 def gerar_grafico_pib(
@@ -53,8 +52,9 @@ def gerar_grafico_pib(
 
     for ano, valor in zip(anos, valores):
         divisor_ponto, unidade_ponto = _escolher_unidade(valor)
+        sufixo_ponto = f" {unidade_ponto}" if unidade_ponto else ""
         ax.annotate(
-            f"R$ {valor / divisor_ponto:.1f}{unidade_ponto}",
+            f"R$ {valor / divisor_ponto:.1f}{sufixo_ponto}",
             (ano, valor),
             xytext=(0, 8),
             textcoords="offset points",
@@ -84,8 +84,9 @@ def gerar_grafico_pib(
 
     ax.grid(axis="y", linestyle=":", alpha=0.4)
 
+    sufixo_eixo = f" {unidade_eixo}" if unidade_eixo else ""
     ax.yaxis.set_major_formatter(
-        FuncFormatter(lambda valor, _: f"R$ {valor / divisor_eixo:.0f}{unidade_eixo}")
+        FuncFormatter(lambda valor, _: f"R$ {valor / divisor_eixo:.0f}{sufixo_eixo}")
     )
 
     fig.tight_layout()

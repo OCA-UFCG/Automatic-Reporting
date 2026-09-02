@@ -2,6 +2,9 @@ from utils.queries import economia_renda
 
 
 def test_buscar_indicadores_economia_calcula_variacao_e_setor_maior(monkeypatch):
+    # linha de 2021: vab_agropecuaria=1_000_000, vab_industria=3_000_000,
+    # vab_servicos=9_500_000, vab_adm_publica=2_000_000 -> ranking esperado:
+    # Serviços > Indústria > Administração Pública > Agropecuária.
     linhas_banco = [
         (2010, 1_000_000_000.0, None, None, None, None, None, None),
         (2021, None, None, 1_000_000.0, 3_000_000.0, 9_500_000.0, 2_000_000.0, 850_000_000.0),
@@ -26,9 +29,17 @@ def test_buscar_indicadores_economia_calcula_variacao_e_setor_maior(monkeypatch)
     assert round(dados["analise1_pib"], 2) == round(variacao_nominal_esperada / 1e9, 2)
     assert round(dados["analise1_pib_per"], 2) == round(variacao_percentual_esperada, 2)
 
-    assert dados["setor2021_maior"] == "Serviços"
-    assert dados["setor2021_maior_unid"] == "milhões"
-    assert round(dados["setor2021"], 2) == round(9_500_000.0 / 1e6, 2)
+    assert dados["setor2021_maior1"] == "Serviços"
+    assert dados["setor2021_unid1"] == "milhões"
+    assert round(dados["setor2021_valor1"], 2) == round(9_500_000.0 / 1e6, 2)
+
+    assert dados["setor2021_maior2"] == "Indústria"
+    assert dados["setor2021_unid2"] == "milhões"
+    assert round(dados["setor2021_valor2"], 2) == round(3_000_000.0 / 1e6, 2)
+
+    assert dados["setor2021_maior3"] == "Administração Pública"
+    assert dados["setor2021_unid3"] == "milhões"
+    assert round(dados["setor2021_valor3"], 2) == round(2_000_000.0 / 1e6, 2)
 
     assert dados["imposto_unid"] == "milhões"
     assert round(dados["imposto"], 2) == round(850_000_000.0 / 1e6, 2)

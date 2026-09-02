@@ -59,16 +59,13 @@ def _variacao_pib(pib_2010: object, pib_2023: object) -> tuple[object, object]:
     return variacao_nominal, variacao_percentual
 
 
-def _setor_maior_vab(linha: dict) -> tuple[object, object]:
+def _setores_maiores_vab(linha: dict, top: int = 3) -> list[tuple[str, float]]:
     vabs = {
         nome: float(linha[coluna])
         for coluna, nome in _SETORES_VAB.items()
         if linha.get(coluna) is not None
     }
-    if not vabs:
-        return None, None
-    setor, valor = max(vabs.items(), key=lambda item: item[1])
-    return setor, valor
+    return sorted(vabs.items(), key=lambda item: item[1], reverse=True)[:top]
 
 
 def buscar_linhas_pib_municipal(nome_municipio: str, sigla_uf: str) -> list[dict]:
@@ -120,16 +117,15 @@ def processar_indicadores_economia(linhas: list[dict]) -> dict[str, object] | No
         return None
 
     analise1_pib, analise1_pib_per = _variacao_pib(dados["pib_2010"], dados["pib_2023"])
-    setor2021_maior, setor2021 = _setor_maior_vab(dados)
+    setores2021 = _setores_maiores_vab(dados)
 
     pib_2010, pib_unid_2010 = _escalar_valor(dados["pib_2010"])
     pib_2023, pib_unid_2023 = _escalar_valor(dados["pib_2023"])
     pibcapita_2023, pibcapita_unid_2023 = _escalar_valor(dados["pibcapita_2023"])
     imposto, imposto_unid = _escalar_valor(dados["imposto"])
-    setor2021, setor2021_maior_unid = _escalar_valor(setor2021)
     analise1_pib, analise1_pib_unid = _escalar_valor(analise1_pib)
 
-    return {
+    resultado = {
         "pib_2010": pib_2010,
         "pib_unid_2010": pib_unid_2010,
         "pib_2023": pib_2023,
@@ -139,12 +135,18 @@ def processar_indicadores_economia(linhas: list[dict]) -> dict[str, object] | No
         "analise1_pib": analise1_pib,
         "analise1_pib_unid": analise1_pib_unid,
         "analise1_pib_per": analise1_pib_per,
-        "setor2021_maior": setor2021_maior,
-        "setor2021": setor2021,
-        "setor2021_maior_unid": setor2021_maior_unid,
         "imposto": imposto,
         "imposto_unid": imposto_unid,
     }
+    # "4. Economia e Renda.md" usa setor2021_maior{1,2,3} para os 3 setores de
+    # maior VAB em 2021; nome, valor escalado e unidade de escala de cada um.
+    for posicao, (nome_setor, valor_vab) in enumerate(setores2021, start=1):
+        valor_escalado, unidade = _escalar_valor(valor_vab)
+        resultado[f"setor2021_maior{posicao}"] = nome_setor
+        resultado[f"setor2021_valor{posicao}"] = valor_escalado
+        resultado[f"setor2021_unid{posicao}"] = unidade
+
+    return resultado
 
 
 def buscar_pib_evolucao(nome_municipio: str, sigla_uf: str) -> dict[str, object] | None:
