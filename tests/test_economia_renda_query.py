@@ -1,7 +1,7 @@
 from utils.queries import economia_renda
 
 
-def test_buscar_indicadores_economia_calcula_variacao_e_setor_maior(monkeypatch):
+def test_processar_indicadores_economia_calcula_variacao_e_setores_maiores(monkeypatch):
     # linha de 2021: vab_agropecuaria=1_000_000, vab_industria=3_000_000,
     # vab_servicos=9_500_000, vab_adm_publica=2_000_000 -> ranking esperado:
     # Serviços > Indústria > Administração Pública > Agropecuária.
@@ -14,7 +14,8 @@ def test_buscar_indicadores_economia_calcula_variacao_e_setor_maior(monkeypatch)
         economia_renda, "executar_query", lambda *args, **kwargs: linhas_banco
     )
 
-    dados = economia_renda.buscar_indicadores_economia("Campina Grande", "PB")
+    linhas = economia_renda.buscar_linhas_pib_municipal("Campina Grande", "PB")
+    dados = economia_renda.processar_indicadores_economia(linhas)
 
     assert dados["pib_unid_2010"] == "bilhões"
     assert round(dados["pib_2010"], 2) == round(1_000_000_000.0 / 1e9, 2)
@@ -45,15 +46,16 @@ def test_buscar_indicadores_economia_calcula_variacao_e_setor_maior(monkeypatch)
     assert round(dados["imposto"], 2) == round(850_000_000.0 / 1e6, 2)
 
 
-def test_buscar_indicadores_economia_retorna_none_sem_dados(monkeypatch):
+def test_processar_indicadores_economia_retorna_none_sem_dados(monkeypatch):
     monkeypatch.setattr(economia_renda, "executar_query", lambda *args, **kwargs: None)
 
-    dados = economia_renda.buscar_indicadores_economia("Cidade Sem Dados", "PB")
+    linhas = economia_renda.buscar_linhas_pib_municipal("Cidade Sem Dados", "PB")
+    dados = economia_renda.processar_indicadores_economia(linhas)
 
     assert dados is None
 
 
-def test_buscar_indicadores_economia_retorna_none_quando_agregacao_so_traz_nulos(monkeypatch):
+def test_processar_indicadores_economia_retorna_none_quando_agregacao_so_traz_nulos(monkeypatch):
     linhas_banco_sem_correspondencia = [(2010, None, None, None, None, None, None, None)]
     monkeypatch.setattr(
         economia_renda,
@@ -61,12 +63,13 @@ def test_buscar_indicadores_economia_retorna_none_quando_agregacao_so_traz_nulos
         lambda *args, **kwargs: linhas_banco_sem_correspondencia,
     )
 
-    dados = economia_renda.buscar_indicadores_economia("Cidade Fora Do Eco Pib", "PB")
+    linhas = economia_renda.buscar_linhas_pib_municipal("Cidade Fora Do Eco Pib", "PB")
+    dados = economia_renda.processar_indicadores_economia(linhas)
 
     assert dados is None
 
 
-def test_buscar_pib_evolucao_e_indicadores_reaproveitam_a_mesma_consulta(monkeypatch):
+def test_processar_pib_evolucao_e_indicadores_reaproveitam_a_mesma_consulta(monkeypatch):
     linhas_banco = [
         (2010, 166_512_845.0, None, None, None, None, None, None),
         (2021, None, None, 1_000_000.0, 3_000_000.0, 9_500_000.0, 2_000_000.0, 850_000_000.0),

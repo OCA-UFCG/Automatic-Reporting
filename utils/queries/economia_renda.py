@@ -147,11 +147,3 @@ def processar_indicadores_economia(linhas: list[dict]) -> dict[str, object] | No
         resultado[f"setor2021_unid{posicao}"] = unidade
 
     return resultado
-
-
-def buscar_pib_evolucao(nome_municipio: str, sigla_uf: str) -> dict[str, object] | None:
-    return processar_pib_evolucao(buscar_linhas_pib_municipal(nome_municipio, sigla_uf))
-
-
-def buscar_indicadores_economia(nome_municipio: str, sigla_uf: str) -> dict[str, object] | None:
-    return processar_indicadores_economia(buscar_linhas_pib_municipal(nome_municipio, sigla_uf))
