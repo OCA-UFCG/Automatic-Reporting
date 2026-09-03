@@ -182,6 +182,101 @@ def test_hydraulics_namespace_alias_before_dollar_is_replaced_without_prefix():
     )
 
 
+def test_demography_missing_street_population_data_falls_back_to_no_records_text():
+    texto = """Sequência do texto, sem condição:
+Outro grupo relevante para a caracterização da população municipal é o de pessoas em situação de rua. Em 2026, demografia.$nm_mun registra demografia.$pop_rua_2026 pessoas.
+Para demografia.$centro_pop for igual a 0:
+Sem Centro POP.
+Para demografia.$centro_pop for igual a 1:
+Com um Centro POP.
+Para demografia.$centro_pop maior que 1:
+Com vários Centros POP."""
+
+    resultado_sem_dados = interpretar_blocos_condicionais(texto, {"nm_mun": "Belo Monte"})
+    assert "demografia.$pop_rua_2026" not in resultado_sem_dados
+    assert "Não foram encontrados registros de pessoas em situação de rua" in resultado_sem_dados
+    assert "Belo Monte" in resultado_sem_dados
+    assert "Centro POP." not in resultado_sem_dados
+
+    contexto_com_dados = {"nm_mun": "Cidade X", "pop_rua_2022": 40, "pop_rua_2026": 50, "centro_pop": 1}
+    resultado_com_dados = interpretar_blocos_condicionais(texto, contexto_com_dados)
+    assert "demografia.$pop_rua_2026 pessoas" in resultado_com_dados
+    assert "Não foram encontrados registros de pessoas em situação de rua" not in resultado_com_dados
+    assert "Com um Centro POP." in resultado_com_dados
+
+
+def test_demography_street_population_2022_only_skips_2026_comparison():
+    texto = """Sequência do texto, sem condição:
+Outro grupo relevante para a caracterização da população municipal é o de pessoas em situação de rua. Em 2026, demografia.$nm_mun registra demografia.$pop_rua_2026 pessoas nessa condição, frente a demografia.$pop_rua_2022 em 2022, evidenciando um demografia.$var_pop_rua_analise de demografia.$var_pop_rua_abs no período."""
+
+    contexto = {
+        "nm_mun": "Cidade X",
+        "pop_rua_total": 80,
+        "pobreza_cadunico": 20,
+        "baixa_renda_cadunico": 30,
+        "acima_meio_sm_cadunico": 30,
+        "familias_rua_bf": 12,
+        # como calculado por buscar_populacao_rua quando familias_total > 0
+        "pop_rua_pobreza_per": 25.0,
+        "pop_rua_br_per": 37.5,
+        "pop_rua_acima_br_per": 37.5,
+    }
+
+    interpretado = interpretar_blocos_condicionais(texto, contexto)
+    resultado = substituir_placeholders(interpretado, contexto, namespace="demografia")
+
+    assert "$pop_rua_2026" not in resultado
+    assert "$var_pop_rua" not in resultado
+    assert "Em 2022, Cidade X registrava 80 pessoas" in resultado
+    assert "Ainda não há levantamento mais recente (2026)" in resultado
+
+
+def test_demography_missing_centro_pop_does_not_render_as_zero():
+    texto = """Sequência do texto, sem condição:
+Outro grupo relevante para a caracterização da população municipal é o de pessoas em situação de rua. Em 2026, demografia.$nm_mun registra demografia.$pop_rua_2026 pessoas.
+Para demografia.$centro_pop for igual a 0:
+Sem Centro POP.
+Para demografia.$centro_pop for igual a 1:
+Com um Centro POP.
+Para demografia.$centro_pop maior que 1:
+Com vários Centros POP."""
+
+    # centro_pop ausente do contexto (NULL no banco, sem alias "centros_pop"),
+    # mas com dados de rua presentes: não pode afirmar "Sem Centro POP.".
+    contexto = {"nm_mun": "Cidade X", "pop_rua_2022": 40, "pop_rua_2026": 50}
+    resultado = interpretar_blocos_condicionais(texto, contexto)
+
+    assert "Sem Centro POP." not in resultado
+    assert "Com um Centro POP." not in resultado
+    assert "Com vários Centros POP." not in resultado
+
+
+def test_demography_editorial_conditions_close_2010_block_with_autodeclarada_wording():
+    texto = """Para quando demografia.$pop_ind_2022 e demografia.$pop_qui for diferente de 0:
+Tem os dois grupos.
+Para quando demografia.$pop_ind_2010 for diferente de 0:
+Também havia indígenas em 2010.
+Para quando demografia.$pop_ind_2010 for igual a 0:
+Não havia indígenas em 2010.
+
+Quanto à população autodeclarada quilombola em 2022, havia quilombolas."""
+    contexto = {
+        "pop_ind_2022": 470,
+        "pop_ind_2010": 579,
+        "pop_qui": 30,
+    }
+
+    resultado = interpretar_blocos_condicionais(texto, contexto)
+
+    assert "Tem os dois grupos." in resultado
+    assert "Também havia indígenas em 2010." in resultado
+    assert "Não havia indígenas em 2010." not in resultado
+    # A última condição interna avaliada ("igual a 0") não é atendida, o que
+    # antes desta correção deixava bloco_ativo=False e escondia o parágrafo
+    # de fechamento — mesmo ele não fazendo parte do sub-bloco de 2010.
+    assert "Quanto à população autodeclarada quilombola em 2022, havia quilombolas." in resultado
+
+
 def test_demography_short_namespace_is_normalized():
     assert substituir_placeholders(
         "demo.$etaria_maior_per%", {"etaria_maior": 40, "pop_total": 100}, "demografia"
@@ -237,6 +332,27 @@ def test_inline_figure_reference_is_replaced_with_the_real_figure_number():
     assert "Figura 2 – População" in html
     assert "Figura x" not in html
     assert "Figura X" not in html
+
+
+def test_inline_reference_to_an_already_numbered_figure_is_not_rewritten():
+    reset_figura_contador()
+    texto = (
+        "Como já demonstrado na Figura 1, a concentração populacional é maior "
+        "na região central.\n"
+        "\n"
+        "Figura X- População por faixa etária e sexo."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "Como já demonstrado na Figura 1," in html
+    assert "Figura 2 – População" in html
+
+
+def test_demography_short_namespace_swapped_dollar_typo_is_normalized():
+    assert substituir_placeholders(
+        "demo$.etaria_maior_per%", {"etaria_maior": 40, "pop_total": 100}, "demografia"
+    ) == "40%"
 
 
 def test_inline_reference_to_an_already_numbered_figure_is_not_rewritten():

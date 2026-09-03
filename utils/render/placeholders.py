@@ -72,6 +72,7 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
     resultado: list[str] = []
     bloco_ativo = True
     bloco_populacoes_ativo = True
+    bloco_rua_ativo = True
 
     for linha in texto.splitlines():
         limpa = linha.strip()
@@ -92,6 +93,15 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                     bloco_ativo = atende
                 elif "pop_ind_2010" in campos:
                     bloco_ativo = bloco_populacoes_ativo and atende
+                elif campos == {"centro_pop"}:
+                    # centro_pop vem NULL do banco quando não há dado (distinto de
+                    # 0 Centros POP). Sem checar a presença, "igual a 0" também
+                    # casaria com ausência de dado e afirmaria erroneamente que o
+                    # município não tinha Centro POP.
+                    bloco_ativo = (
+                        _resolver_campo_com_alias(contexto, "centro_pop") is not None
+                        and atende
+                    )
                 else:
                     bloco_ativo = atende
                 continue
@@ -115,11 +125,63 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
         if limpa.casefold() in {"síntese", "sintese"}:
             bloco_ativo = True
             bloco_populacoes_ativo = True
+            bloco_rua_ativo = True
 
         # Nos documentos atuais, este parágrafo encerra as condições internas
         # referentes a 2010 e volta ao bloco indígena/quilombola principal.
-        if limpa.casefold().startswith("quanto à população quilombola"):
+        if re.match(
+            r"^quanto à população (autodeclarad[ao]\s+)?quilombola",
+            limpa.casefold(),
+        ):
             bloco_ativo = bloco_populacoes_ativo
+
+        # O parágrafo de situação de rua não tem guarda "Para quando ...:" no
+        # documento (é declarado como "sem condição"), mas depende de dados que
+        # podem não existir para o município. Sem eles, evitamos expor os
+        # placeholders crus e usamos um texto equivalente ao das outras seções
+        # quando não há registros.
+        if re.match(
+            r"(?i)^outro grupo relevante para a caracteriza[cç][aã]o da popula[cç][aã]o municipal",
+            limpa,
+        ):
+            bloco_rua_ativo = _resolver_campo_com_alias(contexto, "pop_rua_2022") is not None
+            if bloco_ativo and not bloco_rua_ativo:
+                nome_mun = _resolver_campo_com_alias(contexto, "nm_mun") or "o município"
+                resultado.append(
+                    f"Não foram encontrados registros de pessoas em situação de rua "
+                    f"para {nome_mun} na fonte de dados consultada. Contudo, esse "
+                    "resultado deve ser interpretado considerando os limites da base "
+                    "de dados utilizada, não sendo suficiente, por si só, para "
+                    "afastar a presença dessa população no município."
+                )
+                continue
+
+            # Município com levantamento de rua em 2022 mas ainda sem o de 2026:
+            # o parágrafo padrão compara os dois anos e vazaria placeholders
+            # crus (ex.: "$pop_rua_2026"). Texto provisório restrito a 2022,
+            # sem a comparação — PENDENTE de validação com o time de
+            # conteúdo/Doc antes de ir para produção.
+            if bloco_ativo and bloco_rua_ativo and (
+                _resolver_campo_com_alias(contexto, "pop_rua_2026") is None
+            ):
+                resultado.append(
+                    "Outro grupo relevante para a caracterização da população "
+                    "municipal é o de pessoas em situação de rua. Em 2022, "
+                    "demografia.$nm_mun registrava demografia.$pop_rua_2022 "
+                    "pessoas nessa condição. Entre as famílias em situação de "
+                    "rua, demografia.$pop_rua_pobreza "
+                    "(demografia.$pop_rua_pobreza_per)% estavam em situação de "
+                    "pobreza, demografia.$pop_rua_br (demografia.$pop_rua_br_per)% "
+                    "eram classificadas como de baixa renda e "
+                    "demografia.$pop_rua_acima_br "
+                    "(demografia.$pop_rua_acima_br_per)% possuíam renda acima de "
+                    "meio salário mínimo. Além disso, "
+                    "demografia.$pop_rua_bolsaf_2022 famílias em situação de rua "
+                    "eram beneficiárias do Bolsa Família. Ainda não há "
+                    "levantamento mais recente (2026) disponível na fonte "
+                    "consultada para comparação."
+                )
+                continue
 
         if bloco_ativo:
             resultado.append(linha)
@@ -316,12 +378,19 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
         )
 
     # Erro de digitação comum nos documentos: "namespace$.campo" em vez de
-    # "namespace.$campo" (o "$" e o "." trocados de posição).
+    # "namespace.$campo" (o "$" e o "." trocados de posição). Cobre também
+    # o alias "demo" para o namespace "demografia".
+    alternativas = "|".join(
+        re.escape(alias) for alias in outros_aliases | {namespace.lower()}
+    )
     resultado = re.sub(
-        rf"(?i)(?<![\w])({re.escape(namespace)})\$\.",
+        rf"(?i)(?<![\w])({alternativas})\$\.",
         r"\1.$",
         resultado,
     )
+
+    if namespace.lower() == "demografia":
+        resultado = re.sub(r"(?i)(?<![\w])demo\.\$", "demografia.$", resultado)
 
     # Formato completo: macrotema.nome_do_csv.$campo.
     resultado = re.sub(
