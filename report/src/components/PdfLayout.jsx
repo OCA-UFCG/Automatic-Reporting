@@ -16,7 +16,6 @@ export function PdfFooter({ data }) {
       <span className="pdf-footer-generation">
         {data ? `Relatório gerado em ${data}` : 'Relatório automático do Data Nordeste'}
       </span>
-      <span className="pdf-footer-page" aria-hidden="true" />
     </footer>
   );
 }
