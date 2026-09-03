@@ -239,6 +239,21 @@ def test_inline_figure_reference_is_replaced_with_the_real_figure_number():
     assert "Figura X" not in html
 
 
+def test_inline_reference_to_an_already_numbered_figure_is_not_rewritten():
+    reset_figura_contador()
+    texto = (
+        "Como já demonstrado na Figura 1, a concentração populacional é maior "
+        "na região central.\n"
+        "\n"
+        "Figura X- População por faixa etária e sexo."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "Como já demonstrado na Figura 1," in html
+    assert "Figura 2 – População" in html
+
+
 def test_multiple_inline_figure_mentions_in_one_paragraph_get_sequential_numbers():
     reset_figura_contador()
     texto = (
@@ -254,6 +269,26 @@ def test_multiple_inline_figure_mentions_in_one_paragraph_get_sequential_numbers
 
     assert "(Figura 2)" in html
     assert "(2%, Figura 3)" in html
+    assert "Figura 2 – Metas" in html
+    assert "Figura 3 – Taxa" in html
+
+
+def test_inline_figure_mentions_in_different_paragraphs_get_sequential_numbers():
+    reset_figura_contador()
+    texto = (
+        "Os grupos prioritários somam as metas por público-alvo (Figura X).\n"
+        "\n"
+        "Figura X- Metas e doses aplicadas por público-alvo etário.\n"
+        "\n"
+        "Entre as menores estão C, com 2% (Figura X).\n"
+        "\n"
+        "Figura X- Taxa de cobertura vacinal por tipo de vacina."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "(Figura 2)" in html
+    assert "com 2% (Figura 3)" in html
     assert "Figura 2 – Metas" in html
     assert "Figura 3 – Taxa" in html
 

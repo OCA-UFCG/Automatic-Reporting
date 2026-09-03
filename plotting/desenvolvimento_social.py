@@ -1,10 +1,12 @@
 import pathlib
+from functools import partial
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
 
 from plotting.demografia import _salvar_figura_com_fundo_branco
+from utils.formatting import coerce_para_float
 
 _CATEGORIAS_IDHM = (
     ("Muito Baixo", "#D64550"),
@@ -14,16 +16,7 @@ _CATEGORIAS_IDHM = (
     ("Muito Alto", "#5FA8D3"),
 )
 
-
-def _coerce_numero(valor) -> float | None:
-    if valor is None:
-        return None
-    if isinstance(valor, str):
-        valor = valor.strip().replace(",", ".")
-    try:
-        return float(valor)
-    except (TypeError, ValueError):
-        return None
+_coerce_numero = partial(coerce_para_float, default=None)
 
 
 def _classificar_idhm(valor: float) -> str:

@@ -11,6 +11,7 @@ from utils.render.placeholders import (
 from utils.render.sections import identificar_secao_macrotema
 
 _figura_contador = 1
+_proxima_referencia_inline = 1
 
 _LARGURA_MAXIMA_GRAFICO_PADRAO = "480px"
 _MARGEM_VERTICAL_GRAFICOS_PADRAO = "32px"
@@ -27,8 +28,9 @@ _CONFIG_GRAFICOS = {
 
 
 def reset_figura_contador() -> None:
-    global _figura_contador
+    global _figura_contador, _proxima_referencia_inline
     _figura_contador = 1
+    _proxima_referencia_inline = 1
 
 
 _REFERENCIA_FIGURA_INLINE = re.compile(r"(?i)\bfigura\s+\[?[Xx&]\]?\b")
@@ -48,12 +50,10 @@ def _substituir_referencia_figura_inline(linha: str) -> str:
     (Figura X)..."), cada ocorrência é contada separadamente e aponta para a
     figura seguinte na sequência, na ordem em que aparecem.
     """
-    contador_local = _figura_contador
-
     def _proxima_figura(_match: re.Match) -> str:
-        nonlocal contador_local
-        contador_local += 1
-        return f"Figura {contador_local}"
+        global _proxima_referencia_inline
+        _proxima_referencia_inline += 1
+        return f"Figura {_proxima_referencia_inline}"
 
     return _REFERENCIA_FIGURA_INLINE.sub(_proxima_figura, linha)
 
