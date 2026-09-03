@@ -53,7 +53,7 @@ from utils.external.docs import (
     extrair_resumo_tema,
     remover_titulos_docs,
 )
-from utils.geografia import resolver_nome_uf
+from utils.geografia import resolver_nome_uf, separar_cidade_uf
 from utils.queries.caracteristicas import buscar_caracteristicas_municipio
 from utils.queries.demografia import (
     buscar_demografia_sexo_faixa_etaria,
@@ -70,7 +70,10 @@ from utils.queries.economia_renda import (
     processar_indicadores_economia,
     processar_pib_evolucao,
 )
-from utils.queries.educacao import buscar_taxas_educacao_cor_faixa_etaria
+from utils.queries.educacao import (
+    buscar_perfil_educacional_municipio,
+    buscar_taxas_educacao_cor_faixa_etaria,
+)
 from utils.queries.hidraulica import buscar_tecnologias_acesso_agua
 from utils.queries.saude import (
     buscar_cobertura_vacinal,
@@ -184,20 +187,40 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 macrotema_dados["docs_env"],
             )
             continue
-        csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
-        csv_source = resolve_csv_source(csv_url, csv_env)
-        df = carregar_csv(csv_source)
-        df = normalizar_colunas_macrotema(df, macrotema_slug)
+        if macrotema_slug == "educacao":
+            # Educação não depende de CSV: a linha inteira (texto e gráfico)
+            # vem da view relatorios_auto.vw_perfil_educacional_municipal.
+            nome_cidade_educ, uf_educ = separar_cidade_uf(cidade)
+            if not uf_educ:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Informe o estado da cidade, ex: '{nome_cidade_educ} (UF)'.",
+                )
+            perfil_educacional = buscar_perfil_educacional_municipio(
+                nome_cidade_educ, uf_educ
+            )
+            if not perfil_educacional:
+                raise HTTPException(
+                    status_code=404, detail=f"Cidade '{cidade}' não encontrada."
+                )
+            linha_educacao = dict(perfil_educacional)
+            linha_educacao["nm_mun"] = nome_cidade_educ
+            linhas_macrotema = [linha_educacao]
+        else:
+            csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
+            csv_source = resolve_csv_source(csv_url, csv_env)
+            df = carregar_csv(csv_source)
+            df = normalizar_colunas_macrotema(df, macrotema_slug)
 
-        try:
-            linhas_df = filtrar_linhas_por_cidade(df, cidade)
-        except ValueError as err:
-            raise HTTPException(status_code=400, detail=str(err))
+            try:
+                linhas_df = filtrar_linhas_por_cidade(df, cidade)
+            except ValueError as err:
+                raise HTTPException(status_code=400, detail=str(err))
 
-        linhas_macrotema = linhas_df.to_dict("records")
+            linhas_macrotema = linhas_df.to_dict("records")
 
-        if not linhas_macrotema:
-            raise HTTPException(status_code=404, detail=f"Cidade '{cidade}' não encontrada.")
+            if not linhas_macrotema:
+                raise HTTPException(status_code=404, detail=f"Cidade '{cidade}' não encontrada.")
 
         for linha in linhas_macrotema:
             linha["data_relatorio"] = gerado_em.strftime("%d/%m/%Y")
@@ -478,12 +501,20 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                     )
 
         if macrotema_slug == "educacao":
-            chart_file_name = gerar_grafico_cor_faixa_etaria(
-                cidade=linhas_macrotema[0],
-                OUTPUT_DIR=OUTPUT_DIR,
-                safe_city=safe_city or "relatorio",
-            )
-            graficos_por_placeholder["grafico_cor_faixa_etaria"] = chart_file_name
+            try:
+                chart_file_name = gerar_grafico_cor_faixa_etaria(
+                    cidade=linhas_macrotema[0],
+                    OUTPUT_DIR=OUTPUT_DIR,
+                    safe_city=safe_city or "relatorio",
+                )
+                graficos_por_placeholder["grafico_cor_faixa_etaria"] = chart_file_name
+            except ValueError as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de cor/faixa etária de "
+                    "educação para '%s': %s",
+                    safe_report,
+                    err,
+                )
 
         if macrotema_slug == "saude":
             for nome_grafico, gerar_grafico in (
