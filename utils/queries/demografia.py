@@ -396,10 +396,11 @@ def buscar_populacao_rua(
         "baixa_renda_cadunico": baixa_renda,
         "acima_meio_sm_cadunico": acima_meio,
     }
-    if familias_total:
-        dados["pop_rua_pobreza_per"] = round(float(pobreza) / float(familias_total) * 100, 1)
-        dados["pop_rua_br_per"] = round(float(baixa_renda) / float(familias_total) * 100, 1)
-        dados["pop_rua_acima_br_per"] = round(float(acima_meio) / float(familias_total) * 100, 1)
+    if familias_total is not None:
+        familias_total_f = float(familias_total) or 1  # evita ZeroDivisionError quando é 0
+        dados["pop_rua_pobreza_per"] = round(float(pobreza) / familias_total_f * 100, 1) if familias_total else 0.0
+        dados["pop_rua_br_per"] = round(float(baixa_renda) / familias_total_f * 100, 1) if familias_total else 0.0
+        dados["pop_rua_acima_br_per"] = round(float(acima_meio) / familias_total_f * 100, 1) if familias_total else 0.0
     # "pop_rua_2026" só é publicado quando há dado real de 2026; caso
     # contrário o alias em placeholders.py já cobre "$pop_rua_2022" a
     # partir de pop_rua_total, sem fabricar uma comparação inexistente.
