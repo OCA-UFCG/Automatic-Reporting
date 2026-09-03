@@ -6,6 +6,7 @@ from plotting.economia_renda import (
     _atribuir_cores_por_ranking,
     _dispor_setores_por_valor,
     _escolher_unidade,
+    gerar_grafico_fob,
     gerar_grafico_pib,
     gerar_grafico_vab,
 )
@@ -75,6 +76,26 @@ def test_gera_grafico_vab_com_os_4_setores_do_banco(tmp_path: Path):
 def test_grafico_vab_exige_dados_de_setor():
     with pytest.raises(ValueError, match="VAB por setor"):
         gerar_grafico_vab({}, Path("/tmp"), "sem_dados")
+
+
+def test_gera_grafico_fob_com_paises_do_banco(tmp_path: Path):
+    cidade = {
+        "importacao_paises": [
+            ("China", 780_940_000.0),
+            ("Estados Unidos", 327_580_000.0),
+            ("Canadá", 233_020_000.0),
+        ]
+    }
+
+    arquivo = gerar_grafico_fob(cidade, tmp_path, "recife_pe")
+
+    assert arquivo == "grafico_fob_recife_pe.png"
+    assert (tmp_path / arquivo).is_file()
+
+
+def test_grafico_fob_exige_paises_de_importacao():
+    with pytest.raises(ValueError, match="países de importação"):
+        gerar_grafico_fob({}, Path("/tmp"), "sem_dados")
 
 
 @pytest.mark.parametrize("valor", [500, 25_000, 3_000_000, 12_945_093_200])

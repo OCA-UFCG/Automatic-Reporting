@@ -77,6 +77,21 @@ def test_processar_importacao_calcula_resumo_paises_secoes_e_produtos_do_ultimo_
     assert dados["produto_importadokg2"] == "Produto 2"
 
 
+def test_processar_importacao_expoe_top10_paises_bruto_para_o_grafico():
+    linhas = [
+        {"co_ano": 2026, "co_mes": "06", "desc_mes": "junho", "desc_pais_portugues": f"País {i}", "desc_secao": "Seção X", "desc_sh4": "Produto 1", "kg_liquido": 1.0, "vl_fob": float(1200 - i * 100)}
+        for i in range(12)
+    ]
+
+    dados = economia_importacao.processar_importacao(linhas)
+
+    paises = dados["importacao_paises"]
+    assert len(paises) == 10
+    assert paises[0] == ("País 0", 1200.0)
+    assert paises[-1] == ("País 9", 300.0)
+    assert paises == sorted(paises, key=lambda item: item[1], reverse=True)
+
+
 def test_processar_importacao_compara_valor_medio_por_kg_entre_janeiro_e_junho():
     linhas = [
         {"co_ano": 2026, "co_mes": "01", "desc_mes": "janeiro", "desc_pais_portugues": "País A", "desc_secao": "Seção X", "desc_sh4": "Produto 1", "kg_liquido": 500.0, "vl_fob": 10000.0},

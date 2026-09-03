@@ -16,6 +16,7 @@ _NOMES_SETORES_VAB = {
     "agropecuaria": "Agropecuária",
 }
 _CORES_POR_RANKING = ("#F0883E", "#F5C08A", "#F8D9B8", "#FBEADB")
+_UNIDADE_ABREVIADA = {"bilhões": "Bi", "milhões": "Mi", "mil": "mil"}
 
 
 def _dispor_setores_por_valor(
@@ -111,6 +112,65 @@ def gerar_grafico_pib(
     ax.yaxis.set_major_formatter(
         FuncFormatter(lambda valor, _: f"R$ {valor / divisor_eixo:.0f}{sufixo_eixo}")
     )
+
+    fig.tight_layout()
+    fig.savefig(chart_file, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return chart_file.name
+
+
+def gerar_grafico_fob(
+    cidade: dict,
+    OUTPUT_DIR: pathlib.Path,
+    safe_city: str,
+) -> str:
+    paises = cidade.get("importacao_paises") or []
+    pontos = [
+        (nome, _numero(valor))
+        for nome, valor in paises
+        if nome is not None and valor is not None
+    ]
+    if not pontos:
+        raise ValueError("Dados de países de importação não disponíveis.")
+
+    pontos = sorted(pontos, key=lambda item: item[1], reverse=True)
+    nomes = [nome for nome, _valor in pontos]
+    valores = [valor for _nome, valor in pontos]
+
+    cores = plt.get_cmap("RdYlBu")(
+        [indice / max(len(pontos) - 1, 1) for indice in range(len(pontos))]
+    )
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    chart_file = OUTPUT_DIR / f"grafico_fob_{safe_city}.png"
+
+    fig, ax = plt.subplots(figsize=(10, 0.5 * len(pontos) + 1.5))
+
+    posicoes = range(len(pontos))
+    ax.barh(posicoes, valores, color=cores)
+    ax.set_yticks(list(posicoes))
+    ax.set_yticklabels(nomes)
+    ax.invert_yaxis()
+
+    for posicao, valor in zip(posicoes, valores):
+        valor_escalado, unidade = _escalar_valor(valor)
+        sufixo = f" {_UNIDADE_ABREVIADA.get(unidade, unidade)}" if unidade else ""
+        ax.text(
+            valor,
+            posicao,
+            f" ${valor_escalado:.2f}{sufixo}",
+            va="center",
+            ha="left",
+            fontsize=8,
+            color="#3A2A1A",
+        )
+
+    ax.set_xlabel("Valor líquido FOB (US$)")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda valor, _: f"${valor / 1e9:.1f} Bi"))
+    ax.set_xlim(0, max(valores) * 1.2)
 
     fig.tight_layout()
     fig.savefig(chart_file, dpi=200, bbox_inches="tight")

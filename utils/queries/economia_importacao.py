@@ -110,7 +110,9 @@ def processar_importacao(linhas: list[dict]) -> dict[str, object] | None:
     resultado["kg_importado_ultimo_unid"] = kg_unid
 
     totais_pais = _somar_por_chave(linhas_ultimo_mes, "desc_pais_portugues", "vl_fob")
-    for posicao, (nome_pais, valor_fob) in enumerate(_top_n(totais_pais, 4), start=1):
+    top10_paises = _top_n(totais_pais, 10)
+    resultado["importacao_paises"] = top10_paises
+    for posicao, (nome_pais, valor_fob) in enumerate(top10_paises[:4], start=1):
         valor_escalado, unidade = escalar_valor(valor_fob)
         resultado[f"pais_importado{posicao}"] = nome_pais
         resultado[f"valor_pais_importado{posicao}"] = valor_escalado
