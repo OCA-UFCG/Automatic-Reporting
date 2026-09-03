@@ -1,4 +1,3 @@
-from utils.formatting import categoria_variacao as _categoria_variacao
 from utils.queries.base import executar_query
 
 PERFIL_DESENVOLVIMENTO_SOCIAL_MUNICIPAL = """

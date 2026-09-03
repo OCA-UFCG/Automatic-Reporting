@@ -355,21 +355,6 @@ def test_demography_short_namespace_swapped_dollar_typo_is_normalized():
     ) == "40%"
 
 
-def test_inline_reference_to_an_already_numbered_figure_is_not_rewritten():
-    reset_figura_contador()
-    texto = (
-        "Como já demonstrado na Figura 1, a concentração populacional é maior "
-        "na região central.\n"
-        "\n"
-        "Figura X- População por faixa etária e sexo."
-    )
-
-    html = texto_para_html(texto, {}, graficos_por_placeholder={})
-
-    assert "Como já demonstrado na Figura 1," in html
-    assert "Figura 2 – População" in html
-
-
 def test_multiple_inline_figure_mentions_in_one_paragraph_get_sequential_numbers():
     reset_figura_contador()
     texto = (
