@@ -16,6 +16,132 @@ def formatar_data_hora_extenso(data: datetime) -> str:
     return f"{formatar_data_extenso(data)}, {data.strftime('%H:%M')}"
 
 
+def montar_indicadores_macrotema(
+    macrotema_nome: str, macrotema_icone: str = "chart"
+) -> list[dict[str, str]]:
+    macrotema_normalizado = macrotema_nome.casefold()
+    fonte = "Censo demográfico 2022"
+    if "saúde" in macrotema_normalizado or "saude" in macrotema_normalizado:
+        return [
+            {
+                "nome": "Estabelecimentos de saúde",
+                "fonte": fonte,
+                "score": "4/5",
+                "classe": "very-high",
+                "icone": "hospital",
+            },
+            {
+                "nome": "Taxa de Mortalidade Infantil",
+                "fonte": fonte,
+                "score": "2/5",
+                "classe": "low",
+                "icone": "health",
+            },
+            {
+                "nome": "Doses Aplicadas",
+                "fonte": fonte,
+                "score": "3/5",
+                "classe": "high",
+                "icone": "vaccine",
+            },
+            {
+                "nome": "Postos de saúde",
+                "fonte": fonte,
+                "score": "1/5",
+                "classe": "very-low",
+                "icone": "hospital",
+            },
+            {
+                "nome": "Nascidos vivos",
+                "fonte": fonte,
+                "score": "4/5",
+                "classe": "very-high",
+                "icone": "birth",
+            },
+            {
+                "nome": "Número de hospitais",
+                "fonte": fonte,
+                "score": "3/5",
+                "classe": "high",
+                "icone": "shield",
+            },
+        ]
+
+    indicadores_economia = [
+        "PIB total e per capita",
+        "Composição setorial do VAB",
+        "Comércio exterior",
+    ]
+    indicadores_hidrica = [
+        "Cisternas",
+        "Distribuição por finalidade",
+        "Evolução temporal",
+    ]
+    indicadores_por_tema = {
+        "demografia": [
+            "População residente",
+            "Variação populacional",
+            "Sexo, idade, cor/raça",
+        ],
+        "educa": [
+            "Taxa de alfabetização",
+            "Grau de instrução",
+            "Analfabetismo",
+        ],
+        "economia": indicadores_economia,
+        "renda": indicadores_economia,
+        "saneamento": [
+            "Coleta de lixo",
+            "Esgotamento sanitário",
+            "Acesso à energia elétrica",
+        ],
+        "hidrica": indicadores_hidrica,
+        "hídrica": indicadores_hidrica,
+    }
+
+    nomes = ["Indicador 1", "Indicador 2", "Indicador 3"]
+    for chave, indicadores in indicadores_por_tema.items():
+        if chave in macrotema_normalizado:
+            nomes = indicadores
+            break
+
+    return [
+        {
+            "nome": nome,
+            "fonte": fonte,
+            "score": "N/D",
+            "classe": "unknown",
+            "icone": macrotema_icone,
+        }
+        for nome in nomes
+    ]
+
+
+def montar_score_macrotema(linha: dict) -> dict[str, str]:
+    def primeiro_valor(*chaves: str, fallback: str = "N/D") -> str:
+        for chave in chaves:
+            valor = linha.get(chave)
+            if valor is not None and str(valor).strip():
+                return str(valor)
+        return fallback
+
+    return {
+        "valor": primeiro_valor("score_geral", "score", fallback="3,66"),
+        "maximo": primeiro_valor("score_maximo", fallback="5"),
+        "status": primeiro_valor(
+            "score_status",
+            fallback="Acima da média nacional",
+        ),
+        "descricao": (
+            "Score calculado a partir dos indicadores presentes em cada um "
+            "dos temas e sua relação com média nacional."
+        ),
+        "texto_apoio": primeiro_valor(
+            "score_texto_apoio", "texto_score", fallback=""
+        ),
+    }
+
+
 def montar_capa_relatorio(
     linha: dict,
     gerado_em: datetime,
@@ -67,109 +193,6 @@ def montar_capa_relatorio(
             macrotema_icone = "chart"
             macrotema_cor = "#018F39"
 
-    def montar_indicadores_macrotema() -> list[dict[str, str]]:
-        fonte = "Censo demográfico 2022"
-        if "saúde" in macrotema_normalizado or "saude" in macrotema_normalizado:
-            return [
-                {
-                    "nome": "Estabelecimentos de saúde",
-                    "fonte": fonte,
-                    "score": "4/5",
-                    "classe": "very-high",
-                    "icone": "hospital",
-                },
-                {
-                    "nome": "Taxa de Mortalidade Infantil",
-                    "fonte": fonte,
-                    "score": "2/5",
-                    "classe": "low",
-                    "icone": "health",
-                },
-                {
-                    "nome": "Doses Aplicadas",
-                    "fonte": fonte,
-                    "score": "3/5",
-                    "classe": "high",
-                    "icone": "vaccine",
-                },
-                {
-                    "nome": "Postos de saúde",
-                    "fonte": fonte,
-                    "score": "1/5",
-                    "classe": "very-low",
-                    "icone": "hospital",
-                },
-                {
-                    "nome": "Nascidos vivos",
-                    "fonte": fonte,
-                    "score": "4/5",
-                    "classe": "very-high",
-                    "icone": "birth",
-                },
-                {
-                    "nome": "Número de hospitais",
-                    "fonte": fonte,
-                    "score": "3/5",
-                    "classe": "high",
-                    "icone": "shield",
-                },
-            ]
-
-        indicadores_por_tema = {
-            "demografia": [
-                "População residente",
-                "Variação populacional",
-                "Sexo, idade, cor/raça",
-            ],
-            "educa": [
-                "Taxa de alfabetização",
-                "Grau de instrução",
-                "Analfabetismo",
-            ],
-            "economia": [
-                "PIB total e per capita",
-                "Composição setorial do VAB",
-                "Comércio exterior",
-            ],
-            "renda": [
-                "PIB total e per capita",
-                "Composição setorial do VAB",
-                "Comércio exterior",
-            ],
-            "saneamento": [
-                "Coleta de lixo",
-                "Esgotamento sanitário",
-                "Acesso à energia elétrica",
-            ],
-            "hidrica": [
-                "Cisternas",
-                "Distribuição por finalidade",
-                "Evolução temporal",
-            ],
-            "hídrica": [
-                "Cisternas",
-                "Distribuição por finalidade",
-                "Evolução temporal",
-            ],
-        }
-
-        nomes = ["Indicador 1", "Indicador 2", "Indicador 3"]
-        for chave, indicadores in indicadores_por_tema.items():
-            if chave in macrotema_normalizado:
-                nomes = indicadores
-                break
-
-        return [
-            {
-                "nome": nome,
-                "fonte": fonte,
-                "score": "N/D",
-                "classe": "unknown",
-                "icone": macrotema_icone,
-            }
-            for nome in nomes
-        ]
-
     def primeiro_valor(*chaves: str, fallback: str = "N/D") -> str:
         for chave in chaves:
             valor = linha.get(chave)
@@ -213,40 +236,11 @@ def montar_capa_relatorio(
             ),
          "resumo": primeiro_valor("resumo_tema", fallback=""),
          "cor": macrotema_cor,
-         "score": {
-             "valor": primeiro_valor("score_geral", "score", fallback="3,66"),
-             "maximo": primeiro_valor("score_maximo", fallback="5"),
-             "status": primeiro_valor(
-                 "score_status",
-                 fallback="Acima da média nacional",
-             ),
-             "descricao": (
-                 "Score calculado a partir dos indicadores presentes em cada um "
-                 "dos temas e sua relação com média nacional."
-             ),
-             "texto_apoio": primeiro_valor(
-                 "score_texto_apoio", "texto_score", fallback=""
-             ),
-         },
+         "score": montar_score_macrotema(linha),
          "descricao": "",
             "descricao_paragrafos": [],
-            "indicadores": montar_indicadores_macrotema(),
         },
-        "score": {
-            "valor": primeiro_valor("score_geral", "score", fallback="3,66"),
-            "maximo": primeiro_valor("score_maximo", fallback="5"),
-            "status": primeiro_valor(
-                "score_status",
-                fallback="Acima da média nacional",
-            ),
-            "descricao": (
-                "Score calculado a partir dos indicadores presentes em cada um "
-                "dos temas e sua relação com média nacional."
-            ),
-            "texto_apoio": primeiro_valor(
-                "score_texto_apoio", "texto_score", fallback=""
-            ),
-        },
+        "score": montar_score_macrotema(linha),
         "metricas": [
             {
                 "rotulo": "Área territorial",

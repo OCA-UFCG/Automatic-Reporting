@@ -1,5 +1,9 @@
 from utils.render.placeholders import interpretar_blocos_condicionais
-from utils.render.renderer import substituir_placeholders, texto_para_html
+from utils.render.renderer import (
+    reset_figura_contador,
+    substituir_placeholders,
+    texto_para_html,
+)
 
 
 def test_references_and_related_content_render_as_html():
@@ -129,10 +133,90 @@ Com vários Centros POP."""
     assert "Para quando" not in resultado
 
 
+def test_social_development_gini_condition_renders_only_the_matching_branch():
+    texto = """Síntese
+Quando o índice de Gini for maior e igual a 0,5
+desen_social.$nm_mun alcançou IDHM de desen_social.$idhm_2010, mas indica que desen_social.$nomesubindice3_2010 e desen_social.$analise_gini_2010 permanecem como os principais desafios do município.
+Quando o índice de Gini for menor que 0,5
+desen_social.$nm_mun alcançou IDHM de desen_social.$idhm_2010, mas indica que desen_social.$nomesubindice3_2010 permanece como o principal desafio do município."""
+
+    contexto_desigual = {"nm_mun": "Canapi", "idhm_2010": 0.561, "gini_2010": 0.6}
+    resultado_desigual = interpretar_blocos_condicionais(texto, contexto_desigual)
+    assert "principais desafios" in resultado_desigual
+    assert "principal desafio" not in resultado_desigual
+    assert "Quando o índice de Gini" not in resultado_desigual
+
+    contexto_igualitario = {"nm_mun": "Canapi", "idhm_2010": 0.561, "gini_2010": 0.4}
+    resultado_igualitario = interpretar_blocos_condicionais(texto, contexto_igualitario)
+    assert "principal desafio" in resultado_igualitario
+    assert "principais desafios" not in resultado_igualitario
+
+
+def test_social_development_gini_condition_hides_both_branches_without_data():
+    texto = """Quando o índice de Gini for maior e igual a 0,5
+Trecho com desigualdade.
+Quando o índice de Gini for menor que 0,5
+Trecho sem desigualdade."""
+
+    resultado = interpretar_blocos_condicionais(texto, {"nm_mun": "Canapi"})
+
+    assert "Trecho com desigualdade." not in resultado
+    assert "Trecho sem desigualdade." not in resultado
+
+
+def test_social_development_namespace_alias_before_dollar_is_replaced_without_prefix():
+    contexto = {"nm_mun": "Canapi", "idhm_2010": 0.561}
+    texto = "desen_social.$nm_mun alcançou IDHM de desen_social.$idhm_2010"
+
+    assert substituir_placeholders(
+        texto, contexto, namespace="desenvolvimento-social"
+    ) == "Canapi alcançou IDHM de 0,6"
+
+
+def test_hydraulics_namespace_alias_before_dollar_is_replaced_without_prefix():
+    contexto = {"nm_mun": "Canapi"}
+    texto = "seg_hidrica.$nm_mun"
+
+    assert (
+        substituir_placeholders(texto, contexto, namespace="hidraulica") == "Canapi"
+    )
+
+
 def test_demography_short_namespace_is_normalized():
     assert substituir_placeholders(
         "demo.$etaria_maior_per%", {"etaria_maior": 40, "pop_total": 100}, "demografia"
     ) == "40%"
+
+
+def test_inline_figure_reference_is_replaced_with_the_real_figure_number():
+    reset_figura_contador()
+    texto = (
+        "Nesse contexto, a maior concentração populacional indica algo (Figura x).\n"
+        "\n"
+        "Figura X- População por faixa etária e sexo."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "(Figura 2)" in html
+    assert "Figura 2 – População" in html
+    assert "Figura x" not in html
+    assert "Figura X" not in html
+
+
+def test_inline_reference_to_an_already_numbered_figure_is_not_rewritten():
+    reset_figura_contador()
+    texto = (
+        "Como já demonstrado na Figura 1, a concentração populacional é maior "
+        "na região central.\n"
+        "\n"
+        "Figura X- População por faixa etária e sexo."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "Como já demonstrado na Figura 1," in html
+    assert "Figura 2 – População" in html
 
 
 def test_single_asterisk_chart_placeholder_is_rendered():
