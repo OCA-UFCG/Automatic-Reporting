@@ -46,6 +46,40 @@ def test_processar_indicadores_economia_calcula_variacao_e_setores_maiores(monke
     assert round(dados["imposto"], 2) == round(850_000_000.0 / 1e6, 2)
 
 
+def test_processar_indicadores_economia_calcula_atividade_maior_participacao(monkeypatch):
+    # linha de 2021: pib_total=260_030_930.0, atividade de maior VAB
+    # "Administração, defesa, educação e saúde públicas e seguridade social"
+    # com vab_setor_maior=66_669.0 -> participação = 66_669 / 260_030_930 * 100.
+    linhas_banco = [
+        (
+            2021,
+            260_030_930.0,
+            None,
+            1_000_000.0,
+            3_000_000.0,
+            9_500_000.0,
+            2_000_000.0,
+            850_000_000.0,
+            "Administração, defesa, educação e saúde públicas e seguridade social",
+            66_669.0,
+        ),
+    ]
+    monkeypatch.setattr(
+        economia_renda, "executar_query", lambda *args, **kwargs: linhas_banco
+    )
+
+    linhas = economia_renda.buscar_linhas_pib_municipal("Banabuiú", "CE")
+    dados = economia_renda.processar_indicadores_economia(linhas)
+
+    assert (
+        dados["ativ_participacao_pib"]
+        == "Administração, defesa, educação e saúde públicas e seguridade social"
+    )
+    assert round(dados["ativ_participacao_pibper"], 2) == round(
+        66_669.0 / 260_030_930.0 * 100, 2
+    )
+
+
 def test_processar_indicadores_economia_retorna_none_sem_dados(monkeypatch):
     monkeypatch.setattr(economia_renda, "executar_query", lambda *args, **kwargs: None)
 

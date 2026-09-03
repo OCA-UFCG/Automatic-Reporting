@@ -1,3 +1,4 @@
+from utils.queries.base import escalar_valor as _escalar_valor
 from utils.queries.base import executar_query
 
 DADOS_PIB_MUNICIPAL = """
@@ -9,7 +10,9 @@ DADOS_PIB_MUNICIPAL = """
         p.vab_industria,
         p.vab_servicos,
         p.vab_adm_publica,
-        p.impostos_liquidos
+        p.impostos_liquidos,
+        p.atividade_maior_vab,
+        p.vab_setor_maior
     FROM eco_pib.pib_municipal p
     JOIN carac_mun.caracteristicas_municipais c ON c.cd_mun::int = p.cd_mun::int
     WHERE LOWER(c.nm_mun) = LOWER(%s)
@@ -34,20 +37,9 @@ _COLUNAS_LINHA_PIB = (
     "vab_servicos",
     "vab_adm_publica",
     "impostos_liquidos",
+    "atividade_maior_vab",
+    "vab_setor_maior",
 )
-
-
-def _escalar_valor(valor: object) -> tuple[object, object]:
-    if valor is None:
-        return None, None
-    valor = float(valor)
-    if valor >= 1_000_000_000:
-        return valor / 1_000_000_000, "bilhões"
-    if valor >= 1_000_000:
-        return valor / 1_000_000, "milhões"
-    if valor >= 1_000:
-        return valor / 1_000, "mil"
-    return valor, ""
 
 
 def _variacao_pib(pib_2010: object, pib_2023: object) -> tuple[object, object]:
@@ -138,12 +130,23 @@ def processar_indicadores_economia(linhas: list[dict]) -> dict[str, object] | No
         "imposto": imposto,
         "imposto_unid": imposto_unid,
     }
-    # "4. Economia e Renda.md" usa setor2021_maior{1,2,3} para os 3 setores de
-    # maior VAB em 2021; nome, valor escalado e unidade de escala de cada um.
+    # setor2021_maior{1,2,3}: os 3 setores de maior VAB em 2021, com nome,
+    # valor escalado e unidade de escala de cada um.
     for posicao, (nome_setor, valor_vab) in enumerate(setores2021, start=1):
         valor_escalado, unidade = _escalar_valor(valor_vab)
         resultado[f"setor2021_maior{posicao}"] = nome_setor
         resultado[f"setor2021_valor{posicao}"] = valor_escalado
         resultado[f"setor2021_unid{posicao}"] = unidade
+
+    # Atividade econômica (CNAE) de maior VAB em 2021, mais granular que os 4
+    # setores agregados acima; participação = VAB da atividade / PIB total.
+    atividade_maior_vab = linha_2021.get("atividade_maior_vab")
+    vab_setor_maior = linha_2021.get("vab_setor_maior")
+    pib_total_2021 = linha_2021.get("pib_total")
+    if atividade_maior_vab is not None and vab_setor_maior is not None and pib_total_2021:
+        resultado["ativ_participacao_pib"] = atividade_maior_vab
+        resultado["ativ_participacao_pibper"] = (
+            float(vab_setor_maior) / float(pib_total_2021) * 100
+        )
 
     return resultado

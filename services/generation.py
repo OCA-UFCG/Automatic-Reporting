@@ -57,6 +57,10 @@ from utils.queries.demografia import (
     buscar_populacao_quilombola,
     buscar_populacao_rua,
 )
+from utils.queries.economia_importacao import (
+    buscar_linhas_importacao,
+    processar_importacao,
+)
 from utils.queries.economia_renda import (
     buscar_linhas_pib_municipal,
     processar_indicadores_economia,
@@ -161,6 +165,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     dados_tecnologias_acesso_agua = None
     dados_pib = None
     dados_indicadores_economia = None
+    dados_importacao = None
 
     for macrotema_slug in macrotema_slugs:
         try:
@@ -224,6 +229,8 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 linhas_pib = buscar_linhas_pib_municipal(nome_cidade_db, uf_db)
                 dados_pib = processar_pib_evolucao(linhas_pib)
                 dados_indicadores_economia = processar_indicadores_economia(linhas_pib)
+                linhas_importacao = buscar_linhas_importacao(nome_cidade_db, uf_db)
+                dados_importacao = processar_importacao(linhas_importacao)
             dados_rua = buscar_populacao_rua(nome_cidade_db, uf_db)
             db_consultado = True
 
@@ -276,6 +283,10 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         if "economia-renda" in macrotema_slugs and dados_indicadores_economia:
             for linha in linhas_macrotema:
                 linha.update(dados_indicadores_economia)
+
+        if "economia-renda" in macrotema_slugs and dados_importacao:
+            for linha in linhas_macrotema:
+                linha.update(dados_importacao)
 
         if linhas is None:
             linhas = linhas_macrotema
