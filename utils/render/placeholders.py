@@ -348,6 +348,9 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
     # Erro de digitação comum nos documentos: "namespace$.campo" em vez de
     # "namespace.$campo" (o "$" e o "." trocados de posição). Cobre também
     # o alias "demo" para o namespace "demografia".
+    alternativas = "|".join(
+        re.escape(alias) for alias in outros_aliases | {namespace.lower()}
+    )
     resultado = re.sub(
         rf"(?i)(?<![\w])({alternativas})\$\.",
         r"\1.$",
