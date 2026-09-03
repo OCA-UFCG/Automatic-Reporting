@@ -130,16 +130,20 @@ def processar_indicadores_economia(linhas: list[dict]) -> dict[str, object] | No
         "imposto": imposto,
         "imposto_unid": imposto_unid,
     }
-    # setor2021_maior{1,2,3}: os 3 setores de maior VAB em 2021, com nome,
-    # valor escalado e unidade de escala de cada um.
+    if any(dados[coluna] is not None for coluna in _SETORES_VAB):
+        resultado["vab_setores_2021"] = {
+            "agropecuaria": dados["vab_agropecuaria"],
+            "industria": dados["vab_industria"],
+            "servicos": dados["vab_servicos"],
+            "adm_publica": dados["vab_adm_publica"],
+        }
+
     for posicao, (nome_setor, valor_vab) in enumerate(setores2021, start=1):
         valor_escalado, unidade = _escalar_valor(valor_vab)
         resultado[f"setor2021_maior{posicao}"] = nome_setor
         resultado[f"setor2021_valor{posicao}"] = valor_escalado
         resultado[f"setor2021_unid{posicao}"] = unidade
 
-    # Atividade econômica (CNAE) de maior VAB em 2021, mais granular que os 4
-    # setores agregados acima; participação = VAB da atividade / PIB total.
     atividade_maior_vab = linha_2021.get("atividade_maior_vab")
     vab_setor_maior = linha_2021.get("vab_setor_maior")
     pib_total_2021 = linha_2021.get("pib_total")

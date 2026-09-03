@@ -37,12 +37,6 @@ _COLUNAS_LINHA_IMPORTACAO = (
 
 
 def buscar_linhas_importacao(nome_municipio: str, sigla_uf: str) -> list[dict]:
-    """Busca, em uma única consulta, as importações do último ano disponível.
-
-    O último ano é resolvido dentro do próprio SQL (subquery MAX(co_ano)) para
-    não trazer o histórico completo do município — só o necessário para o
-    resumo do último mês e a comparação janeiro x junho usados no texto.
-    """
     linhas = executar_query(
         DADOS_IMPORTACAO_MUNICIPAL,
         (nome_municipio, sigla_uf, nome_municipio, sigla_uf),
@@ -115,8 +109,6 @@ def processar_importacao(linhas: list[dict]) -> dict[str, object] | None:
     resultado["kg_importado_ultimo"] = kg_valor
     resultado["kg_importado_ultimo_unid"] = kg_unid
 
-    # pais_importado{1-4}: os 4 principais países de origem das importações
-    # do último mês, por valor FOB.
     totais_pais = _somar_por_chave(linhas_ultimo_mes, "desc_pais_portugues", "vl_fob")
     for posicao, (nome_pais, valor_fob) in enumerate(_top_n(totais_pais, 4), start=1):
         valor_escalado, unidade = escalar_valor(valor_fob)
@@ -124,8 +116,6 @@ def processar_importacao(linhas: list[dict]) -> dict[str, object] | None:
         resultado[f"valor_pais_importado{posicao}"] = valor_escalado
         resultado[f"valor_pais_importado_unid{posicao}"] = unidade
 
-    # secao_produtos{1-2}: as 2 seções (categorias amplas de produto) de
-    # maior valor FOB importado no último mês.
     totais_secao = _somar_por_chave(linhas_ultimo_mes, "desc_secao", "vl_fob")
     for posicao, (nome_secao, valor_fob) in enumerate(_top_n(totais_secao, 2), start=1):
         valor_escalado, unidade = escalar_valor(valor_fob)
@@ -133,10 +123,6 @@ def processar_importacao(linhas: list[dict]) -> dict[str, object] | None:
         resultado[f"valor_secao_importado{posicao}"] = valor_escalado
         resultado[f"valor_secao_importado_unid{posicao}"] = unidade
 
-    # produto_importado{1-2}: os 2 produtos (SH4) de maior valor FOB
-    # importado no último mês, com o respectivo volume em kg. O Doc repete o
-    # nome do produto em "produto_importado_kg1"/"produto_importadokg2" na
-    # frase sobre volume físico.
     totais_produto_fob = _somar_por_chave(linhas_ultimo_mes, "desc_sh4", "vl_fob")
     totais_produto_kg = _somar_por_chave(linhas_ultimo_mes, "desc_sh4", "kg_liquido")
     top_produtos = _top_n(totais_produto_fob, 2)
@@ -155,8 +141,6 @@ def processar_importacao(linhas: list[dict]) -> dict[str, object] | None:
     if len(top_produtos) >= 2:
         resultado["produto_importadokg2"] = top_produtos[1][0]
 
-    # Comparação do valor médio por kg entre janeiro e junho do ano corrente
-    # ("$valormedio_importado_jan" / "$valormedio_importado_jun" no texto).
     linhas_jan = [
         linha
         for linha in linhas

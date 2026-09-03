@@ -47,9 +47,6 @@ def test_processar_indicadores_economia_calcula_variacao_e_setores_maiores(monke
 
 
 def test_processar_indicadores_economia_calcula_atividade_maior_participacao(monkeypatch):
-    # linha de 2021: pib_total=260_030_930.0, atividade de maior VAB
-    # "Administração, defesa, educação e saúde públicas e seguridade social"
-    # com vab_setor_maior=66_669.0 -> participação = 66_669 / 260_030_930 * 100.
     linhas_banco = [
         (
             2021,
@@ -78,6 +75,25 @@ def test_processar_indicadores_economia_calcula_atividade_maior_participacao(mon
     assert round(dados["ativ_participacao_pibper"], 2) == round(
         66_669.0 / 260_030_930.0 * 100, 2
     )
+
+
+def test_processar_indicadores_economia_expoe_vab_bruto_dos_4_setores_fixos(monkeypatch):
+    linhas_banco = [
+        (2021, 1_081_180_000.0, None, 101_700_000.0, 225_830_000.0, 493_420_000.0, 260_230_000.0, None, None, None),
+    ]
+    monkeypatch.setattr(
+        economia_renda, "executar_query", lambda *args, **kwargs: linhas_banco
+    )
+
+    linhas = economia_renda.buscar_linhas_pib_municipal("Recife", "PE")
+    dados = economia_renda.processar_indicadores_economia(linhas)
+
+    assert dados["vab_setores_2021"] == {
+        "agropecuaria": 101_700_000.0,
+        "industria": 225_830_000.0,
+        "servicos": 493_420_000.0,
+        "adm_publica": 260_230_000.0,
+    }
 
 
 def test_processar_indicadores_economia_retorna_none_sem_dados(monkeypatch):

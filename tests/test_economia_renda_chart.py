@@ -2,7 +2,13 @@ from pathlib import Path
 
 import pytest
 
-from plotting.economia_renda import _escolher_unidade, gerar_grafico_pib
+from plotting.economia_renda import (
+    _atribuir_cores_por_ranking,
+    _dispor_setores_por_valor,
+    _escolher_unidade,
+    gerar_grafico_pib,
+    gerar_grafico_vab,
+)
 from utils.queries.economia_renda import _escalar_valor
 
 
@@ -24,6 +30,51 @@ def test_gera_grafico_com_serie_do_banco(tmp_path: Path):
 def test_grafico_exige_serie_anual():
     with pytest.raises(ValueError, match="Dados anuais"):
         gerar_grafico_pib({}, Path("/tmp"), "sem_dados")
+
+
+def test_dispor_setores_por_valor_coloca_os_2_maiores_na_linha_de_cima():
+    valores = {
+        "servicos": 260_230_000.0,
+        "industria": 101_700_000.0,
+        "adm_publica": 493_420_000.0,
+        "agropecuaria": 225_830_000.0,
+    }
+
+    linha1, linha2 = _dispor_setores_por_valor(valores)
+
+    assert [chave for chave, _valor in linha1] == ["adm_publica", "servicos"]
+    assert [chave for chave, _valor in linha2] == ["agropecuaria", "industria"]
+
+
+def test_atribuir_cores_por_ranking_da_a_cor_mais_forte_ao_maior_valor():
+    linha1 = [("adm_publica", 493_420_000.0), ("servicos", 260_230_000.0)]
+    linha2 = [("agropecuaria", 225_830_000.0), ("industria", 101_700_000.0)]
+
+    cores = _atribuir_cores_por_ranking(linha1, linha2)
+
+    assert list(cores.keys()) == ["adm_publica", "servicos", "agropecuaria", "industria"]
+    assert len(set(cores.values())) == 4
+
+
+def test_gera_grafico_vab_com_os_4_setores_do_banco(tmp_path: Path):
+    cidade = {
+        "vab_setores_2021": {
+            "agropecuaria": 101_700_000.0,
+            "industria": 225_830_000.0,
+            "servicos": 493_420_000.0,
+            "adm_publica": 260_230_000.0,
+        }
+    }
+
+    arquivo = gerar_grafico_vab(cidade, tmp_path, "recife_pe")
+
+    assert arquivo == "grafico_vab_recife_pe.png"
+    assert (tmp_path / arquivo).is_file()
+
+
+def test_grafico_vab_exige_dados_de_setor():
+    with pytest.raises(ValueError, match="VAB por setor"):
+        gerar_grafico_vab({}, Path("/tmp"), "sem_dados")
 
 
 @pytest.mark.parametrize("valor", [500, 25_000, 3_000_000, 12_945_093_200])

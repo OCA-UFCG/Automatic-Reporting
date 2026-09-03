@@ -8,12 +8,6 @@ logger = logging.getLogger(__name__)
 
 
 def escalar_valor(valor: object) -> tuple[object, object]:
-    """Reduz um valor monetário/numérico grande para a menor unidade legível.
-
-    Usado pelos textos dos macrotemas, que esperam o par (valor, unidade) —
-    ex.: 12_945_093_200 -> (12.95, "bilhões") — para compor frases como
-    "R$ $valor $unidade".
-    """
     if valor is None:
         return None, None
     valor = float(valor)

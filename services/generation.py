@@ -17,7 +17,7 @@ from plotting.demografia import (
     gerar_grafico_faixa_etaria_e_sexo,
 )
 from plotting.desenvolvimento_social import gerar_grafico_de_desenvolvimento_social
-from plotting.economia_renda import gerar_grafico_pib
+from plotting.economia_renda import gerar_grafico_pib, gerar_grafico_vab
 from plotting.educacao import gerar_grafico_cor_faixa_etaria
 from plotting.hidraulica import gerar_grafico_tecnologias_acesso_agua
 from plotting.saude import (
@@ -564,6 +564,21 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             except ValueError as err:
                 logger.warning(
                     "Não foi possível gerar o gráfico de evolução do PIB "
+                    "para '%s': %s",
+                    safe_report,
+                    err,
+                )
+
+            try:
+                chart_file_name = gerar_grafico_vab(
+                    cidade=linhas_macrotema[0],
+                    OUTPUT_DIR=OUTPUT_DIR,
+                    safe_city=safe_report or "relatorio",
+                )
+                graficos_por_placeholder["grafico_vab"] = chart_file_name
+            except ValueError as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de VAB por setor "
                     "para '%s': %s",
                     safe_report,
                     err,

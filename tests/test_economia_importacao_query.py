@@ -36,7 +36,6 @@ def test_processar_importacao_calcula_resumo_paises_secoes_e_produtos_do_ultimo_
         {"co_ano": 2026, "co_mes": "06", "desc_mes": "junho", "desc_pais_portugues": "País B", "desc_secao": "Seção X", "desc_sh4": "Produto 1", "kg_liquido": 300.0, "vl_fob": 15000.0},
         {"co_ano": 2026, "co_mes": "06", "desc_mes": "junho", "desc_pais_portugues": "País C", "desc_secao": "Seção Y", "desc_sh4": "Produto 3", "kg_liquido": 50.0, "vl_fob": 8000.0},
         {"co_ano": 2026, "co_mes": "06", "desc_mes": "junho", "desc_pais_portugues": "País D", "desc_secao": "Seção Y", "desc_sh4": "Produto 3", "kg_liquido": 20.0, "vl_fob": 3000.0},
-        # País E é o 5º em valor FOB no mês e deve ficar de fora do top-4.
         {"co_ano": 2026, "co_mes": "06", "desc_mes": "junho", "desc_pais_portugues": "País E", "desc_secao": "Seção X", "desc_sh4": "Produto 1", "kg_liquido": 10.0, "vl_fob": 1000.0},
     ]
 
