@@ -55,8 +55,8 @@ def _avaliar_condicao_editorial(
 
 
 _CONDICAO_GINI = re.compile(
-    r"(?i)^quando\s+o\s+[íi]ndice\s+de\s+gini\s+for\s+"
-    r"(maior\s+e\s+igual\s+a|menor\s+que)\s+([\d]+(?:[.,]\d+)?)\s*:?\s*$"
+    r"(?i)^(?:para\s+)?quando\s+o\s+[íi]ndice\s+de\s+gini\s+for\s+"
+    r"(maior\s+(?:e|ou)\s+igual\s+a|menor\s+que)\s+([\d]+(?:[.,]\d+)?)\s*:?\s*$"
 )
 
 
@@ -268,14 +268,39 @@ def _resolver_campo_com_alias(contexto: dict, campo: str) -> object | None:
     return None
 
 
-def _formatar_valor(valor: object) -> str:
+def _formatar_valor(valor: object, decimais: int | None = None) -> str:
     if isinstance(valor, bool):
         return str(valor)
     if isinstance(valor, (int, float, Decimal)):
         numero = float(valor)
-        decimais = 0 if numero == int(numero) else 1
+        if decimais is None:
+            decimais = 0 if numero == int(numero) else 1
         return formatar_numero_ptbr(numero, decimais=decimais)
     return str(valor)
+
+
+_SUFIXO_PRECISAO = re.compile(r"\$([A-Za-z_][\w]*):(\d+)\b")
+
+
+def _extrair_precisoes(texto: str) -> tuple[str, dict[str, int]]:
+    """Extrai sufixos de precisão dos placeholders (ex.: ``$idhm_2010:3``
+    pede três casas decimais) e os remove do texto antes das demais
+    substituições, mantendo o restante do placeholder intacto.
+
+    O padrão global de ``_formatar_valor`` (uma casa para não-inteiros) não
+    serve para todo o documento: o IDHM e o Gini usam três casas, e um corte
+    de exibição em uma casa pode até mudar de faixa um valor perto de um
+    limiar (ex.: Gini 0,542 exibido como "0,5"). Em vez de tornar o
+    formatador ciente de cada campo, o próprio Doc pede a precisão que
+    precisa.
+    """
+    precisoes: dict[str, int] = {}
+
+    def _capturar(match: re.Match) -> str:
+        precisoes[match.group(1)] = int(match.group(2))
+        return f"${match.group(1)}"
+
+    return _SUFIXO_PRECISAO.sub(_capturar, texto), precisoes
 
 
 def _resolver_contexto_por_alias(contexto: dict, alias: str, namespace: str) -> dict:
@@ -290,6 +315,8 @@ def _resolver_contexto_por_alias(contexto: dict, alias: str, namespace: str) -> 
 
 
 def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demografia") -> str:
+    texto, precisoes = _extrair_precisoes(texto)
+
     alias_de_tabela = {
         "table": _resolver_contexto_por_alias(contexto, "table", namespace),
         "tabela": _resolver_contexto_por_alias(contexto, "tabela", namespace),
@@ -301,8 +328,13 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
     }
 
     def _resolver_ou_manter(match: re.Match) -> str:
-        valor = _resolver_campo_com_alias(contexto, match.group(1))
-        return _formatar_valor(valor) if valor is not None else match.group(0)
+        campo = match.group(1)
+        valor = _resolver_campo_com_alias(contexto, campo)
+        return (
+            _formatar_valor(valor, precisoes.get(campo))
+            if valor is not None
+            else match.group(0)
+        )
 
     def _substituir_dolar(match: re.Match) -> str:
         placeholder_namespace = match.group(1).lower()
@@ -317,7 +349,7 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
         if isinstance(contexto_alvo, dict):
             valor = _resolver_campo_com_alias(contexto_alvo, campo)
             if valor is not None:
-                return _formatar_valor(valor)
+                return _formatar_valor(valor, precisoes.get(campo))
         return match.group(0)
 
     alias_map = {
