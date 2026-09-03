@@ -17,7 +17,11 @@ from plotting.demografia import (
     gerar_grafico_faixa_etaria_e_sexo,
 )
 from plotting.desenvolvimento_social import gerar_grafico_de_desenvolvimento_social
-from plotting.economia_renda import gerar_grafico_fob, gerar_grafico_pib, gerar_grafico_vab
+from plotting.economia_renda import (
+    gerar_grafico_fob,
+    gerar_grafico_pib,
+    gerar_grafico_vab,
+)
 from plotting.educacao import gerar_grafico_cor_faixa_etaria
 from plotting.hidraulica import gerar_grafico_tecnologias_acesso_agua
 from plotting.saude import (
