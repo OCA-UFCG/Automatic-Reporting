@@ -249,6 +249,8 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
     resultado = texto
     if namespace.lower() == "demografia":
         resultado = re.sub(r"(?i)(?<![\w])demo\.\$", "demografia.$", resultado)
+    if namespace.lower() == "economia-renda":
+        resultado = re.sub(r"(?i)(?<![\w])economia\.\$", "economia-renda.$", resultado)
 
     # Erro de digitação comum nos documentos: "namespace$.campo" em vez de
     # "namespace.$campo" (o "$" e o "." trocados de posição).
