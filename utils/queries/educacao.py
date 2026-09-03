@@ -1,5 +1,72 @@
 from utils.queries.base import executar_query
 
+COLUNAS_PERFIL_EDUCACIONAL = [
+    "nm_mun",
+    "estado",
+    "sigla_uf",
+    "ano",
+    "pri_nivel_classe",
+    "pri_nivel_per",
+    "pri_nivel_pop",
+    "seg_nivel_classe",
+    "seg_nivel_per",
+    "seg_nivel_pop",
+    "ter_nivel_classe",
+    "ter_nivel_per",
+    "ter_nivel_pop",
+    "quar_nivel_classe",
+    "quar_nivel_per",
+    "quar_nivel_pop",
+    "alfabetizado_per",
+    "tend_sem_instr",
+    "sem_instr_2000",
+    "sem_instr_2022",
+    "tend_nivel_sup",
+    "fund_comp_per",
+    "comp_fund_br",
+    "sup_comp_per",
+    "comp_sup_br",
+    "sup_comp_mulher",
+    "sup_comp_homem",
+    "comp_alfab_pne",
+    "analf_faixa_maior",
+    "pri_cor_analf",
+    "pri_cor_analf_per",
+    "seg_cor_analf",
+    "ter_cor_analf",
+    "inter_cor_analf_per",
+    "ult_cor_analf",
+    "ult_cor_analf_per",
+    "tend_sem_instr_per",
+    "tend_nivel_sup_per",
+    "comp_fund_br_per",
+    "comp_sup_br_per",
+    "comp_alfab_pne_per",
+    "analf_faixa_menor",
+    "sint_evolucao_per",
+    "sint_evolucao",
+]
+
+PERFIL_EDUCACIONAL_MUNICIPIO = f"""
+    SELECT {", ".join(COLUNAS_PERFIL_EDUCACIONAL)}
+    FROM relatorios_auto.vw_perfil_educacional_municipal
+    WHERE nm_mun = %s AND sigla_uf = %s
+"""
+
+
+def buscar_perfil_educacional_municipio(
+    nome_municipio: str, sigla_uf: str
+) -> dict[str, object] | None:
+    linha = executar_query(
+        PERFIL_EDUCACIONAL_MUNICIPIO,
+        (f"{nome_municipio} ({sigla_uf})", sigla_uf),
+        f"perfil educacional de '{nome_municipio} ({sigla_uf})'",
+    )
+    if linha is None:
+        return None
+
+    return dict(zip(COLUNAS_PERFIL_EDUCACIONAL, linha))
+
 FAIXAS_ETARIAS_EDUCACAO = [
     ("15_a_19", "15 a 19 anos"),
     ("20_a_29", "20 a 29 anos"),
