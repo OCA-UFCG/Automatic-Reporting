@@ -15,6 +15,40 @@ _ALIASES_NAMESPACE = {
 }
 
 
+# Cada operador é tentado nessa ordem contra o trecho de texto que segue um
+# "$campo" na condição; a ordem importa porque frases mais específicas (ex.:
+# "maior ou igual a") contêm substrings de frases mais genéricas (ex.: "igual
+# a") e precisam ser checadas antes. Os grupos capturados (sempre inteiros no
+# texto dos Docs) são os limites/limiares usados pela função de teste.
+_OPERADORES_EDITORIAIS: list[tuple[re.Pattern, object]] = [
+    (re.compile(r"de\s+(\d+)\s+a\s+(\d+)"), lambda v, a, b: a <= v <= b),
+    (re.compile(r"entre\s+(\d+)\s+e\s+(\d+)"), lambda v, a, b: a <= v <= b),
+    (re.compile(r"maior\s+ou\s+igual\s+a\s+(\d+)"), lambda v, n: v >= n),
+    (re.compile(r"menor\s+ou\s+igual\s+a\s+(\d+)"), lambda v, n: v <= n),
+    (re.compile(r"maior\s+que\s+(\d+)"), lambda v, n: v > n),
+    (re.compile(r"menor\s+que\s+(\d+)"), lambda v, n: v < n),
+    (re.compile(r"diferente\s+de\s+(\d+)"), lambda v, n: v != n),
+    (re.compile(r"igual\s+a\s+(\d+)"), lambda v, n: v == n),
+]
+
+# Campos onde `None` (sem dado no banco) não pode ser tratado como zero: a
+# ausência de dado é distinta de um valor zero de fato, e confundi-las
+# afirmaria algo que a fonte de dados não garante (ver o caso histórico de
+# `demografia.$centro_pop`). Lista explícita — e não automática pra qualquer
+# campo único — porque em outros campos (ex.: contagens auxiliares que vêm
+# NULL quando uma categoria simplesmente não se aplica) `None` equivaler a
+# zero é o comportamento correto.
+_CAMPOS_NULL_SENSIVEIS = {"centro_pop", "n_uc"}
+
+
+def _parse_operador_editorial(trecho: str):
+    for padrao, atende in _OPERADORES_EDITORIAIS:
+        match = padrao.search(trecho)
+        if match:
+            return atende, tuple(float(grupo) for grupo in match.groups())
+    return None
+
+
 def _avaliar_condicao_editorial(
     matches: list[re.Match], expressao: str, contexto: dict
 ) -> bool:
@@ -28,28 +62,19 @@ def _avaliar_condicao_editorial(
             return 0.0
 
     valores = [numero(campo) for campo in campos]
-    operadores: list[str | None] = []
+    operadores = []
     for indice, match in enumerate(matches):
         fim = matches[indice + 1].start() if indice + 1 < len(matches) else len(expressao)
         trecho = expressao[match.end():fim].casefold()
-        operador = next(
-            (op for op in ("maior que 1", "diferente de 0", "igual a 0", "igual a 1") if op in trecho),
-            None,
-        )
-        operadores.append(operador)
+        operadores.append(_parse_operador_editorial(trecho))
     operador_compartilhado = next((op for op in reversed(operadores) if op), None)
     operadores = [op or operador_compartilhado for op in operadores]
 
-    def atende(valor: float, operador: str | None) -> bool:
-        if operador == "maior que 1":
-            return valor > 1
-        if operador == "diferente de 0":
-            return valor != 0
-        if operador == "igual a 0":
-            return valor == 0
-        if operador == "igual a 1":
-            return valor == 1
-        return False
+    def atende(valor: float, operador) -> bool:
+        if operador is None:
+            return False
+        funcao, argumentos = operador
+        return funcao(valor, *argumentos)
 
     return all(atende(valor, operador) for valor, operador in zip(valores, operadores))
 
@@ -93,7 +118,7 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                     bloco_ativo = atende
                 elif "pop_ind_2010" in campos:
                     bloco_ativo = bloco_populacoes_ativo and atende
-                elif len(campos) == 1:
+                elif len(campos) == 1 and campos <= _CAMPOS_NULL_SENSIVEIS:
                     (campo_unico,) = campos
                     bloco_ativo = (
                         _resolver_campo_com_alias(contexto, campo_unico) is not None
@@ -369,7 +394,7 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
     if outros_aliases:
         alternativas_alias = "|".join(re.escape(alias) for alias in outros_aliases)
         resultado = re.sub(
-            rf"(?i)(?<![\w])(?:{alternativas_alias})\.\$",
+            rf"(?i)(?<![\w-])(?:{alternativas_alias})\.\$",
             f"{namespace}.$",
             resultado,
         )
@@ -381,7 +406,7 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
         re.escape(alias) for alias in outros_aliases | {namespace.lower()}
     )
     resultado = re.sub(
-        rf"(?i)(?<![\w])({alternativas})\$\.",
+        rf"(?i)(?<![\w-])({alternativas})\$\.",
         r"\1.$",
         resultado,
     )
