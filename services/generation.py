@@ -196,17 +196,26 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
 
         if perfil_db:
             linha_db = dict(perfil_db)
-            # Mantém o formato "Cidade (UF)" em nm_mun — é o que
-            # separar_cidade_uf/resolver_nome_uf esperam a jusante (capa,
-            # mapas), igual ao que já vem das linhas de CSV.
-            linha_db["nm_mun"] = f"{nome_cidade_perfil} ({uf_perfil})"
+            # Usa o nome canônico da própria view (grafia/acentuação corretas),
+            # nunca o texto digitado pelo usuário — do contrário o
+            # enriquecimento a jusante (características, demografia, saúde…), que
+            # casa nm_mun de forma case-sensitive, não encontra a cidade. Garante
+            # o formato "Cidade (UF)" que resolver_nome_uf/capa/mapas esperam,
+            # removendo antes um sufixo "(UF)" que algumas views já trazem.
+            nome_canonico = re.sub(
+                r"\s*\([^)]*\)\s*$", "", str(perfil_db.get("nm_mun") or nome_cidade_perfil)
+            ).strip()
+            linha_db["nm_mun"] = f"{nome_canonico} ({uf_perfil})"
             linhas_macrotema = [linha_db]
         else:
-            logger.warning(
-                "Sem dados no banco para '%s' (%s); usando CSV como fallback.",
-                cidade,
-                macrotema_slug,
-            )
+            if uf_perfil:
+                # Só é fallback de verdade quando o banco foi consultado e não
+                # tinha a cidade; sem UF a view sequer é chamada.
+                logger.warning(
+                    "Sem dados no banco para '%s' (%s); usando CSV como fallback.",
+                    cidade,
+                    macrotema_slug,
+                )
             csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
             csv_source = resolve_csv_source(csv_url, csv_env)
             df = carregar_csv(csv_source)
