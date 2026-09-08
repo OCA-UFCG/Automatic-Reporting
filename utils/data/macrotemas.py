@@ -10,6 +10,7 @@ from config import (
     EDUCACAO_DOCS_URL,
     HIDRAULICA_CSV_URL,
     HIDRAULICA_DOCS_URL,
+    MEIO_AMBIENTE_CSV_URL,
     MEIO_AMBIENTE_DOCS_URL,
     SANEAMENTO_CSV_URL,
     SANEAMENTO_DOCS_URL,
@@ -89,7 +90,7 @@ MACROTEMAS: dict[str, Macrotema] = {
         "icone": "leaf",
         "docs_url": MEIO_AMBIENTE_DOCS_URL,
         "docs_env": "MEIO_AMBIENTE_DOCS_URL",
-        "csv_url": "",
+        "csv_url": MEIO_AMBIENTE_CSV_URL,
         "csv_env": "MEIO_AMBIENTE_CSV_URL",
     },
     "saneamento": {

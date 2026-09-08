@@ -7,6 +7,7 @@ VIEW_POR_MACROTEMA = {
     "economia-renda": "vw_perfil_economia_e_renda",
     "saneamento": "vw_perfil_infraestrutura_municipal",
     "hidraulica": "vw_seguranca_hidrica",
+    "meio-ambiente": "vw_perfil_ambiente_municipal",
 }
 
 

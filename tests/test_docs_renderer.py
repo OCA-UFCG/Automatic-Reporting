@@ -415,3 +415,33 @@ def test_single_asterisk_chart_placeholder_is_rendered():
     )
 
     assert '<img src="/output/grafico_canapi.png"' in html
+
+
+def test_single_field_zero_one_many_condition_renders_only_the_matching_block():
+    """Mesmo padrão 0/1/>1 do centro_pop (demografia), aplicado a um campo
+    genérico de outro macrotema (n_uc, de meio-ambiente) — a checagem de
+    NULL não deve ficar restrita ao nome 'centro_pop'."""
+    texto = """Para meio-ambiente.$n_uc for igual a 0:
+Sem UC.
+Para meio-ambiente.$n_uc for igual a 1:
+Com uma UC.
+Para meio-ambiente.$n_uc maior que 1:
+Com várias UCs."""
+
+    resultado_zero = interpretar_blocos_condicionais(texto, {"n_uc": 0})
+    assert "Sem UC." in resultado_zero
+    assert "Com uma UC." not in resultado_zero
+    assert "Com várias UCs." not in resultado_zero
+
+    resultado_uma = interpretar_blocos_condicionais(texto, {"n_uc": 1})
+    assert "Com uma UC." in resultado_uma
+
+    resultado_varias = interpretar_blocos_condicionais(texto, {"n_uc": 3})
+    assert "Com várias UCs." in resultado_varias
+
+    # n_uc ausente do contexto (NULL no banco): nenhum bloco pode afirmar
+    # "zero" só porque o valor ausente foi coagido para 0.
+    resultado_sem_dado = interpretar_blocos_condicionais(texto, {})
+    assert "Sem UC." not in resultado_sem_dado
+    assert "Com uma UC." not in resultado_sem_dado
+    assert "Com várias UCs." not in resultado_sem_dado

@@ -93,13 +93,10 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                     bloco_ativo = atende
                 elif "pop_ind_2010" in campos:
                     bloco_ativo = bloco_populacoes_ativo and atende
-                elif campos == {"centro_pop"}:
-                    # centro_pop vem NULL do banco quando não há dado (distinto de
-                    # 0 Centros POP). Sem checar a presença, "igual a 0" também
-                    # casaria com ausência de dado e afirmaria erroneamente que o
-                    # município não tinha Centro POP.
+                elif len(campos) == 1:
+                    (campo_unico,) = campos
                     bloco_ativo = (
-                        _resolver_campo_com_alias(contexto, "centro_pop") is not None
+                        _resolver_campo_com_alias(contexto, campo_unico) is not None
                         and atende
                     )
                 else:
