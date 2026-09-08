@@ -191,21 +191,17 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             # Educação não depende de CSV: a linha inteira (texto e gráfico)
             # vem da view relatorios_auto.vw_perfil_educacional_municipal.
             nome_cidade_educ, uf_educ = separar_cidade_uf(cidade)
-            if not uf_educ:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Informe o estado da cidade, ex: '{nome_cidade_educ} (UF)'.",
+            try:
+                perfil_educacional = buscar_perfil_educacional_municipio(
+                    nome_cidade_educ, uf_educ
                 )
-            perfil_educacional = buscar_perfil_educacional_municipio(
-                nome_cidade_educ, uf_educ
-            )
+            except ValueError as err:
+                raise HTTPException(status_code=400, detail=str(err))
             if not perfil_educacional:
                 raise HTTPException(
                     status_code=404, detail=f"Cidade '{cidade}' não encontrada."
                 )
-            linha_educacao = dict(perfil_educacional)
-            linha_educacao["nm_mun"] = nome_cidade_educ
-            linhas_macrotema = [linha_educacao]
+            linhas_macrotema = [dict(perfil_educacional)]
         else:
             csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
             csv_source = resolve_csv_source(csv_url, csv_env)

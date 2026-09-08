@@ -24,7 +24,6 @@ def get_config_value(name: str) -> str | None:
 
 
 DEMOGRAFIA_CSV_URL = get_config_value("DEMOGRAFIA_CSV_URL")
-EDUCACAO_CSV_URL = get_config_value("EDUCACAO_CSV_URL")
 SAUDE_CSV_URL = get_config_value("SAUDE_CSV_URL")
 ECONOMIA_RENDA_CSV_URL = get_config_value("ECONOMIA_RENDA_CSV_URL")
 SANEAMENTO_CSV_URL = get_config_value("SANEAMENTO_CSV_URL")
@@ -57,8 +56,6 @@ MACROTEMAS = {
         "nome": "Educação",
         "docs_url": EDUCACAO_DOCS_URL,
         "docs_env": "EDUCACAO_DOCS_URL",
-        "csv_url": EDUCACAO_CSV_URL,
-        "csv_env": "EDUCACAO_CSV_URL",
     },
     "saude": {
         "nome": "Saúde",

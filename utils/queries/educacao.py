@@ -50,23 +50,55 @@ COLUNAS_PERFIL_EDUCACIONAL = [
 PERFIL_EDUCACIONAL_MUNICIPIO = f"""
     SELECT {", ".join(COLUNAS_PERFIL_EDUCACIONAL)}
     FROM relatorios_auto.vw_perfil_educacional_municipal
-    WHERE nm_mun = %s AND sigla_uf = %s
+    WHERE LOWER(nm_mun) = LOWER(%s) AND UPPER(sigla_uf) = UPPER(%s)
 """
+
+PERFIL_EDUCACIONAL_MUNICIPIO_POR_NOME = f"""
+    SELECT {", ".join(COLUNAS_PERFIL_EDUCACIONAL)}
+    FROM relatorios_auto.vw_perfil_educacional_municipal
+    WHERE LOWER(nm_mun) = LOWER(%s)
+"""
+
+_INDICE_SIGLA_UF = COLUNAS_PERFIL_EDUCACIONAL.index("sigla_uf")
 
 
 def buscar_perfil_educacional_municipio(
-    nome_municipio: str, sigla_uf: str
+    nome_municipio: str, sigla_uf: str = ""
 ) -> dict[str, object] | None:
-    linha = executar_query(
-        PERFIL_EDUCACIONAL_MUNICIPIO,
-        (f"{nome_municipio} ({sigla_uf})", sigla_uf),
-        f"perfil educacional de '{nome_municipio} ({sigla_uf})'",
+    if sigla_uf:
+        linha = executar_query(
+            PERFIL_EDUCACIONAL_MUNICIPIO,
+            (nome_municipio, sigla_uf),
+            f"perfil educacional de '{nome_municipio} ({sigla_uf})'",
+        )
+        if linha is None:
+            return None
+        return dict(zip(COLUNAS_PERFIL_EDUCACIONAL, linha))
+
+    linhas = executar_query(
+        PERFIL_EDUCACIONAL_MUNICIPIO_POR_NOME,
+        (nome_municipio,),
+        f"perfil educacional de '{nome_municipio}'",
+        buscar_todas=True,
     )
-    if linha is None:
+    if not linhas:
         return None
 
-    return dict(zip(COLUNAS_PERFIL_EDUCACIONAL, linha))
+    ufs_encontradas = sorted({linha[_INDICE_SIGLA_UF] for linha in linhas})
+    if len(ufs_encontradas) > 1:
+        raise ValueError(
+            f"Cidade ambígua: '{nome_municipio}' encontrada em "
+            f"{', '.join(ufs_encontradas)}. Indique o estado, ex: "
+            f"'{nome_municipio} ({ufs_encontradas[0]})'"
+        )
 
+    return dict(zip(COLUNAS_PERFIL_EDUCACIONAL, linhas[0]))
+
+
+# O gráfico de taxas por cor/faixa etária consulta edu_analfabetismo.vw_analfabetismo_2022,
+# uma fonte diferente de relatorios_auto.vw_perfil_educacional_municipal (usada pelo texto
+# acima). É intencional por ora: essa view não tem o detalhamento por cor/faixa etária que
+# o gráfico precisa. Se um dia isso mudar, reavaliar se dá para unificar as duas consultas.
 FAIXAS_ETARIAS_EDUCACAO = [
     ("15_a_19", "15 a 19 anos"),
     ("20_a_29", "20 a 29 anos"),
@@ -94,7 +126,7 @@ TAXAS_EDUCACAO_POR_COR_FAIXA = """
     FROM edu_analfabetismo.vw_analfabetismo_2022
     WHERE cd_mun = (
         SELECT cd_mun::int FROM carac_mun.caracteristicas_municipais
-        WHERE nm_mun = %s AND sigla_uf = %s
+        WHERE LOWER(nm_mun) = LOWER(%s) AND UPPER(sigla_uf) = UPPER(%s)
     )
       AND faixa_etaria IN (
         '15 a 19 anos', '20 a 29 anos', '30 a 39 anos',

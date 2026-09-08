@@ -6,7 +6,6 @@ from config import (
     DESENVOLVIMENTO_SOCIAL_DOCS_URL,
     ECONOMIA_RENDA_CSV_URL,
     ECONOMIA_RENDA_DOCS_URL,
-    EDUCACAO_CSV_URL,
     EDUCACAO_DOCS_URL,
     HIDRAULICA_CSV_URL,
     HIDRAULICA_DOCS_URL,
@@ -44,7 +43,7 @@ MACROTEMAS: dict[str, Macrotema] = {
         "icone": "book",
         "docs_url": EDUCACAO_DOCS_URL,
         "docs_env": "EDUCACAO_DOCS_URL",
-        "csv_url": EDUCACAO_CSV_URL,
+        "csv_url": "",
         "csv_env": "EDUCACAO_CSV_URL",
     },
     "saude": {
