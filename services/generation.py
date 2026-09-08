@@ -53,7 +53,7 @@ from utils.external.docs import (
     extrair_resumo_tema,
     remover_titulos_docs,
 )
-from utils.geografia import resolver_nome_uf
+from utils.geografia import resolver_nome_uf, separar_cidade_uf
 from utils.queries.caracteristicas import buscar_caracteristicas_municipio
 from utils.queries.demografia import (
     buscar_demografia_sexo_faixa_etaria,
@@ -72,6 +72,7 @@ from utils.queries.economia_renda import (
 )
 from utils.queries.educacao import buscar_taxas_educacao_cor_faixa_etaria
 from utils.queries.hidraulica import buscar_tecnologias_acesso_agua
+from utils.queries.perfil_municipal import buscar_perfil_municipal
 from utils.queries.saude import (
     buscar_cobertura_vacinal,
     buscar_estabelecimentos_saude_serie,
@@ -184,20 +185,44 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 macrotema_dados["docs_env"],
             )
             continue
-        csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
-        csv_source = resolve_csv_source(csv_url, csv_env)
-        df = carregar_csv(csv_source)
-        df = normalizar_colunas_macrotema(df, macrotema_slug)
+        # O banco (`relatorios_auto.vw_perfil_*`) é a fonte primária: só cai
+        # para o CSV se a view não tiver a cidade ou o banco estiver fora do ar.
+        nome_cidade_perfil, uf_perfil = separar_cidade_uf(cidade)
+        perfil_db = (
+            buscar_perfil_municipal(macrotema_slug, nome_cidade_perfil, uf_perfil)
+            if uf_perfil
+            else None
+        )
 
-        try:
-            linhas_df = filtrar_linhas_por_cidade(df, cidade)
-        except ValueError as err:
-            raise HTTPException(status_code=400, detail=str(err))
+        if perfil_db:
+            linha_db = dict(perfil_db)
+            # Mantém o formato "Cidade (UF)" em nm_mun — é o que
+            # separar_cidade_uf/resolver_nome_uf esperam a jusante (capa,
+            # mapas), igual ao que já vem das linhas de CSV.
+            linha_db["nm_mun"] = f"{nome_cidade_perfil} ({uf_perfil})"
+            linhas_macrotema = [linha_db]
+        else:
+            logger.warning(
+                "Sem dados no banco para '%s' (%s); usando CSV como fallback.",
+                cidade,
+                macrotema_slug,
+            )
+            csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
+            csv_source = resolve_csv_source(csv_url, csv_env)
+            df = carregar_csv(csv_source)
+            df = normalizar_colunas_macrotema(df, macrotema_slug)
 
-        linhas_macrotema = linhas_df.to_dict("records")
+            try:
+                linhas_df = filtrar_linhas_por_cidade(df, cidade)
+            except ValueError as err:
+                raise HTTPException(status_code=400, detail=str(err))
 
-        if not linhas_macrotema:
-            raise HTTPException(status_code=404, detail=f"Cidade '{cidade}' não encontrada.")
+            linhas_macrotema = linhas_df.to_dict("records")
+
+            if not linhas_macrotema:
+                raise HTTPException(
+                    status_code=404, detail=f"Cidade '{cidade}' não encontrada."
+                )
 
         for linha in linhas_macrotema:
             linha["data_relatorio"] = gerado_em.strftime("%d/%m/%Y")
