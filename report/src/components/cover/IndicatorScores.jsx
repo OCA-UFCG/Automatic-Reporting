@@ -23,6 +23,13 @@ export default function IndicatorScores({ macrotema }) {
             {linha.map((indicador, idxIndicador) => (
               <IndicatorScoreCard key={idxIndicador} indicador={indicador} />
             ))}
+            {/* Células vazias completando a linha: como a grade é uma tabela CSS,
+                sem elas o último card de uma linha incompleta esticaria até a
+                largura toda. Um macrotema pode ter menos de 3 indicadores com
+                valor no banco (os sem valor são omitidos em utils/cover.py). */}
+            {Array.from({ length: INDICADORES_POR_LINHA - linha.length }, (_, idxVazio) => (
+              <div className="indicator-score-spacer" key={`vazio-${idxVazio}`} />
+            ))}
           </div>
         ))}
       </div>

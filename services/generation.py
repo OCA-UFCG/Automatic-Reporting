@@ -76,6 +76,7 @@ from utils.queries.educacao import (
     buscar_taxas_educacao_cor_faixa_etaria,
 )
 from utils.queries.hidraulica import buscar_tecnologias_acesso_agua
+from utils.queries.indicadores import buscar_indicadores_municipio
 from utils.queries.perfil_municipal import buscar_perfil_municipal
 from utils.queries.saneamento import buscar_esgotamento_sanitario
 from utils.queries.saude import (
@@ -186,6 +187,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     dados_perfil_desenvolvimento_social = None
     dados_pib = None
     dados_indicadores_economia = None
+    dados_indicadores = None
 
     for macrotema_slug in macrotema_slugs:
         try:
@@ -329,6 +331,9 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 dados_pib = processar_pib_evolucao(linhas_pib)
                 dados_indicadores_economia = processar_indicadores_economia(linhas_pib)
             dados_rua = buscar_populacao_rua(nome_cidade_db, uf_db)
+            # Painel de indicadores da capa: uma única linha em vw_indicadores
+            # cobre todos os macrotemas, então a busca fica fora dos ifs.
+            dados_indicadores = buscar_indicadores_municipio(nome_cidade_db, uf_db)
             db_consultado = True
 
         if dados_caracteristicas_db:
@@ -352,6 +357,10 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         if dados_rua:
             for linha in linhas_macrotema:
                 linha.update(dados_rua)
+
+        if dados_indicadores:
+            for linha in linhas_macrotema:
+                linha.update(dados_indicadores)
 
         if "saude" in macrotema_slugs:
             for dados_saude in (
@@ -713,7 +722,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             "descricao_html": [],
             "score": montar_score_macrotema(linhas_macrotema[0]),
             "indicadores": montar_indicadores_macrotema(
-                macrotema_dados["nome"], macrotema_dados["icone"]
+                macrotema_slug, linhas_macrotema[0], macrotema_dados["icone"]
             ),
         }
 
