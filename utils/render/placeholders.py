@@ -1,9 +1,18 @@
 import re
 from decimal import Decimal
 
-from utils.formatting import formatar_numero_ptbr
+from utils.formatting import coerce_para_float, formatar_numero_ptbr
 
 _MARCADOR_CAMPO_CONDICIONAL = re.compile(r"(?:[A-Za-z_][\w-]*\.)?\$([A-Za-z_][\w]*)")
+
+_ALIASES_NAMESPACE = {
+    "demografia": {"demografia", "demo"},
+    "economia-renda": {"economia-renda", "economia"},
+    "hidraulica": {"hidraulica", "seg_hidrica"},
+    "saneamento": {"saneamento", "infraestrutura"},
+    "meio-ambiente": {"meio-ambiente", "ambiente"},
+    "desenvolvimento-social": {"desenvolvimento-social", "desen_social"},
+}
 
 
 def _avaliar_condicao_editorial(
@@ -45,16 +54,25 @@ def _avaliar_condicao_editorial(
     return all(atende(valor, operador) for valor, operador in zip(valores, operadores))
 
 
+_CONDICAO_GINI = re.compile(
+    r"(?i)^(?:para\s+)?quando\s+o\s+[íi]ndice\s+de\s+gini\s+for\s+"
+    r"(maior\s+(?:e|ou)\s+igual\s+a|menor\s+que)\s+([\d]+(?:[.,]\d+)?)\s*:?\s*$"
+)
+
+
 def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
-    """Interpreta as instruções editoriais usadas nos documentos demográficos.
+    """Interpreta as instruções editoriais usadas nos documentos dos macrotemas.
 
     As linhas ``Para quando ...:`` controlam os parágrafos seguintes e não são
     exibidas. Condições de 2010 ficam subordinadas ao bloco indígena/quilombola
-    imediatamente anterior.
+    imediatamente anterior. O documento de desenvolvimento social usa uma
+    variante própria, sem "Para" e sem dois-pontos: ``Quando o índice de Gini
+    for maior e igual a 0,5`` / ``... for menor que 0,5``.
     """
     resultado: list[str] = []
     bloco_ativo = True
     bloco_populacoes_ativo = True
+    bloco_rua_ativo = True
 
     for linha in texto.splitlines():
         limpa = linha.strip()
@@ -75,20 +93,95 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                     bloco_ativo = atende
                 elif "pop_ind_2010" in campos:
                     bloco_ativo = bloco_populacoes_ativo and atende
+                elif campos == {"centro_pop"}:
+                    # centro_pop vem NULL do banco quando não há dado (distinto de
+                    # 0 Centros POP). Sem checar a presença, "igual a 0" também
+                    # casaria com ausência de dado e afirmaria erroneamente que o
+                    # município não tinha Centro POP.
+                    bloco_ativo = (
+                        _resolver_campo_com_alias(contexto, "centro_pop") is not None
+                        and atende
+                    )
                 else:
                     bloco_ativo = atende
                 continue
             # Sem "$campo", não é uma instrução editorial de fato — é uma frase
             # comum do texto (ex.: "Para efeito de análise:") e deve ser mantida.
 
+        condicao_gini = _CONDICAO_GINI.match(limpa)
+        if condicao_gini:
+            operador_texto, limite_texto = condicao_gini.groups()
+            limite = float(limite_texto.replace(",", "."))
+            gini = _resolver_campo_com_alias(contexto, "gini_2010")
+            gini_numero = coerce_para_float(gini, default=None)
+            if gini_numero is None:
+                bloco_ativo = False
+            elif "menor" in operador_texto.casefold():
+                bloco_ativo = gini_numero < limite
+            else:
+                bloco_ativo = gini_numero >= limite
+            continue
+
         if limpa.casefold() in {"síntese", "sintese"}:
             bloco_ativo = True
             bloco_populacoes_ativo = True
+            bloco_rua_ativo = True
 
         # Nos documentos atuais, este parágrafo encerra as condições internas
         # referentes a 2010 e volta ao bloco indígena/quilombola principal.
-        if limpa.casefold().startswith("quanto à população quilombola"):
+        if re.match(
+            r"^quanto à população (autodeclarad[ao]\s+)?quilombola",
+            limpa.casefold(),
+        ):
             bloco_ativo = bloco_populacoes_ativo
+
+        # O parágrafo de situação de rua não tem guarda "Para quando ...:" no
+        # documento (é declarado como "sem condição"), mas depende de dados que
+        # podem não existir para o município. Sem eles, evitamos expor os
+        # placeholders crus e usamos um texto equivalente ao das outras seções
+        # quando não há registros.
+        if re.match(
+            r"(?i)^outro grupo relevante para a caracteriza[cç][aã]o da popula[cç][aã]o municipal",
+            limpa,
+        ):
+            bloco_rua_ativo = _resolver_campo_com_alias(contexto, "pop_rua_2022") is not None
+            if bloco_ativo and not bloco_rua_ativo:
+                nome_mun = _resolver_campo_com_alias(contexto, "nm_mun") or "o município"
+                resultado.append(
+                    f"Não foram encontrados registros de pessoas em situação de rua "
+                    f"para {nome_mun} na fonte de dados consultada. Contudo, esse "
+                    "resultado deve ser interpretado considerando os limites da base "
+                    "de dados utilizada, não sendo suficiente, por si só, para "
+                    "afastar a presença dessa população no município."
+                )
+                continue
+
+            # Município com levantamento de rua em 2022 mas ainda sem o de 2026:
+            # o parágrafo padrão compara os dois anos e vazaria placeholders
+            # crus (ex.: "$pop_rua_2026"). Texto provisório restrito a 2022,
+            # sem a comparação — PENDENTE de validação com o time de
+            # conteúdo/Doc antes de ir para produção.
+            if bloco_ativo and bloco_rua_ativo and (
+                _resolver_campo_com_alias(contexto, "pop_rua_2026") is None
+            ):
+                resultado.append(
+                    "Outro grupo relevante para a caracterização da população "
+                    "municipal é o de pessoas em situação de rua. Em 2022, "
+                    "demografia.$nm_mun registrava demografia.$pop_rua_2022 "
+                    "pessoas nessa condição. Entre as famílias em situação de "
+                    "rua, demografia.$pop_rua_pobreza "
+                    "(demografia.$pop_rua_pobreza_per)% estavam em situação de "
+                    "pobreza, demografia.$pop_rua_br (demografia.$pop_rua_br_per)% "
+                    "eram classificadas como de baixa renda e "
+                    "demografia.$pop_rua_acima_br "
+                    "(demografia.$pop_rua_acima_br_per)% possuíam renda acima de "
+                    "meio salário mínimo. Além disso, "
+                    "demografia.$pop_rua_bolsaf_2022 famílias em situação de rua "
+                    "eram beneficiárias do Bolsa Família. Ainda não há "
+                    "levantamento mais recente (2026) disponível na fonte "
+                    "consultada para comparação."
+                )
+                continue
 
         if bloco_ativo:
             resultado.append(linha)
@@ -175,14 +268,39 @@ def _resolver_campo_com_alias(contexto: dict, campo: str) -> object | None:
     return None
 
 
-def _formatar_valor(valor: object) -> str:
+def _formatar_valor(valor: object, decimais: int | None = None) -> str:
     if isinstance(valor, bool):
         return str(valor)
     if isinstance(valor, (int, float, Decimal)):
         numero = float(valor)
-        decimais = 0 if numero == int(numero) else 1
+        if decimais is None:
+            decimais = 0 if numero == int(numero) else 1
         return formatar_numero_ptbr(numero, decimais=decimais)
     return str(valor)
+
+
+_SUFIXO_PRECISAO = re.compile(r"\$([A-Za-z_][\w]*):(\d+)\b")
+
+
+def _extrair_precisoes(texto: str) -> tuple[str, dict[str, int]]:
+    """Extrai sufixos de precisão dos placeholders (ex.: ``$idhm_2010:3``
+    pede três casas decimais) e os remove do texto antes das demais
+    substituições, mantendo o restante do placeholder intacto.
+
+    O padrão global de ``_formatar_valor`` (uma casa para não-inteiros) não
+    serve para todo o documento: o IDHM e o Gini usam três casas, e um corte
+    de exibição em uma casa pode até mudar de faixa um valor perto de um
+    limiar (ex.: Gini 0,542 exibido como "0,5"). Em vez de tornar o
+    formatador ciente de cada campo, o próprio Doc pede a precisão que
+    precisa.
+    """
+    precisoes: dict[str, int] = {}
+
+    def _capturar(match: re.Match) -> str:
+        precisoes[match.group(1)] = int(match.group(2))
+        return f"${match.group(1)}"
+
+    return _SUFIXO_PRECISAO.sub(_capturar, texto), precisoes
 
 
 def _resolver_contexto_por_alias(contexto: dict, alias: str, namespace: str) -> dict:
@@ -197,6 +315,8 @@ def _resolver_contexto_por_alias(contexto: dict, alias: str, namespace: str) -> 
 
 
 def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demografia") -> str:
+    texto, precisoes = _extrair_precisoes(texto)
+
     alias_de_tabela = {
         "table": _resolver_contexto_por_alias(contexto, "table", namespace),
         "tabela": _resolver_contexto_por_alias(contexto, "tabela", namespace),
@@ -208,22 +328,19 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
     }
 
     def _resolver_ou_manter(match: re.Match) -> str:
-        valor = _resolver_campo_com_alias(contexto, match.group(1))
-        return _formatar_valor(valor) if valor is not None else match.group(0)
+        campo = match.group(1)
+        valor = _resolver_campo_com_alias(contexto, campo)
+        return (
+            _formatar_valor(valor, precisoes.get(campo))
+            if valor is not None
+            else match.group(0)
+        )
 
     def _substituir_dolar(match: re.Match) -> str:
         placeholder_namespace = match.group(1).lower()
         campo = match.group(2)
 
-        aliases_namespace = {
-            "demografia": {"demografia", "demo"},
-            "economia-renda": {"economia-renda", "economia"},
-            "hidraulica": {"hidraulica", "seg_hidrica"},
-            "saneamento": {"saneamento", "infraestrutura"},
-            "meio-ambiente": {"meio-ambiente", "ambiente"},
-            "desenvolvimento-social": {"desenvolvimento-social", "desen_social"},
-        }
-        namespaces_aceitos = aliases_namespace.get(namespace.lower(), {namespace.lower()})
+        namespaces_aceitos = _ALIASES_NAMESPACE.get(namespace.lower(), {namespace.lower()})
         if placeholder_namespace in namespaces_aceitos:
             contexto_alvo = contexto
         else:
@@ -232,7 +349,7 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
         if isinstance(contexto_alvo, dict):
             valor = _resolver_campo_com_alias(contexto_alvo, campo)
             if valor is not None:
-                return _formatar_valor(valor)
+                return _formatar_valor(valor, precisoes.get(campo))
         return match.group(0)
 
     alias_map = {
@@ -247,16 +364,33 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
     }
 
     resultado = texto
-    if namespace.lower() == "demografia":
-        resultado = re.sub(r"(?i)(?<![\w])demo\.\$", "demografia.$", resultado)
+
+    # Normaliza os aliases de namespace usados nos documentos (ex.: "demo.$",
+    # "desen_social.$", "economia.$") para o slug canônico do macrotema, para
+    # que o formato "namespace.$campo" abaixo os reconheça.
+    outros_aliases = _ALIASES_NAMESPACE.get(namespace.lower(), set()) - {namespace.lower()}
+    if outros_aliases:
+        alternativas_alias = "|".join(re.escape(alias) for alias in outros_aliases)
+        resultado = re.sub(
+            rf"(?i)(?<![\w])(?:{alternativas_alias})\.\$",
+            f"{namespace}.$",
+            resultado,
+        )
 
     # Erro de digitação comum nos documentos: "namespace$.campo" em vez de
-    # "namespace.$campo" (o "$" e o "." trocados de posição).
+    # "namespace.$campo" (o "$" e o "." trocados de posição). Cobre também
+    # o alias "demo" para o namespace "demografia".
+    alternativas = "|".join(
+        re.escape(alias) for alias in outros_aliases | {namespace.lower()}
+    )
     resultado = re.sub(
-        rf"(?i)(?<![\w])({re.escape(namespace)})\$\.",
+        rf"(?i)(?<![\w])({alternativas})\$\.",
         r"\1.$",
         resultado,
     )
+
+    if namespace.lower() == "demografia":
+        resultado = re.sub(r"(?i)(?<![\w])demo\.\$", "demografia.$", resultado)
 
     # Formato completo: macrotema.nome_do_csv.$campo.
     resultado = re.sub(
@@ -269,6 +403,18 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
     # Formato usado em alguns documentos: namespace.$campo.
     resultado = re.sub(
         rf"(?i)(?<![\w]){re.escape(namespace)}\.\$([A-Za-z_][\w]*)",
+        _resolver_ou_manter,
+        resultado,
+    )
+
+    # Namespace de outra view (ex.: "demografia.$nm_mun" num relatório de
+    # saneamento): o prefixo indica a view de origem, mas os campos de
+    # identidade e afins já vivem no contexto mesclado. Resolve o campo e
+    # consome o prefixo inteiro — do contrário o passe de "$campo" simples
+    # abaixo comeria só o "$campo" e deixaria o "demografia." órfão no texto.
+    # Se o campo não existir, mantém o placeholder intacto (não meia-resolve).
+    resultado = re.sub(
+        r"(?i)(?<![\w])[A-Za-z_][\w-]*\.\$([A-Za-z_][\w]*)",
         _resolver_ou_manter,
         resultado,
     )

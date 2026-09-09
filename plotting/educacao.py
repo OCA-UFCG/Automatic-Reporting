@@ -1,27 +1,9 @@
-import math
 import pathlib
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-
-def _coerce_para_float(valor) -> float:
-    """Converte um valor do CSV em float, tratando ausentes/NaN como 0.0."""
-    if valor is None:
-        return 0.0
-
-    if isinstance(valor, str):
-        valor = valor.strip().replace(",", ".")
-
-    try:
-        numero = float(valor)
-    except (TypeError, ValueError):
-        return 0.0
-
-    if not math.isfinite(numero):
-        return 0.0
-
-    return numero
+from utils.formatting import coerce_para_float as _coerce_para_float
 
 
 def gerar_grafico_cor_faixa_etaria(

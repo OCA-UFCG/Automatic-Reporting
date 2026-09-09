@@ -144,7 +144,7 @@ li {
   max-width: 76%;
   color: #333;
   font-family: "Inter", var(--font-sans);
-  font-size: 16px;
+  font-size: 13.33px;
   font-weight: 400;
   line-height: 1.35;
   text-align: center;
@@ -179,16 +179,6 @@ li {
   font-size: 17px;
   font-weight: 400;
   line-height: 1.2;
-}
-
-.region-maps-container {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  padding: 0px;
-  gap: 8px;
-  width: 547px;
-  height: 283.6px;
 }
 
 .region-map-estado {
@@ -292,13 +282,13 @@ li {
 }
 
 .region-legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
   white-space: nowrap;
 }
 
 .region-legend-swatch {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 5px;
   width: 10px;
   height: 10px;
   border: 1px solid rgba(0, 0, 0, 0.35);
@@ -374,7 +364,7 @@ li {
   }
 
   .figure-caption {
-    font-size: 16px;
+    font-size: 13.33px;
   }
 
   .chart-block,

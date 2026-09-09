@@ -1,3 +1,4 @@
+from utils.formatting import categoria_variacao as _analise_variacao
 from utils.queries.base import executar_query
 
 PUBLICO_ETARIO_VACINAS = """
@@ -170,20 +171,6 @@ PERFIL_SAUDE_MUNICIPAL = """
     WHERE nm_mun = %s
       AND sigla_uf = %s
 """
-
-
-def _analise_variacao(variacao_per) -> str | None:
-    if variacao_per is None:
-        return None
-    try:
-        valor = float(variacao_per)
-    except (TypeError, ValueError):
-        return None
-    if valor > 0:
-        return "aumento"
-    if valor < 0:
-        return "redução"
-    return "estabilidade"
 
 
 def buscar_perfil_saude_municipal(

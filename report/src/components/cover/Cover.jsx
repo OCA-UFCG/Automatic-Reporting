@@ -3,7 +3,6 @@ import { CoverBrand, PdfCoverBrand } from '../Brand.jsx';
 import IndicatorScores from './IndicatorScores.jsx';
 import MacrothemeCard from './MacrothemeCard.jsx';
 import MetricCard from './MetricCard.jsx';
-import ScoreLegend from './ScoreLegend.jsx';
 import ThemeDetail from '../ThemeDetail.jsx';
 
 const LIGHT_BADGE_COLORS = new Set(['#FFD65A', '#B0CC41']);
@@ -102,8 +101,6 @@ export default function Cover({ cover }) {
           <MacrothemeCard macrotema={macrotema} />
 
           <IndicatorScores macrotema={macrotema} />
-
-          <ScoreLegend />
         </div>
 
         <ThemeDetail macrotema={macrotema} />

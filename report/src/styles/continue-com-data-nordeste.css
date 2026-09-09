@@ -1,0 +1,122 @@
+/* px = medidas do Figma * 4/3 (ex.: 16px -> 21.33px), como no resto do documento. */
+/* padding-top (não margin) sobrevive à quebra de página; 32px = respiro padrão de topo de página. */
+.continue-cta-wrap {
+  padding-top: 32px;
+}
+
+.continue-cta {
+  margin: 0 33.76px 21.33px;
+  padding: 21.33px;
+  background: #F8F7F8;
+  border-left: 4px solid #018F39;
+  border-radius: 10.67px;
+  box-sizing: border-box;
+  break-inside: avoid;
+}
+
+.continue-cta-header {
+  margin: 0 0 21.33px;
+}
+
+.continue-cta-heading {
+  margin: 0 0 10.67px;
+  color: #292829;
+  font-family: "Inter", var(--font-sans);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 150%;
+  letter-spacing: -0.288px;
+}
+
+.continue-cta-heading-highlight {
+  color: #018F39;
+}
+
+.continue-cta-subtitle {
+  margin: 0;
+  color: #292829;
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 150%;
+}
+
+.continue-cta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 21.33px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.continue-cta-card {
+  min-width: 0;
+  padding: 21.33px 32px;
+  background: #FFFFFF;
+  border: 1.33px solid #EFEFEF;
+  border-radius: 10.67px;
+  box-sizing: border-box;
+  text-align: center;
+  break-inside: avoid;
+}
+
+.continue-cta-icon-wrap {
+  display: table;
+  margin: 0 auto 10.67px;
+  padding: 10.67px;
+  background: #D6E9DB;
+  border-radius: 9999px;
+}
+
+.continue-cta-icon {
+  display: block;
+  width: 26.67px;
+  height: 26.67px;
+}
+
+.continue-cta-title {
+  margin: 0 0 10.67px;
+  color: #085F2D;
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 150%;
+  letter-spacing: -0.012em;
+}
+
+.continue-cta-description {
+  margin: 0 0 21.33px;
+  color: #292829;
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 150%;
+}
+
+.continue-cta-qr {
+  display: table;
+  margin: 0 auto 21.33px;
+  padding: 10.67px;
+  background: #FFFFFF;
+  border-radius: 10.67px;
+}
+
+.continue-cta-qr img {
+  display: block;
+  width: 145.33px;
+  height: 145.33px;
+}
+
+.continue-cta-button {
+  display: block;
+  padding: 5.33px 21.33px;
+  background: #018F39;
+  border-radius: 8px;
+  color: #F8F7F8;
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 32px;
+  text-align: center;
+  text-decoration: none;
+}

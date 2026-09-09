@@ -1,6 +1,5 @@
 import logging
 import re
-import time
 import unicodedata
 from datetime import datetime
 
@@ -17,8 +16,11 @@ from plotting.demografia import (
     gerar_grafico_composicao_cor_raca,
     gerar_grafico_faixa_etaria_e_sexo,
 )
+from plotting.desenvolvimento_social import gerar_grafico_de_desenvolvimento_social
+from plotting.economia_renda import gerar_grafico_pib
 from plotting.educacao import gerar_grafico_cor_faixa_etaria
 from plotting.hidraulica import gerar_grafico_tecnologias_acesso_agua
+from plotting.saneamento import gerar_grafico_esgotamento_sanitario
 from plotting.saude import (
     gerar_grafico_cobertura_vacinal,
     gerar_grafico_de_estabelecimento,
@@ -32,7 +34,11 @@ from services.csv_loader import (
 )
 from services.macrotemas import get_macrotema, get_macrotema_slugs_para_relatorio
 from services.pdf import _gerar_pdf
-from utils.cover import montar_capa_relatorio
+from utils.cover import (
+    montar_capa_relatorio,
+    montar_indicadores_macrotema,
+    montar_score_macrotema,
+)
 from utils.data.cities import filtrar_linhas_por_cidade
 from utils.data.macrotemas import TODOS_MACROTEMAS_SLUG
 from utils.external.docs import (
@@ -48,7 +54,7 @@ from utils.external.docs import (
     extrair_resumo_tema,
     remover_titulos_docs,
 )
-from utils.geografia import resolver_nome_uf
+from utils.geografia import resolver_nome_uf, separar_cidade_uf
 from utils.queries.caracteristicas import buscar_caracteristicas_municipio
 from utils.queries.demografia import (
     buscar_demografia_sexo_faixa_etaria,
@@ -57,8 +63,18 @@ from utils.queries.demografia import (
     buscar_populacao_quilombola,
     buscar_populacao_rua,
 )
+from utils.queries.desenvolvimento_social import (
+    buscar_perfil_desenvolvimento_social,
+)
+from utils.queries.economia_renda import (
+    buscar_linhas_pib_municipal,
+    processar_indicadores_economia,
+    processar_pib_evolucao,
+)
 from utils.queries.educacao import buscar_taxas_educacao_cor_faixa_etaria
 from utils.queries.hidraulica import buscar_tecnologias_acesso_agua
+from utils.queries.perfil_municipal import buscar_perfil_municipal
+from utils.queries.saneamento import buscar_esgotamento_sanitario
 from utils.queries.saude import (
     buscar_cobertura_vacinal,
     buscar_estabelecimentos_saude_serie,
@@ -74,7 +90,6 @@ from utils.render.renderer import (
     texto_para_html,
 )
 from utils.ssr import render_react_ssr
-from utils.timing import logar_medicoes, medir
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +134,15 @@ GRAFICOS_AUTO_MARCADOR = {
             ),
         ),
     ),
+    "saneamento": (
+        (
+            "grafico_esgotamento_sanitario",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Domic[ií]lios\s+por\s+tipo\s+de\s+esgotamento\s+sanit[aá]rio[^\n]*)$"
+            ),
+        ),
+    ),
 }
 
 
@@ -129,9 +153,6 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err))
     gerado_em = datetime.now().astimezone()
-
-    tempos: dict[str, float] = {}
-    _t_total = time.perf_counter()
 
     linhas = None
     cover = None
@@ -158,6 +179,10 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     dados_perfil_saude = None
     dados_taxas_educacao = None
     dados_tecnologias_acesso_agua = None
+    dados_esgotamento = None
+    dados_perfil_desenvolvimento_social = None
+    dados_pib = None
+    dados_indicadores_economia = None
 
     for macrotema_slug in macrotema_slugs:
         try:
@@ -172,54 +197,95 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 macrotema_dados["docs_env"],
             )
             continue
-        csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
-        csv_source = resolve_csv_source(csv_url, csv_env)
-        with medir(tempos, "csv"):
+        # O banco (`relatorios_auto.vw_perfil_*`) é a fonte primária: só cai
+        # para o CSV se a view não tiver a cidade ou o banco estiver fora do ar.
+        nome_cidade_perfil, uf_perfil = separar_cidade_uf(cidade)
+        perfil_db = (
+            buscar_perfil_municipal(macrotema_slug, nome_cidade_perfil, uf_perfil)
+            if uf_perfil
+            else None
+        )
+
+        if perfil_db:
+            linha_db = dict(perfil_db)
+            # Usa o nome canônico da própria view (grafia/acentuação corretas),
+            # nunca o texto digitado pelo usuário — do contrário o
+            # enriquecimento a jusante (características, demografia, saúde…), que
+            # casa nm_mun de forma case-sensitive, não encontra a cidade. Garante
+            # o formato "Cidade (UF)" que resolver_nome_uf/capa/mapas esperam,
+            # removendo antes um sufixo "(UF)" que algumas views já trazem.
+            nome_canonico = re.sub(
+                r"\s*\([^)]*\)\s*$", "", str(perfil_db.get("nm_mun") or nome_cidade_perfil)
+            ).strip()
+            linha_db["nm_mun"] = f"{nome_canonico} ({uf_perfil})"
+            linhas_macrotema = [linha_db]
+        else:
+            if uf_perfil:
+                # Só é fallback de verdade quando o banco foi consultado e não
+                # tinha a cidade; sem UF a view sequer é chamada.
+                logger.warning(
+                    "Sem dados no banco para '%s' (%s); usando CSV como fallback.",
+                    cidade,
+                    macrotema_slug,
+                )
+            csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
+            csv_source = resolve_csv_source(csv_url, csv_env)
             df = carregar_csv(csv_source)
             df = normalizar_colunas_macrotema(df, macrotema_slug)
 
-        try:
-            linhas_df = filtrar_linhas_por_cidade(df, cidade)
-        except ValueError as err:
-            raise HTTPException(status_code=400, detail=str(err))
+            try:
+                linhas_df = filtrar_linhas_por_cidade(df, cidade)
+            except ValueError as err:
+                raise HTTPException(status_code=400, detail=str(err))
 
-        linhas_macrotema = linhas_df.to_dict("records")
+            linhas_macrotema = linhas_df.to_dict("records")
 
-        if not linhas_macrotema:
-            raise HTTPException(status_code=404, detail=f"Cidade '{cidade}' não encontrada.")
+            if not linhas_macrotema:
+                raise HTTPException(
+                    status_code=404, detail=f"Cidade '{cidade}' não encontrada."
+                )
 
         for linha in linhas_macrotema:
             linha["data_relatorio"] = gerado_em.strftime("%d/%m/%Y")
             linha["hora_relatorio"] = gerado_em.strftime("%H:%M")
 
         if not db_consultado:
-            with medir(tempos, "db"):
-                nome_cidade_db, uf_db = resolver_nome_uf(linhas_macrotema[0])
-                dados_caracteristicas_db = buscar_caracteristicas_municipio(nome_cidade_db, uf_db)
-                if "demografia" in macrotema_slugs:
-                    dados_demografia_db = buscar_populacao_demografia(nome_cidade_db, uf_db)
-                    dados_sexo_faixa = buscar_demografia_sexo_faixa_etaria(nome_cidade_db, uf_db)
-                    dados_indigena = buscar_populacao_indigena(nome_cidade_db, uf_db)
-                    dados_quilombola = buscar_populacao_quilombola(nome_cidade_db, uf_db)
-                if "saude" in macrotema_slugs:
-                    dados_publico_etario = buscar_publico_etario_vacinas(nome_cidade_db, uf_db)
-                    dados_cobertura_vacinal = buscar_cobertura_vacinal(nome_cidade_db, uf_db)
-                    dados_mortalidade_infantil = buscar_mortalidade_infantil_serie(
-                        nome_cidade_db, uf_db
-                    )
-                    dados_estabelecimentos_saude = buscar_estabelecimentos_saude_serie(
-                        nome_cidade_db, uf_db
-                    )
-                    dados_perfil_saude = buscar_perfil_saude_municipal(
-                        nome_cidade_db, uf_db
-                    )
-                if "educacao" in macrotema_slugs:
-                    dados_taxas_educacao = buscar_taxas_educacao_cor_faixa_etaria(nome_cidade_db, uf_db)
-                if "hidraulica" in macrotema_slugs:
-                    dados_tecnologias_acesso_agua = buscar_tecnologias_acesso_agua(
-                        nome_cidade_db, uf_db
-                    )
-                dados_rua = buscar_populacao_rua(nome_cidade_db, uf_db)
+            nome_cidade_db, uf_db = resolver_nome_uf(linhas_macrotema[0])
+            dados_caracteristicas_db = buscar_caracteristicas_municipio(nome_cidade_db, uf_db)
+            if "demografia" in macrotema_slugs:
+                dados_demografia_db = buscar_populacao_demografia(nome_cidade_db, uf_db)
+                dados_sexo_faixa = buscar_demografia_sexo_faixa_etaria(nome_cidade_db, uf_db)
+                dados_indigena = buscar_populacao_indigena(nome_cidade_db, uf_db)
+                dados_quilombola = buscar_populacao_quilombola(nome_cidade_db, uf_db)
+            if "saude" in macrotema_slugs:
+                dados_publico_etario = buscar_publico_etario_vacinas(nome_cidade_db, uf_db)
+                dados_cobertura_vacinal = buscar_cobertura_vacinal(nome_cidade_db, uf_db)
+                dados_mortalidade_infantil = buscar_mortalidade_infantil_serie(
+                    nome_cidade_db, uf_db
+                )
+                dados_estabelecimentos_saude = buscar_estabelecimentos_saude_serie(
+                    nome_cidade_db, uf_db
+                )
+                dados_perfil_saude = buscar_perfil_saude_municipal(
+                    nome_cidade_db, uf_db
+                )
+            if "educacao" in macrotema_slugs:
+                dados_taxas_educacao = buscar_taxas_educacao_cor_faixa_etaria(nome_cidade_db, uf_db)
+            if "hidraulica" in macrotema_slugs:
+                dados_tecnologias_acesso_agua = buscar_tecnologias_acesso_agua(
+                    nome_cidade_db, uf_db
+                )
+            if "saneamento" in macrotema_slugs:
+                dados_esgotamento = buscar_esgotamento_sanitario(nome_cidade_db, uf_db)
+            if "desenvolvimento-social" in macrotema_slugs:
+                dados_perfil_desenvolvimento_social = (
+                    buscar_perfil_desenvolvimento_social(nome_cidade_db, uf_db)
+                )
+            if "economia-renda" in macrotema_slugs:
+                linhas_pib = buscar_linhas_pib_municipal(nome_cidade_db, uf_db)
+                dados_pib = processar_pib_evolucao(linhas_pib)
+                dados_indicadores_economia = processar_indicadores_economia(linhas_pib)
+            dados_rua = buscar_populacao_rua(nome_cidade_db, uf_db)
             db_consultado = True
 
         if dados_caracteristicas_db:
@@ -264,6 +330,25 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             for linha in linhas_macrotema:
                 linha.update(dados_tecnologias_acesso_agua)
 
+        if "saneamento" in macrotema_slugs and dados_esgotamento:
+            for linha in linhas_macrotema:
+                linha.update(dados_esgotamento)
+
+        if (
+            "desenvolvimento-social" in macrotema_slugs
+            and dados_perfil_desenvolvimento_social
+        ):
+            for linha in linhas_macrotema:
+                linha.update(dados_perfil_desenvolvimento_social)
+
+        if "economia-renda" in macrotema_slugs and dados_pib:
+            for linha in linhas_macrotema:
+                linha.update(dados_pib)
+
+        if "economia-renda" in macrotema_slugs and dados_indicadores_economia:
+            for linha in linhas_macrotema:
+                linha.update(dados_indicadores_economia)
+
         if linhas is None:
             linhas = linhas_macrotema
 
@@ -302,10 +387,9 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 # quando o relatório era iniciado por Economia e Renda.
                 contexto_caracteristicas = linhas_macrotema[0]
                 try:
-                    with medir(tempos, "docs"):
-                        caracteristicas_texto = await carregar_texto_do_docs(
-                            CARACTERISTICAS_DOCS_URL
-                        )
+                    caracteristicas_texto = await carregar_texto_do_docs(
+                        CARACTERISTICAS_DOCS_URL
+                    )
                 except ValueError as err:
                     raise HTTPException(status_code=400, detail=str(err)) from err
 
@@ -424,7 +508,6 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
 
         eh_primeiro = macrotema_slug == macrotema_slugs[0]
 
-        _t_graficos = time.perf_counter()
         graficos_por_placeholder = {}
 
         if macrotema_slug == "demografia":
@@ -493,14 +576,60 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                     err,
                 )
 
-        tempos["graficos"] = tempos.get("graficos", 0.0) + (
-            time.perf_counter() - _t_graficos
-        )
+        if macrotema_slug == "saneamento":
+            try:
+                graficos_por_placeholder["grafico_esgotamento_sanitario"] = (
+                    gerar_grafico_esgotamento_sanitario(
+                        cidade=linhas_macrotema[0],
+                        OUTPUT_DIR=OUTPUT_DIR,
+                        safe_city=safe_report or "relatorio",
+                    )
+                )
+            except (ValueError, KeyError) as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de esgotamento sanitário "
+                    "para '%s': %s",
+                    safe_report,
+                    err,
+                )
+
+        if macrotema_slug == "desenvolvimento-social":
+            try:
+                chart_file_name = gerar_grafico_de_desenvolvimento_social(
+                    cidade=linhas_macrotema[0],
+                    OUTPUT_DIR=OUTPUT_DIR,
+                    safe_city=safe_report or "relatorio",
+                )
+                graficos_por_placeholder["grafico_de_desenvolvimento_social"] = (
+                    chart_file_name
+                )
+            except ValueError as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de desenvolvimento social "
+                    "para '%s': %s",
+                    safe_report,
+                    err,
+                )
+
+        if macrotema_slug == "economia-renda":
+            try:
+                chart_file_name = gerar_grafico_pib(
+                    cidade=linhas_macrotema[0],
+                    OUTPUT_DIR=OUTPUT_DIR,
+                    safe_city=safe_report or "relatorio",
+                )
+                graficos_por_placeholder["grafico_pib"] = chart_file_name
+            except ValueError as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de evolução do PIB "
+                    "para '%s': %s",
+                    safe_report,
+                    err,
+                )
 
         docs_url = require_config_value(macrotema_dados["docs_url"], macrotema_dados["docs_env"])
         try:
-            with medir(tempos, "docs"):
-                docs_texto = await carregar_texto_do_docs(docs_url)
+            docs_texto = await carregar_texto_do_docs(docs_url)
         except ValueError as err:
             raise HTTPException(status_code=400, detail=str(err)) from err
 
@@ -531,8 +660,10 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             "descricao": "",
             "descricao_paragrafos": [],
             "descricao_html": [],
-            "score": cover["macrotema"]["score"],
-            "indicadores": cover["macrotema"]["indicadores"],
+            "score": montar_score_macrotema(linhas_macrotema[0]),
+            "indicadores": montar_indicadores_macrotema(
+                macrotema_dados["nome"], macrotema_dados["icone"]
+            ),
         }
 
         resumo_tema, docs_texto = extrair_resumo_tema(docs_texto)
@@ -619,10 +750,9 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 cover["macrotema"]["descricao_html"] = macrotema_item["descricao_html"]
 
         if eh_primeiro and cover is not None:
-            with medir(tempos, "mapa"):
-                cover["mapa_principal"] = render_mapa_marker(
-                    linhas_macrotema[0], safe_report
-                )
+            cover["mapa_principal"] = render_mapa_marker(
+                linhas_macrotema[0], safe_report
+            )
 
         macrotemas_render.append(macrotema_item)
 
@@ -671,12 +801,11 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         cover["resumo_relatorio"] = "\n\n".join(resumo_relatorio_parts)
 
     # React SSR rendering
-    with medir(tempos, "ssr"):
-        html_content = await render_react_ssr({
-            "cover": cover,
-            "docsHtml": docs_html,
-            "dados": linhas,
-        })
+    html_content = await render_react_ssr({
+        "cover": cover,
+        "docsHtml": docs_html,
+        "dados": linhas,
+    })
 
     # Output file handling
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -693,12 +822,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         except FileNotFoundError:
             pass
 
-    with medir(tempos, "pdf"):
-        pdf_ok = await _gerar_pdf(html_content, pdf_file)
-
-    logar_medicoes(tempos, f"{safe_report}", wall=time.perf_counter() - _t_total)
-
-    if not pdf_ok:
+    if not await _gerar_pdf(html_content, pdf_file):
         raise HTTPException(
             status_code=500,
             detail="Falha ao gerar o PDF do relatório.",

@@ -1,4 +1,3 @@
-import math
 import pathlib
 
 import matplotlib.pyplot as plt
@@ -6,24 +5,7 @@ import numpy as np
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 from plotting.demografia import _salvar_figura_com_fundo_branco
-
-
-def _coerce_numero(valor) -> float:
-    if valor is None:
-        return 0.0
-
-    if isinstance(valor, str):
-        valor = valor.strip().replace(",", ".")
-
-    try:
-        numero = float(valor)
-    except (TypeError, ValueError):
-        return 0.0
-
-    if not math.isfinite(numero):
-        return 0.0
-
-    return numero
+from utils.formatting import coerce_para_float as _coerce_numero
 
 
 def _rotular_barra_vertical(ax, barra, texto: str, limite: float) -> None:

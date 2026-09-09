@@ -1,23 +1,20 @@
 @page {
-  margin: 53.33px 8mm 16mm;
+  margin: 53.33px 0 16mm 8mm;
 
-  /* IMPORTANT: WeasyPrint resolves counters inside fixed elements only once,
-     then repeats that value on every page. Margin boxes are evaluated per page. */
   @bottom-right {
     content: counter(page) "/" counter(pages);
-    width: 36px;
-    padding: 10.67px 32px 10.67px 0;
+    width: 106.67px;
+    padding: 0 32px 0 0;
+    background: #F8F7F8;
+    border-top: 1px solid #DFDFDF;
+    box-sizing: border-box;
     font-family: "Inter", Arial, sans-serif;
     font-size: 13.33px;
     font-weight: 500;
-    line-height: 32px;
+    line-height: 16mm;
     color: #333333;
     text-align: right;
   }
-}
-
-.pdf-footer {
-  display: none;
 }
 
 .pdf-page-header {
@@ -38,6 +35,11 @@
     margin: 0;
     padding: 0;
     background: var(--color-white);
+    overflow: visible;
+  }
+
+  body {
+    padding-right: 8mm;
   }
 
   .pdf-page-header {
@@ -45,7 +47,7 @@
     position: fixed;
     top: -53.33px;
     left: -8mm;
-    right: -8mm;
+    right: 0;
     width: auto;
     height: 53.33px;
     padding: 10.67px 32px;
@@ -105,9 +107,7 @@
   }
 
   .pdf-page-header-sudene {
-    display: inline-flex;
-    align-items: center;
-    gap: 5.33px;
+    display: inline-block;
     color: #565656;
     font-size: 18.67px;
     font-style: italic;
@@ -117,6 +117,8 @@
 
   .pdf-page-header-sudene-mark {
     display: inline-block;
+    vertical-align: middle;
+    margin-right: 5.33px;
     color: #565656;
     font-size: 21.33px;
     transform: skewX(-12deg);
@@ -126,36 +128,26 @@
     position: fixed;
     bottom: -16mm;
     left: -8mm;
-    right: -8mm;
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    width: auto;
-    height: 53.33px;
-    padding: 10.67px 32px;
+    right: 106.67px;
+    height: 16mm;
+    padding: 0 0 0 32px;
     background: #F8F7F8;
     border-top: 1px solid #DFDFDF;
     box-sizing: border-box;
-    font-family: "Inter", Arial, sans-serif;
-    font-size: 13.33px;
-    font-weight: 500;
-    line-height: 32px;
-    color: #333333;
     z-index: 1000;
   }
 
   .pdf-footer-generation {
+    display: block;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .pdf-footer-page {
-    flex: 0 0 auto;
-    min-width: 32px;
-    text-align: right;
+    font-family: "Inter", Arial, sans-serif;
+    font-size: 13.33px;
+    font-weight: 500;
+    line-height: 16mm;
+    color: #333333;
   }
 
 }
