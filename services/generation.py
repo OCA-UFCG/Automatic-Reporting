@@ -660,6 +660,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             "descricao": "",
             "descricao_paragrafos": [],
             "descricao_html": [],
+            "fontes_html": "",
             "score": montar_score_macrotema(linhas_macrotema[0]),
             "indicadores": montar_indicadores_macrotema(
                 macrotema_dados["nome"], macrotema_dados["icone"]
@@ -754,17 +755,19 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 linhas_macrotema[0], safe_report
             )
 
-        macrotemas_render.append(macrotema_item)
-
-        docs_html_parts.append(
-            texto_para_html(
-                docs_texto,
-                linhas_macrotema[0],
-                namespace=macrotema_slug,
-                graficos_por_placeholder=graficos_por_placeholder,
-                safe_report=safe_report,
-            )
+        # O que sobra do Doc após extrair descricao_tema/resumo/etc. é a caixa
+        # "Fontes"/"Conteúdos relacionados" (com "Continue explorando o tema")
+        # daquele macrotema. Fica presa à própria página do tema — não some
+        # num blob global — para fechar o tema antes do próximo começar.
+        macrotema_item["fontes_html"] = texto_para_html(
+            docs_texto,
+            linhas_macrotema[0],
+            namespace=macrotema_slug,
+            graficos_por_placeholder=graficos_por_placeholder,
+            safe_report=safe_report,
         )
+
+        macrotemas_render.append(macrotema_item)
 
     referencias_unicas = {
         re.sub(r"\s+", " ", referencia).strip(): None
