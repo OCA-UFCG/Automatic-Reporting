@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 import unicodedata
 from datetime import datetime
 
@@ -73,6 +74,7 @@ from utils.render.renderer import (
     texto_para_html,
 )
 from utils.ssr import render_react_ssr
+from utils.timing import logar_medicoes, medir
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +130,9 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         raise HTTPException(status_code=400, detail=str(err))
     gerado_em = datetime.now().astimezone()
 
+    tempos: dict[str, float] = {}
+    _t_total = time.perf_counter()
+
     linhas = None
     cover = None
     safe_city = None
@@ -169,8 +174,9 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             continue
         csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
         csv_source = resolve_csv_source(csv_url, csv_env)
-        df = carregar_csv(csv_source)
-        df = normalizar_colunas_macrotema(df, macrotema_slug)
+        with medir(tempos, "csv"):
+            df = carregar_csv(csv_source)
+            df = normalizar_colunas_macrotema(df, macrotema_slug)
 
         try:
             linhas_df = filtrar_linhas_por_cidade(df, cidade)
@@ -187,32 +193,33 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             linha["hora_relatorio"] = gerado_em.strftime("%H:%M")
 
         if not db_consultado:
-            nome_cidade_db, uf_db = resolver_nome_uf(linhas_macrotema[0])
-            dados_caracteristicas_db = buscar_caracteristicas_municipio(nome_cidade_db, uf_db)
-            if "demografia" in macrotema_slugs:
-                dados_demografia_db = buscar_populacao_demografia(nome_cidade_db, uf_db)
-                dados_sexo_faixa = buscar_demografia_sexo_faixa_etaria(nome_cidade_db, uf_db)
-                dados_indigena = buscar_populacao_indigena(nome_cidade_db, uf_db)
-                dados_quilombola = buscar_populacao_quilombola(nome_cidade_db, uf_db)
-            if "saude" in macrotema_slugs:
-                dados_publico_etario = buscar_publico_etario_vacinas(nome_cidade_db, uf_db)
-                dados_cobertura_vacinal = buscar_cobertura_vacinal(nome_cidade_db, uf_db)
-                dados_mortalidade_infantil = buscar_mortalidade_infantil_serie(
-                    nome_cidade_db, uf_db
-                )
-                dados_estabelecimentos_saude = buscar_estabelecimentos_saude_serie(
-                    nome_cidade_db, uf_db
-                )
-                dados_perfil_saude = buscar_perfil_saude_municipal(
-                    nome_cidade_db, uf_db
-                )
-            if "educacao" in macrotema_slugs:
-                dados_taxas_educacao = buscar_taxas_educacao_cor_faixa_etaria(nome_cidade_db, uf_db)
-            if "hidraulica" in macrotema_slugs:
-                dados_tecnologias_acesso_agua = buscar_tecnologias_acesso_agua(
-                    nome_cidade_db, uf_db
-                )
-            dados_rua = buscar_populacao_rua(nome_cidade_db, uf_db)
+            with medir(tempos, "db"):
+                nome_cidade_db, uf_db = resolver_nome_uf(linhas_macrotema[0])
+                dados_caracteristicas_db = buscar_caracteristicas_municipio(nome_cidade_db, uf_db)
+                if "demografia" in macrotema_slugs:
+                    dados_demografia_db = buscar_populacao_demografia(nome_cidade_db, uf_db)
+                    dados_sexo_faixa = buscar_demografia_sexo_faixa_etaria(nome_cidade_db, uf_db)
+                    dados_indigena = buscar_populacao_indigena(nome_cidade_db, uf_db)
+                    dados_quilombola = buscar_populacao_quilombola(nome_cidade_db, uf_db)
+                if "saude" in macrotema_slugs:
+                    dados_publico_etario = buscar_publico_etario_vacinas(nome_cidade_db, uf_db)
+                    dados_cobertura_vacinal = buscar_cobertura_vacinal(nome_cidade_db, uf_db)
+                    dados_mortalidade_infantil = buscar_mortalidade_infantil_serie(
+                        nome_cidade_db, uf_db
+                    )
+                    dados_estabelecimentos_saude = buscar_estabelecimentos_saude_serie(
+                        nome_cidade_db, uf_db
+                    )
+                    dados_perfil_saude = buscar_perfil_saude_municipal(
+                        nome_cidade_db, uf_db
+                    )
+                if "educacao" in macrotema_slugs:
+                    dados_taxas_educacao = buscar_taxas_educacao_cor_faixa_etaria(nome_cidade_db, uf_db)
+                if "hidraulica" in macrotema_slugs:
+                    dados_tecnologias_acesso_agua = buscar_tecnologias_acesso_agua(
+                        nome_cidade_db, uf_db
+                    )
+                dados_rua = buscar_populacao_rua(nome_cidade_db, uf_db)
             db_consultado = True
 
         if dados_caracteristicas_db:
@@ -295,9 +302,10 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 # quando o relatório era iniciado por Economia e Renda.
                 contexto_caracteristicas = linhas_macrotema[0]
                 try:
-                    caracteristicas_texto = await carregar_texto_do_docs(
-                        CARACTERISTICAS_DOCS_URL
-                    )
+                    with medir(tempos, "docs"):
+                        caracteristicas_texto = await carregar_texto_do_docs(
+                            CARACTERISTICAS_DOCS_URL
+                        )
                 except ValueError as err:
                     raise HTTPException(status_code=400, detail=str(err)) from err
 
@@ -416,6 +424,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
 
         eh_primeiro = macrotema_slug == macrotema_slugs[0]
 
+        _t_graficos = time.perf_counter()
         graficos_por_placeholder = {}
 
         if macrotema_slug == "demografia":
@@ -484,9 +493,14 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                     err,
                 )
 
+        tempos["graficos"] = tempos.get("graficos", 0.0) + (
+            time.perf_counter() - _t_graficos
+        )
+
         docs_url = require_config_value(macrotema_dados["docs_url"], macrotema_dados["docs_env"])
         try:
-            docs_texto = await carregar_texto_do_docs(docs_url)
+            with medir(tempos, "docs"):
+                docs_texto = await carregar_texto_do_docs(docs_url)
         except ValueError as err:
             raise HTTPException(status_code=400, detail=str(err)) from err
 
@@ -605,9 +619,10 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 cover["macrotema"]["descricao_html"] = macrotema_item["descricao_html"]
 
         if eh_primeiro and cover is not None:
-            cover["mapa_principal"] = render_mapa_marker(
-                linhas_macrotema[0], safe_report
-            )
+            with medir(tempos, "mapa"):
+                cover["mapa_principal"] = render_mapa_marker(
+                    linhas_macrotema[0], safe_report
+                )
 
         macrotemas_render.append(macrotema_item)
 
@@ -656,11 +671,12 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         cover["resumo_relatorio"] = "\n\n".join(resumo_relatorio_parts)
 
     # React SSR rendering
-    html_content = await render_react_ssr({
-        "cover": cover,
-        "docsHtml": docs_html,
-        "dados": linhas,
-    })
+    with medir(tempos, "ssr"):
+        html_content = await render_react_ssr({
+            "cover": cover,
+            "docsHtml": docs_html,
+            "dados": linhas,
+        })
 
     # Output file handling
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -677,7 +693,12 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         except FileNotFoundError:
             pass
 
-    if not await _gerar_pdf(html_content, pdf_file):
+    with medir(tempos, "pdf"):
+        pdf_ok = await _gerar_pdf(html_content, pdf_file)
+
+    logar_medicoes(tempos, f"{safe_report}", wall=time.perf_counter() - _t_total)
+
+    if not pdf_ok:
         raise HTTPException(
             status_code=500,
             detail="Falha ao gerar o PDF do relatório.",

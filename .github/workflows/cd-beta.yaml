@@ -137,6 +137,31 @@ jobs:
             -v "${{ vars.MAP_SHAPE_VOLUME_NAME }}:/app/map_shape:ro" \
             alpine test -f /app/map_shape/BR_Municipios_2025/BR_Municipios_2025.shp
 
+      - name: Download map PNGs
+        shell: bash
+        run: |
+          rm -rf ./mapas_png
+          python3 ./scripts/download_map_shapes.py \
+            --url "${{ secrets.MAPAS_ZIP_URL }}" \
+            --no-validate \
+            --output-dir ./mapas_png
+
+      - name: Copy map PNGs into Docker volume
+        shell: bash
+        run: |
+          sudo docker run --rm \
+            -v "${{ vars.MAPAS_VOLUME_NAME }}:/target" \
+            -v "${{ github.workspace }}/mapas_png:/source:ro" \
+            alpine sh -c "rm -rf /target/* && cp -a /source/. /target/"
+
+      - name: Validate map PNG volume
+        shell: bash
+        run: |
+          echo "Total de PNGs no volume:"
+          sudo docker run --rm \
+            -v "${{ vars.MAPAS_VOLUME_NAME }}:/app/mapas/Mapas_png:ro" \
+            alpine sh -c 'ls /app/mapas/Mapas_png/*.png | wc -l'
+
       - name: Pull the latest beta image
         run: sudo docker pull ${{ vars.DOCKER_IMAGE_BETA }}:latest
 
@@ -158,6 +183,7 @@ jobs:
             -p ${{ vars.HOST_PORT_BETA }}:${{ vars.CONTAINER_PORT }} \
             -v ${{ vars.VOLUME_NAME }}:/app/output \
             -v ${{ vars.MAP_SHAPE_VOLUME_NAME }}:/app/map_shape \
+            -v ${{ vars.MAPAS_VOLUME_NAME }}:/app/mapas/Mapas_png:ro \
             --network ${{ vars.NETWORK_NAME }} \
             --add-host=host.docker.internal:host-gateway \
             -e DB_HOST="$DB_HOST" \
