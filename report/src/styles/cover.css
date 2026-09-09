@@ -386,35 +386,6 @@
   width: 100%;
 }
 
-.macrotheme-card-right {
-  display: table-cell;
-  vertical-align: middle;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.macrotheme-score-label {
-  display: block;
-  font-family: "Inter", var(--font-sans);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: -0.36px;
-  color: #292829;
-}
-
-.macrotheme-score-value {
-  display: block;
-  font-family: "Inter", var(--font-sans);
-  font-size: 21.33px;
-  font-weight: 700;
-  line-height: 32px;
-  color: #018F39;
-}
-
-.macrotheme-score-max {
-  font-size: 13.33px;
-}
-
 .macrotheme-icon-box {
   display: inline-block;
   width: 42.67px;
