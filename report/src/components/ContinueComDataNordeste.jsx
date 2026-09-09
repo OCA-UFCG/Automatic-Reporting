@@ -1,7 +1,9 @@
 import React from 'react';
-import { QR_CODE_DATA_NORDESTE } from '../assets/qrCodeDataNordeste.js';
+import { QR_CODE_CATALOGO_DADOS } from '../assets/qrCodeCatalogoDados.js';
+import { QR_CODE_MONTE_RELATORIO } from '../assets/qrCodeMonteRelatorio.js';
 
-const LINK_DATA_NORDESTE = 'https://qr.codes/Bw7u3I';
+const LINK_CATALOGO_DADOS = 'https://datanordeste.sudene.gov.br/catalog';
+const LINK_MONTE_RELATORIO = 'https://datanordeste.sudene.gov.br/reports';
 
 function IconCatalogoDados() {
   return (
@@ -25,14 +27,14 @@ function IconMonteRelatorio() {
   );
 }
 
-function ContinueCtaCard({ icon, titulo, descricao, texto_botao, href }) {
+function ContinueCtaCard({ icon, titulo, descricao, texto_botao, href, qrCode, qrAlt }) {
   return (
     <div className="continue-cta-card">
       <div className="continue-cta-icon-wrap">{icon}</div>
       <p className="continue-cta-title">{titulo}</p>
       <p className="continue-cta-description">{descricao}</p>
       <div className="continue-cta-qr">
-        <img src={QR_CODE_DATA_NORDESTE} alt="QR code do Data Nordeste" width="109" height="109" />
+        <img src={qrCode} alt={qrAlt} width="109" height="109" />
       </div>
       <a className="continue-cta-button" href={href}>
         {texto_botao}
@@ -59,14 +61,18 @@ export default function ContinueComDataNordeste() {
             titulo="Catálogo de dados"
             descricao="Explore todos os indicadores e bases usadas neste painel"
             texto_botao="Acessar catálogo"
-            href={LINK_DATA_NORDESTE}
+            href={LINK_CATALOGO_DADOS}
+            qrCode={QR_CODE_CATALOGO_DADOS}
+            qrAlt="QR code do catálogo de dados"
           />
           <ContinueCtaCard
             icon={<IconMonteRelatorio />}
             titulo="Monte seu relatório"
             descricao="Escolha o município e gere um relatório como este"
             texto_botao="Criar relatório"
-            href={LINK_DATA_NORDESTE}
+            href={LINK_MONTE_RELATORIO}
+            qrCode={QR_CODE_MONTE_RELATORIO}
+            qrAlt="QR code para montar seu relatório"
           />
         </div>
       </section>
