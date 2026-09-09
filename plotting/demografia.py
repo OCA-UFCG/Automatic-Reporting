@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 
+from plotting import ESCALA_FONTE
+
 
 def _salvar_figura_com_fundo_branco(
     fig, ax, chart_file: pathlib.Path, pad: float | None = None
@@ -42,12 +44,12 @@ def gerar_grafico_faixa_etaria_e_sexo(
         rotulo_mulheres = f"{valor_mulheres:,.0f}".replace(",", ".")
         rotulo_homens = f"{valor_homens:,.0f}".replace(",", ".")
         ax.text(-valor_mulheres - margem_rotulo, indice, rotulo_mulheres,
-                ha="right", va="center", fontsize=9, color="#292829")
+                ha="right", va="center", fontsize=9*ESCALA_FONTE, color="#292829")
         ax.text(valor_homens + margem_rotulo, indice, rotulo_homens,
-                ha="left", va="center", fontsize=9, color="#292829")
+                ha="left", va="center", fontsize=9*ESCALA_FONTE, color="#292829")
 
     ax.set_yticks(y)
-    ax.set_yticklabels(labels, fontsize=9)
+    ax.set_yticklabels(labels, fontsize=9*ESCALA_FONTE)
     ax.axvline(0, color="#FFFFFF", linewidth=1.5)
     ax.set_xlim(-limite * 1.38, limite * 1.38)
     ax.set_xticks([])
@@ -55,7 +57,7 @@ def gerar_grafico_faixa_etaria_e_sexo(
     for borda in ax.spines.values():
         borda.set_visible(False)
     ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.06), ncol=2,
-              frameon=False, fontsize=9)
+              frameon=False, fontsize=9*ESCALA_FONTE)
     _salvar_figura_com_fundo_branco(fig, ax, chart_file)
     return chart_file.name
 
@@ -110,17 +112,17 @@ def gerar_grafico_composicao_cor_raca(
             f"{percentual:.1f}%".replace(".", ","),
             ha="center",
             va="bottom",
-            fontsize=10,
+            fontsize=10*ESCALA_FONTE,
             fontweight=600,
             color="#514C50",
         )
 
     ax.set_xticks(x)
-    ax.set_xticklabels(labels, fontsize=10, fontweight=600)
+    ax.set_xticklabels(labels, fontsize=10*ESCALA_FONTE, fontweight=600)
     ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _: f"{valor:.0f}%"))
     ax.yaxis.set_major_locator(MaxNLocator(4))
     ax.grid(axis="y", linestyle=(0, (1, 4)), linewidth=0.8, color="#D9D9D9", zorder=0)
-    ax.tick_params(axis="both", length=0, colors="#514C50", labelsize=9)
+    ax.tick_params(axis="both", length=0, colors="#514C50", labelsize=9*ESCALA_FONTE)
     for lado in ("left", "right", "bottom"):
         ax.spines[lado].set_visible(False)
     ax.spines["top"].set_color("#ECECEC")

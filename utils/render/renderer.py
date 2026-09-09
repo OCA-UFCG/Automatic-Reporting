@@ -1,10 +1,14 @@
 import base64
 import html as html_module
 import re
+from urllib.parse import quote
 
 from config import BASE_DIR
-from utils.external.contentful import obter_url_mapa_contentful
-from utils.maps import gerar_mapa_regiao, render_mapa_geografico
+from utils.maps import (
+    buscar_mapa_estatico,
+    gerar_mapa_regiao,
+    render_mapa_geografico,
+)
 from utils.render.links import _url_is_safe, convert_links_to_html
 from utils.render.placeholders import (
     interpretar_blocos_condicionais,
@@ -75,16 +79,18 @@ FALLBACK_DOC_TEXT = """deu erro.
 
 
 def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
-    contentful_url = obter_url_mapa_contentful(contexto.get("nm_mun", ""))
-    if contentful_url:
+    mapa_estatico = buscar_mapa_estatico(
+        contexto.get("nm_mun", ""), contexto.get("sigla_uf")
+    )
+    if mapa_estatico:
         cidade_segura = html_module.escape(str(contexto.get("nm_mun", "município")))
         return (
             '<figure class="map-block map-block--region">'
-            f'<img class="region-map-image" src="{html_module.escape(contentful_url)}" '
+            f'<img class="region-map-image" src="/mapas/{quote(mapa_estatico)}" '
             f'alt="Mapa da região de {cidade_segura}">'
             '<figcaption>Figura 1- Localização do município.</figcaption>'
             '</figure>'
-            '<!-- fonte: contentful -->'
+            '<!-- fonte: mapa_estatico -->'
         )
 
     mapa_file = gerar_mapa_regiao(contexto.get("nm_mun", ""), safe_report or "relatorio")
