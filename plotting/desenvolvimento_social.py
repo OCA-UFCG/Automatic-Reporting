@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
 
+from plotting import ESCALA_FONTE
 from plotting.demografia import _salvar_figura_com_fundo_branco
 from utils.formatting import coerce_para_float
 
@@ -75,13 +76,13 @@ def gerar_grafico_de_desenvolvimento_social(
             f"{valor:.3f}".replace(".", ","),
             ha="center",
             va="bottom",
-            fontsize=9,
+            fontsize=9*ESCALA_FONTE,
             fontweight=600,
             color="#4A4A4A",
         )
 
     ax.set_xticks(x)
-    ax.set_xticklabels(anos, fontsize=9)
+    ax.set_xticklabels(anos, fontsize=9*ESCALA_FONTE)
     ax.set_yticks([])
 
     ax.grid(
@@ -94,7 +95,7 @@ def gerar_grafico_de_desenvolvimento_social(
     )
     ax.set_axisbelow(True)
 
-    ax.tick_params(axis="both", length=0, labelsize=9, colors="#4A4A4A")
+    ax.tick_params(axis="both", length=0, labelsize=9*ESCALA_FONTE, colors="#4A4A4A")
     for lado in ("top", "right", "left"):
         ax.spines[lado].set_visible(False)
     ax.spines["bottom"].set_color("#4A4A4A")
@@ -118,7 +119,7 @@ def gerar_grafico_de_desenvolvimento_social(
         bbox_to_anchor=(0.5, -0.14),
         ncol=5,
         frameon=False,
-        fontsize=8,
+        fontsize=8*ESCALA_FONTE,
     )
 
     _salvar_figura_com_fundo_branco(fig, ax, chart_file)

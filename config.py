@@ -10,6 +10,9 @@ BASE_DIR = Path(__file__).resolve().parent
 
 OUTPUT_DIR = BASE_DIR / "output"
 CITIES_FILE = BASE_DIR / "citys.txt"
+# Pasta de mapas PNG pré-gerados (1 por município). Montada como volume na VM;
+# ver docker-compose.yml. Substitui a geração via shapefile em runtime.
+MAPAS_DIR = BASE_DIR / "mapas" / "Mapas_png"
 
 load_dotenv(dotenv_path=BASE_DIR / ".config")
 load_dotenv(dotenv_path=BASE_DIR / ".env", override=True)
@@ -58,8 +61,6 @@ MACROTEMAS = {
         "nome": "Educação",
         "docs_url": EDUCACAO_DOCS_URL,
         "docs_env": "EDUCACAO_DOCS_URL",
-        "csv_url": EDUCACAO_CSV_URL,
-        "csv_env": "EDUCACAO_CSV_URL",
     },
     "saude": {
         "nome": "Saúde",

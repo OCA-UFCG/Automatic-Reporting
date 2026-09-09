@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from config import BASE_DIR, OUTPUT_DIR
+from config import BASE_DIR, MAPAS_DIR, OUTPUT_DIR
 from services import (
     apagar_relatorio_handler,
     gerar_relatorio_handler,
@@ -47,6 +47,20 @@ async def output_file(path: str):
         raise HTTPException(status_code=404)
     response = FileResponse(file_path)
     response.headers["Cache-Control"] = "no-store, max-age=0"
+    return response
+
+
+# Mapas PNG pré-gerados (1 por município), servidos da pasta montada como volume.
+# Imutáveis, então cache longo — ao contrário do /output.
+@app.api_route("/mapas/{path:path}", methods=["GET", "HEAD"])
+async def mapa_estatico_file(path: str):
+    if path.startswith(("../", "/")) or ".." in path:
+        raise HTTPException(status_code=400)
+    file_path = MAPAS_DIR / path
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404)
+    response = FileResponse(file_path)
+    response.headers["Cache-Control"] = "public, max-age=86400"
     return response
 
 app.add_middleware(

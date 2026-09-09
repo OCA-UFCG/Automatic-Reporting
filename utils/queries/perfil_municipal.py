@@ -4,7 +4,7 @@ VIEW_POR_MACROTEMA = {
     "demografia": "vw_perfil_populacional_municipal",
     "educacao": "vw_perfil_educacional_municipal",
     "saude": "vw_perfil_saude_municipal",
-    "economia-renda": "vw_perfil_economia_e_renda",
+    "economia-renda": "vw_perfil_economia",
     "saneamento": "vw_perfil_infraestrutura_municipal",
     "hidraulica": "vw_seguranca_hidrica",
     "meio-ambiente": "vw_perfil_ambiente_municipal",
@@ -21,19 +21,15 @@ def buscar_perfil_municipal(
     if not view:
         return None
 
+    # Algumas views (ex.: vw_perfil_educacional_municipal) guardam nm_mun já
+    # com o sufixo "(UF)"; outras guardam só o nome. Compara sempre pelo nome
+    # sem o parêntese final, o que casa os dois formatos numa única query.
     query = f"""
         SELECT * FROM relatorios_auto.{view}
-        WHERE LOWER(nm_mun) = LOWER(%s) AND sigla_uf = %s
+        WHERE LOWER(regexp_replace(nm_mun, '\\s*\\([^)]*\\)\\s*$', '')) = LOWER(%s)
+          AND sigla_uf = %s
         LIMIT 1
     """
     contexto = f"perfil municipal ({view}) de '{nome_municipio} ({sigla_uf})'"
 
-    linha = executar_query_dict(query, (nome_municipio, sigla_uf), contexto)
-    if linha:
-        return linha
-
-    # vw_perfil_educacional_municipal guarda nm_mun já com o sufixo "(UF)"
-    # embutido (inconsistência da própria view); tenta essa variação antes
-    # de considerar a cidade ausente do banco.
-    nome_com_uf = f"{nome_municipio} ({sigla_uf})"
-    return executar_query_dict(query, (nome_com_uf, sigla_uf), contexto)
+    return executar_query_dict(query, (nome_municipio, sigla_uf), contexto)

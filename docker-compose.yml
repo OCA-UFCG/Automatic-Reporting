@@ -26,3 +26,6 @@ services:
     volumes:
       # Persist generated HTML/PDF/PNGs
       - ./output:/app/output
+      # Mapas PNG pré-gerados (1 por município), read-only. A pasta fica na VM
+      # (não versionada, ~1GB); ver config.MAPAS_DIR e utils/maps.buscar_mapa_estatico.
+      - ./mapas/Mapas_png:/app/mapas/Mapas_png:ro

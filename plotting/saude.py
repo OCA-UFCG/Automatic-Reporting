@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 
+from plotting import ESCALA_FONTE
 from plotting.demografia import _salvar_figura_com_fundo_branco
 from utils.formatting import coerce_para_float as _coerce_numero
 
@@ -17,7 +18,7 @@ def _rotular_barra_vertical(ax, barra, texto: str, limite: float) -> None:
         texto,
         ha="center",
         va="bottom" if pequena else "top",
-        fontsize=8,
+        fontsize=8*ESCALA_FONTE,
         fontweight="bold",
         color="#4A4A4A" if pequena else "white",
     )
@@ -62,8 +63,8 @@ def gerar_grafico_mortalidade_infantil(
         )
 
     ax.set_xticks(x)
-    ax.set_xticklabels(anos, fontsize=8)
-    ax.set_xlabel("Ano", fontsize=9)
+    ax.set_xticklabels(anos, fontsize=8*ESCALA_FONTE)
+    ax.set_xlabel("Ano", fontsize=9*ESCALA_FONTE)
 
     ax.yaxis.set_major_locator(MaxNLocator(nbins=3, integer=True))
     ax.grid(
@@ -76,7 +77,7 @@ def gerar_grafico_mortalidade_infantil(
     )
     ax.set_axisbelow(True)
 
-    ax.tick_params(axis="both", length=0, labelsize=8, colors="#4A4A4A")
+    ax.tick_params(axis="both", length=0, labelsize=8*ESCALA_FONTE, colors="#4A4A4A")
 
     for lado in ("top", "right", "left"):
         ax.spines[lado].set_visible(False)
@@ -131,8 +132,8 @@ def gerar_grafico_de_estabelecimento(
         _rotular_barra_vertical(ax, barra, _formatar_valor_mil(total), limite)
 
     ax.set_xticks(x)
-    ax.set_xticklabels(anos, fontsize=8)
-    ax.set_xlabel("Ano", fontsize=9)
+    ax.set_xticklabels(anos, fontsize=8*ESCALA_FONTE)
+    ax.set_xlabel("Ano", fontsize=9*ESCALA_FONTE)
 
     ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _: _formatar_valor_mil(valor)))
     ax.yaxis.set_major_locator(MaxNLocator(nbins=3))
@@ -147,7 +148,7 @@ def gerar_grafico_de_estabelecimento(
     )
     ax.set_axisbelow(True)
 
-    ax.tick_params(axis="both", length=0, labelsize=8, colors="#4A4A4A")
+    ax.tick_params(axis="both", length=0, labelsize=8*ESCALA_FONTE, colors="#4A4A4A")
 
     for lado in ("top", "right", "left"):
         ax.spines[lado].set_visible(False)
@@ -192,7 +193,7 @@ def gerar_grafico_cobertura_vacinal(
     ax.barh(y, coberturas, height=0.62, color="#FF5A6E", zorder=3)
 
     ax.set_yticks(y)
-    ax.set_yticklabels(vacinas, fontsize=8)
+    ax.set_yticklabels(vacinas, fontsize=8*ESCALA_FONTE)
     ax.invert_yaxis()
 
     limite_superior = max(110.0, max(coberturas) * 1.08)
@@ -209,7 +210,7 @@ def gerar_grafico_cobertura_vacinal(
             f"{valor:.2f}".replace(".", ",") + "%",
             va="center",
             ha="left",
-            fontsize=7.5,
+            fontsize=7.5*ESCALA_FONTE,
             color="#3F3F3F",
         )
 
@@ -226,10 +227,10 @@ def gerar_grafico_cobertura_vacinal(
     ax.spines["right"].set_visible(False)
     ax.spines["left"].set_visible(False)
 
-    ax.tick_params(axis="both", length=0, labelsize=8, colors="#4A4A4A")
+    ax.tick_params(axis="both", length=0, labelsize=8*ESCALA_FONTE, colors="#4A4A4A")
 
-    ax.set_xlabel("Taxa de cobertura vacinal (%)", fontsize=9)
-    ax.set_ylabel("Imunobiológico", fontsize=9)
+    ax.set_xlabel("Taxa de cobertura vacinal (%)", fontsize=9*ESCALA_FONTE)
+    ax.set_ylabel("Imunobiológico", fontsize=9*ESCALA_FONTE)
 
     _salvar_figura_com_fundo_branco(fig, ax, chart_file)
 
@@ -299,7 +300,7 @@ def gerar_grafico_publico_etario(
     ax.set_xticks(x)
     ax.set_xticklabels(
         categorias,
-        fontsize=8,
+        fontsize=8*ESCALA_FONTE,
     )
 
     # Eixo Y
@@ -335,7 +336,7 @@ def gerar_grafico_publico_etario(
     ax.tick_params(
         axis="both",
         length=0,
-        labelsize=8,
+        labelsize=8*ESCALA_FONTE,
     )
 
     # Legenda
@@ -344,12 +345,12 @@ def gerar_grafico_publico_etario(
         bbox_to_anchor=(0.5, -0.20),
         ncol=2,
         frameon=False,
-        fontsize=8,
+        fontsize=8*ESCALA_FONTE,
     )
 
     ax.set_xlabel(
         "Público-alvo etário",
-        fontsize=9,
+        fontsize=9*ESCALA_FONTE,
     )
 
     plt.tight_layout()
