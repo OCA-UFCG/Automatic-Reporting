@@ -15,6 +15,11 @@ logger = logging.getLogger(__name__)
 _FONTS_DIR = Path(__file__).resolve().parent.parent / "report" / "src" / "styles" / "fonts"
 _ARQUIVOS_INTER = ("Inter-Regular.ttf", "Inter-SemiBold.ttf", "Inter-Bold.ttf")
 
+# Multiplicador aplicado a todos os tamanhos de fonte dos gráficos (fontsize/
+# labelsize). Preserva as proporções entre os textos; ajuste este único número
+# para deixar os rótulos/números maiores ou menores de forma uniforme.
+ESCALA_FONTE = 1.15
+
 
 def _registrar_inter() -> None:
     faltando = []

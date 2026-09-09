@@ -2,6 +2,7 @@ import math
 import pathlib
 
 import matplotlib.pyplot as plt
+from plotting import ESCALA_FONTE
 
 # (chave no contexto, rótulo da legenda, cor) — ordem e cores espelham o Doc.
 _CATEGORIAS = (
@@ -69,9 +70,9 @@ def gerar_grafico_esgotamento_sanitario(
         autotexto.set_color("#4A4A4A")
 
     ax.text(0, 0.12, _formatar_total(total), ha="center", va="center",
-            fontsize=22, fontweight="bold", color="#3F3F3F")
+            fontsize=22*ESCALA_FONTE, fontweight="bold", color="#3F3F3F")
     ax.text(0, -0.18, "domicílios", ha="center", va="center",
-            fontsize=10, color="#6B6B6B")
+            fontsize=10*ESCALA_FONTE, color="#6B6B6B")
 
     ax.legend(
         wedges,
@@ -79,7 +80,7 @@ def gerar_grafico_esgotamento_sanitario(
         loc="center left",
         bbox_to_anchor=(1.02, 0.5),
         frameon=False,
-        fontsize=8.5,
+        fontsize=8.5*ESCALA_FONTE,
         handlelength=1.0,
         labelspacing=0.7,
     )
