@@ -3,7 +3,9 @@ from utils.queries.base import executar_query
 TECNOLOGIAS_ACESSO_AGUA = """
     SELECT
         ano,
-        tot_cisternas
+        tot_cisternas,
+        i_agua_total,
+        ii_agua
     FROM hidr_cisternas.final_tecnologias_sociais_de_acesso_a_agua
     WHERE LOWER(nm_mun) = LOWER(%s)
       AND sigla_uf = %s
@@ -11,6 +13,47 @@ TECNOLOGIAS_ACESSO_AGUA = """
 """
 
 _DECADAS_SERIE_HISTORICA = (2010, 2020, 2025)
+
+# i_agua = tecnologias de "1ª água" (abastecimento humano); ii_agua = "2ª água"
+# (irrigação e dessedentação animal). São as duas finalidades descritas no
+# texto do relatório; tot_cisternas ainda inclui tecnologias escolares, por
+# isso as duas quantidades abaixo não somam ao total.
+_LABEL_PRIMEIRA_AGUA = "abastecimento humano (1ª água)"
+_LABEL_SEGUNDA_AGUA = "irrigação e dessedentação de animais (2ª água)"
+
+
+def _calcular_indicadores_finalidade(
+    total_referencia: float | None,
+    primeira_agua_qtd: float | None,
+    segunda_agua_qtd: float | None,
+) -> dict[str, object]:
+    indicadores: dict[str, object] = {}
+    if not total_referencia:
+        return indicadores
+
+    if primeira_agua_qtd is not None:
+        indicadores["primeira_agua_qtd"] = primeira_agua_qtd
+        indicadores["primeira_agua_per"] = round(
+            primeira_agua_qtd / total_referencia * 100, 1
+        )
+
+    if segunda_agua_qtd is not None:
+        indicadores["segunda_agua_qtd"] = segunda_agua_qtd
+        indicadores["segunda_agua_per"] = round(
+            segunda_agua_qtd / total_referencia * 100, 1
+        )
+
+    if primeira_agua_qtd is None or segunda_agua_qtd is None:
+        return indicadores
+
+    if primeira_agua_qtd >= segunda_agua_qtd:
+        indicadores["sol_predom"] = _LABEL_PRIMEIRA_AGUA
+        indicadores["sol_predom_per"] = indicadores["primeira_agua_per"]
+    else:
+        indicadores["sol_predom"] = _LABEL_SEGUNDA_AGUA
+        indicadores["sol_predom_per"] = indicadores["segunda_agua_per"]
+
+    return indicadores
 
 
 def _calcular_indicadores_serie_historica(
@@ -70,7 +113,7 @@ def buscar_tecnologias_acesso_agua(
 
     serie = [
         {"ano": ano, "total": total}
-        for ano, total in linhas
+        for ano, total, _i_agua_total, _ii_agua in linhas
         if ano is not None and total is not None
     ]
     if not serie:
@@ -79,4 +122,12 @@ def buscar_tecnologias_acesso_agua(
     por_ano = {item["ano"]: item["total"] for item in serie}
     dados: dict[str, object] = {"tecnologias_acesso_agua_serie": serie}
     dados.update(_calcular_indicadores_serie_historica(por_ano))
+
+    ultimo_ano = max(por_ano)
+    _, total_ultimo_ano, i_agua_total, ii_agua = next(
+        linha for linha in linhas if linha[0] == ultimo_ano
+    )
+    dados.update(
+        _calcular_indicadores_finalidade(total_ultimo_ano, i_agua_total, ii_agua)
+    )
     return dados
