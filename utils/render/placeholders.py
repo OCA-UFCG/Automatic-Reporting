@@ -407,6 +407,18 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
         resultado,
     )
 
+    # Namespace de outra view (ex.: "demografia.$nm_mun" num relatório de
+    # saneamento): o prefixo indica a view de origem, mas os campos de
+    # identidade e afins já vivem no contexto mesclado. Resolve o campo e
+    # consome o prefixo inteiro — do contrário o passe de "$campo" simples
+    # abaixo comeria só o "$campo" e deixaria o "demografia." órfão no texto.
+    # Se o campo não existir, mantém o placeholder intacto (não meia-resolve).
+    resultado = re.sub(
+        r"(?i)(?<![\w])[A-Za-z_][\w-]*\.\$([A-Za-z_][\w]*)",
+        _resolver_ou_manter,
+        resultado,
+    )
+
     # Formato usado nos documentos: $Table.nome_da_tabela$campo.
     resultado = re.sub(
         r"\$(?:table|tabela|sheet|planilha)\.[A-Za-z_][\w]*\$([A-Za-z_][\w]*)",

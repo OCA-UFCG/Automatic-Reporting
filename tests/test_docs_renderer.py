@@ -94,8 +94,10 @@ def test_database_column_names_support_editorial_document_placeholders():
         "demografia.$pop_rua_acima_br; demografia.$pop_rua_bolsaf_2022"
     )
 
+    # Namespace de outra view (caract_mun.$area) resolve e consome o prefixo,
+    # em vez de deixar "caract_mun." órfão antes do valor.
     assert substituir_placeholders(texto, contexto, namespace="demografia") == (
-        "caract_mun.593,0; 2; 1.042; 501; 541; 120; 60; 30; 30; 18"
+        "593,0; 2; 1.042; 501; 541; 120; 60; 30; 30; 18"
     )
 
 
