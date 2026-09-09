@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 
+from plotting import ESCALA_FONTE
 from plotting.demografia import _salvar_figura_com_fundo_branco
 from utils.formatting import coerce_para_float as _coerce_numero
-from plotting import ESCALA_FONTE
 
 
 def _rotular_barra_vertical(ax, barra, texto: str, limite: float) -> None:

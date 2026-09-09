@@ -4,6 +4,7 @@ import pathlib
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter, MaxNLocator
+
 from plotting import ESCALA_FONTE
 
 

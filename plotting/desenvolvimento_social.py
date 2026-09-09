@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
 
+from plotting import ESCALA_FONTE
 from plotting.demografia import _salvar_figura_com_fundo_branco
 from utils.formatting import coerce_para_float
-from plotting import ESCALA_FONTE
 
 _CATEGORIAS_IDHM = (
     ("Muito Baixo", "#D64550"),

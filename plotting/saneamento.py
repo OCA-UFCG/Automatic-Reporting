@@ -2,6 +2,7 @@ import math
 import pathlib
 
 import matplotlib.pyplot as plt
+
 from plotting import ESCALA_FONTE
 
 # (chave no contexto, rótulo da legenda, cor) — ordem e cores espelham o Doc.

@@ -3,8 +3,8 @@ import pathlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-from utils.formatting import coerce_para_float as _coerce_para_float
 from plotting import ESCALA_FONTE
+from utils.formatting import coerce_para_float as _coerce_para_float
 
 
 def gerar_grafico_cor_faixa_etaria(

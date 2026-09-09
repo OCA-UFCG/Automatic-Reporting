@@ -3,9 +3,9 @@ import pathlib
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 
+from plotting import ESCALA_FONTE
 from plotting.hidraulica import _numero
 from utils.queries.economia_renda import _escalar_valor
-from plotting import ESCALA_FONTE
 
 _COR_LINHA = "#F0883E"
 

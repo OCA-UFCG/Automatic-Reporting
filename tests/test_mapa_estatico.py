@@ -2,7 +2,7 @@ import urllib.parse
 
 import pytest
 
-import utils.maps as maps
+from utils import maps
 
 
 def _preparar_pasta(tmp_path, monkeypatch, arquivos):
