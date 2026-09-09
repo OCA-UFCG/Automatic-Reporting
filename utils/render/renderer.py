@@ -1,9 +1,11 @@
+import base64
 import html as html_module
 import re
 
+from config import BASE_DIR
 from utils.external.contentful import obter_url_mapa_contentful
 from utils.maps import gerar_mapa_regiao, render_mapa_geografico
-from utils.render.links import convert_links_to_html
+from utils.render.links import _url_is_safe, convert_links_to_html
 from utils.render.placeholders import (
     interpretar_blocos_condicionais,
     substituir_placeholders,
@@ -100,6 +102,219 @@ def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
     return render_mapa_geografico(contexto) + '\n<!-- fonte: svg_locator -->'
 
 
+_SECOES_TITULO_ESPECIAL = {
+    "síntese", "sintese",
+    "conteúdos relacionados", "conteudos relacionados",
+    "fontes", "referências", "referencias",
+}
+_SECOES_CAIXA_FONTES = {"fontes", "conteúdos relacionados", "conteudos relacionados"}
+
+# Ex.: "[Painel: Terceira Idade](https://...)" ou "[Narrativa de dados: X](https://...)".
+_BADGE_LINK = re.compile(
+    r"(?i)^\[\s*(painel|narrativa de dados)\s*:\s*([^\]]*?)\s*\]\((\S+)\)$"
+)
+
+# Ex.: "demografia.“$nm_datastory1” = https://...". Roda depois de
+# substituir_placeholders, então "$campo" só sobra aqui se não tinha valor.
+_LINHA_NARRATIVA_DADOS = re.compile(
+    r"(?i)^[a-z][\w-]*\.\s*(.+?)\s*=\s*(https?://\S+)$"
+)
+
+
+_LINK_DATA_NORDESTE = "https://qr.codes/Bw7u3I"
+_QR_DATA_NORDESTE_PATH = BASE_DIR / "report" / "src" / "assets" / "qr-code-datanordeste.png"
+
+
+def _carregar_qr_data_nordeste() -> str:
+    try:
+        dados = _QR_DATA_NORDESTE_PATH.read_bytes()
+    except OSError:
+        return ""
+    return "data:image/png;base64," + base64.b64encode(dados).decode("ascii")
+
+
+_QR_DATA_NORDESTE = _carregar_qr_data_nordeste()
+
+_FONTES_BOX_INTRO_HTML = (
+    '<div class="fontes-box-intro">'
+    '<div class="fontes-box-intro-text">'
+    '<p class="fontes-box-intro-title">Continue explorando o tema</p>'
+    '<p class="fontes-box-intro-body">Escaneie ou clique no QR code ao lado para '
+    "conhecer mais conteúdos do Data Nordeste sobre este tema.</p>"
+    "</div>"
+    f'<a class="fontes-box-intro-qr" href="{html_module.escape(_LINK_DATA_NORDESTE)}" '
+    'aria-label="Conheça mais conteúdos do Data Nordeste">'
+    f'<img src="{_QR_DATA_NORDESTE}" alt="QR code do Data Nordeste" width="96" height="96">'
+    "</a>"
+    "</div>"
+)
+
+
+def _normalizar_quebras_de_link(paragrafo: str) -> str:
+    return re.sub(r"\]\s*\(", "](", paragrafo)
+
+
+def _renderizar_badge_fonte(rotulo: str, nome: str, url: str) -> str | None:
+    if not _url_is_safe(url):
+        return None
+    rotulo_normalizado = "Narrativa de dados" if rotulo.casefold() == "narrativa de dados" else "Painel"
+    nome_normalizado = html_module.escape(re.sub(r"\s+", " ", nome).strip())
+    return (
+        f'<a class="fonte-badge" href="{html_module.escape(url)}">'
+        f"<strong>{rotulo_normalizado}:</strong> {nome_normalizado}</a>"
+    )
+
+
+def _renderizar_conteudo_caixa_fontes(
+    paragrafo: str,
+    contexto: dict,
+    namespace: str,
+    safe_report: str | None,
+    graficos_por_placeholder: dict[str, str] | None,
+) -> list[str]:
+    paragrafo = _normalizar_quebras_de_link(paragrafo)
+    fragmentos: list[str] = []
+    buffer_texto: list[str] = []
+
+    def descarregar_texto() -> None:
+        if not buffer_texto:
+            return
+        html = texto_para_html(
+            "\n".join(buffer_texto),
+            contexto,
+            namespace=namespace,
+            graficos_por_placeholder=graficos_por_placeholder,
+            safe_report=safe_report,
+            classe_paragrafo="theme-detail-text",
+            blocos_condicionais_ja_interpretados=True,
+        )
+        if html:
+            fragmentos.append(html)
+        buffer_texto.clear()
+
+    for linha in paragrafo.splitlines():
+        linha_limpa = linha.strip()
+        if not linha_limpa:
+            continue
+
+        badge_link = _BADGE_LINK.match(linha_limpa)
+        if badge_link:
+            badge = _renderizar_badge_fonte(*badge_link.groups())
+            if badge:
+                descarregar_texto()
+                fragmentos.append(badge)
+            continue
+
+        narrativa = _LINHA_NARRATIVA_DADOS.match(linha_limpa)
+        if narrativa:
+            nome = narrativa.group(1).strip().strip("\"'“”").strip()
+            if "$" not in nome:
+                badge = _renderizar_badge_fonte("Narrativa de dados", nome, narrativa.group(2))
+                if badge:
+                    descarregar_texto()
+                    fragmentos.append(badge)
+            continue
+
+        buffer_texto.append(linha)
+
+    descarregar_texto()
+    return fragmentos
+
+
+# A caixa sempre mostra "Fontes" antes de "Conteúdos relacionados",
+# independentemente da ordem em que os cabeçalhos aparecem no Doc.
+_ORDEM_SECOES_CAIXA = ("fontes", "relacionados")
+
+
+def _chave_secao_caixa(titulo_casefold: str) -> str:
+    if titulo_casefold in {"conteúdos relacionados", "conteudos relacionados"}:
+        return "relacionados"
+    return "fontes"
+
+
+def _montar_caixa_fontes(secoes: dict[str, list[str]], incluir_intro: bool) -> str:
+    if not secoes:
+        return ""
+    corpo = "".join(
+        "".join(secoes[chave]) for chave in _ORDEM_SECOES_CAIXA if chave in secoes
+    )
+    intro = _FONTES_BOX_INTRO_HTML if incluir_intro else ""
+    # padding-top em ".fontes-box-wrap" (não margin em ".fontes-box"): margem
+    # de quem começa uma página nova é descartada pelo WeasyPrint.
+    return (
+        '<div class="fontes-box-wrap"><div class="fontes-box">'
+        + intro + corpo +
+        "</div></div>"
+    )
+
+
+def _renderizar_secao_caixa_fontes(
+    texto_da_secao: str,
+    contexto: dict,
+    namespace: str,
+    safe_report: str | None,
+    graficos_por_placeholder: dict[str, str] | None,
+) -> str:
+    """Monta a caixa a partir de um trecho já iniciado em "#!Fontes"/"#!Conteúdos
+    relacionados". Usado quando esse conteúdo sobra para texto_para_html em vez
+    de vir pelo fluxo por parágrafos de render_descricao_tema_html.
+    """
+    secoes: dict[str, list[str]] = {}
+    secao_atual: list[str] | None = None
+
+    for paragrafo in re.split(r"\n\s*\n", texto_da_secao):
+        paragrafo = paragrafo.strip("\n\r")
+        if not paragrafo:
+            continue
+
+        if paragrafo.startswith("#!"):
+            titulo = paragrafo[2:].strip()
+            secao_atual = secoes.setdefault(_chave_secao_caixa(titulo.casefold()), [])
+            if titulo:
+                secao_atual.append(
+                    f'<h3 class="fontes-box-heading">{convert_links_to_html(titulo)}</h3>'
+                )
+            continue
+
+        if secao_atual is None:
+            secao_atual = secoes.setdefault("fontes", [])
+        secao_atual.extend(
+            _renderizar_conteudo_caixa_fontes(
+                paragrafo, contexto, namespace, safe_report, graficos_por_placeholder
+            )
+        )
+
+    return _montar_caixa_fontes(secoes, incluir_intro=True)
+
+
+_CABECALHO_TITULO = re.compile(r"(?i)^#!\s*(.*)$")
+
+
+def _dividir_em_segmentos_caixa_fontes(texto: str) -> list[tuple[bool, str]]:
+    """Divide o texto em trechos dentro/fora de uma seção "Fontes"/"Conteúdos
+    relacionados" (duas em sequência caem no mesmo trecho)."""
+    segmentos: list[tuple[bool, str]] = []
+    buffer: list[str] = []
+    em_caixa = False
+
+    def descarregar() -> None:
+        if buffer:
+            segmentos.append((em_caixa, "\n".join(buffer)))
+            buffer.clear()
+
+    for linha in texto.splitlines():
+        cabecalho = _CABECALHO_TITULO.match(linha.strip())
+        if cabecalho:
+            novo_em_caixa = cabecalho.group(1).strip().casefold() in _SECOES_CAIXA_FONTES
+            if novo_em_caixa != em_caixa:
+                descarregar()
+                em_caixa = novo_em_caixa
+        buffer.append(linha)
+
+    descarregar()
+    return segmentos
+
+
 def render_descricao_tema_html(
     descricao_tema: str,
     contexto: dict,
@@ -109,8 +324,27 @@ def render_descricao_tema_html(
 ) -> list[str]:
     descricao_tema = interpretar_blocos_condicionais(descricao_tema, contexto)
     partes = []
+    intro_ja_inserida = False
+    secoes_caixa: dict[str, list[str]] | None = None
+    secao_atual: list[str] | None = None
+
+    def abrir_secao_caixa(titulo: str) -> None:
+        nonlocal secoes_caixa, secao_atual
+        if secoes_caixa is None:
+            secoes_caixa = {}
+        secao_atual = secoes_caixa.setdefault(_chave_secao_caixa(titulo.casefold()), [])
+        secao_atual.append(f'<h3 class="fontes-box-heading">{convert_links_to_html(titulo)}</h3>')
+
+    def fechar_caixa_fontes() -> None:
+        nonlocal secoes_caixa, secao_atual, intro_ja_inserida
+        if secoes_caixa:
+            partes.append(_montar_caixa_fontes(secoes_caixa, incluir_intro=not intro_ja_inserida))
+            intro_ja_inserida = True
+        secoes_caixa = None
+        secao_atual = None
+
     for paragrafo in re.split(r"\n\s*\n", descricao_tema):
-        paragrafo = paragrafo.strip("\n\r") 
+        paragrafo = paragrafo.strip("\n\r")
         if not paragrafo:
             continue
 
@@ -118,15 +352,31 @@ def render_descricao_tema_html(
 
         if paragrafo.startswith("#!"):
             titulo = paragrafo[2:].strip()
-            if titulo:
+            if titulo.casefold() in _SECOES_CAIXA_FONTES:
+                abrir_secao_caixa(titulo)
+            else:
+                fechar_caixa_fontes()
+                if titulo:
+                    partes.append(
+                        f'<h2 class="theme-detail-heading">{convert_links_to_html(titulo)}</h2>'
+                    )
+            continue
+
+        if paragrafo.casefold() in _SECOES_TITULO_ESPECIAL:
+            if paragrafo.casefold() in _SECOES_CAIXA_FONTES:
+                abrir_secao_caixa(paragrafo)
+            else:
+                fechar_caixa_fontes()
                 partes.append(
-                    f'<h2 class="theme-detail-heading">{convert_links_to_html(titulo)}</h2>'
+                    f'<h2 class="theme-detail-heading">{convert_links_to_html(paragrafo)}</h2>'
                 )
             continue
 
-        if paragrafo.casefold() in {"síntese", "sintese", "conteúdos relacionados", "conteudos relacionados", "fontes", "referências", "referencias"}:
-            partes.append(
-                f'<h2 class="theme-detail-heading">{convert_links_to_html(paragrafo)}</h2>'
+        if secao_atual is not None:
+            secao_atual.extend(
+                _renderizar_conteudo_caixa_fontes(
+                    paragrafo, contexto, namespace, safe_report, graficos_por_placeholder
+                )
             )
             continue
 
@@ -142,6 +392,7 @@ def render_descricao_tema_html(
         if html:
             partes.append(html)
 
+    fechar_caixa_fontes()
     return partes
 
 
@@ -163,6 +414,27 @@ def texto_para_html(
         texto = interpretar_blocos_condicionais(texto, contexto)
     texto_renderizado = substituir_placeholders(texto, contexto, namespace)
 
+    # Seções "#!Fontes"/"#!Conteúdos relacionados" (quando sobram aqui em vez
+    # de já virem isoladas por render_descricao_tema_html) são renderizadas à
+    # parte, como uma caixa única, e substituídas por um marcador de linha
+    # que o loop abaixo simplesmente devolve no lugar.
+    caixas_por_marcador: dict[str, str] = {}
+    trechos_texto: list[str] = []
+    for indice, (em_caixa, texto_segmento) in enumerate(
+        _dividir_em_segmentos_caixa_fontes(texto_renderizado)
+    ):
+        if not em_caixa:
+            trechos_texto.append(texto_segmento)
+            continue
+        caixa_html = _renderizar_secao_caixa_fontes(
+            texto_segmento, contexto, namespace, safe_report, graficos_por_placeholder
+        )
+        if caixa_html:
+            marcador = f"\x00FONTES_BOX_{indice}\x00"
+            caixas_por_marcador[marcador] = caixa_html
+            trechos_texto.append(marcador)
+    texto_renderizado = "\n".join(trechos_texto)
+
     linhas = [linha.rstrip() for linha in texto_renderizado.splitlines()]
 
     html_lines = []
@@ -182,6 +454,13 @@ def texto_para_html(
         n_espacos = len(sem_tabs) - len(sem_espacos)
         nivel_indentacao = n_tabs + n_espacos // 4
         linha_limpa = linha_sem_bom.strip()
+
+        if linha_limpa in caixas_por_marcador:
+            if em_lista:
+                html_lines.append("</ul>")
+                em_lista = False
+            html_lines.append(caixas_por_marcador[linha_limpa])
+            continue
 
         if metadado_visivel is not None:
             terminou = "@@" in linha_limpa
