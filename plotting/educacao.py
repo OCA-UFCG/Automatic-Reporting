@@ -3,6 +3,7 @@ import pathlib
 import matplotlib.pyplot as plt
 import numpy as np
 
+from plotting import ESCALA_FONTE
 from utils.formatting import coerce_para_float as _coerce_para_float
 
 
@@ -92,7 +93,7 @@ def gerar_grafico_cor_faixa_etaria(
     ax.set_xticks(x)
     ax.set_xticklabels(
         [nome for nome, _ in faixas_etarias],
-        fontsize=9,
+        fontsize=9*ESCALA_FONTE,
     )
 
     valor_maximo = max(
@@ -106,7 +107,7 @@ def gerar_grafico_cor_faixa_etaria(
     ax.set_yticks(ticks_y)
     ax.set_yticklabels(
         [f"{tick}%" for tick in ticks_y],
-        fontsize=9,
+        fontsize=9*ESCALA_FONTE,
     )
 
     ax.grid(
@@ -129,7 +130,7 @@ def gerar_grafico_cor_faixa_etaria(
         bbox_to_anchor=(0.5, -0.12),
         ncol=5,
         frameon=False,
-        fontsize=9,
+        fontsize=9*ESCALA_FONTE,
     )
 
     plt.tight_layout()

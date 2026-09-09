@@ -8,7 +8,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
-from config import BASE_DIR, OUTPUT_DIR
+from config import BASE_DIR, MAPAS_DIR, OUTPUT_DIR
 from utils.geografia import separar_cidade_uf
 
 logger = logging.getLogger(__name__)
@@ -121,14 +121,53 @@ def normalizar_texto(valor: object) -> str:
     return "".join(char for char in texto if not unicodedata.combining(char))
 
 
+_INDICE_MAPAS_ESTATICOS: dict[str, str] | None = None
+
+
+def _chave_mapa(nome: object) -> str:
+    """Chave só-alfanumérica que absorve caixa, acento, apóstrofo/underscore e
+    espaços — 'Olho d'Água (PB)' e o arquivo 'Olho d_Água (PB).png' colidem."""
+    return re.sub(r"[^a-z0-9]", "", normalizar_texto(nome))
+
+
+def buscar_mapa_estatico(nome_municipio: str, uf: str | None = None) -> str | None:
+    """Nome do arquivo PNG pré-gerado para o município, ou None se não houver.
+
+    Os arquivos são nomeados "Cidade (UF).png". Em runtime, `nm_mun` vem sem a UF
+    (a UF fica em `sigla_uf`), então combinamos os dois. `separar_cidade_uf` lida
+    com um `nm_mun` que já traga a UF embutida, evitando duplicá-la.
+
+    Índice {chave normalizada -> arquivo} montado uma vez a partir de MAPAS_DIR.
+    """
+    global _INDICE_MAPAS_ESTATICOS
+    if _INDICE_MAPAS_ESTATICOS is None:
+        indice: dict[str, str] = {}
+        if MAPAS_DIR.is_dir():
+            for arquivo in MAPAS_DIR.iterdir():
+                if arquivo.suffix.lower() == ".png":
+                    indice[_chave_mapa(arquivo.stem)] = arquivo.name
+        _INDICE_MAPAS_ESTATICOS = indice
+    cidade, uf_no_nome = separar_cidade_uf(nome_municipio)
+    uf_final = uf_no_nome or (uf or "")
+    return _INDICE_MAPAS_ESTATICOS.get(_chave_mapa(f"{cidade} {uf_final}"))
+
+
 def carregar_malhas():
     global _MUNICIPIOS_GDF, _UF_GDF
 
     if _MUNICIPIOS_GDF is None or _UF_GDF is None:
         import geopandas as gpd
 
-        _MUNICIPIOS_GDF = gpd.read_file(MUNICIPIOS_SHAPE)
-        _UF_GDF = gpd.read_file(UF_SHAPE)
+        muni = gpd.read_file(MUNICIPIOS_SHAPE)
+        uf = gpd.read_file(UF_SHAPE)
+        # ponytail: mapa decorativo a 190dpi não precisa da precisão de metros do
+        # IBGE. simplify uma vez corta vértices ~10-100x. tol em graus (~0.01≈1km);
+        # knob — baixar se municípios pequenos distorcerem, 0 desliga (baseline).
+        tol = float(os.getenv("MAP_SIMPLIFY_TOL", "0.01"))
+        if tol > 0:
+            muni["geometry"] = muni.geometry.simplify(tol, preserve_topology=True)
+            uf["geometry"] = uf.geometry.simplify(tol, preserve_topology=True)
+        _MUNICIPIOS_GDF, _UF_GDF = muni, uf
 
     return _MUNICIPIOS_GDF, _UF_GDF
 
