@@ -20,6 +20,7 @@ from plotting.desenvolvimento_social import gerar_grafico_de_desenvolvimento_soc
 from plotting.economia_renda import gerar_grafico_pib
 from plotting.educacao import gerar_grafico_cor_faixa_etaria
 from plotting.hidraulica import gerar_grafico_tecnologias_acesso_agua
+from plotting.meio_ambiente import gerar_grafico_aridez
 from plotting.saneamento import gerar_grafico_esgotamento_sanitario
 from plotting.saude import (
     gerar_grafico_cobertura_vacinal,
@@ -623,6 +624,21 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 logger.warning(
                     "Não foi possível gerar o gráfico de tecnologias de acesso "
                     "à água para '%s': %s",
+                    safe_report,
+                    err,
+                )
+
+        if macrotema_slug == "meio-ambiente":
+            try:
+                graficos_por_placeholder["grafico_aridez"] = gerar_grafico_aridez(
+                    cidade=linhas_macrotema[0],
+                    OUTPUT_DIR=OUTPUT_DIR,
+                    safe_city=safe_report or "relatorio",
+                )
+            except ValueError as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de classificação de "
+                    "aridez para '%s': %s",
                     safe_report,
                     err,
                 )
