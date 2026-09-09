@@ -20,6 +20,7 @@ from plotting.desenvolvimento_social import gerar_grafico_de_desenvolvimento_soc
 from plotting.economia_renda import gerar_grafico_pib
 from plotting.educacao import gerar_grafico_cor_faixa_etaria
 from plotting.hidraulica import gerar_grafico_tecnologias_acesso_agua
+from plotting.saneamento import gerar_grafico_esgotamento_sanitario
 from plotting.saude import (
     gerar_grafico_cobertura_vacinal,
     gerar_grafico_de_estabelecimento,
@@ -73,6 +74,7 @@ from utils.queries.economia_renda import (
 from utils.queries.educacao import buscar_taxas_educacao_cor_faixa_etaria
 from utils.queries.hidraulica import buscar_tecnologias_acesso_agua
 from utils.queries.perfil_municipal import buscar_perfil_municipal
+from utils.queries.saneamento import buscar_esgotamento_sanitario
 from utils.queries.saude import (
     buscar_cobertura_vacinal,
     buscar_estabelecimentos_saude_serie,
@@ -132,6 +134,15 @@ GRAFICOS_AUTO_MARCADOR = {
             ),
         ),
     ),
+    "saneamento": (
+        (
+            "grafico_esgotamento_sanitario",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Domic[ií]lios\s+por\s+tipo\s+de\s+esgotamento\s+sanit[aá]rio[^\n]*)$"
+            ),
+        ),
+    ),
 }
 
 
@@ -168,6 +179,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     dados_perfil_saude = None
     dados_taxas_educacao = None
     dados_tecnologias_acesso_agua = None
+    dados_esgotamento = None
     dados_perfil_desenvolvimento_social = None
     dados_pib = None
     dados_indicadores_economia = None
@@ -263,6 +275,8 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 dados_tecnologias_acesso_agua = buscar_tecnologias_acesso_agua(
                     nome_cidade_db, uf_db
                 )
+            if "saneamento" in macrotema_slugs:
+                dados_esgotamento = buscar_esgotamento_sanitario(nome_cidade_db, uf_db)
             if "desenvolvimento-social" in macrotema_slugs:
                 dados_perfil_desenvolvimento_social = (
                     buscar_perfil_desenvolvimento_social(nome_cidade_db, uf_db)
@@ -315,6 +329,10 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         if "hidraulica" in macrotema_slugs and dados_tecnologias_acesso_agua:
             for linha in linhas_macrotema:
                 linha.update(dados_tecnologias_acesso_agua)
+
+        if "saneamento" in macrotema_slugs and dados_esgotamento:
+            for linha in linhas_macrotema:
+                linha.update(dados_esgotamento)
 
         if (
             "desenvolvimento-social" in macrotema_slugs
@@ -554,6 +572,23 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 logger.warning(
                     "Não foi possível gerar o gráfico de tecnologias de acesso "
                     "à água para '%s': %s",
+                    safe_report,
+                    err,
+                )
+
+        if macrotema_slug == "saneamento":
+            try:
+                graficos_por_placeholder["grafico_esgotamento_sanitario"] = (
+                    gerar_grafico_esgotamento_sanitario(
+                        cidade=linhas_macrotema[0],
+                        OUTPUT_DIR=OUTPUT_DIR,
+                        safe_city=safe_report or "relatorio",
+                    )
+                )
+            except (ValueError, KeyError) as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de esgotamento sanitário "
+                    "para '%s': %s",
                     safe_report,
                     err,
                 )
