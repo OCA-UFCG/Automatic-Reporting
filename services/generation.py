@@ -147,6 +147,15 @@ GRAFICOS_AUTO_MARCADOR = {
             ),
         ),
     ),
+    "meio-ambiente": (
+        (
+            "grafico_aridez",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Classifica[cç][aã]o\s+das\s+condi[cç][oõ]es\s+de\s+aridez[^\n]*)$"
+            ),
+        ),
+    ),
 }
 
 
