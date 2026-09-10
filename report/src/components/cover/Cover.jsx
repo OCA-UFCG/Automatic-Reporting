@@ -104,6 +104,14 @@ export default function Cover({ cover }) {
         </div>
 
         <ThemeDetail macrotema={macrotema} />
+
+        {macrotema.fontes_html && (
+          // Sem wrapper "doc-content": o CSS de ".fontes-box-wrap" já assume
+          // que a caixa é filha direta de ".theme-detail-page" (ver comentário
+          // em cover.css acima de ".fontes-box-wrap"), reaproveitando o
+          // padding-top de 32px da página em vez de duplicar o padding lateral.
+          <div dangerouslySetInnerHTML={{ __html: macrotema.fontes_html }} />
+        )}
       </section>
     ))}
     </>
