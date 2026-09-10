@@ -1,12 +1,13 @@
 from utils.render.placeholders import interpretar_blocos_condicionais
 from utils.render.renderer import (
+    render_descricao_tema_html,
     reset_figura_contador,
     substituir_placeholders,
     texto_para_html,
 )
 
 
-def test_references_and_related_content_render_as_html():
+def test_references_render_as_html_and_related_content_gets_boxed():
     texto = """#! Referências
 
 referencia= "IBGE, 2023."@@
@@ -23,17 +24,161 @@ referencia= "IBGE, 2023."@@
         namespace="demografia",
     )
 
+    # "Referências" não é uma das seções que ganham a caixa cinza — continua
+    # como título solto, fora da caixa.
     assert "<h1>Referências</h1>" in html
     assert "IBGE, 2023." in html
-    assert "<h1>Conteúdos relacionados</h1>" in html
+
+    # "Conteúdos relacionados" (mesmo fora do descricao_tema, sobrando aqui
+    # em texto_para_html) entra na mesma caixa cinza usada por
+    # render_descricao_tema_html, com o cabeçalho <h3> e a lista dentro dela.
+    assert '<div class="fontes-box">' in html
+    assert '<h3 class="fontes-box-heading">Conteúdos relacionados</h3>' in html
     assert "<ul>" in html
     assert "https://example.com/relatorio" in html
     assert '<a href="https://example.com/relatorio">' in html
 
 
+def test_fontes_box_from_texto_para_html_includes_the_explore_intro_row():
+    texto = "#!Fontes\n\n[Painel: Quilombola](teste)\n"
+
+    html = texto_para_html(texto, {}, namespace="demografia")
+
+    assert '<div class="fontes-box-intro">' in html
+    assert '<p class="fontes-box-intro-title">Continue explorando o tema</p>' in html
+    assert '<a class="fonte-badge" href="teste"><strong>Painel:</strong> Quilombola</a>' in html
+
+
+def test_fontes_always_comes_before_conteudos_relacionados_via_texto_para_html():
+    # No Doc real, "Conteúdos relacionados" costuma vir ANTES de "Fontes" —
+    # a caixa precisa reordenar para "Fontes" primeiro de qualquer forma.
+    texto = (
+        "#!Conteúdos relacionados\n\n"
+        "[Painel: Terceira Idade](https://example.com/a)\n\n"
+        "#!Fontes\n\n"
+        "[Painel: Quilombola](https://example.com/b)\n"
+    )
+
+    html = texto_para_html(texto, {}, namespace="demografia")
+
+    posicao_fontes = html.index('<h3 class="fontes-box-heading">Fontes</h3>')
+    posicao_conteudos = html.index('<h3 class="fontes-box-heading">Conteúdos relacionados</h3>')
+    assert posicao_fontes < posicao_conteudos
+
+
+def test_fontes_and_related_content_render_from_real_doc_markup():
+    texto = """#!Conteúdos relacionados
+
+Para saber mais sobre este tema, consulte os seguintes conteúdos do Data Nordeste:
+
+demografia.“$nm_datastory1” = https://datanordeste.sudene.gov.br/data-stories/f7d447d1017f4bf58270abba6919a9eb
+[Painel: Terceira Idade] (https://datanordeste.sudene.gov.br/boletim/22yf24FX8jtrU80GS0u8el)
+[Painel: População Negra](https://datanordeste.sudene.gov.br/boletim/7CMfPnYZJ4cNXYzAjQZteh)
+[Painel: População Indígena](https://datanordeste.sudene.gov.br/boletim/2DEQ99895tKRWlFQxDpJp7)
+
+#!Fontes
+
+Os dados deste relatório foram extraídos dos seguintes painéis do Data Nordeste:
+
+[Painel:  Perfil Demográfico]
+(https://datanordeste.sudene.gov.br/data-panel/populacao)
+
+[Painel: Quilombola](teste)
+[Painel: Indígenas](teste)
+[Painel: População em situação de rua](teste)
+"""
+
+    contexto = {"nm_datastory1": "Estabelecimentos de saúde"}
+    partes = render_descricao_tema_html(texto, contexto, namespace="demografia")
+
+    assert len(partes) == 1
+    caixa = partes[0]
+    assert caixa.startswith('<div class="fontes-box-wrap"><div class="fontes-box">')
+    assert caixa.count('<h3 class="fontes-box-heading">Conteúdos relacionados</h3>') == 1
+    assert caixa.count('<h3 class="fontes-box-heading">Fontes</h3>') == 1
+
+    # A linha "Continue explorando o tema" (com QR code) mora dentro da mesma
+    # caixa cinza, uma única vez, antes dos dois cabeçalhos.
+    assert caixa.count('<div class="fontes-box-intro">') == 1
+    assert '<p class="fontes-box-intro-title">Continue explorando o tema</p>' in caixa
+    assert 'class="fontes-box-intro-qr"' in caixa
+    # "Fontes" sempre aparece antes de "Conteúdos relacionados" na caixa,
+    # mesmo quando o Doc traz "Conteúdos relacionados" primeiro (como aqui).
+    posicao_intro = caixa.index('<div class="fontes-box-intro">')
+    posicao_fontes = caixa.index('<h3 class="fontes-box-heading">Fontes</h3>')
+    posicao_conteudos = caixa.index('<h3 class="fontes-box-heading">Conteúdos relacionados</h3>')
+    assert posicao_intro < posicao_fontes < posicao_conteudos
+
+    assert "Para saber mais sobre este tema" in caixa
+    assert "Os dados deste relatório foram extraídos" in caixa
+
+    assert (
+        '<a class="fonte-badge" '
+        'href="https://datanordeste.sudene.gov.br/data-stories/f7d447d1017f4bf58270abba6919a9eb">'
+        '<strong>Narrativa de dados:</strong> Estabelecimentos de saúde</a>'
+    ) in caixa
+    assert (
+        '<a class="fonte-badge" '
+        'href="https://datanordeste.sudene.gov.br/boletim/22yf24FX8jtrU80GS0u8el">'
+        '<strong>Painel:</strong> Terceira Idade</a>'
+    ) in caixa
+    assert (
+        '<a class="fonte-badge" '
+        'href="https://datanordeste.sudene.gov.br/boletim/7CMfPnYZJ4cNXYzAjQZteh">'
+        '<strong>Painel:</strong> População Negra</a>'
+    ) in caixa
+    assert (
+        '<a class="fonte-badge" '
+        'href="https://datanordeste.sudene.gov.br/data-panel/populacao">'
+        '<strong>Painel:</strong> Perfil Demográfico</a>'
+    ) in caixa
+    assert '<a class="fonte-badge" href="teste"><strong>Painel:</strong> Quilombola</a>' in caixa
+    assert '<a class="fonte-badge" href="teste"><strong>Painel:</strong> Indígenas</a>' in caixa
+    assert (
+        '<a class="fonte-badge" href="teste">'
+        '<strong>Painel:</strong> População em situação de rua</a>'
+    ) in caixa
+
+
+def test_narrativa_de_dados_badge_is_skipped_when_the_placeholder_has_no_value():
+    texto = """#!Conteúdos relacionados
+
+demografia.$nm_datastory1 = https://example.com/data-story
+"""
+    partes = render_descricao_tema_html(texto, {}, namespace="demografia")
+
+    assert len(partes) == 1
+    caixa = partes[0]
+    assert "fonte-badge" not in caixa
+    assert "nm_datastory1" not in caixa
+
+
+def test_fontes_box_opened_with_hash_bang_heading_closes_before_a_later_regular_heading():
+    texto = """#!Fontes
+
+[Painel: Quilombola](teste)
+
+#! Próximo tema
+
+Texto qualquer.
+"""
+
+    partes = render_descricao_tema_html(texto, {}, namespace="demografia")
+
+    assert len(partes) == 3
+    assert partes[0].startswith('<div class="fontes-box-wrap"><div class="fontes-box">')
+    assert '<h2 class="theme-detail-heading">Próximo tema</h2>' in partes[1]
+    assert "Texto qualquer." in partes[2]
+
+
 def test_heading_marker_does_not_require_a_space():
-    html = texto_para_html("#!Conteúdos relacionados", {}, namespace="demografia")
-    assert html == "<h1>Conteúdos relacionados</h1>"
+    html = texto_para_html("#!Alguma seção", {}, namespace="demografia")
+    assert html == "<h1>Alguma seção</h1>"
+
+
+def test_fontes_heading_marker_without_a_space_still_opens_the_box():
+    html = texto_para_html("#!Fontes", {}, namespace="demografia")
+    assert '<h3 class="fontes-box-heading">Fontes</h3>' in html
 
 
 def test_unavailable_characteristics_variables_are_preserved():
@@ -94,8 +239,10 @@ def test_database_column_names_support_editorial_document_placeholders():
         "demografia.$pop_rua_acima_br; demografia.$pop_rua_bolsaf_2022"
     )
 
+    # Namespace de outra view (caract_mun.$area) resolve e consome o prefixo,
+    # em vez de deixar "caract_mun." órfão antes do valor.
     assert substituir_placeholders(texto, contexto, namespace="demografia") == (
-        "caract_mun.593,0; 2; 1.042; 501; 541; 120; 60; 30; 30; 18"
+        "593,0; 2; 1.042; 501; 541; 120; 60; 30; 30; 18"
     )
 
 
@@ -283,6 +430,41 @@ def test_demography_short_namespace_is_normalized():
     ) == "40%"
 
 
+def test_precision_suffix_overrides_the_default_one_decimal_rounding():
+    contexto = {"nm_mun": "Canapi", "idhm_2010": 0.561, "gini_2010": 0.542}
+    texto = (
+        "desen_social.$nm_mun apresentou IDHM de desen_social.$idhm_2010:3 "
+        "e Índice de Gini de desen_social.$gini_2010:3"
+    )
+
+    assert substituir_placeholders(
+        texto, contexto, namespace="desenvolvimento-social"
+    ) == "Canapi apresentou IDHM de 0,561 e Índice de Gini de 0,542"
+
+
+def test_precision_suffix_does_not_leak_into_other_fields():
+    contexto = {"idhm_2010": 0.561, "gini_2010": 0.542}
+    texto = "desen_social.$idhm_2010:3 e Gini desen_social.$gini_2010"
+
+    assert substituir_placeholders(
+        texto, contexto, namespace="desenvolvimento-social"
+    ) == "0,561 e Gini 0,5"
+
+
+def test_social_development_gini_condition_accepts_para_prefix_and_ou_wording():
+    texto = """Síntese
+Para quando o índice de Gini for maior ou igual a 0,5:
+Trecho com desigualdade.
+Para quando o índice de Gini for menor que 0,5:
+Trecho sem desigualdade."""
+
+    resultado = interpretar_blocos_condicionais(texto, {"gini_2010": 0.6})
+
+    assert "Trecho com desigualdade." in resultado
+    assert "Trecho sem desigualdade." not in resultado
+    assert "Para quando" not in resultado
+
+
 def test_inline_figure_reference_is_replaced_with_the_real_figure_number():
     reset_figura_contador()
     texto = (
@@ -318,6 +500,55 @@ def test_demography_short_namespace_swapped_dollar_typo_is_normalized():
     assert substituir_placeholders(
         "demo$.etaria_maior_per%", {"etaria_maior": 40, "pop_total": 100}, "demografia"
     ) == "40%"
+
+
+def test_multiple_inline_figure_mentions_in_one_paragraph_get_sequential_numbers():
+    reset_figura_contador()
+    texto = (
+        "Os grupos prioritários somam as metas por público-alvo (Figura X), "
+        "e entre as menores estão C (2%, Figura X).\n"
+        "\n"
+        "Figura X- Metas e doses aplicadas por público-alvo etário.\n"
+        "\n"
+        "Figura X- Taxa de cobertura vacinal por tipo de vacina."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "(Figura 2)" in html
+    assert "(2%, Figura 3)" in html
+    assert "Figura 2 – Metas" in html
+    assert "Figura 3 – Taxa" in html
+
+
+def test_inline_figure_mentions_in_different_paragraphs_get_sequential_numbers():
+    reset_figura_contador()
+    texto = (
+        "Os grupos prioritários somam as metas por público-alvo (Figura X).\n"
+        "\n"
+        "Figura X- Metas e doses aplicadas por público-alvo etário.\n"
+        "\n"
+        "Entre as menores estão C, com 2% (Figura X).\n"
+        "\n"
+        "Figura X- Taxa de cobertura vacinal por tipo de vacina."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "(Figura 2)" in html
+    assert "com 2% (Figura 3)" in html
+    assert "Figura 2 – Metas" in html
+    assert "Figura 3 – Taxa" in html
+
+
+def test_inline_figure_reference_regex_does_not_match_unrelated_words():
+    reset_figura_contador()
+    texto = "A figura da variação mostra crescimento. Como visto na Figura 2, o IDHM cresceu."
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "A figura da variação mostra crescimento." in html
+    assert "Como visto na Figura 2, o IDHM cresceu." in html
 
 
 def test_single_asterisk_chart_placeholder_is_rendered():

@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib.ticker import FuncFormatter
 
+from plotting import ESCALA_FONTE
 from plotting.hidraulica import _numero
 from utils.formatting import formatar_numero_ptbr
 from utils.queries.economia_renda import _escalar_valor
@@ -85,14 +86,14 @@ def gerar_grafico_pib(
             xytext=(0, 8),
             textcoords="offset points",
             ha="center",
-            fontsize=10.6,
+            fontsize=8 * ESCALA_FONTE * 1.15,
             color="#4A4A4A",
         )
 
     ax.set_title(
         "Evolução anual do PIB Total",
         loc="left",
-        fontsize=14.55,
+        fontsize=11 * ESCALA_FONTE * 1.15,
         fontweight="bold",
     )
 

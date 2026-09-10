@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 
+from plotting import ESCALA_FONTE
+
 
 def _numero(valor: object) -> float:
     try:
@@ -54,17 +56,17 @@ def gerar_grafico_tecnologias_acesso_agua(
             _formatar_inteiro(total),
             ha="center",
             va="bottom",
-            fontsize=8,
+            fontsize=8*ESCALA_FONTE,
             color="#3F3F3F",
         )
 
     ax.set_xticks(x)
-    ax.set_xticklabels(anos, fontsize=8)
-    ax.set_xlabel("Ano", fontsize=8)
+    ax.set_xticklabels(anos, fontsize=8*ESCALA_FONTE)
+    ax.set_xlabel("Ano", fontsize=8*ESCALA_FONTE)
     ax.yaxis.set_major_locator(MaxNLocator(nbins=5, integer=True))
     ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _: _formatar_inteiro(valor)))
     ax.grid(axis="y", linestyle=(0, (2, 3)), linewidth=0.7, color="#D9D9D9", zorder=0)
-    ax.tick_params(axis="both", length=0, labelsize=8, colors="#4A4A4A")
+    ax.tick_params(axis="both", length=0, labelsize=8*ESCALA_FONTE, colors="#4A4A4A")
     for borda in ax.spines.values():
         borda.set_visible(False)
 

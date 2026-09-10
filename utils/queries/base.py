@@ -40,13 +40,9 @@ def executar_query(
         conn.close()
 
 
-def buscar_perfil_municipal(
-    view: str, nome_municipio: str, sigla_uf: str, contexto_erro: str
-) -> dict[str, object] | None:
-    """Busca a linha de uma view `relatorios_auto.vw_perfil_*` de um município.
-
-    `view` nunca vem de entrada do usuário, sempre um literal do código chamador.
-    """
+def executar_query_dict(query: str, params: tuple, contexto_erro: str) -> dict | None:
+    """Como `executar_query`, mas mapeia a primeira linha para um dict usando
+    os nomes de coluna do cursor (útil para `SELECT *` em views largas)."""
     try:
         conn = get_connection()
     except psycopg2.Error as err:
@@ -55,18 +51,14 @@ def buscar_perfil_municipal(
 
     try:
         with conn.cursor() as cursor:
-            cursor.execute(
-                f"SELECT * FROM {view} WHERE nm_mun = %s AND sigla_uf = %s",
-                (nome_municipio, sigla_uf),
-            )
+            cursor.execute(query, params)
             linha = cursor.fetchone()
             if linha is None:
                 return None
-            colunas = [coluna.name for coluna in cursor.description]
+            colunas = [descricao[0] for descricao in cursor.description]
+            return dict(zip(colunas, linha))
     except psycopg2.Error as err:
         logger.warning("Falha ao executar query (%s): %s", contexto_erro, err)
         return None
     finally:
         conn.close()
-
-    return {campo: valor for campo, valor in zip(colunas, linha) if valor is not None}

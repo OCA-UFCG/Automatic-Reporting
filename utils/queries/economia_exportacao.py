@@ -1,4 +1,4 @@
-from utils.queries.base import buscar_perfil_municipal
+from utils.queries.perfil_municipal import buscar_perfil_municipal
 
 _UNIDADE_MULTIPLICADOR = {
     "bilhões": 1_000_000_000,
@@ -49,31 +49,26 @@ def _valor_absoluto(valor: object, unidade: object) -> float | None:
 def buscar_comercio_exterior_economia(
     nome_municipio: str, sigla_uf: str
 ) -> dict[str, object] | None:
-    linha = buscar_perfil_municipal(
-        "relatorios_auto.vw_perfil_economia",
-        nome_municipio,
-        sigla_uf,
-        f"comércio exterior (exportação/balança) de '{nome_municipio} ({sigla_uf})'",
-    )
+    linha = buscar_perfil_municipal("economia-renda", nome_municipio, sigla_uf)
     if linha is None:
         return None
 
     dados: dict[str, object] = {
-        campo: linha[campo] for campo in _CAMPOS_MERGE_DIRETOS if campo in linha
+        campo: linha[campo] for campo in _CAMPOS_MERGE_DIRETOS if linha.get(campo) is not None
     }
 
     for campo_banco, campo_doc in _ALIASES_BALANCA_CEDILHA.items():
-        if campo_banco in linha:
+        if linha.get(campo_banco) is not None:
             dados[campo_doc] = linha[campo_banco]
 
     for campo_base, alias in _ALIASES_FOB_EXPORTADO_ULTIMO.items():
-        if campo_base in linha:
+        if linha.get(campo_base) is not None:
             dados[alias] = linha[campo_base]
 
     # doc usa "balanca"/"balanca2" (bare) na síntese final
-    if "analise_balanca1" in linha:
+    if linha.get("analise_balanca1") is not None:
         dados["balanca"] = linha["analise_balanca1"]
-    if "analise_balanca2" in linha:
+    if linha.get("analise_balanca2") is not None:
         dados["balanca2"] = linha["analise_balanca2"]
 
     paises_exportacao = []

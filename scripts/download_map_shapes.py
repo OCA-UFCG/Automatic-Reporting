@@ -108,6 +108,11 @@ def main() -> None:
         default=DEFAULT_OUTPUT_DIR,
         help="Diretorio de destino. Padrao: map_shape/",
     )
+    parser.add_argument(
+        "--no-validate",
+        action="store_true",
+        help="Pula a checagem de arquivos esperados (usar p/ o zip de mapas PNG).",
+    )
     args = parser.parse_args()
 
     if not args.url:
@@ -125,8 +130,9 @@ def main() -> None:
         download(download_url, zip_path)
         extract_zip(zip_path, args.output_dir)
 
-    validate(args.output_dir)
-    print(f"Malhas prontas em {args.output_dir}")
+    if not args.no_validate:
+        validate(args.output_dir)
+    print(f"Arquivos prontos em {args.output_dir}")
 
 
 if __name__ == "__main__":

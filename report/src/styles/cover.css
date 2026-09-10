@@ -386,35 +386,6 @@
   width: 100%;
 }
 
-.macrotheme-card-right {
-  display: table-cell;
-  vertical-align: middle;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.macrotheme-score-label {
-  display: block;
-  font-family: "Inter", var(--font-sans);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: -0.36px;
-  color: #292829;
-}
-
-.macrotheme-score-value {
-  display: block;
-  font-family: "Inter", var(--font-sans);
-  font-size: 21.33px;
-  font-weight: 700;
-  line-height: 32px;
-  color: #018F39;
-}
-
-.macrotheme-score-max {
-  font-size: 13.33px;
-}
-
 .macrotheme-icon-box {
   display: inline-block;
   width: 42.67px;
@@ -674,7 +645,6 @@
 
 .cover-mapa-principal figcaption {
   font-size: 13.33px;
-  text-align: left;
 }
 
 @media print {
@@ -880,6 +850,139 @@
 .theme-detail-content .theme-detail-text {
   margin: 0 0 14px;
   text-indent: 32px;
+}
+
+/* px = medidas do Figma * 4/3 (ex.: 16px -> 21.33px), como no resto deste arquivo. */
+/*
+ * padding-top (não margin) sobrevive à quebra de página; alvo final de
+ * 32px (respiro padrão de topo de página). Dentro de ".theme-detail-page"
+ * o próprio clone de padding (32px) já cobre isso; dentro de
+ * ".doc-content" (clone de 18.67px) os 13.33px daqui completam os 32px.
+ */
+.fontes-box-wrap {
+  padding-top: 13.33px;
+}
+
+.fontes-box {
+  display: block;
+  width: 100%;
+  margin: 0 0 21.33px;
+  padding: 21.33px 32px;
+  background: #EFEFEF;
+  border-radius: 10.67px;
+  box-sizing: border-box;
+  break-inside: avoid;
+}
+
+.fontes-box-intro {
+  display: table;
+  width: 100%;
+  margin: 0 0 21.33px;
+  break-inside: avoid;
+}
+
+.fontes-box-intro-text {
+  display: table-cell;
+  vertical-align: middle;
+  width: 100%;
+  padding-right: 32px;
+}
+
+/* Especificidade reforçada: ".doc-content p" (1 classe + 1 elemento) venceria um seletor de classe única. */
+.fontes-box-intro .fontes-box-intro-title {
+  margin: 0 0 10.67px;
+  color: #085F2D;
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 150%;
+  letter-spacing: -0.012em;
+  text-align: left;
+  text-indent: 0;
+}
+
+.fontes-box-intro .fontes-box-intro-body {
+  margin: 0;
+  color: #292829;
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 150%;
+  text-align: left;
+  text-indent: 0;
+}
+
+.fontes-box-intro-qr {
+  display: table-cell;
+  vertical-align: middle;
+  width: 1.33px;
+  white-space: nowrap;
+  background: #FFFFFF;
+  border: 1px solid #E1E1E1;
+  border-radius: 10.67px;
+  padding: 10.67px;
+  box-sizing: border-box;
+}
+
+.fontes-box-intro-qr img {
+  display: block;
+  width: 96px;
+  height: 96px;
+}
+
+.fontes-box-heading {
+  margin: 21.33px 0 10.67px;
+  color: #085F2D;
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 150%;
+  letter-spacing: -0.012em;
+}
+
+.fontes-box-heading:first-child,
+.fontes-box-intro + .fontes-box-heading {
+  margin-top: 0;
+}
+
+.fontes-box .theme-detail-text {
+  margin: 0 0 10.67px;
+  color: #292829;
+  font-size: 14.67px;
+  font-weight: 400;
+  line-height: 150%;
+  text-align: left;
+  text-indent: 0;
+}
+
+.fontes-box ul {
+  margin: 0 0 10.67px;
+  padding-left: 22px;
+}
+
+.fontes-box li {
+  color: #292829;
+  font-family: "Inter", var(--font-sans);
+  font-size: 14.67px;
+  line-height: 150%;
+}
+
+.fonte-badge {
+  display: table;
+  margin: 0 0 10.67px;
+  padding: 5.33px 9.38px;
+  background: #DCDBDC;
+  border-radius: 9999px;
+  font-family: "Inter", var(--font-sans);
+  font-size: 16px;
+  color: #000000;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.fonte-badge strong {
+  font-weight: 600;
+  margin-right: 4px;
 }
 
 @media print {
