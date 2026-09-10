@@ -15,13 +15,15 @@ export default function IndicatorScoreCard({ indicador }) {
           </div>
         </div>
         <div className="indicator-value">
-          {indicador.score}
+          {indicador.valor}
         </div>
       </div>
 
-      <div className="indicator-score-card-footer">
-        Score com base na Meta nacional
-      </div>
+      {indicador.rodape && (
+        <div className="indicator-score-card-footer">
+          {indicador.rodape}
+        </div>
+      )}
     </div>
   );
 }

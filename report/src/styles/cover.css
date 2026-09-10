@@ -456,11 +456,20 @@
   box-sizing: border-box;
   display: table-cell;
   vertical-align: top;
+  /* Largura fixa de 1/3: um macrotema pode ter menos de 3 indicadores com valor
+     no banco (os sem valor são omitidos em utils/cover.py), e sem isso a última
+     linha esticaria os cards restantes. */
+  width: 33.33%;
   min-height: 85.33px;
   background: #FFFFFF;
   border: 1px solid #EFEFEF;
   border-radius: 10.67px;
   overflow: hidden;
+}
+
+.indicator-score-spacer {
+  display: table-cell;
+  width: 33.33%;
 }
 
 .indicator-score-card-header {
