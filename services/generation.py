@@ -18,6 +18,8 @@ from plotting.demografia import (
 )
 from plotting.desenvolvimento_social import gerar_grafico_de_desenvolvimento_social
 from plotting.economia_renda import (
+    gerar_grafico_balanca,
+    gerar_grafico_exportacao,
     gerar_grafico_fob,
     gerar_grafico_pib,
     gerar_grafico_vab,
@@ -69,6 +71,7 @@ from utils.queries.demografia import (
 from utils.queries.desenvolvimento_social import (
     buscar_perfil_desenvolvimento_social,
 )
+from utils.queries.economia_exportacao import buscar_comercio_exterior_economia
 from utils.queries.economia_importacao import (
     buscar_linhas_importacao,
     processar_importacao,
@@ -136,6 +139,45 @@ GRAFICOS_AUTO_MARCADOR = {
                 r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
                 r"Vis[aã]o\s+hist[oó]rica\s+do\s+n[uú]mero\s+de\s+"
                 r"estabelecimentos\s+de\s+sa[uú]de[^\n]*)$"
+            ),
+        ),
+    ),
+    "economia-renda": (
+        (
+            "grafico_pib",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Evolu[cç][aã]o\s+anual\s+do\s+PIB\s+total[^\n]*)$"
+            ),
+        ),
+        (
+            "grafico_vab",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Valor\s+Adicionado\s+Bruto\s*\(VAB\)\s+por\s+setor[^\n]*)$"
+            ),
+        ),
+        (
+            "grafico_fob",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Destinos\s+das\s+importa[cç][oõ]es\s+ordenados\s+pelo\s+"
+                r"valor\s+l[ií]quido\s+FOB[^\n]*)$"
+            ),
+        ),
+        (
+            "grafico_exportacao",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Destinos\s+das\s+exporta[cç][oõ]es\s+ordenados\s+pelo\s+"
+                r"valor\s+l[ií]quido\s+FOB[^\n]*)$"
+            ),
+        ),
+        (
+            "grafico_balanca",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Vis[aã]o\s+mensal\s+da\s+balan[cç]a\s+comercial[^\n]*)$"
             ),
         ),
     ),
@@ -248,6 +290,9 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 dados_indicadores_economia = processar_indicadores_economia(linhas_pib)
                 linhas_importacao = buscar_linhas_importacao(nome_cidade_db, uf_db)
                 dados_importacao = processar_importacao(linhas_importacao)
+                dados_comercio_exterior = buscar_comercio_exterior_economia(
+                    nome_cidade_db, uf_db
+                )
             dados_rua = buscar_populacao_rua(nome_cidade_db, uf_db)
             db_consultado = True
 
@@ -311,6 +356,10 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         if "economia-renda" in macrotema_slugs and dados_importacao:
             for linha in linhas_macrotema:
                 linha.update(dados_importacao)
+
+        if "economia-renda" in macrotema_slugs and dados_comercio_exterior:
+            for linha in linhas_macrotema:
+                linha.update(dados_comercio_exterior)
 
         if linhas is None:
             linhas = linhas_macrotema
@@ -598,6 +647,36 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             except ValueError as err:
                 logger.warning(
                     "Não foi possível gerar o gráfico de países de importação "
+                    "para '%s': %s",
+                    safe_report,
+                    err,
+                )
+
+            try:
+                chart_file_name = gerar_grafico_exportacao(
+                    cidade=linhas_macrotema[0],
+                    OUTPUT_DIR=OUTPUT_DIR,
+                    safe_city=safe_report or "relatorio",
+                )
+                graficos_por_placeholder["grafico_exportacao"] = chart_file_name
+            except ValueError as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de países de exportação "
+                    "para '%s': %s",
+                    safe_report,
+                    err,
+                )
+
+            try:
+                chart_file_name = gerar_grafico_balanca(
+                    cidade=linhas_macrotema[0],
+                    OUTPUT_DIR=OUTPUT_DIR,
+                    safe_city=safe_report or "relatorio",
+                )
+                graficos_por_placeholder["grafico_balanca"] = chart_file_name
+            except ValueError as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de balança comercial "
                     "para '%s': %s",
                     safe_report,
                     err,

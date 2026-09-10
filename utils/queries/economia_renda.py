@@ -123,6 +123,7 @@ def processar_indicadores_economia(linhas: list[dict]) -> dict[str, object] | No
         "pib_2023": pib_2023,
         "pib_unid_2023": pib_unid_2023,
         "pibcapita_2023": pibcapita_2023,
+        "pibcapita2023": pibcapita_2023,  # alias: doc usa sem "_" nesta seção
         "pibcapita_unid_2023": pibcapita_unid_2023,
         "analise1_pib": analise1_pib,
         "analise1_pib_unid": analise1_pib_unid,
@@ -143,6 +144,9 @@ def processar_indicadores_economia(linhas: list[dict]) -> dict[str, object] | No
         resultado[f"setor2021_maior{posicao}"] = nome_setor
         resultado[f"setor2021_valor{posicao}"] = valor_escalado
         resultado[f"setor2021_unid{posicao}"] = unidade
+        # alias: doc usa "maior1_unid" mas "maior2unid"/"maior3unid" (sem "_")
+        sufixo_unid = f"maior{posicao}_unid" if posicao == 1 else f"maior{posicao}unid"
+        resultado[f"setor2021_{sufixo_unid}"] = unidade
 
     atividade_maior_vab = linha_2021.get("atividade_maior_vab")
     vab_setor_maior = linha_2021.get("vab_setor_maior")
