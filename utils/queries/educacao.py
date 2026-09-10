@@ -50,13 +50,14 @@ COLUNAS_PERFIL_EDUCACIONAL = [
 PERFIL_EDUCACIONAL_MUNICIPIO = f"""
     SELECT {", ".join(COLUNAS_PERFIL_EDUCACIONAL)}
     FROM relatorios_auto.vw_perfil_educacional_municipal
-    WHERE LOWER(nm_mun) = LOWER(%s) AND UPPER(sigla_uf) = UPPER(%s)
+    WHERE LOWER(regexp_replace(nm_mun, '\\s*\\([^)]*\\)\\s*$', '')) = LOWER(%s)
+      AND UPPER(sigla_uf) = UPPER(%s)
 """
 
 PERFIL_EDUCACIONAL_MUNICIPIO_POR_NOME = f"""
     SELECT {", ".join(COLUNAS_PERFIL_EDUCACIONAL)}
     FROM relatorios_auto.vw_perfil_educacional_municipal
-    WHERE LOWER(nm_mun) = LOWER(%s)
+    WHERE LOWER(regexp_replace(nm_mun, '\\s*\\([^)]*\\)\\s*$', '')) = LOWER(%s)
 """
 
 _INDICE_SIGLA_UF = COLUNAS_PERFIL_EDUCACIONAL.index("sigla_uf")

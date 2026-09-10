@@ -90,3 +90,15 @@ def test_taxas_educacao_retorna_none_sem_dados(monkeypatch):
     dados = educacao.buscar_taxas_educacao_cor_faixa_etaria("Cidade Sem Dados", "PB")
 
     assert dados is None
+
+
+def test_queries_perfil_normalizam_sufixo_uf_no_nm_mun():
+    # `vw_perfil_educacional_municipal` guarda nm_mun como "Cidade (UF)" em todas
+    # as linhas, mas separar_cidade_uf entrega o nome sem sufixo. Sem normalizar a
+    # coluna (regexp_replace, como perfil_municipal.py já faz), o match por nome
+    # nunca casa e a educação retorna 404. Regressão desse 404.
+    for query in (
+        educacao.PERFIL_EDUCACIONAL_MUNICIPIO,
+        educacao.PERFIL_EDUCACIONAL_MUNICIPIO_POR_NOME,
+    ):
+        assert "regexp_replace(nm_mun" in query
