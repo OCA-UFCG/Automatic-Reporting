@@ -15,9 +15,16 @@ from config import (
 from plotting.demografia import (
     gerar_grafico_composicao_cor_raca,
     gerar_grafico_faixa_etaria_e_sexo,
+    gerar_grafico_visao_historica_populacao,
 )
 from plotting.desenvolvimento_social import gerar_grafico_de_desenvolvimento_social
-from plotting.economia_renda import gerar_grafico_pib
+from plotting.economia_renda import (
+    gerar_grafico_balanca,
+    gerar_grafico_exportacao,
+    gerar_grafico_fob,
+    gerar_grafico_pib,
+    gerar_grafico_vab,
+)
 from plotting.educacao import gerar_grafico_cor_faixa_etaria
 from plotting.hidraulica import gerar_grafico_tecnologias_acesso_agua
 from plotting.saneamento import gerar_grafico_esgotamento_sanitario
@@ -47,6 +54,7 @@ from utils.external.docs import (
     extrair_diagnostico_cidade,
     extrair_inicio_relatorio,
     extrair_introducao,
+    extrair_legenda_mapa_localizacao,
     extrair_referencias,
     extrair_relatorio_geral,
     extrair_resumo_cidade,
@@ -65,6 +73,11 @@ from utils.queries.demografia import (
 )
 from utils.queries.desenvolvimento_social import (
     buscar_perfil_desenvolvimento_social,
+)
+from utils.queries.economia_exportacao import buscar_comercio_exterior_economia
+from utils.queries.economia_importacao import (
+    buscar_linhas_importacao,
+    processar_importacao,
 )
 from utils.queries.economia_renda import (
     buscar_linhas_pib_municipal,
@@ -90,6 +103,7 @@ from utils.render.renderer import (
     render_descricao_tema_html,
     render_mapa_marker,
     reset_figura_contador,
+    resolver_referencia_figura_do_mapa,
     substituir_placeholders,
     texto_para_html,
 )
@@ -111,6 +125,13 @@ GRAFICOS_AUTO_MARCADOR = {
             (
                 r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
                 r"Composi[cç][aã]o\s+por\s+cor\s+ou\s+ra[cç]a[^\n]*)$"
+            ),
+        ),
+        (
+            "grafico_visao_historica",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Vis[aã]o\s+hist[oó]rica\s+da\s+popula[cç][aã]o[^\n]*)$"
             ),
         ),
     ),
@@ -135,6 +156,45 @@ GRAFICOS_AUTO_MARCADOR = {
                 r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
                 r"Vis[aã]o\s+hist[oó]rica\s+do\s+n[uú]mero\s+de\s+"
                 r"estabelecimentos\s+de\s+sa[uú]de[^\n]*)$"
+            ),
+        ),
+    ),
+    "economia-renda": (
+        (
+            "grafico_pib",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Evolu[cç][aã]o\s+anual\s+do\s+PIB\s+total[^\n]*)$"
+            ),
+        ),
+        (
+            "grafico_vab",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Valor\s+Adicionado\s+Bruto\s*\(VAB\)\s+por\s+setor[^\n]*)$"
+            ),
+        ),
+        (
+            "grafico_fob",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Destinos\s+das\s+importa[cç][oõ]es\s+ordenados\s+pelo\s+"
+                r"valor\s+l[ií]quido\s+FOB[^\n]*)$"
+            ),
+        ),
+        (
+            "grafico_exportacao",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Destinos\s+das\s+exporta[cç][oõ]es\s+ordenados\s+pelo\s+"
+                r"valor\s+l[ií]quido\s+FOB[^\n]*)$"
+            ),
+        ),
+        (
+            "grafico_balanca",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Vis[aã]o\s+mensal\s+da\s+balan[cç]a\s+comercial[^\n]*)$"
             ),
         ),
     ),
@@ -187,6 +247,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     dados_perfil_desenvolvimento_social = None
     dados_pib = None
     dados_indicadores_economia = None
+    dados_importacao = None
     dados_indicadores = None
 
     for macrotema_slug in macrotema_slugs:
@@ -330,6 +391,11 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 linhas_pib = buscar_linhas_pib_municipal(nome_cidade_db, uf_db)
                 dados_pib = processar_pib_evolucao(linhas_pib)
                 dados_indicadores_economia = processar_indicadores_economia(linhas_pib)
+                linhas_importacao = buscar_linhas_importacao(nome_cidade_db, uf_db)
+                dados_importacao = processar_importacao(linhas_importacao)
+                dados_comercio_exterior = buscar_comercio_exterior_economia(
+                    nome_cidade_db, uf_db
+                )
             dados_rua = buscar_populacao_rua(nome_cidade_db, uf_db)
             # Painel de indicadores da capa: uma única linha em vw_indicadores
             # cobre todos os macrotemas, então a busca fica fora dos ifs.
@@ -401,6 +467,14 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             for linha in linhas_macrotema:
                 linha.update(dados_indicadores_economia)
 
+        if "economia-renda" in macrotema_slugs and dados_importacao:
+            for linha in linhas_macrotema:
+                linha.update(dados_importacao)
+
+        if "economia-renda" in macrotema_slugs and dados_comercio_exterior:
+            for linha in linhas_macrotema:
+                linha.update(dados_comercio_exterior)
+
         if linhas is None:
             linhas = linhas_macrotema
 
@@ -431,6 +505,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 slug_arquivo = macrotema.split(",")[0].strip()
             safe_report = f"{slug_arquivo}__{safe_city}"
 
+            legenda_mapa_localizacao = None
             if CARACTERISTICAS_DOCS_URL:
                 # O documento de Características Gerais é comum a todos os
                 # macrotemas, mas seus placeholders ainda precisam dos dados da
@@ -503,6 +578,19 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 resumo_cidade, caracteristicas_texto = extrair_resumo_cidade(
                     caracteristicas_texto
                 )
+                legenda_mapa_localizacao, caracteristicas_texto = (
+                    extrair_legenda_mapa_localizacao(caracteristicas_texto)
+                )
+                if legenda_mapa_localizacao:
+                    legenda_mapa_localizacao = substituir_placeholders(
+                        legenda_mapa_localizacao,
+                        contexto_caracteristicas,
+                        "caract_mun",
+                    )
+                    if resumo_cidade:
+                        resumo_cidade = resolver_referencia_figura_do_mapa(
+                            resumo_cidade
+                        )
                 if resumo_cidade:
                     cover["resumo_cidade_html"] = render_descricao_tema_html(
                         resumo_cidade,
@@ -566,6 +654,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             for nome_grafico, gerar_grafico in (
                 ("grafico_faixa_etaria_e_sexo", gerar_grafico_faixa_etaria_e_sexo),
                 ("grafico_composicao_cor_raca", gerar_grafico_composicao_cor_raca),
+                ("grafico_visao_historica", gerar_grafico_visao_historica_populacao),
             ):
                 try:
                     graficos_por_placeholder[nome_grafico] = gerar_grafico(
@@ -682,6 +771,66 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             except ValueError as err:
                 logger.warning(
                     "Não foi possível gerar o gráfico de evolução do PIB "
+                    "para '%s': %s",
+                    safe_report,
+                    err,
+                )
+
+            try:
+                chart_file_name = gerar_grafico_vab(
+                    cidade=linhas_macrotema[0],
+                    OUTPUT_DIR=OUTPUT_DIR,
+                    safe_city=safe_report or "relatorio",
+                )
+                graficos_por_placeholder["grafico_vab"] = chart_file_name
+            except ValueError as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de VAB por setor "
+                    "para '%s': %s",
+                    safe_report,
+                    err,
+                )
+
+            try:
+                chart_file_name = gerar_grafico_fob(
+                    cidade=linhas_macrotema[0],
+                    OUTPUT_DIR=OUTPUT_DIR,
+                    safe_city=safe_report or "relatorio",
+                )
+                graficos_por_placeholder["grafico_fob"] = chart_file_name
+            except ValueError as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de países de importação "
+                    "para '%s': %s",
+                    safe_report,
+                    err,
+                )
+
+            try:
+                chart_file_name = gerar_grafico_exportacao(
+                    cidade=linhas_macrotema[0],
+                    OUTPUT_DIR=OUTPUT_DIR,
+                    safe_city=safe_report or "relatorio",
+                )
+                graficos_por_placeholder["grafico_exportacao"] = chart_file_name
+            except ValueError as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de países de exportação "
+                    "para '%s': %s",
+                    safe_report,
+                    err,
+                )
+
+            try:
+                chart_file_name = gerar_grafico_balanca(
+                    cidade=linhas_macrotema[0],
+                    OUTPUT_DIR=OUTPUT_DIR,
+                    safe_city=safe_report or "relatorio",
+                )
+                graficos_por_placeholder["grafico_balanca"] = chart_file_name
+            except ValueError as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de balança comercial "
                     "para '%s': %s",
                     safe_report,
                     err,
@@ -812,7 +961,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
 
         if eh_primeiro and cover is not None:
             cover["mapa_principal"] = render_mapa_marker(
-                linhas_macrotema[0], safe_report
+                linhas_macrotema[0], safe_report, legenda=legenda_mapa_localizacao
             )
 
         # O que sobra do Doc após extrair descricao_tema/resumo/etc. é a caixa

@@ -5,6 +5,8 @@ import numpy as np
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 from plotting import ESCALA_FONTE
+from utils.formatting import formatar_numero_ptbr
+from utils.queries.base import escalar_valor
 
 
 def _salvar_figura_com_fundo_branco(
@@ -120,6 +122,75 @@ def gerar_grafico_composicao_cor_raca(
     ax.set_xticks(x)
     ax.set_xticklabels(labels, fontsize=10*ESCALA_FONTE, fontweight=600)
     ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _: f"{valor:.0f}%"))
+    ax.yaxis.set_major_locator(MaxNLocator(4))
+    ax.grid(axis="y", linestyle=(0, (1, 4)), linewidth=0.8, color="#D9D9D9", zorder=0)
+    ax.tick_params(axis="both", length=0, colors="#514C50", labelsize=9*ESCALA_FONTE)
+    for lado in ("left", "right", "bottom"):
+        ax.spines[lado].set_visible(False)
+    ax.spines["top"].set_color("#ECECEC")
+    ax.spines["top"].set_linewidth(7)
+    ax.margins(x=0.18)
+    _salvar_figura_com_fundo_branco(fig, ax, chart_file, pad=1.2)
+    return chart_file.name
+
+
+_ANOS_VISAO_HISTORICA = (2000, 2010, 2022)
+_SUFIXO_UNIDADE_POPULACAO = {"bilhões": "Bi", "milhões": "Mi", "mil": "mil", "": ""}
+_DIVISOR_UNIDADE_POPULACAO = {"bilhões": 1e9, "milhões": 1e6, "mil": 1e3, "": 1}
+
+
+def gerar_grafico_visao_historica_populacao(
+    cidade: dict,
+    OUTPUT_DIR: pathlib.Path,
+    safe_city: str,
+) -> str:
+    populacao_por_ano = {
+        ano: cidade.get(f"pop_total_{ano}") for ano in _ANOS_VISAO_HISTORICA
+    }
+    if any(valor is None for valor in populacao_por_ano.values()):
+        raise ValueError("Dados de visão histórica da população não disponíveis.")
+
+    anos = [str(ano) for ano in _ANOS_VISAO_HISTORICA]
+    valores = [float(populacao_por_ano[ano]) for ano in _ANOS_VISAO_HISTORICA]
+
+    # A unidade é escolhida a partir do maior valor da série (municípios
+    # pequenos ficam na casa do "mil", não de "Mi" — dividir tudo por milhão
+    # fazia a barra inteira arredondar para "0 Mi").
+    _, unidade = escalar_valor(max(valores))
+    divisor = _DIVISOR_UNIDADE_POPULACAO[unidade]
+    sufixo = _SUFIXO_UNIDADE_POPULACAO[unidade]
+    decimais = 1 if divisor > 1 else 0
+    valores_escalados = [valor / divisor for valor in valores]
+
+    def _rotulo(valor_escalado: float) -> str:
+        texto = formatar_numero_ptbr(valor_escalado, decimais=decimais)
+        return f"{texto} {sufixo}".strip()
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    chart_file = OUTPUT_DIR / f"grafico_visao_historica_populacao_{safe_city}.png"
+
+    fig, ax = plt.subplots(figsize=(6.1, 4.05))
+    x = np.arange(len(anos))
+    barras = ax.bar(x, valores_escalados, width=0.6, color="#D97AAA", zorder=3)
+    limite = max(valores_escalados) * 1.26 if valores_escalados else 1
+    ax.set_ylim(0, limite)
+
+    for barra, valor_escalado in zip(barras, valores_escalados):
+        ax.text(
+            barra.get_x() + barra.get_width() / 2,
+            valor_escalado + limite * 0.025,
+            _rotulo(valor_escalado),
+            ha="center",
+            va="bottom",
+            fontsize=10*ESCALA_FONTE,
+            fontweight=600,
+            color="#514C50",
+        )
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(anos, fontsize=10*ESCALA_FONTE, fontweight=600)
+    ax.set_xlabel("Ano", fontsize=9*ESCALA_FONTE, color="#514C50")
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _: _rotulo(valor)))
     ax.yaxis.set_major_locator(MaxNLocator(4))
     ax.grid(axis="y", linestyle=(0, (1, 4)), linewidth=0.8, color="#D9D9D9", zorder=0)
     ax.tick_params(axis="both", length=0, colors="#514C50", labelsize=9*ESCALA_FONTE)

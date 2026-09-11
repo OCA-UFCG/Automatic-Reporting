@@ -64,11 +64,24 @@ def _substituir_referencia_figura_inline(linha: str) -> str:
     return _REFERENCIA_FIGURA_INLINE.sub(_proxima_figura, linha)
 
 
+def resolver_referencia_figura_do_mapa(texto: str) -> str:
+    """Fixa em "Figura 1" a menção "(Figura X)" ao mapa dentro do resumo_cidade.
+
+    Essa menção está na mesma frase que descreve o mapa de localização, cuja
+    legenda é sempre "Figura 1" (ver render_mapa_marker). Se não for resolvida
+    aqui, ela cai no contador genérico de _substituir_referencia_figura_inline
+    e consome o número da próxima figura real do relatório, empurrando a
+    numeração de todos os gráficos seguintes em uma casa.
+    """
+    return _REFERENCIA_FIGURA_INLINE.sub("Figura 1", texto, count=1)
+
+
 __all__ = [
     "convert_links_to_html",
     "render_descricao_tema_html",
     "render_mapa_marker",
     "reset_figura_contador",
+    "resolver_referencia_figura_do_mapa",
     "substituir_placeholders",
     "texto_para_html",
 ]
@@ -78,7 +91,17 @@ FALLBACK_DOC_TEXT = """deu erro.
 """
 
 
-def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
+def _legenda_mapa_localizacao_html(legenda: str | None) -> str:
+    if not legenda:
+        return "Figura 1- Localização do município."
+    legenda = re.sub(r"(?i)^figura\s+[^–-]*[–-]", "Figura 1 –", legenda.strip())
+    return html_module.escape(legenda)
+
+
+def render_mapa_marker(
+    contexto: dict, safe_report: str | None = None, legenda: str | None = None
+) -> str:
+    legenda_html = _legenda_mapa_localizacao_html(legenda)
     mapa_estatico = buscar_mapa_estatico(
         contexto.get("nm_mun", ""), contexto.get("sigla_uf")
     )
@@ -88,7 +111,7 @@ def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
             '<figure class="map-block map-block--region">'
             f'<img class="region-map-image" src="/mapas/{quote(mapa_estatico)}" '
             f'alt="Mapa da região de {cidade_segura}">'
-            '<figcaption>Figura 1- Localização do município.</figcaption>'
+            f'<figcaption>{legenda_html}</figcaption>'
             '</figure>'
             '<!-- fonte: mapa_estatico -->'
         )
@@ -100,7 +123,7 @@ def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
             '<figure class="map-block map-block--region">'
             f'<img class="region-map-image" src="/output/{html_module.escape(mapa_file)}" '
             f'alt="Mapa da região de {cidade_segura}">'
-            '<figcaption>Figura 1- Localização do município.</figcaption>'
+            f'<figcaption>{legenda_html}</figcaption>'
             '</figure>'
             '<!-- fonte: gerado_localmente -->'
         )

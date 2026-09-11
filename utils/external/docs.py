@@ -242,6 +242,28 @@ def extrair_diagnostico_cidade(texto: str) -> tuple[str | None, str]:
     return extrair_bloco_marcado(texto, "diagnostico_cidade")
 
 
+_LEGENDA_MAPA_LOCALIZACAO = re.compile(
+    r"(?im)^[ \t]*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+    r"Localiza[cç][aã]o\s+do\s+munic[ií]pio[^\n]*$"
+)
+
+
+def extrair_legenda_mapa_localizacao(texto: str) -> tuple[str | None, str]:
+    """Remove do texto a legenda do mapa de localização (Figura X- ...).
+
+    Essa linha vem escrita no doc de Características como parte do
+    resumo_cidade, mas o mapa já é montado à parte por render_mapa_marker;
+    sem essa extração, a legenda sobrava como texto solto no relatório.
+    """
+    match = _LEGENDA_MAPA_LOCALIZACAO.search(texto)
+    if not match:
+        return None, texto
+
+    legenda = match.group(0).strip()
+    texto_restante = (texto[:match.start()] + texto[match.end():]).strip()
+    return legenda, texto_restante
+
+
 def extrair_referencias(texto: str) -> tuple[list[str], str]:
     referencias: list[str] = []
     texto_restante = texto
