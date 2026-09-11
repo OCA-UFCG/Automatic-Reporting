@@ -1,9 +1,8 @@
 import pathlib
 
-import matplotlib.pyplot as plt
 import numpy as np
 
-from plotting import ESCALA_FONTE
+from plotting import ESCALA_FONTE, iniciar_card_grafico, salvar_card_grafico
 from utils.formatting import coerce_para_float as _coerce_para_float
 
 
@@ -12,13 +11,15 @@ def gerar_grafico_cor_faixa_etaria(
     OUTPUT_DIR: pathlib.Path,
     safe_city: str,
 ):
+    # Rótulo em duas linhas em vez de rotacionado: texto rotacionado fica
+    # ilegível quando a imagem é reduzida pra caber na largura da página.
     faixas_etarias = [
-        ("15 a 19 anos", "15_a_19"),
-        ("20 a 29 anos", "20_a_29"),
-        ("30 a 39 anos", "30_a_39"),
-        ("40 a 49 anos", "40_a_49"),
-        ("50 a 59 anos", "50_a_59"),
-        ("60 anos ou mais", "mais60"),
+        ("15 a 19\nanos", "15_a_19"),
+        ("20 a 29\nanos", "20_a_29"),
+        ("30 a 39\nanos", "30_a_39"),
+        ("40 a 49\nanos", "40_a_49"),
+        ("50 a 59\nanos", "50_a_59"),
+        ("60 anos\nou mais", "mais60"),
     ]
 
     cores = {
@@ -67,9 +68,20 @@ def gerar_grafico_cor_faixa_etaria(
 
     largura = 0.15
 
-    fig, ax = plt.subplots(figsize=(8, 3.2))
-    fig.patch.set_facecolor("white")
-    ax.set_facecolor("white")
+    fig, ax = iniciar_card_grafico(
+        (12, 6.4),
+        "Taxa de analfabetismo por cor/raça e faixa etária",
+        tamanho_titulo=17,
+    )
+    # Mesmo ajuste de demografia.gerar_grafico_faixa_etaria_e_sexo: a legenda
+    # fica abaixo do eixo (bbox_to_anchor negativo) e sairia cortada pra fora
+    # do card, então encolhemos o `ax` pra sobrar uma faixa pra ela dentro.
+    # A faixa reservada cobre as duas linhas do rótulo do eixo X + a legenda.
+    posicao = ax.get_position()
+    altura_legenda = posicao.height * 0.3
+    ax.set_position(
+        (posicao.x0, posicao.y0 + altura_legenda, posicao.width, posicao.height - altura_legenda)
+    )
 
     cores_grafico = {
         "Amarela": "#E88BC0",
@@ -93,7 +105,8 @@ def gerar_grafico_cor_faixa_etaria(
     ax.set_xticks(x)
     ax.set_xticklabels(
         [nome for nome, _ in faixas_etarias],
-        fontsize=9*ESCALA_FONTE,
+        fontsize=15*ESCALA_FONTE,
+        ha="center",
     )
 
     valor_maximo = max(
@@ -107,7 +120,7 @@ def gerar_grafico_cor_faixa_etaria(
     ax.set_yticks(ticks_y)
     ax.set_yticklabels(
         [f"{tick}%" for tick in ticks_y],
-        fontsize=9*ESCALA_FONTE,
+        fontsize=15*ESCALA_FONTE,
     )
 
     ax.grid(
@@ -127,21 +140,13 @@ def gerar_grafico_cor_faixa_etaria(
 
     ax.legend(
         loc="upper center",
-        bbox_to_anchor=(0.5, -0.12),
+        bbox_to_anchor=(0.5, -0.28),
         ncol=5,
         frameon=False,
-        fontsize=9*ESCALA_FONTE,
+        fontsize=15*ESCALA_FONTE,
+        markerscale=1.3,
     )
 
-    plt.tight_layout()
-
-    plt.savefig(
-        chart_file,
-        dpi=150,
-        bbox_inches="tight",
-        facecolor="white",
-    )
-
-    plt.close(fig)
+    salvar_card_grafico(fig, chart_file)
 
     return chart_file.name
