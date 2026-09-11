@@ -153,6 +153,68 @@ demografia.$nm_datastory1 = https://example.com/data-story
     assert "nm_datastory1" not in caixa
 
 
+def test_source_badge_label_comes_from_the_placeholder_name():
+    """O tipo do conteúdo vem do nome do campo ($nm_boletim/$nm_datastory/
+    $nm_painel); antes dessa distinção todos saíam como "Narrativa de dados"."""
+    texto = """#!Conteúdos relacionados
+
+demografia.“$nm_datastory1” = https://datanordeste.sudene.gov.br/data-stories/f7d447d1
+demografia.“$nm_boletim1” = https://datanordeste.sudene.gov.br/boletim/22yf24FX8
+
+#!Fontes
+
+demografia.“$nm_painel1” = https://datanordeste.sudene.gov.br/data-panel/populacao
+"""
+    contexto = {
+        "nm_datastory1": "Estabelecimentos de saúde",
+        "nm_boletim1": "Terceira Idade",
+        "nm_painel1": "População",
+    }
+
+    caixa = "".join(render_descricao_tema_html(texto, contexto, namespace="demografia"))
+
+    assert (
+        '<a class="fonte-badge" href="https://datanordeste.sudene.gov.br/data-stories/f7d447d1">'
+        "<strong>Narrativa de dados:</strong> Estabelecimentos de saúde</a>"
+    ) in caixa
+    assert (
+        '<a class="fonte-badge" href="https://datanordeste.sudene.gov.br/boletim/22yf24FX8">'
+        "<strong>Boletim:</strong> Terceira Idade</a>"
+    ) in caixa
+    assert (
+        '<a class="fonte-badge" href="https://datanordeste.sudene.gov.br/data-panel/populacao">'
+        "<strong>Painel de dados:</strong> População</a>"
+    ) in caixa
+
+
+def test_source_badge_label_accepts_field_names_without_the_nm_prefix():
+    """O Doc de economia-renda usa "$painel1"/"$boletim1", sem "nm_"."""
+    texto = """#!Fontes
+
+economia.“$painel1” =  https://datanordeste.sudene.gov.br/data-panel/pib
+
+economia.“$boletim1” = https://datanordeste.sudene.gov.br/boletim/4stpvtz
+"""
+    contexto = {"painel1": "Produto Interno Bruto", "boletim1": "Emprego e Renda"}
+
+    caixa = "".join(render_descricao_tema_html(texto, contexto, namespace="economia-renda"))
+
+    assert "<strong>Painel de dados:</strong> Produto Interno Bruto</a>" in caixa
+    assert "<strong>Boletim:</strong> Emprego e Renda</a>" in caixa
+
+
+def test_source_badge_label_falls_back_to_the_url_when_the_field_name_says_nothing():
+    texto = """#!Fontes
+
+demografia.“$conteudo1” = https://datanordeste.sudene.gov.br/boletim/22yf24FX8
+"""
+    contexto = {"conteudo1": "Terceira Idade"}
+
+    caixa = "".join(render_descricao_tema_html(texto, contexto, namespace="demografia"))
+
+    assert "<strong>Boletim:</strong> Terceira Idade</a>" in caixa
+
+
 def test_fontes_box_opened_with_hash_bang_heading_closes_before_a_later_regular_heading():
     texto = """#!Fontes
 

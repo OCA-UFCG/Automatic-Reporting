@@ -138,15 +138,40 @@ _SECOES_TITULO_ESPECIAL = {
 }
 _SECOES_CAIXA_FONTES = {"fontes", "conteúdos relacionados", "conteudos relacionados"}
 
-# Ex.: "[Painel: Terceira Idade](https://...)" ou "[Narrativa de dados: X](https://...)".
+# Ex.: "[Painel: Terceira Idade](https://...)" ou "[Boletim: X](https://...)".
 _BADGE_LINK = re.compile(
-    r"(?i)^\[\s*(painel|narrativa de dados)\s*:\s*([^\]]*?)\s*\]\((\S+)\)$"
+    r"(?i)^\[\s*(painel de dados|painel|narrativa de dados|boletim)\s*:\s*"
+    r"([^\]]*?)\s*\]\((\S+)\)$"
 )
 
-# Ex.: "demografia.“$nm_datastory1” = https://...". Roda depois de
-# substituir_placeholders, então "$campo" só sobra aqui se não tinha valor.
-_LINHA_NARRATIVA_DADOS = re.compile(
-    r"(?i)^[a-z][\w-]*\.\s*(.+?)\s*=\s*(https?://\S+)$"
+_ROTULOS_BADGE = {
+    "boletim": "Boletim",
+    "narrativa de dados": "Narrativa de dados",
+    "painel": "Painel",
+    "painel de dados": "Painel de dados",
+}
+
+# Ex.: "demografia.“$nm_painel1” = https://...", a forma que os Docs usam nas
+# seções "Fontes"/"Conteúdos relacionados".
+_LINHA_FONTE = re.compile(
+    r"(?i)^([a-z][\w-]*\.\s*.+?)\s*=\s*(https?://\S+)$"
+)
+
+# O tipo do conteúdo vive no nome do campo ($nm_boletim1, $nm_datastory2,
+# $painel3), e não em nada que sobre depois de substituir_placeholders — daí
+# rotular a linha antes da substituição, em _rotular_linhas_de_fonte.
+_ROTULO_POR_CAMPO = (
+    (re.compile(r"(?i)\$\s*(?:nm[_-]?)?boletim"), "Boletim"),
+    (re.compile(r"(?i)\$\s*(?:nm[_-]?)?data[_-]?stor"), "Narrativa de dados"),
+    (re.compile(r"(?i)\$\s*(?:nm[_-]?)?painel"), "Painel de dados"),
+)
+
+# Rede de segurança para quando o campo não denuncia o tipo (nome fora do
+# padrão, ou título já escrito literalmente no Doc): a rota do portal denuncia.
+_ROTULO_POR_URL = (
+    ("/boletim/", "Boletim"),
+    ("/data-stories/", "Narrativa de dados"),
+    ("/data-panel/", "Painel de dados"),
 )
 
 
@@ -183,11 +208,42 @@ def _normalizar_quebras_de_link(paragrafo: str) -> str:
     return re.sub(r"\]\s*\(", "](", paragrafo)
 
 
+def _rotulo_da_fonte(campo: str, url: str) -> str:
+    for padrao, rotulo in _ROTULO_POR_CAMPO:
+        if padrao.search(campo):
+            return rotulo
+    url_normalizada = url.casefold()
+    for trecho, rotulo in _ROTULO_POR_URL:
+        if trecho in url_normalizada:
+            return rotulo
+    return "Narrativa de dados"
+
+
+def _rotular_linhas_de_fonte(texto: str) -> str:
+    """Reescreve "tema.“$nm_painel1” = https://..." como
+    "[Painel de dados: tema.$nm_painel1](https://...)", a forma de badge que
+    _renderizar_conteudo_caixa_fontes já entende. Tem que rodar antes de
+    substituir_placeholders: é o nome do campo que diz se o conteúdo é boletim,
+    narrativa de dados ou painel, e ele não sobrevive à substituição.
+    """
+    linhas = []
+    for linha in texto.splitlines():
+        fonte = _LINHA_FONTE.match(linha.strip())
+        if not fonte:
+            linhas.append(linha)
+            continue
+        campo, url = fonte.group(1), fonte.group(2)
+        campo_limpo = campo.replace("“", "").replace("”", "").replace('"', "").strip()
+        linhas.append(f"[{_rotulo_da_fonte(campo, url)}: {campo_limpo}]({url})")
+    return "\n".join(linhas)
+
+
 def _renderizar_badge_fonte(rotulo: str, nome: str, url: str) -> str | None:
     if not _url_is_safe(url):
         return None
-    rotulo_normalizado = "Narrativa de dados" if rotulo.casefold() == "narrativa de dados" else "Painel"
-    nome_normalizado = html_module.escape(re.sub(r"\s+", " ", nome).strip())
+    rotulo_normalizado = _ROTULOS_BADGE.get(rotulo.casefold(), "Painel")
+    nome_limpo = re.sub(r"\s+", " ", nome).strip().strip("\"'“”").strip()
+    nome_normalizado = html_module.escape(nome_limpo)
     return (
         f'<a class="fonte-badge" href="{html_module.escape(url)}">'
         f"<strong>{rotulo_normalizado}:</strong> {nome_normalizado}</a>"
@@ -228,17 +284,11 @@ def _renderizar_conteudo_caixa_fontes(
 
         badge_link = _BADGE_LINK.match(linha_limpa)
         if badge_link:
-            badge = _renderizar_badge_fonte(*badge_link.groups())
-            if badge:
-                descarregar_texto()
-                fragmentos.append(badge)
-            continue
-
-        narrativa = _LINHA_NARRATIVA_DADOS.match(linha_limpa)
-        if narrativa:
-            nome = narrativa.group(1).strip().strip("\"'“”").strip()
+            rotulo, nome, url = badge_link.groups()
+            # Placeholder sem valor no contexto: a linha inteira sai da caixa,
+            # em vez de imprimir "$nm_boletim1" cru como rótulo do link.
             if "$" not in nome:
-                badge = _renderizar_badge_fonte("Narrativa de dados", nome, narrativa.group(2))
+                badge = _renderizar_badge_fonte(rotulo, nome, url)
                 if badge:
                     descarregar_texto()
                     fragmentos.append(badge)
@@ -352,6 +402,7 @@ def render_descricao_tema_html(
     graficos_por_placeholder: dict[str, str] | None = None,
 ) -> list[str]:
     descricao_tema = interpretar_blocos_condicionais(descricao_tema, contexto)
+    descricao_tema = _rotular_linhas_de_fonte(descricao_tema)
     partes = []
     intro_ja_inserida = False
     secoes_caixa: dict[str, list[str]] | None = None
@@ -441,6 +492,9 @@ def texto_para_html(
 
     if not blocos_condicionais_ja_interpretados:
         texto = interpretar_blocos_condicionais(texto, contexto)
+    # Idempotente: a linha já reescrita por render_descricao_tema_html deixa de
+    # casar com _LINHA_FONTE (passa a começar com "[").
+    texto = _rotular_linhas_de_fonte(texto)
     texto_renderizado = substituir_placeholders(texto, contexto, namespace)
 
     # Seções "#!Fontes"/"#!Conteúdos relacionados" (quando sobram aqui em vez
