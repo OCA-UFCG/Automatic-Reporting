@@ -67,7 +67,7 @@ def gerar_grafico_mortalidade_infantil(
     fig, ax = iniciar_card_grafico(
         (10, 4.4), "Visão histórica da taxa de mortalidade infantil"
     )
-    _reservar_espaco_rotulo_x(fig, ax)
+    _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas=0.5)
 
     barras = ax.bar(x, taxas, width=0.62, color="#9E2A3F", zorder=3)
 
@@ -139,7 +139,7 @@ def gerar_grafico_de_estabelecimento(
     fig, ax = iniciar_card_grafico(
         (10, 4.4), "Visão histórica do número de estabelecimentos de saúde"
     )
-    _reservar_espaco_rotulo_x(fig, ax)
+    _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas=0.5)
 
     barras = ax.bar(x, totais, width=0.62, color="#FF5A6E", zorder=3)
 
@@ -201,7 +201,7 @@ def gerar_grafico_cobertura_vacinal(
 
     chart_file = OUTPUT_DIR / f"grafico_cobertura_vacinal_{safe_city}.png"
 
-    altura = max(3.6, 0.4 * len(vacinas) + 1.0)
+    altura = max(4.2, 0.55 * len(vacinas) + 1.2)
     # Faixa de header proporcionalmente menor em cards mais altos (muitas
     # vacinas), senão o título fica desproporcionalmente grande no topo.
     altura_header = min(0.14, 3.6 * 0.14 / altura)
@@ -209,20 +209,26 @@ def gerar_grafico_cobertura_vacinal(
         (11, altura),
         "Taxa de cobertura vacinal por tipo de vacina",
         altura_header=altura_header,
+        margem_direita=0.09,
     )
     _reservar_espaco_rotulo_x(fig, ax)
 
     y = np.arange(len(vacinas))
 
-    ax.barh(y, coberturas, height=0.62, color="#FF5A6E", zorder=3)
+    ax.barh(y, coberturas, height=0.5, color="#FF5A6E", zorder=3)
 
     ax.set_yticks(y)
     ax.set_yticklabels(vacinas, fontsize=11*ESCALA_FONTE)
     ax.invert_yaxis()
+
+    ax.set_ylabel("Imunobiológico", fontsize=12*ESCALA_FONTE)
     # Nomes de vacina variam muito de tamanho (de "BCG" a "Pentavalente
     # (DTP/Hib/HepB)"); a margem esquerda fixa do card não dá conta dos mais
     # longos e eles saem cortados pra fora da moldura — mede o rótulo mais
-    # largo já desenhado e expande a margem até caber.
+    # largo já desenhado e expande a margem até caber. Precisa rodar depois do
+    # `set_ylabel` acima: a função só reserva espaço e fixa a posição do rótulo
+    # se ele já existir, senão o posicionamento automático do matplotlib some
+    # com o texto (fica fora do canvas) quando o `set_ylabel` roda depois.
     ajustar_margem_esquerda_para_rotulos(fig, ax)
 
     limite_superior = max(110.0, max(coberturas) * 1.08)
@@ -259,7 +265,6 @@ def gerar_grafico_cobertura_vacinal(
     ax.tick_params(axis="both", length=0, labelsize=11*ESCALA_FONTE, colors="#4A4A4A")
 
     ax.set_xlabel("Taxa de cobertura vacinal (%)", fontsize=12*ESCALA_FONTE)
-    ax.set_ylabel("Imunobiológico", fontsize=12*ESCALA_FONTE)
 
     salvar_card_grafico(fig, chart_file)
 
@@ -309,7 +314,7 @@ def gerar_grafico_publico_etario(
     # A legenda fica abaixo do eixo (bbox_to_anchor negativo); sem encolher o
     # `ax` ela cai fora da área desenhada e sai cortada do card.
     posicao = ax.get_position()
-    altura_legenda = posicao.height * 0.26
+    altura_legenda = posicao.height * 0.34
     ax.set_position(
         (posicao.x0, posicao.y0 + altura_legenda, posicao.width, posicao.height - altura_legenda)
     )

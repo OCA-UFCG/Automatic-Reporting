@@ -19,7 +19,20 @@ _NOMES_SETORES_VAB = {
     "agropecuaria": "Agropecuária",
 }
 _CORES_POR_RANKING = ("#F0883E", "#F5C08A", "#F8D9B8", "#FBEADB")
-_UNIDADE_ABREVIADA = {"bilhões": "Bi", "milhões": "Mi", "mil": "mil"}
+_UNIDADE_ABREVIADA = {"trilhões": "Ti", "bilhões": "Bi", "milhões": "Mi", "mil": "mil"}
+
+
+def _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas: float = 0.34) -> None:
+    # Mesmo ajuste de plotting.saude/demografia: `iniciar_card_grafico`
+    # posiciona o corpo do card sem folga abaixo dos rótulos do eixo X — eles
+    # ficam colados na borda inferior da moldura. Encolhe o eixo reservando
+    # uma faixa fixa, em polegadas, na base do card.
+    altura_fig = fig.get_size_inches()[1]
+    fracao = reserva_polegadas / altura_fig
+    posicao = ax.get_position()
+    ax.set_position(
+        (posicao.x0, posicao.y0 + fracao, posicao.width, posicao.height - fracao)
+    )
 
 
 def _dispor_setores_por_valor(
@@ -63,32 +76,25 @@ def gerar_grafico_pib(
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_pib_{safe_city}.png"
 
-    fig, ax = iniciar_card_grafico((10, 4.5), "Evolução anual do PIB Total")
+    fig, ax = iniciar_card_grafico(
+        (24, 7),
+        "Evolução anual do PIB Total",
+        margem_esquerda=0.08,
+        tamanho_titulo=18,
+    )
+    _reservar_espaco_rotulo_x(fig, ax)
 
     ax.plot(
         anos,
         valores,
         linestyle=":",
         marker="o",
-        linewidth=2,
-        markersize=5,
+        linewidth=2.5,
+        markersize=8,
         color=_COR_LINHA,
         markerfacecolor=_COR_LINHA,
         markeredgecolor=_COR_LINHA,
     )
-
-    for ano, valor in zip(anos, valores):
-        divisor_ponto, unidade_ponto = _escolher_unidade(valor)
-        sufixo_ponto = f" {unidade_ponto}" if unidade_ponto else ""
-        ax.annotate(
-            f"R$ {valor / divisor_ponto:.1f}{sufixo_ponto}",
-            (ano, valor),
-            xytext=(0, 8),
-            textcoords="offset points",
-            ha="center",
-            fontsize=8 * ESCALA_FONTE * 1.15,
-            color="#4A4A4A",
-        )
 
     valor_minimo = min(valores)
     valor_maximo = max(valores)
@@ -96,9 +102,32 @@ def gerar_grafico_pib(
     # Margem extra no topo (0.28 em vez de 0.15) para as anotações de valor,
     # que ficam acima de cada ponto, não colarem na faixa de título do card.
     margem = amplitude * 0.15
+    # Fixa os limites do eixo Y antes de anotar: a posição em pixels de cada
+    # rótulo (usada logo abaixo pra detectar sobreposição) depende dos
+    # limites vigentes no momento do desenho, e eles têm que ser os finais.
     ax.set_ylim(valor_minimo - margem, valor_maximo + amplitude * 0.28)
-
     ax.set_xticks(anos)
+
+    for ano, valor in zip(anos, valores):
+        divisor_ponto, unidade_ponto = _escolher_unidade(valor)
+        # "Mi"/"Bi"/"Ti" em vez do nome por extenso só aqui: é só o rótulo do
+        # ponto, mais compacto pra sobrar espaço no eixo X lotado de anos; o
+        # eixo Y (abaixo) continua com a unidade por extenso.
+        unidade_ponto_abreviada = {
+            "milhões": "Mi",
+            "bilhões": "Bi",
+            "trilhões": "Ti",
+        }.get(unidade_ponto, unidade_ponto)
+        sufixo_ponto = f" {unidade_ponto_abreviada}" if unidade_ponto_abreviada else ""
+        ax.annotate(
+            f"R$ {valor / divisor_ponto:.1f}{sufixo_ponto}",
+            (ano, valor),
+            xytext=(0, 10),
+            textcoords="offset points",
+            ha="center",
+            fontsize=12 * ESCALA_FONTE * 1.15,
+            color="#4A4A4A",
+        )
 
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -110,8 +139,9 @@ def gerar_grafico_pib(
     ax.yaxis.set_major_formatter(
         FuncFormatter(lambda valor, _: f"R$ {valor / divisor_eixo:.0f}{sufixo_eixo}")
     )
+    ax.tick_params(axis="both", labelsize=13 * ESCALA_FONTE)
 
-    salvar_card_grafico(fig, chart_file)
+    salvar_card_grafico(fig, chart_file, dpi=270)
     return chart_file.name
 
 
@@ -178,13 +208,39 @@ def _gerar_grafico_ranking_paises(
     ax.grid(axis="x", linestyle=":", color="#CCCCCC", zorder=0)
     ax.set_axisbelow(True)
     divisor_eixo, unidade_eixo = _escolher_unidade(max(valores))
-    sufixo_eixo = f" {unidade_eixo}" if unidade_eixo else ""
     ax.xaxis.set_major_formatter(
         FuncFormatter(
-            lambda valor, _: f"${formatar_numero_ptbr(valor / divisor_eixo, decimais=1)}{sufixo_eixo}"
+            lambda valor, _: f"${formatar_numero_ptbr(valor / divisor_eixo, decimais=1)}"
         )
     )
     ax.set_xlim(0, max(valores) * 1.2)
+
+    if unidade_eixo:
+        # Unidade uma vez só, à esquerda, na altura dos ticks — em vez de
+        # repetir "Mi" em cada tick do eixo X (redundante e mais apertado).
+        nome_unidade = {
+            "trilhões": "Trilhões",
+            "bilhões": "Bilhões",
+            "milhões": "Milhões",
+            "mil": "Mil",
+        }.get(unidade_eixo, unidade_eixo.capitalize())
+        abreviacao_unidade = _UNIDADE_ABREVIADA.get(unidade_eixo, unidade_eixo)
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        bbox_tick = ax.get_xticklabels()[0].get_window_extent(renderer=renderer)
+        _, y_altura_tick = fig.transFigure.inverted().transform(
+            (0, (bbox_tick.y0 + bbox_tick.y1) / 2)
+        )
+        fig.text(
+            0.03,
+            y_altura_tick,
+            f"{nome_unidade} ({abreviacao_unidade})",
+            transform=fig.transFigure,
+            ha="left",
+            va="center",
+            fontsize=13,
+            color="#4A4A4A",
+        )
 
     salvar_card_grafico(fig, chart_file)
     return chart_file.name
@@ -350,6 +406,7 @@ def gerar_grafico_balanca(
     chart_file = OUTPUT_DIR / f"grafico_balanca_{safe_city}.png"
 
     fig, ax = iniciar_card_grafico((10, 4.5), "Visão mensal da balança comercial")
+    _reservar_espaco_rotulo_x(fig, ax)
 
     posicoes = range(len(pontos))
     ax.bar(posicoes, valores, color=_COR_LINHA, zorder=3)

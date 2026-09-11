@@ -60,6 +60,7 @@ def iniciar_card_grafico(
     titulo: str,
     altura_header: float = 0.14,
     margem_esquerda: float = 0.16,
+    margem_direita: float = 0.045,
     tamanho_titulo: float = 11.5,
 ) -> tuple[Figure, "plt.Axes"]:
     # `margem_esquerda` default (0.16) reserva espaço pra rótulos de
@@ -112,7 +113,7 @@ def iniciar_card_grafico(
     )
 
     corpo_esq = margem + margem_esquerda
-    corpo_dir = 1 - margem - 0.045
+    corpo_dir = 1 - margem - margem_direita
     corpo_topo = 1 - margem - altura_header - 0.03
     corpo_base = margem + 0.06
     ax = fig.add_axes(
@@ -184,9 +185,9 @@ def ajustar_margem_esquerda_para_rotulos(
         )
 
 
-def salvar_card_grafico(fig: Figure, chart_file: pathlib.Path) -> None:
+def salvar_card_grafico(fig: Figure, chart_file: pathlib.Path, dpi: int = 180) -> None:
     # Sem bbox_inches="tight": a moldura já foi posicionada em coordenadas de
     # figura pensando no figsize exato, e um recorte automático cortaria as
     # bordas/cantos arredondados do card.
-    plt.savefig(chart_file, dpi=180, facecolor="white")
+    plt.savefig(chart_file, dpi=dpi, facecolor="white")
     plt.close(fig)

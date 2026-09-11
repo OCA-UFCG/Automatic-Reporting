@@ -69,7 +69,7 @@ def gerar_grafico_cor_faixa_etaria(
     largura = 0.15
 
     fig, ax = iniciar_card_grafico(
-        (12, 6.4),
+        (12, 8.4),
         "Taxa de analfabetismo por cor/raça e faixa etária",
         tamanho_titulo=17,
     )
@@ -79,8 +79,16 @@ def gerar_grafico_cor_faixa_etaria(
     # A faixa reservada cobre as duas linhas do rótulo do eixo X + a legenda.
     posicao = ax.get_position()
     altura_legenda = posicao.height * 0.3
+    # Margem extra no topo: sem ela a grade de 120% fica colada na barra
+    # cinza do cabeçalho do card.
+    margem_superior = posicao.height * 0.06
     ax.set_position(
-        (posicao.x0, posicao.y0 + altura_legenda, posicao.width, posicao.height - altura_legenda)
+        (
+            posicao.x0,
+            posicao.y0 + altura_legenda,
+            posicao.width,
+            posicao.height - altura_legenda - margem_superior,
+        )
     )
 
     cores_grafico = {
@@ -113,8 +121,14 @@ def gerar_grafico_cor_faixa_etaria(
         max(valores) for valores in dados.values()
     )
 
-    limite_superior = max(10, int(np.ceil(valor_maximo * 1.1 / 10)) * 10)
-    ticks_y = list(range(0, limite_superior + 1, 10))
+    # Poucos ticks (no máx. ~6), como no Figma: passo de 10 deixava até 12-13
+    # rótulos de "0%" a "120%" espremidos um em cima do outro. Sobe o passo
+    # (10 -> 20 -> 25 -> 50 -> 100) até caber nesse teto.
+    for passo in (10, 20, 25, 50, 100):
+        limite_superior = max(passo, int(np.ceil(valor_maximo * 1.1 / passo)) * passo)
+        if limite_superior / passo <= 6:
+            break
+    ticks_y = list(range(0, limite_superior + 1, passo))
 
     ax.set_ylim(0, limite_superior)
     ax.set_yticks(ticks_y)
@@ -136,15 +150,25 @@ def gerar_grafico_cor_faixa_etaria(
     ax.spines["right"].set_visible(False)
     ax.spines["left"].set_visible(False)
 
-    ax.tick_params(axis="both", length=0)
+    ax.tick_params(axis="x", length=0)
+    # Pad explícito (não o default do matplotlib, que fica imperceptível com
+    # a fonte grande deste gráfico): afasta "0%", "10%" etc. do eixo/barras.
+    ax.tick_params(axis="y", length=0, pad=12)
 
+    # `bbox_transform=fig.transFigure` em vez do default (`ax.transAxes`):
+    # a legenda centraliza na largura do card inteiro, não só do `ax` (que é
+    # mais estreito, com margem dos dois lados) — senão, com 5 itens numa
+    # única linha, "Preta" (último item) estoura a borda direita do card.
     ax.legend(
         loc="upper center",
-        bbox_to_anchor=(0.5, -0.28),
+        bbox_to_anchor=(0.5, 0.152),
+        bbox_transform=fig.transFigure,
         ncol=5,
         frameon=False,
         fontsize=15*ESCALA_FONTE,
         markerscale=1.3,
+        columnspacing=2.2,
+        handletextpad=0.6,
     )
 
     salvar_card_grafico(fig, chart_file)
