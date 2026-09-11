@@ -1,9 +1,7 @@
 import math
 import pathlib
 
-import matplotlib.pyplot as plt
-
-from plotting import ESCALA_FONTE
+from plotting import ESCALA_FONTE, iniciar_card_grafico, salvar_card_grafico
 
 # (chave no contexto, rótulo da legenda, cor) — ordem e cores espelham o Doc.
 _CATEGORIAS = (
@@ -49,8 +47,17 @@ def gerar_grafico_esgotamento_sanitario(
     rotulos = [rotulo for _, rotulo, _ in _CATEGORIAS]
     cores = [cor for _, _, cor in _CATEGORIAS]
 
-    fig, ax = plt.subplots(figsize=(8, 4))
-    fig.patch.set_facecolor("white")
+    fig, ax = iniciar_card_grafico(
+        (8, 4.6), "Domicílios por tipo de esgotamento sanitário"
+    )
+    # A legenda fica à direita da rosca (fora do eixo, na horizontal) — encolhe
+    # a largura do `ax` pra sobrar uma faixa à direita, dentro do card, onde
+    # ela cabe inteira sem vazar da moldura nem se sobrepor à rosca.
+    posicao = ax.get_position()
+    largura_legenda = posicao.width * 0.44
+    ax.set_position(
+        (posicao.x0, posicao.y0, posicao.width - largura_legenda, posicao.height)
+    )
 
     # Rótulo de % só nas fatias >= 2%: as menores ficam quase do mesmo tamanho
     # e seus rótulos se sobreporiam no anel — a categoria delas vai na legenda.
@@ -79,7 +86,7 @@ def gerar_grafico_esgotamento_sanitario(
         wedges,
         rotulos,
         loc="center left",
-        bbox_to_anchor=(1.02, 0.5),
+        bbox_to_anchor=(1.06, 0.5),
         frameon=False,
         fontsize=8.5*ESCALA_FONTE,
         handlelength=1.0,
@@ -87,6 +94,5 @@ def gerar_grafico_esgotamento_sanitario(
     )
     ax.set_aspect("equal")
 
-    plt.savefig(chart_file, dpi=180, bbox_inches="tight", facecolor="white")
-    plt.close(fig)
+    salvar_card_grafico(fig, chart_file)
     return chart_file.name

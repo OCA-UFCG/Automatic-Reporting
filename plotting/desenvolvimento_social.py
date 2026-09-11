@@ -1,12 +1,10 @@
 import pathlib
 from functools import partial
 
-import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
 
-from plotting import ESCALA_FONTE
-from plotting.demografia import _salvar_figura_com_fundo_branco
+from plotting import ESCALA_FONTE, iniciar_card_grafico, salvar_card_grafico
 from utils.formatting import coerce_para_float
 
 _CATEGORIAS_IDHM = (
@@ -60,9 +58,15 @@ def gerar_grafico_de_desenvolvimento_social(
 
     x = np.arange(len(anos))
 
-    fig, ax = plt.subplots(figsize=(8, 3.6))
-    fig.patch.set_facecolor("white")
-    ax.set_facecolor("white")
+    fig, ax = iniciar_card_grafico((8, 4.1), "Evolução do IDHM")
+    # Mesmo ajuste do gráfico de faixa etária (plotting/demografia.py): a
+    # legenda de categorias fica abaixo do eixo (bbox_to_anchor negativo) e,
+    # sem espaço reservado, saía cortada pra fora da moldura do card.
+    posicao = ax.get_position()
+    altura_legenda = posicao.height * 0.22
+    ax.set_position(
+        (posicao.x0, posicao.y0 + altura_legenda, posicao.width, posicao.height - altura_legenda)
+    )
 
     barras = ax.bar(x, valores, width=0.5, color=cores, zorder=3)
 
@@ -122,6 +126,6 @@ def gerar_grafico_de_desenvolvimento_social(
         fontsize=8*ESCALA_FONTE,
     )
 
-    _salvar_figura_com_fundo_branco(fig, ax, chart_file)
+    salvar_card_grafico(fig, chart_file)
 
     return chart_file.name
