@@ -562,3 +562,70 @@ def test_single_asterisk_chart_placeholder_is_rendered():
     )
 
     assert '<img src="/output/grafico_canapi.png"' in html
+
+
+def test_single_field_zero_one_many_condition_renders_only_the_matching_block():
+    """Mesmo padrão 0/1/>1 do centro_pop (demografia), aplicado a um campo
+    genérico de outro macrotema (n_uc, de meio-ambiente) — a checagem de
+    NULL não deve ficar restrita ao nome 'centro_pop'."""
+    texto = """Para meio-ambiente.$n_uc for igual a 0:
+Sem UC.
+Para meio-ambiente.$n_uc for igual a 1:
+Com uma UC.
+Para meio-ambiente.$n_uc maior que 1:
+Com várias UCs."""
+
+    resultado_zero = interpretar_blocos_condicionais(texto, {"n_uc": 0})
+    assert "Sem UC." in resultado_zero
+    assert "Com uma UC." not in resultado_zero
+    assert "Com várias UCs." not in resultado_zero
+
+    resultado_uma = interpretar_blocos_condicionais(texto, {"n_uc": 1})
+    assert "Com uma UC." in resultado_uma
+
+    resultado_varias = interpretar_blocos_condicionais(texto, {"n_uc": 3})
+    assert "Com várias UCs." in resultado_varias
+
+    # n_uc ausente do contexto (NULL no banco): nenhum bloco pode afirmar
+    # "zero" só porque o valor ausente foi coagido para 0.
+    resultado_sem_dado = interpretar_blocos_condicionais(texto, {})
+    assert "Sem UC." not in resultado_sem_dado
+    assert "Com uma UC." not in resultado_sem_dado
+    assert "Com várias UCs." not in resultado_sem_dado
+
+
+def test_range_and_generic_threshold_operators_pick_the_matching_block():
+    """meio-ambiente precisa de faixas ("de 2 a 4") e limiares genéricos
+    ("maior ou igual a 5") além dos operadores fixos originais (0/1/>1)."""
+    texto = """Para meio-ambiente.$n_uc for de 2 a 4 e meio-ambiente.$n_protecao_us for igual a 0:
+De 2 a 4, só Proteção Integral.
+Para meio-ambiente.$n_uc for de 2 a 4 e meio-ambiente.$n_protecao_pi for igual a 0:
+De 2 a 4, só Uso Sustentável.
+Para meio-ambiente.$n_uc for de 2 a 4 e meio-ambiente.$n_protecao_pi for diferente de 0 e meio-ambiente.$n_protecao_us for diferente de 0:
+De 2 a 4, os dois grupos.
+Para meio-ambiente.$n_uc for maior ou igual a 5:
+Cinco ou mais."""
+
+    so_pi = interpretar_blocos_condicionais(
+        texto, {"n_uc": 3, "n_protecao_pi": 3, "n_protecao_us": 0}
+    )
+    assert "De 2 a 4, só Proteção Integral." in so_pi
+    assert "De 2 a 4, só Uso Sustentável." not in so_pi
+    assert "De 2 a 4, os dois grupos." not in so_pi
+    assert "Cinco ou mais." not in so_pi
+
+    so_us = interpretar_blocos_condicionais(
+        texto, {"n_uc": 3, "n_protecao_pi": 0, "n_protecao_us": 3}
+    )
+    assert "De 2 a 4, só Uso Sustentável." in so_us
+
+    dois_grupos = interpretar_blocos_condicionais(
+        texto, {"n_uc": 4, "n_protecao_pi": 2, "n_protecao_us": 2}
+    )
+    assert "De 2 a 4, os dois grupos." in dois_grupos
+
+    cinco_ou_mais = interpretar_blocos_condicionais(
+        texto, {"n_uc": 8, "n_protecao_pi": 3, "n_protecao_us": 5}
+    )
+    assert "Cinco ou mais." in cinco_ou_mais
+    assert "De 2 a 4" not in cinco_ou_mais
