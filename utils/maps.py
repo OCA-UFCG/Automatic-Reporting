@@ -787,7 +787,7 @@ def render_mapa_geografico(contexto: dict) -> str:
             f'{render_svg_localizador(cidade, lat, lon)}'
             '</div>'
             f'{render_legenda_regioes()}'
-            f'<figcaption>Localização de {cidade_segura} no Brasil</figcaption>'
+            f'<figcaption>Figura 1- Localização de {cidade_segura} no Brasil</figcaption>'
             '</figure>'
         )
 
@@ -799,6 +799,6 @@ def render_mapa_geografico(contexto: dict) -> str:
         '<span>Mapa geográfico indisponível no momento.</span>'
         f'<a href="{busca_url}" target="_blank" rel="noopener noreferrer">Abrir no OpenStreetMap</a>'
         '</div>'
-        f'<figcaption>Mapa de localização de {nome_seguro}.</figcaption>'
+        f'<figcaption>Figura 1- Mapa de localização de {nome_seguro}.</figcaption>'
         '</figure>'
     )
