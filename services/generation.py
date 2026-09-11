@@ -15,6 +15,7 @@ from config import (
 from plotting.demografia import (
     gerar_grafico_composicao_cor_raca,
     gerar_grafico_faixa_etaria_e_sexo,
+    gerar_grafico_visao_historica_populacao,
 )
 from plotting.desenvolvimento_social import gerar_grafico_de_desenvolvimento_social
 from plotting.economia_renda import (
@@ -54,6 +55,7 @@ from utils.external.docs import (
     extrair_diagnostico_cidade,
     extrair_inicio_relatorio,
     extrair_introducao,
+    extrair_legenda_mapa_localizacao,
     extrair_referencias,
     extrair_relatorio_geral,
     extrair_resumo_cidade,
@@ -102,6 +104,7 @@ from utils.render.renderer import (
     render_descricao_tema_html,
     render_mapa_marker,
     reset_figura_contador,
+    resolver_referencia_figura_do_mapa,
     substituir_placeholders,
     texto_para_html,
 )
@@ -123,6 +126,13 @@ GRAFICOS_AUTO_MARCADOR = {
             (
                 r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
                 r"Composi[cç][aã]o\s+por\s+cor\s+ou\s+ra[cç]a[^\n]*)$"
+            ),
+        ),
+        (
+            "grafico_visao_historica",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Vis[aã]o\s+hist[oó]rica\s+da\s+popula[cç][aã]o[^\n]*)$"
             ),
         ),
     ),
@@ -505,6 +515,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 slug_arquivo = macrotema.split(",")[0].strip()
             safe_report = f"{slug_arquivo}__{safe_city}"
 
+            legenda_mapa_localizacao = None
             if CARACTERISTICAS_DOCS_URL:
                 # O documento de Características Gerais é comum a todos os
                 # macrotemas, mas seus placeholders ainda precisam dos dados da
@@ -577,6 +588,19 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 resumo_cidade, caracteristicas_texto = extrair_resumo_cidade(
                     caracteristicas_texto
                 )
+                legenda_mapa_localizacao, caracteristicas_texto = (
+                    extrair_legenda_mapa_localizacao(caracteristicas_texto)
+                )
+                if legenda_mapa_localizacao:
+                    legenda_mapa_localizacao = substituir_placeholders(
+                        legenda_mapa_localizacao,
+                        contexto_caracteristicas,
+                        "caract_mun",
+                    )
+                    if resumo_cidade:
+                        resumo_cidade = resolver_referencia_figura_do_mapa(
+                            resumo_cidade
+                        )
                 if resumo_cidade:
                     cover["resumo_cidade_html"] = render_descricao_tema_html(
                         resumo_cidade,
@@ -640,6 +664,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             for nome_grafico, gerar_grafico in (
                 ("grafico_faixa_etaria_e_sexo", gerar_grafico_faixa_etaria_e_sexo),
                 ("grafico_composicao_cor_raca", gerar_grafico_composicao_cor_raca),
+                ("grafico_visao_historica", gerar_grafico_visao_historica_populacao),
             ):
                 try:
                     graficos_por_placeholder[nome_grafico] = gerar_grafico(
@@ -961,7 +986,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
 
         if eh_primeiro and cover is not None:
             cover["mapa_principal"] = render_mapa_marker(
-                linhas_macrotema[0], safe_report
+                linhas_macrotema[0], safe_report, legenda=legenda_mapa_localizacao
             )
 
         # O que sobra do Doc após extrair descricao_tema/resumo/etc. é a caixa
