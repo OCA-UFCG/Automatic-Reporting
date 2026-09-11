@@ -73,12 +73,23 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
     bloco_ativo = True
     bloco_populacoes_ativo = True
     bloco_rua_ativo = True
+    # "Para quando X:"/"Para quando NÃO-X:" simples (fora dos casos especiais
+    # abaixo, que têm estado próprio e persistem de propósito) só devem gatear
+    # o parágrafo seguinte; sem isso, o conteúdo incondicional que vem depois
+    # herdaria o resultado da última condição avaliada e sumiria do relatório.
+    aguardando_fim_de_bloco_simples = False
 
     for linha in texto.splitlines():
         limpa = linha.strip()
+
+        if not limpa and aguardando_fim_de_bloco_simples:
+            bloco_ativo = True
+            aguardando_fim_de_bloco_simples = False
+
         if re.match(r"(?i)^sequ[eê]ncia do texto,?\s*sem condi[cç][aã]o:?$", limpa):
             bloco_ativo = True
             bloco_populacoes_ativo = True
+            aguardando_fim_de_bloco_simples = False
             continue
 
         condicao = re.match(r"(?i)^para(?:\s+quando)?\s+(.+?):\s*$", limpa)
@@ -104,6 +115,7 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                     )
                 else:
                     bloco_ativo = atende
+                    aguardando_fim_de_bloco_simples = True
                 continue
             # Sem "$campo", não é uma instrução editorial de fato — é uma frase
             # comum do texto (ex.: "Para efeito de análise:") e deve ser mantida.
@@ -120,12 +132,14 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                 bloco_ativo = gini_numero < limite
             else:
                 bloco_ativo = gini_numero >= limite
+            aguardando_fim_de_bloco_simples = True
             continue
 
         if limpa.casefold() in {"síntese", "sintese"}:
             bloco_ativo = True
             bloco_populacoes_ativo = True
             bloco_rua_ativo = True
+            aguardando_fim_de_bloco_simples = False
 
         # Nos documentos atuais, este parágrafo encerra as condições internas
         # referentes a 2010 e volta ao bloco indígena/quilombola principal.
