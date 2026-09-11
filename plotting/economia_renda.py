@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib.ticker import FuncFormatter
 
-from plotting import ESCALA_FONTE
+from plotting import ESCALA_FONTE, iniciar_card_grafico, salvar_card_grafico
 from plotting.hidraulica import _numero
 from utils.formatting import formatar_numero_ptbr
 from utils.queries.economia_renda import _escalar_valor
@@ -19,7 +19,20 @@ _NOMES_SETORES_VAB = {
     "agropecuaria": "Agropecuária",
 }
 _CORES_POR_RANKING = ("#F0883E", "#F5C08A", "#F8D9B8", "#FBEADB")
-_UNIDADE_ABREVIADA = {"bilhões": "Bi", "milhões": "Mi", "mil": "mil"}
+_UNIDADE_ABREVIADA = {"trilhões": "Ti", "bilhões": "Bi", "milhões": "Mi", "mil": "mil"}
+
+
+def _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas: float = 0.34) -> None:
+    # Mesmo ajuste de plotting.saude/demografia: `iniciar_card_grafico`
+    # posiciona o corpo do card sem folga abaixo dos rótulos do eixo X — eles
+    # ficam colados na borda inferior da moldura. Encolhe o eixo reservando
+    # uma faixa fixa, em polegadas, na base do card.
+    altura_fig = fig.get_size_inches()[1]
+    fracao = reserva_polegadas / altura_fig
+    posicao = ax.get_position()
+    ax.set_position(
+        (posicao.x0, posicao.y0 + fracao, posicao.width, posicao.height - fracao)
+    )
 
 
 def _dispor_setores_por_valor(
@@ -63,47 +76,58 @@ def gerar_grafico_pib(
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_pib_{safe_city}.png"
 
-    fig, ax = plt.subplots(figsize=(10, 4.5))
+    fig, ax = iniciar_card_grafico(
+        (24, 7),
+        "Evolução anual do PIB Total",
+        margem_esquerda=0.08,
+        tamanho_titulo=18,
+    )
+    _reservar_espaco_rotulo_x(fig, ax)
 
     ax.plot(
         anos,
         valores,
         linestyle=":",
         marker="o",
-        linewidth=2,
-        markersize=5,
+        linewidth=2.5,
+        markersize=8,
         color=_COR_LINHA,
         markerfacecolor=_COR_LINHA,
         markeredgecolor=_COR_LINHA,
     )
 
-    for ano, valor in zip(anos, valores):
-        divisor_ponto, unidade_ponto = _escolher_unidade(valor)
-        sufixo_ponto = f" {unidade_ponto}" if unidade_ponto else ""
-        ax.annotate(
-            f"R$ {valor / divisor_ponto:.1f}{sufixo_ponto}",
-            (ano, valor),
-            xytext=(0, 8),
-            textcoords="offset points",
-            ha="center",
-            fontsize=8 * ESCALA_FONTE * 1.15,
-            color="#4A4A4A",
-        )
-
-    ax.set_title(
-        "Evolução anual do PIB Total",
-        loc="left",
-        fontsize=11 * ESCALA_FONTE * 1.15,
-        fontweight="bold",
-    )
-
     valor_minimo = min(valores)
     valor_maximo = max(valores)
     amplitude = valor_maximo - valor_minimo or valor_maximo or 1.0
+    # Margem extra no topo (0.28 em vez de 0.15) para as anotações de valor,
+    # que ficam acima de cada ponto, não colarem na faixa de título do card.
     margem = amplitude * 0.15
-    ax.set_ylim(valor_minimo - margem, valor_maximo + margem)
-
+    # Fixa os limites do eixo Y antes de anotar: a posição em pixels de cada
+    # rótulo (usada logo abaixo pra detectar sobreposição) depende dos
+    # limites vigentes no momento do desenho, e eles têm que ser os finais.
+    ax.set_ylim(valor_minimo - margem, valor_maximo + amplitude * 0.28)
     ax.set_xticks(anos)
+
+    for ano, valor in zip(anos, valores):
+        divisor_ponto, unidade_ponto = _escolher_unidade(valor)
+        # "Mi"/"Bi"/"Ti" em vez do nome por extenso só aqui: é só o rótulo do
+        # ponto, mais compacto pra sobrar espaço no eixo X lotado de anos; o
+        # eixo Y (abaixo) continua com a unidade por extenso.
+        unidade_ponto_abreviada = {
+            "milhões": "Mi",
+            "bilhões": "Bi",
+            "trilhões": "Ti",
+        }.get(unidade_ponto, unidade_ponto)
+        sufixo_ponto = f" {unidade_ponto_abreviada}" if unidade_ponto_abreviada else ""
+        ax.annotate(
+            f"R$ {valor / divisor_ponto:.1f}{sufixo_ponto}",
+            (ano, valor),
+            xytext=(0, 10),
+            textcoords="offset points",
+            ha="center",
+            fontsize=12 * ESCALA_FONTE * 1.15,
+            color="#4A4A4A",
+        )
 
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -115,10 +139,9 @@ def gerar_grafico_pib(
     ax.yaxis.set_major_formatter(
         FuncFormatter(lambda valor, _: f"R$ {valor / divisor_eixo:.0f}{sufixo_eixo}")
     )
+    ax.tick_params(axis="both", labelsize=13 * ESCALA_FONTE)
 
-    fig.tight_layout()
-    fig.savefig(chart_file, dpi=200, bbox_inches="tight")
-    plt.close(fig)
+    salvar_card_grafico(fig, chart_file, dpi=270)
     return chart_file.name
 
 
@@ -126,6 +149,7 @@ def _gerar_grafico_ranking_paises(
     paises: list[tuple[str, object]],
     chart_file: pathlib.Path,
     mensagem_erro: str,
+    titulo: str,
 ) -> str:
     pontos = [
         (nome, _numero(valor))
@@ -145,7 +169,17 @@ def _gerar_grafico_ranking_paises(
 
     chart_file.parent.mkdir(parents=True, exist_ok=True)
 
-    fig, ax = plt.subplots(figsize=(10, 0.5 * len(pontos) + 1.5))
+    altura = max(0.5 * len(pontos) + 2.2, 3.4)
+    fig, ax = iniciar_card_grafico((10, altura), titulo)
+    # A margem inferior do card é uma FRAÇÃO da altura da figura, mas o
+    # espaço exigido pelos ticks + label do eixo x é fixo (fonte de tamanho
+    # constante); com poucos países essa fração não bastava e o rótulo saía
+    # cortado na moldura. Reserva uma faixa fixa, em polegadas, na base.
+    posicao = ax.get_position()
+    reserva = 0.55 / altura
+    ax.set_position(
+        (posicao.x0, posicao.y0 + reserva, posicao.width, posicao.height - reserva)
+    )
 
     posicoes = range(len(pontos))
     ax.barh(posicoes, valores, color=cores, zorder=3)
@@ -174,17 +208,41 @@ def _gerar_grafico_ranking_paises(
     ax.grid(axis="x", linestyle=":", color="#CCCCCC", zorder=0)
     ax.set_axisbelow(True)
     divisor_eixo, unidade_eixo = _escolher_unidade(max(valores))
-    sufixo_eixo = f" {unidade_eixo}" if unidade_eixo else ""
     ax.xaxis.set_major_formatter(
         FuncFormatter(
-            lambda valor, _: f"${formatar_numero_ptbr(valor / divisor_eixo, decimais=1)}{sufixo_eixo}"
+            lambda valor, _: f"${formatar_numero_ptbr(valor / divisor_eixo, decimais=1)}"
         )
     )
     ax.set_xlim(0, max(valores) * 1.2)
 
-    fig.tight_layout()
-    fig.savefig(chart_file, dpi=200, bbox_inches="tight")
-    plt.close(fig)
+    if unidade_eixo:
+        # Unidade uma vez só, à esquerda, na altura dos ticks — em vez de
+        # repetir "Mi" em cada tick do eixo X (redundante e mais apertado).
+        nome_unidade = {
+            "trilhões": "Trilhões",
+            "bilhões": "Bilhões",
+            "milhões": "Milhões",
+            "mil": "Mil",
+        }.get(unidade_eixo, unidade_eixo.capitalize())
+        abreviacao_unidade = _UNIDADE_ABREVIADA.get(unidade_eixo, unidade_eixo)
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        bbox_tick = ax.get_xticklabels()[0].get_window_extent(renderer=renderer)
+        _, y_altura_tick = fig.transFigure.inverted().transform(
+            (0, (bbox_tick.y0 + bbox_tick.y1) / 2)
+        )
+        fig.text(
+            0.03,
+            y_altura_tick,
+            f"{nome_unidade} ({abreviacao_unidade})",
+            transform=fig.transFigure,
+            ha="left",
+            va="center",
+            fontsize=13,
+            color="#4A4A4A",
+        )
+
+    salvar_card_grafico(fig, chart_file)
     return chart_file.name
 
 
@@ -197,6 +255,7 @@ def gerar_grafico_fob(
         cidade.get("importacao_paises") or [],
         OUTPUT_DIR / f"grafico_fob_{safe_city}.png",
         "Dados de países de importação não disponíveis.",
+        "Destinos das importações ordenados pelo valor líquido FOB",
     )
 
 
@@ -209,6 +268,7 @@ def gerar_grafico_exportacao(
         cidade.get("exportacao_paises") or [],
         OUTPUT_DIR / f"grafico_exportacao_{safe_city}.png",
         "Dados de países de exportação não disponíveis.",
+        "Destinos das exportações ordenados pelo valor líquido FOB",
     )
 
 
@@ -230,7 +290,12 @@ def gerar_grafico_vab(
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_vab_{safe_city}.png"
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    # margem_esquerda pequena: o treemap não tem rótulos de eixo Y, então a
+    # folga padrão (pensada pra rótulos de categoria) só deixaria uma faixa
+    # em branco à esquerda do card.
+    fig, ax = iniciar_card_grafico(
+        (10, 5), "Valor Adicionado Bruto (VAB) por setor", margem_esquerda=0.03
+    )
 
     _MARGEM_TEXTO = 0.015
     textos_por_largura = []
@@ -315,9 +380,7 @@ def gerar_grafico_vab(
                 linhas_quebradas = textwrap.wrap(texto, width=largura_linha)
             texto_obj.set_text("\n".join(linhas_quebradas))
 
-    fig.tight_layout()
-    fig.savefig(chart_file, dpi=200, bbox_inches="tight")
-    plt.close(fig)
+    salvar_card_grafico(fig, chart_file)
     return chart_file.name
 
 
@@ -342,7 +405,8 @@ def gerar_grafico_balanca(
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_balanca_{safe_city}.png"
 
-    fig, ax = plt.subplots(figsize=(10, 4.5))
+    fig, ax = iniciar_card_grafico((10, 4.5), "Visão mensal da balança comercial")
+    _reservar_espaco_rotulo_x(fig, ax)
 
     posicoes = range(len(pontos))
     ax.bar(posicoes, valores, color=_COR_LINHA, zorder=3)
@@ -372,6 +436,13 @@ def gerar_grafico_balanca(
     ax.grid(axis="y", linestyle=":", color="#CCCCCC", zorder=0)
     ax.set_axisbelow(True)
 
+    # Margem extra acima/abaixo das barras para as anotações de valor (que
+    # ficam fora delas) não colarem na faixa de título do card nem no rodapé.
+    valor_minimo = min(0, min(valores))
+    valor_maximo = max(0, max(valores))
+    amplitude = valor_maximo - valor_minimo or 1.0
+    ax.set_ylim(valor_minimo - amplitude * 0.12, valor_maximo + amplitude * 0.15)
+
     sufixo_eixo = f" {unidade_eixo}" if unidade_eixo else ""
     ax.yaxis.set_major_formatter(
         FuncFormatter(
@@ -379,7 +450,5 @@ def gerar_grafico_balanca(
         )
     )
 
-    fig.tight_layout()
-    fig.savefig(chart_file, dpi=200, bbox_inches="tight")
-    plt.close(fig)
+    salvar_card_grafico(fig, chart_file)
     return chart_file.name
