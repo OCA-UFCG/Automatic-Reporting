@@ -629,3 +629,90 @@ Cinco ou mais."""
     )
     assert "Cinco ou mais." in cinco_ou_mais
     assert "De 2 a 4" not in cinco_ou_mais
+
+
+def test_caption_is_dropped_when_its_chart_was_not_generated():
+    # Municípios sem comércio exterior não geram o gráfico de países, e a
+    # legenda ficava órfã no relatório (4 imagens para 6 legendas em Anadia/AL).
+    reset_figura_contador()
+    texto = (
+        "%%grafico_fob\n"
+        "\n"
+        "\n"
+        "Figura X- Destinos das importações ordenados pelo valor líquido FOB.\n"
+        "\n"
+        "%%grafico_balanca\n"
+        "\n"
+        "Figura X- Visão mensal da balança comercial."
+    )
+
+    html = texto_para_html(
+        texto, {}, graficos_por_placeholder={"grafico_balanca": "balanca.png"}
+    )
+
+    assert "Destinos das importações" not in html
+    # A legenda suprimida não consome número: a balança continua sendo a 2.
+    assert "Figura 2 – Visão mensal da balança comercial." in html
+    assert "balanca.png" in html
+
+
+def test_caption_is_kept_when_its_chart_exists():
+    reset_figura_contador()
+    texto = (
+        "%%grafico_fob\n"
+        "\n"
+        "\n"
+        "Figura X- Destinos das importações ordenados pelo valor líquido FOB."
+    )
+
+    html = texto_para_html(
+        texto, {}, graficos_por_placeholder={"grafico_fob": "fob.png"}
+    )
+
+    assert "Figura 2 – Destinos das importações" in html
+    assert "fob.png" in html
+
+
+def test_caption_without_any_chart_marker_is_still_rendered():
+    # A legenda do mapa e outras sem marcador não podem ser afetadas pela
+    # supressão — ela só vale para a legenda imediatamente após um marcador.
+    reset_figura_contador()
+    texto = (
+        "%%grafico_fob\n"
+        "\n"
+        "Um parágrafo qualquer entre o marcador e a legenda.\n"
+        "\n"
+        "Figura X- Localização do município."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "Figura 2 – Localização do município." in html
+
+
+def test_caption_is_dropped_even_when_rendered_in_a_separate_call():
+    # render_descricao_tema_html quebra o texto por linha em branco e chama
+    # texto_para_html uma vez por parágrafo, então marcador e legenda chegam em
+    # chamadas distintas sempre que há linha em branco entre eles no Doc.
+    reset_figura_contador()
+
+    html_marcador = texto_para_html("%%grafico_fob", {}, graficos_por_placeholder={})
+    html_legenda = texto_para_html(
+        "Figura X- Destinos das importações ordenados pelo valor líquido FOB.",
+        {},
+        graficos_por_placeholder={},
+    )
+
+    assert "Destinos das importações" not in html_marcador + html_legenda
+
+
+def test_supression_does_not_leak_past_an_intervening_paragraph_across_calls():
+    reset_figura_contador()
+
+    texto_para_html("%%grafico_fob", {}, graficos_por_placeholder={})
+    texto_para_html("Um parágrafo qualquer no meio.", {}, graficos_por_placeholder={})
+    html = texto_para_html(
+        "Figura X- Localização do município.", {}, graficos_por_placeholder={}
+    )
+
+    assert "Figura 2 – Localização do município." in html
