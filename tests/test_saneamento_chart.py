@@ -2,7 +2,11 @@ from pathlib import Path
 
 import pytest
 
-from plotting.saneamento import gerar_grafico_esgotamento_sanitario
+from plotting.saneamento import (
+    gerar_grafico_esgotamento_sanitario,
+    gerar_grafico_evolucao_coleta_lixo,
+    gerar_grafico_evolucao_rede_geral_esgoto,
+)
 
 
 def test_gera_rosca_de_esgotamento(tmp_path: Path):
@@ -27,3 +31,36 @@ def test_gera_rosca_de_esgotamento(tmp_path: Path):
 def test_grafico_exige_dados(tmp_path: Path):
     with pytest.raises(ValueError, match="não disponíveis"):
         gerar_grafico_esgotamento_sanitario({"esg_total": 0}, tmp_path, "sem_dados")
+
+
+def test_gera_evolucao_rede_geral_esgoto(tmp_path: Path):
+    # Campina Grande/PB (vw_perfil_infraestrutura_municipal).
+    cidade = {
+        "esgoto_rede_2000": 68.4,
+        "esgoto_rede_2010": 79.4,
+        "esgoto_rede_2022": 86.6,
+    }
+
+    arquivo = gerar_grafico_evolucao_rede_geral_esgoto(cidade, tmp_path, "campina_grande_pb")
+
+    assert arquivo == "grafico_evolucao_rede_geral_esgoto_campina_grande_pb.png"
+    assert (tmp_path / arquivo).is_file()
+
+
+def test_evolucao_rede_geral_esgoto_exige_dados(tmp_path: Path):
+    with pytest.raises(ValueError, match="não disponíveis"):
+        gerar_grafico_evolucao_rede_geral_esgoto({}, tmp_path, "sem_dados")
+
+
+def test_gera_evolucao_coleta_lixo(tmp_path: Path):
+    cidade = {"coleta_2010": 94.8, "coleta_2022": 97.5}
+
+    arquivo = gerar_grafico_evolucao_coleta_lixo(cidade, tmp_path, "campina_grande_pb")
+
+    assert arquivo == "grafico_evolucao_coleta_lixo_campina_grande_pb.png"
+    assert (tmp_path / arquivo).is_file()
+
+
+def test_evolucao_coleta_lixo_exige_dados(tmp_path: Path):
+    with pytest.raises(ValueError, match="não disponíveis"):
+        gerar_grafico_evolucao_coleta_lixo({}, tmp_path, "sem_dados")

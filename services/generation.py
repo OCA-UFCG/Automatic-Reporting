@@ -28,7 +28,11 @@ from plotting.economia_renda import (
 from plotting.educacao import gerar_grafico_cor_faixa_etaria
 from plotting.hidraulica import gerar_grafico_tecnologias_acesso_agua
 from plotting.meio_ambiente import gerar_grafico_aridez
-from plotting.saneamento import gerar_grafico_esgotamento_sanitario
+from plotting.saneamento import (
+    gerar_grafico_esgotamento_sanitario,
+    gerar_grafico_evolucao_coleta_lixo,
+    gerar_grafico_evolucao_rede_geral_esgoto,
+)
 from plotting.saude import (
     gerar_grafico_cobertura_vacinal,
     gerar_grafico_de_estabelecimento,
@@ -201,10 +205,26 @@ GRAFICOS_AUTO_MARCADOR = {
     ),
     "saneamento": (
         (
+            "grafico_evolucao_rede_geral_esgoto",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Evolu[cç][aã]o\s+do\s+percentual\s+de\s+domic[ií]lios\s+conectados\s+"
+                r"[aà]\s+rede\s+geral\s+de\s+esgoto\s+ou\s+[aà]\s+rede\s+pluvial[^\n]*)$"
+            ),
+        ),
+        (
             "grafico_esgotamento_sanitario",
             (
                 r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
                 r"Domic[ií]lios\s+por\s+tipo\s+de\s+esgotamento\s+sanit[aá]rio[^\n]*)$"
+            ),
+        ),
+        (
+            "grafico_evolucao_coleta_lixo",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Evolu[cç][aã]o\s+do\s+percentual\s+de\s+domic[ií]lios\s+com\s+"
+                r"coleta\s+de\s+lixo[^\n]*)$"
             ),
         ),
     ),
@@ -763,6 +783,38 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 logger.warning(
                     "Não foi possível gerar o gráfico de esgotamento sanitário "
                     "para '%s': %s",
+                    safe_report,
+                    err,
+                )
+
+            try:
+                graficos_por_placeholder["grafico_evolucao_rede_geral_esgoto"] = (
+                    gerar_grafico_evolucao_rede_geral_esgoto(
+                        cidade=linhas_macrotema[0],
+                        OUTPUT_DIR=OUTPUT_DIR,
+                        safe_city=safe_report or "relatorio",
+                    )
+                )
+            except (ValueError, KeyError) as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de evolução da rede geral "
+                    "de esgoto para '%s': %s",
+                    safe_report,
+                    err,
+                )
+
+            try:
+                graficos_por_placeholder["grafico_evolucao_coleta_lixo"] = (
+                    gerar_grafico_evolucao_coleta_lixo(
+                        cidade=linhas_macrotema[0],
+                        OUTPUT_DIR=OUTPUT_DIR,
+                        safe_city=safe_report or "relatorio",
+                    )
+                )
+            except (ValueError, KeyError) as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de evolução da coleta de "
+                    "lixo para '%s': %s",
                     safe_report,
                     err,
                 )
