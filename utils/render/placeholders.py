@@ -10,7 +10,7 @@ _ALIASES_NAMESPACE = {
     "economia-renda": {"economia-renda", "economia"},
     "hidraulica": {"hidraulica", "seg_hidrica"},
     "saneamento": {"saneamento", "infraestrutura"},
-    "meio-ambiente": {"meio-ambiente", "ambiente"},
+    "ambiente": {"meio-ambiente", "ambiente"},
     "desenvolvimento-social": {"desenvolvimento-social", "desen_social"},
 }
 
