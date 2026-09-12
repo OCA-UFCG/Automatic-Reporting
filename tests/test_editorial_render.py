@@ -160,3 +160,112 @@ def test_marca_do_painel_desliga_a_maquina_de_estado_dos_docs():
 
 def test_contrato_novo_e_valido():
     assert validar_contrato(novo_contrato("educacao")) == []
+
+
+# -- variável nula esconde o trecho que depende dela ----------------------
+#
+# Regra do produto: se a variável não tem valor para aquele município, a seção
+# que depende dela não aparece. O comportamento anterior — deixar `$campo`
+# literal no PDF — enchia hidráulica de `$sol_predom` em cinco dos seis
+# municípios de uma bateria de teste, e imprimia "aumento de
+# $tend_nivel_sup_per%" em educação onde o banco traz NULL.
+
+
+def _paragrafo_com_var(bloco_id, campo, prefixo="Valor: "):
+    return {
+        "id": bloco_id,
+        "tipo": "paragrafo",
+        "regra": None,
+        "conteudo": [{"t": "texto", "v": prefixo}, {"t": "var", "campo": campo}],
+    }
+
+
+def test_bloco_com_variavel_sem_valor_nao_e_renderizado():
+    blocos = [_paragrafo_com_var("p1", "sol_predom")]
+
+    assert renderizar_blocos(blocos, {"outro_campo": 10}, namespace="hidraulica") == ""
+
+
+def test_bloco_com_variavel_preenchida_continua_saindo():
+    blocos = [_paragrafo_com_var("p1", "sol_predom")]
+
+    # O marcador continua literal aqui de propósito: quem o resolve é
+    # `substituir_placeholders`, adiante no pipeline. O que este teste trava é
+    # que o bloco **saiu**, porque o campo tem valor no contexto.
+    assert (
+        renderizar_blocos(blocos, {"sol_predom": "cisterna"}, namespace="hidraulica")
+        == "Valor: $sol_predom"
+    )
+
+
+def test_variavel_com_namespace_do_proprio_macrotema_resolve():
+    """`hidraulica.$campo` num relatório de hidráulica resolve contra o contexto
+    mesclado — não pode ser confundido com campo ausente."""
+    blocos = [_paragrafo_com_var("p1", "hidraulica.sol_predom")]
+
+    saida = renderizar_blocos(
+        blocos, {"sol_predom": "cisterna"}, namespace="hidraulica"
+    )
+
+    assert saida == "Valor: hidraulica.$sol_predom"
+
+
+def test_secao_que_perdeu_todos_os_filhos_nao_deixa_titulo_orfao():
+    blocos = [
+        {
+            "id": "s1",
+            "tipo": "secao",
+            "regra": None,
+            "titulo": "Tecnologias sociais de acesso à água",
+            "blocos": [_paragrafo_com_var("p1", "sol_predom")],
+        }
+    ]
+
+    assert renderizar_blocos(blocos, {}, namespace="hidraulica") == ""
+
+
+def test_secao_mantem_titulo_quando_ao_menos_um_filho_sobrevive():
+    blocos = [
+        {
+            "id": "s1",
+            "tipo": "secao",
+            "regra": None,
+            "titulo": "Tecnologias sociais",
+            "blocos": [
+                _paragrafo_com_var("p1", "sol_predom"),
+                _paragrafo("p2", "Texto sem variável nenhuma."),
+            ],
+        }
+    ]
+
+    saida = renderizar_blocos(blocos, {}, namespace="hidraulica")
+
+    assert "Tecnologias sociais" in saida
+    assert "Texto sem variável nenhuma." in saida
+    assert "$sol_predom" not in saida
+
+
+def test_conferencia_da_importacao_continua_emitindo_tudo():
+    """`ignorar_regras` compara o contrato com o Doc linha a linha; se ele
+    passasse a esconder bloco por falta de dado, a conferência acusaria perda
+    de conteúdo que não houve."""
+    blocos = [_paragrafo_com_var("p1", "sol_predom")]
+
+    saida = renderizar_blocos(
+        blocos, {}, ignorar_regras=True, namespace="hidraulica"
+    )
+
+    assert saida == "Valor: $sol_predom"
+
+
+def test_contrato_inteiro_usa_o_macrotema_como_namespace():
+    contrato = novo_contrato("saneamento")
+    contrato["corpo"]["blocos"] = [
+        _paragrafo_com_var("p1", "saneamento.esgoto_rede_2022"),
+        _paragrafo("p2", "Parágrafo que não depende de dado."),
+    ]
+
+    saida = renderizar_contrato(contrato, {})
+
+    assert "esgoto_rede_2022" not in saida
+    assert "Parágrafo que não depende de dado." in saida

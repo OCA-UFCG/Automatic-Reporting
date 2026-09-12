@@ -505,3 +505,27 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
     )
 
     return resultado
+
+
+# Um placeholder que sobreviveu à substituição inteira, com ou sem prefixo de
+# namespace: é exatamente o que sairia impresso como texto cru no PDF.
+_PLACEHOLDER_RESIDUAL = re.compile(r"(?:[A-Za-z_][\w-]*\.)?\$[A-Za-z_][\w]*")
+
+
+def placeholders_sem_valor(
+    texto: str, contexto: dict, namespace: str = "demografia"
+) -> list[str]:
+    """Placeholders que continuariam literais se ``texto`` fosse renderizado.
+
+    Responde "este trecho tem todos os dados de que precisa?" rodando a
+    substituição de verdade e olhando o que sobrou. Perguntar ao contexto campo
+    a campo pareceria mais direto e estaria errado: aliases de coluna, aliases
+    de namespace, percentuais derivados e os erros de digitação tolerados nos
+    Docs fazem parte da resolução, e uma segunda implementação disso divergiria
+    da primeira no dia em que uma das duas mudasse.
+    """
+    return sorted(
+        {match.group(0) for match in _PLACEHOLDER_RESIDUAL.finditer(
+            substituir_placeholders(texto, contexto, namespace)
+        )}
+    )

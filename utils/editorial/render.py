@@ -30,7 +30,11 @@ from utils.editorial.regras import avaliar_regra
 # reagiria às frases do próprio conteúdo (ver o caso quilombola/situação de rua
 # em utils/render/placeholders.py). Moram lá, e não aqui, para o caminho Docs
 # não passar a depender do pacote do painel.
-from utils.render.placeholders import CHAVE_FONTE_PAINEL, FONTE_PAINEL
+from utils.render.placeholders import (
+    CHAVE_FONTE_PAINEL,
+    FONTE_PAINEL,
+    placeholders_sem_valor,
+)
 
 __all__ = [
     "CHAVE_FONTE_PAINEL",
@@ -67,8 +71,30 @@ def renderizar_trechos(conteudo: list[dict], contexto: dict) -> str:
     return "".join(partes)
 
 
+def _sem_dado(linha: str, contexto: dict, namespace: str) -> bool:
+    """O trecho depende de variável que este município não tem?
+
+    Regra do produto: variável nula esconde o trecho que depende dela. O
+    comportamento antigo — deixar `$campo` literal no PDF — não era uma escolha
+    editorial, era o que sobrava quando ninguém decidia; e o relatório vai para
+    gestores municipais, onde `$sol_predom` no meio da frase é pior do que a
+    frase não existir.
+
+    Vale para os oito macrotemas sem nenhuma regra escrita à mão no contrato:
+    hidráulica tinha sete campos assim em cinco dos seis municípios de teste, e
+    educação imprimia "aumento de $tend_nivel_sup_per%" onde o banco traz NULL.
+    Quem quiser o trecho mesmo sem o dado escreve a variante no contrato e a
+    protege com uma regra — é para isso que existe `sem_dado`.
+    """
+    return bool(linha) and bool(placeholders_sem_valor(linha, contexto, namespace))
+
+
 def _renderizar_bloco(
-    bloco: dict, contexto: dict, saida: list[str], ignorar_regras: bool = False
+    bloco: dict,
+    contexto: dict,
+    saida: list[str],
+    ignorar_regras: bool = False,
+    namespace: str = "",
 ) -> None:
     if not ignorar_regras:
         resultado = avaliar_regra(bloco.get("regra"), contexto)
@@ -81,7 +107,7 @@ def _renderizar_bloco(
 
     if tipo in ("paragrafo", "legenda", "nota"):
         linha = renderizar_trechos(bloco.get("conteudo", []), contexto).strip()
-        if linha:
+        if linha and not (not ignorar_regras and _sem_dado(linha, contexto, namespace)):
             saida.append(linha)
         return
 
@@ -94,27 +120,40 @@ def _renderizar_bloco(
             renderizar_trechos(item, contexto).strip()
             for item in bloco.get("itens", [])
         ]
+        if not ignorar_regras:
+            itens = [item for item in itens if not _sem_dado(item, contexto, namespace)]
         linhas = "\n".join(f"- {item}" for item in itens if item)
         if linhas:
             saida.append(linhas)
         return
 
     if tipo in ("secao", "caixa"):
+        # Os filhos são renderizados antes do título: uma seção que perdeu todo
+        # o conteúdo por falta de dado não pode deixar o cabeçalho órfão no
+        # relatório, anunciando um assunto que não vem.
+        filhos: list[str] = []
+        for filho in bloco.get("blocos", []):
+            _renderizar_bloco(filho, contexto, filhos, ignorar_regras, namespace)
+        if not filhos:
+            return
+
         titulo = bloco.get("titulo", "").strip()
         if titulo:
             # "#!" é o prefixo que o renderer usa para abrir uma caixa
             # (#!Fontes, #!Conteúdos relacionados); uma seção comum é só o
             # título numa linha isolada.
             saida.append(f"#!{titulo}" if tipo == "caixa" else titulo)
-        for filho in bloco.get("blocos", []):
-            _renderizar_bloco(filho, contexto, saida, ignorar_regras)
+        saida.extend(filhos)
         return
 
     raise ValueError(f"tipo de bloco não renderizável: {tipo!r}")
 
 
 def renderizar_blocos(
-    blocos: list[dict], contexto: dict, ignorar_regras: bool = False
+    blocos: list[dict],
+    contexto: dict,
+    ignorar_regras: bool = False,
+    namespace: str = "",
 ) -> str:
     """``ignorar_regras`` emite todos os blocos, independentemente de regra.
 
@@ -124,7 +163,7 @@ def renderizar_blocos(
     """
     saida: list[str] = []
     for bloco in blocos:
-        _renderizar_bloco(bloco, contexto, saida, ignorar_regras)
+        _renderizar_bloco(bloco, contexto, saida, ignorar_regras, namespace)
     return "\n\n".join(parte for parte in saida if parte.strip())
 
 
@@ -139,19 +178,28 @@ def renderizar_contrato(
     """
     partes: list[str] = []
 
+    # O mesmo namespace que generation.py passa a substituir_placeholders para
+    # a prosa deste macrotema. Tem de ser idêntico: é ele que decide se
+    # "saneamento.$campo" resolve contra o contexto mesclado ou fica literal —
+    # e, portanto, se o bloco é considerado sem dado.
+    namespace = contrato.get("macrotema") or ""
+
     moldura = contrato.get("moldura") or {}
     for slot in SLOTS_MOLDURA:
         conteudo_slot = moldura.get(slot)
         if not conteudo_slot:
             continue
         texto = renderizar_blocos(
-            conteudo_slot.get("blocos", []), contexto, ignorar_regras
+            conteudo_slot.get("blocos", []), contexto, ignorar_regras, namespace
         )
         if texto:
             partes.append(f"{slot} = {texto}\n@@")
 
     corpo = renderizar_blocos(
-        (contrato.get("corpo") or {}).get("blocos", []), contexto, ignorar_regras
+        (contrato.get("corpo") or {}).get("blocos", []),
+        contexto,
+        ignorar_regras,
+        namespace,
     )
     if corpo:
         partes.append(f"descricao_tema = {corpo}\n@@")
@@ -166,7 +214,7 @@ def renderizar_contrato(
     fontes = moldura.get(SLOT_FONTES)
     if fontes:
         texto_fontes = renderizar_blocos(
-            fontes.get("blocos", []), contexto, ignorar_regras
+            fontes.get("blocos", []), contexto, ignorar_regras, namespace
         )
         if texto_fontes:
             partes.append(texto_fontes)
