@@ -179,3 +179,19 @@ def test_todo_grafico_nomeia_o_arquivo_com_o_prefixo_da_previa():
         "algum gráfico voltou a nomear o arquivo por safe_city: a prévia do "
         "painel vai sobrescrever o PNG do relatório publicado"
     )
+
+
+def test_marcador_renomeado_no_doc_continua_achando_o_grafico():
+    """Renomear o marcador no Google Doc não pode apagar a figura em silêncio.
+
+    O Doc de saúde passou a escrever `*grafico_taxa_mortalidade`, nome que
+    nenhum `gerar_grafico_*` produz — e todo relatório de saúde, no portal e no
+    painel, passou a sair sem o gráfico de mortalidade infantil, sem erro nem
+    aviso. Quem edita o Doc não é dev e não tem como saber que o nome é um
+    contrato com o código.
+    """
+    from services.generation import ALIASES_DE_GRAFICO
+
+    apelidos = ALIASES_DE_GRAFICO["grafico_mortalidade_infantil"]
+
+    assert "grafico_taxa_mortalidade" in apelidos

@@ -109,15 +109,16 @@ GRAFICOS_AUTO_MARCADOR = {
             "grafico_mortalidade_infantil",
             (
                 r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
-                r"Vis[aã]o\s+hist[oó]rica\s+da\s+taxa\s+de\s+mortalidade\s+infantil[^\n]*)$"
+                r"(?:Vis[aã]o\s+hist[oó]rica|Hist[oó]rico)\s+da\s+taxa\s+de\s+"
+                r"mortalidade\s+infantil[^\n]*)$"
             ),
         ),
         (
             "grafico_de_estabelecimento",
             (
                 r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
-                r"Vis[aã]o\s+hist[oó]rica\s+do\s+n[uú]mero\s+de\s+"
-                r"estabelecimentos\s+de\s+sa[uú]de[^\n]*)$"
+                r"(?:Vis[aã]o\s+hist[oó]rica|Hist[oó]rico)\s+do\s+n[uú]mero\s+de\s+"
+                r"[Ee]stabelecimentos\s+de\s+[Ss]a[uú]de[^\n]*)$"
             ),
         ),
     ),
@@ -178,6 +179,14 @@ GRAFICOS_AUTO_MARCADOR = {
             ),
         ),
     ),
+}
+
+
+# Nomes de marcador que o editorial usa no Doc para um gráfico que o código
+# produz com outro nome. O Doc é editado por quem não é dev: renomear o marcador
+# lá não deve apagar a figura do relatório inteiro sem aviso.
+ALIASES_DE_GRAFICO = {
+    "grafico_mortalidade_infantil": ("grafico_taxa_mortalidade",),
 }
 
 
@@ -647,6 +656,18 @@ async def gerar_relatorio_handler(
                     err,
                 )
 
+        # O mesmo PNG responde também pelos nomes que o editorial usa no Doc.
+        # Sem isso, renomear o marcador numa edição do Doc — trabalho de quem
+        # não é dev — apaga o gráfico do relatório em silêncio, e foi o que
+        # aconteceu com a mortalidade infantil de saúde: o Doc passou a marcar
+        # `*grafico_taxa_mortalidade`, nome que nenhum `gerar_grafico_*`
+        # produz, e todo relatório de saúde saiu sem essa figura.
+        for nome_codigo, apelidos in ALIASES_DE_GRAFICO.items():
+            arquivo = graficos_por_placeholder.get(nome_codigo)
+            if arquivo:
+                for apelido in apelidos:
+                    graficos_por_placeholder.setdefault(apelido, arquivo)
+
         # Único ponto de entrada da prosa do macrotema. É o seam entre o Google
         # Doc e o painel editorial: quem decide a fonte é FONTE_EDITORIAL, por
         # macrotema (docs/PLANO-PAINEL-EDITORIAL.md §3.1). Daqui para baixo o
@@ -661,7 +682,12 @@ async def gerar_relatorio_handler(
             raise HTTPException(status_code=400, detail=str(err)) from err
 
         for nome_grafico, legenda_regex in GRAFICOS_AUTO_MARCADOR.get(macrotema_slug, ()):
-            if re.search(rf"(?m)^\s*(?:%%|\*){nome_grafico}\s*$", docs_texto):
+            # Os apelidos entram aqui junto com o nome do código: o marcador
+            # manual do Doc pode estar escrito com qualquer um deles, e inserir
+            # o automático por cima faria a mesma figura sair duas vezes.
+            nomes = (nome_grafico, *ALIASES_DE_GRAFICO.get(nome_grafico, ()))
+            alternativas = "|".join(re.escape(nome) for nome in nomes)
+            if re.search(rf"(?m)^\s*(?:%%|\*)(?:{alternativas})\s*$", docs_texto):
                 continue
             docs_texto, n_substituicoes = re.subn(
                 legenda_regex,
