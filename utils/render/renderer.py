@@ -175,33 +175,70 @@ _ROTULO_POR_URL = (
 )
 
 
-_LINK_DATA_NORDESTE = "https://qr.codes/Bw7u3I"
-_QR_DATA_NORDESTE_PATH = BASE_DIR / "report" / "src" / "assets" / "qr-code-datanordeste.png"
+_LINK_DATA_NORDESTE = "https://datanordeste.sudene.gov.br"
+_QR_CODES_DIR = BASE_DIR / "report" / "src" / "assets" / "qr_codes"
+_QR_DATA_NORDESTE_PATH_PADRAO = BASE_DIR / "report" / "src" / "assets" / "qr-code-datanordeste.png"
+
+# Um QR code por macrotema (aponta para o conteúdo do tema no portal); o
+# arquivo já é a imagem do QR pronta, não é gerado a partir de um link daqui.
+_QR_POR_MACROTEMA = {
+    "demografia": _QR_CODES_DIR / "qr-demografia.jpg",
+    "educacao": _QR_CODES_DIR / "qr-educacao.jpg",
+    "saude": _QR_CODES_DIR / "qr-saude.jpg",
+    "economia-renda": _QR_CODES_DIR / "qr-economia-renda.jpg",
+    "hidraulica": _QR_CODES_DIR / "qr-hidraulica.jpg",
+    "desenvolvimento-social": _QR_CODES_DIR / "qr-desenvolvimento-social.jpg",
+    "meio-ambiente": _QR_CODES_DIR / "qr-meio-ambiente.jpg",
+    "saneamento": _QR_CODES_DIR / "qr-saneamento.jpg",
+}
+
+# O link por trás do QR code (o href clicável), por macrotema — o shortlink
+# genérico antigo (qr.codes/Bw7u3I) expirou, então cada tema aponta direto
+# para a página do macrotema no portal.
+_LINK_POR_MACROTEMA = {
+    "demografia": "https://datanordeste.sudene.gov.br/macrothemes/demografia",
+    "educacao": "https://datanordeste.sudene.gov.br/macrothemes/educacao",
+    "saude": "https://datanordeste.sudene.gov.br/macrothemes/saude",
+    "economia-renda": "https://datanordeste.sudene.gov.br/macrothemes/economia-e-renda",
+    "hidraulica": "https://datanordeste.sudene.gov.br/macrothemes/seguranca-hidrica",
+    "desenvolvimento-social": "https://datanordeste.sudene.gov.br/macrothemes/desenvolvimento-social",
+    "meio-ambiente": "https://datanordeste.sudene.gov.br/macrothemes/meio-ambiente",
+    "saneamento": "https://datanordeste.sudene.gov.br/macrothemes/infraestrutura-e-saneamento",
+}
 
 
-def _carregar_qr_data_nordeste() -> str:
+def _carregar_qr(caminho) -> str:
     try:
-        dados = _QR_DATA_NORDESTE_PATH.read_bytes()
+        dados = caminho.read_bytes()
     except OSError:
         return ""
-    return "data:image/png;base64," + base64.b64encode(dados).decode("ascii")
+    mime = "image/jpeg" if caminho.suffix.lower() in (".jpg", ".jpeg") else "image/png"
+    return f"data:{mime};base64," + base64.b64encode(dados).decode("ascii")
 
 
-_QR_DATA_NORDESTE = _carregar_qr_data_nordeste()
+# Carregado uma vez por processo: os arquivos não mudam em runtime.
+_QR_DATA_NORDESTE_PADRAO = _carregar_qr(_QR_DATA_NORDESTE_PATH_PADRAO)
+_QR_DATA_NORDESTE_POR_MACROTEMA = {
+    slug: _carregar_qr(caminho) for slug, caminho in _QR_POR_MACROTEMA.items()
+}
 
-_FONTES_BOX_INTRO_HTML = (
-    '<div class="fontes-box-intro">'
-    '<div class="fontes-box-intro-text">'
-    '<p class="fontes-box-intro-title">Continue explorando o tema</p>'
-    '<p class="fontes-box-intro-body">Escaneie ou clique no QR code ao lado para '
-    "conhecer mais conteúdos do Data Nordeste sobre este tema.</p>"
-    "</div>"
-    f'<a class="fontes-box-intro-qr" href="{html_module.escape(_LINK_DATA_NORDESTE)}" '
-    'aria-label="Conheça mais conteúdos do Data Nordeste">'
-    f'<img src="{_QR_DATA_NORDESTE}" alt="QR code do Data Nordeste" width="96" height="96">'
-    "</a>"
-    "</div>"
-)
+
+def _montar_fontes_box_intro_html(namespace: str) -> str:
+    qr = _QR_DATA_NORDESTE_POR_MACROTEMA.get(namespace) or _QR_DATA_NORDESTE_PADRAO
+    link = _LINK_POR_MACROTEMA.get(namespace, _LINK_DATA_NORDESTE)
+    return (
+        '<div class="fontes-box-intro">'
+        '<div class="fontes-box-intro-text">'
+        '<p class="fontes-box-intro-title">Continue explorando o tema</p>'
+        '<p class="fontes-box-intro-body">Escaneie ou clique no QR code ao lado para '
+        "conhecer mais conteúdos do Data Nordeste sobre este tema.</p>"
+        "</div>"
+        f'<a class="fontes-box-intro-qr" href="{html_module.escape(link)}" '
+        'aria-label="Conheça mais conteúdos do Data Nordeste">'
+        f'<img src="{qr}" alt="QR code do Data Nordeste" width="96" height="96">'
+        "</a>"
+        "</div>"
+    )
 
 
 def _normalizar_quebras_de_link(paragrafo: str) -> str:
@@ -311,13 +348,15 @@ def _chave_secao_caixa(titulo_casefold: str) -> str:
     return "fontes"
 
 
-def _montar_caixa_fontes(secoes: dict[str, list[str]], incluir_intro: bool) -> str:
+def _montar_caixa_fontes(
+    secoes: dict[str, list[str]], incluir_intro: bool, namespace: str = ""
+) -> str:
     if not secoes:
         return ""
     corpo = "".join(
         "".join(secoes[chave]) for chave in _ORDEM_SECOES_CAIXA if chave in secoes
     )
-    intro = _FONTES_BOX_INTRO_HTML if incluir_intro else ""
+    intro = _montar_fontes_box_intro_html(namespace) if incluir_intro else ""
     # padding-top em ".fontes-box-wrap" (não margin em ".fontes-box"): margem
     # de quem começa uma página nova é descartada pelo WeasyPrint.
     return (
@@ -363,7 +402,7 @@ def _renderizar_secao_caixa_fontes(
             )
         )
 
-    return _montar_caixa_fontes(secoes, incluir_intro=True)
+    return _montar_caixa_fontes(secoes, incluir_intro=True, namespace=namespace)
 
 
 _CABECALHO_TITULO = re.compile(r"(?i)^#!\s*(.*)$")
@@ -418,7 +457,11 @@ def render_descricao_tema_html(
     def fechar_caixa_fontes() -> None:
         nonlocal secoes_caixa, secao_atual, intro_ja_inserida
         if secoes_caixa:
-            partes.append(_montar_caixa_fontes(secoes_caixa, incluir_intro=not intro_ja_inserida))
+            partes.append(
+                _montar_caixa_fontes(
+                    secoes_caixa, incluir_intro=not intro_ja_inserida, namespace=namespace
+                )
+            )
             intro_ja_inserida = True
         secoes_caixa = None
         secao_atual = None
