@@ -160,3 +160,22 @@ def test_contrato_em_edicao_e_desfeito_ao_sair():
     from utils.external.editorial import _contrato_em_edicao
 
     assert _contrato_em_edicao.get() is None
+
+
+def test_todo_grafico_nomeia_o_arquivo_com_o_prefixo_da_previa():
+    """Nenhum gráfico pode nomear o PNG por `safe_city`.
+
+    `safe_city` é só o município; quem carrega o `prefixo_artefato` que separa a
+    prévia do relatório publicado é `safe_report`. Educação e saúde usavam
+    `safe_city`, e cada prévia regravava os PNGs que o portal serve ao público —
+    o teste acima garantia apenas que o prefixo chegava ao handler, não que cada
+    gráfico o respeitasse.
+    """
+    from pathlib import Path
+
+    fonte = Path("services/generation.py").read_text(encoding="utf-8")
+
+    assert "safe_city=safe_city" not in fonte, (
+        "algum gráfico voltou a nomear o arquivo por safe_city: a prévia do "
+        "painel vai sobrescrever o PNG do relatório publicado"
+    )

@@ -285,6 +285,11 @@ async def gerar_relatorio_handler(
                 ) or primeiro_slug
             else:
                 slug_arquivo = macrotema.split(",")[0].strip()
+            # Todo artefato gravado em OUTPUT_DIR (gráficos, mapa, HTML, PDF)
+            # nomeia-se por `safe_report`, nunca por `safe_city`: só ele carrega
+            # o `prefixo_artefato` que separa a prévia do painel do relatório
+            # publicado. Educação e saúde usavam `safe_city` e, com isso, uma
+            # prévia regravava os PNGs que o portal serve ao público.
             safe_report = f"{prefixo_artefato}{slug_arquivo}__{safe_city}"
 
             legenda_mapa_localizacao = None
@@ -457,7 +462,7 @@ async def gerar_relatorio_handler(
                 chart_file_name = gerar_grafico_cor_faixa_etaria(
                     cidade=linhas_macrotema[0],
                     OUTPUT_DIR=OUTPUT_DIR,
-                    safe_city=safe_city or "relatorio",
+                    safe_city=safe_report or "relatorio",
                 )
                 graficos_por_placeholder["grafico_cor_faixa_etaria"] = chart_file_name
             except ValueError as err:
@@ -479,7 +484,7 @@ async def gerar_relatorio_handler(
                     graficos_por_placeholder[nome_grafico] = gerar_grafico(
                         cidade=linhas_macrotema[0],
                         OUTPUT_DIR=OUTPUT_DIR,
-                        safe_city=safe_city or "relatorio",
+                        safe_city=safe_report or "relatorio",
                     )
                 except (ValueError, KeyError) as err:
                     logger.warning(
