@@ -9,8 +9,6 @@ from fastapi.responses import HTMLResponse
 from config import (
     CARACTERISTICAS_DOCS_URL,
     OUTPUT_DIR,
-    require_config_value,
-    resolve_csv_source,
 )
 from plotting.demografia import (
     gerar_grafico_composicao_cor_raca,
@@ -35,11 +33,7 @@ from plotting.saude import (
     gerar_grafico_mortalidade_infantil,
     gerar_grafico_publico_etario,
 )
-from services.csv_loader import (
-    carregar_csv,
-    get_csv_config_for_macrotema,
-    normalizar_colunas_macrotema,
-)
+from services.contexto import CacheDeEnriquecimento, montar_linhas_macrotema
 from services.macrotemas import get_macrotema, get_macrotema_slugs_para_relatorio
 from services.pdf import _gerar_pdf
 from utils.cover import (
@@ -47,7 +41,6 @@ from utils.cover import (
     montar_indicadores_macrotema,
     montar_score_macrotema,
 )
-from utils.data.cities import filtrar_linhas_por_cidade
 from utils.data.macrotemas import TODOS_MACROTEMAS_SLUG
 from utils.external.docs import (
     carregar_texto_do_docs,
@@ -63,42 +56,10 @@ from utils.external.docs import (
     extrair_resumo_tema,
     remover_titulos_docs,
 )
-from utils.geografia import resolver_nome_uf, separar_cidade_uf
-from utils.queries.caracteristicas import buscar_caracteristicas_municipio
-from utils.queries.demografia import (
-    buscar_demografia_sexo_faixa_etaria,
-    buscar_populacao_demografia,
-    buscar_populacao_indigena,
-    buscar_populacao_quilombola,
-    buscar_populacao_rua,
-)
-from utils.queries.desenvolvimento_social import (
-    buscar_perfil_desenvolvimento_social,
-)
-from utils.queries.economia_exportacao import buscar_comercio_exterior_economia
-from utils.queries.economia_importacao import (
-    buscar_linhas_importacao,
-    processar_importacao,
-)
-from utils.queries.economia_renda import (
-    buscar_linhas_pib_municipal,
-    processar_indicadores_economia,
-    processar_pib_evolucao,
-)
-from utils.queries.educacao import (
-    buscar_perfil_educacional_municipio,
-    buscar_taxas_educacao_cor_faixa_etaria,
-)
-from utils.queries.hidraulica import buscar_tecnologias_acesso_agua
-from utils.queries.indicadores import buscar_indicadores_municipio
-from utils.queries.perfil_municipal import buscar_perfil_municipal
-from utils.queries.saneamento import buscar_esgotamento_sanitario
-from utils.queries.saude import (
-    buscar_cobertura_vacinal,
-    buscar_estabelecimentos_saude_serie,
-    buscar_mortalidade_infantil_serie,
-    buscar_perfil_saude_municipal,
-    buscar_publico_etario_vacinas,
+from utils.external.editorial import (
+    ContratoIndisponivel,
+    carregar_texto_editorial,
+    fonte_editorial,
 )
 from utils.render.renderer import (
     render_descricao_tema_html,
@@ -220,7 +181,25 @@ GRAFICOS_AUTO_MARCADOR = {
 }
 
 
-async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
+async def gerar_relatorio_handler(
+    cidade: str,
+    macrotema: str = "demografia",
+    *,
+    prefixo_artefato: str = "",
+    gerar_pdf: bool = True,
+):
+    """Gera o relatório do município.
+
+    ``prefixo_artefato`` separa os arquivos de saída dos de produção. A prévia
+    do painel roda este mesmo pipeline com um contrato ainda não publicado; sem
+    o prefixo ela sobrescreveria `output/relatorio_<tema>__<cidade>.pdf`, que é
+    o arquivo que o portal entrega ao público — prosa não publicada iria ao ar
+    pela porta dos fundos.
+
+    ``gerar_pdf=False`` devolve só o HTML. É o que a prévia quer: o PDF sai
+    desse mesmo HTML pelo WeasyPrint, então o conteúdo é o mesmo e o editor não
+    precisa esperar a conversão.
+    """
     reset_figura_contador()
     try:
         macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
@@ -239,26 +218,9 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     resumo_relatorio_parts: list[str] = []
     referencias: list[str] = []
 
-    db_consultado = False
-    dados_caracteristicas_db = None
-    dados_demografia_db = None
-    dados_sexo_faixa = None
-    dados_indigena = None
-    dados_quilombola = None
-    dados_rua = None
-    dados_publico_etario = None
-    dados_cobertura_vacinal = None
-    dados_mortalidade_infantil = None
-    dados_estabelecimentos_saude = None
-    dados_perfil_saude = None
-    dados_taxas_educacao = None
-    dados_tecnologias_acesso_agua = None
-    dados_esgotamento = None
-    dados_perfil_desenvolvimento_social = None
-    dados_pib = None
-    dados_indicadores_economia = None
-    dados_importacao = None
-    dados_indicadores = None
+    # As consultas de enriquecimento valem para o relatório inteiro; o cache
+    # evita repeti-las a cada macrotema do laço.
+    cache_enriquecimento = CacheDeEnriquecimento()
 
     for macrotema_slug in macrotema_slugs:
         try:
@@ -266,224 +228,23 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         except ValueError as err:
             raise HTTPException(status_code=400, detail=str(err))
 
-        if not macrotema_dados["docs_url"]:
+        # Um macrotema servido pelo painel não precisa de Doc configurado — a
+        # prosa vem do contrato publicado.
+        if not macrotema_dados["docs_url"] and fonte_editorial(macrotema_slug) == "docs":
             logger.warning(
                 "Macrotema '%s' não possui docs_url configurado (%s). Pulando.",
                 macrotema_slug,
                 macrotema_dados["docs_env"],
             )
             continue
-        if macrotema_slug == "educacao":
-            # Educação usa sua própria view (vw_perfil_educacional_municipal,
-            # via buscar_perfil_educacional_municipio) em vez de
-            # buscar_perfil_municipal, mas segue a mesma regra das demais:
-            # view é a fonte primária, CSV é o fallback quando ela não tem a
-            # cidade ou o banco está fora do ar (PR #91).
-            nome_cidade_educ, uf_educ = separar_cidade_uf(cidade)
-            try:
-                perfil_educacional = buscar_perfil_educacional_municipio(
-                    nome_cidade_educ, uf_educ
-                )
-            except ValueError as err:
-                raise HTTPException(status_code=400, detail=str(err))
-
-            if perfil_educacional:
-                linhas_macrotema = [dict(perfil_educacional)]
-            else:
-                if uf_educ:
-                    logger.warning(
-                        "Sem dados no banco para '%s' (%s); usando CSV como fallback.",
-                        cidade,
-                        macrotema_slug,
-                    )
-                csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
-                csv_source = resolve_csv_source(csv_url, csv_env)
-                df = carregar_csv(csv_source)
-                df = normalizar_colunas_macrotema(df, macrotema_slug)
-
-                try:
-                    linhas_df = filtrar_linhas_por_cidade(df, cidade)
-                except ValueError as err:
-                    raise HTTPException(status_code=400, detail=str(err))
-
-                linhas_macrotema = linhas_df.to_dict("records")
-
-                if not linhas_macrotema:
-                    raise HTTPException(
-                        status_code=404, detail=f"Cidade '{cidade}' não encontrada."
-                    )
-        else:
-            # O banco (`relatorios_auto.vw_perfil_*`) é a fonte primária: só cai
-            # para o CSV se a view não tiver a cidade ou o banco estiver fora do ar.
-            nome_cidade_perfil, uf_perfil = separar_cidade_uf(cidade)
-            perfil_db = (
-                buscar_perfil_municipal(macrotema_slug, nome_cidade_perfil, uf_perfil)
-                if uf_perfil
-                else None
-            )
-
-            if perfil_db:
-                linha_db = dict(perfil_db)
-                # Usa o nome canônico da própria view (grafia/acentuação corretas),
-                # nunca o texto digitado pelo usuário — do contrário o
-                # enriquecimento a jusante (características, demografia, saúde…), que
-                # casa nm_mun de forma case-sensitive, não encontra a cidade. Garante
-                # o formato "Cidade (UF)" que resolver_nome_uf/capa/mapas esperam,
-                # removendo antes um sufixo "(UF)" que algumas views já trazem.
-                nome_canonico = re.sub(
-                    r"\s*\([^)]*\)\s*$", "", str(perfil_db.get("nm_mun") or nome_cidade_perfil)
-                ).strip()
-                linha_db["nm_mun"] = f"{nome_canonico} ({uf_perfil})"
-                linhas_macrotema = [linha_db]
-            else:
-                if uf_perfil:
-                    # Só é fallback de verdade quando o banco foi consultado e não
-                    # tinha a cidade; sem UF a view sequer é chamada.
-                    logger.warning(
-                        "Sem dados no banco para '%s' (%s); usando CSV como fallback.",
-                        cidade,
-                        macrotema_slug,
-                    )
-                csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
-                csv_source = resolve_csv_source(csv_url, csv_env)
-                df = carregar_csv(csv_source)
-                df = normalizar_colunas_macrotema(df, macrotema_slug)
-
-                try:
-                    linhas_df = filtrar_linhas_por_cidade(df, cidade)
-                except ValueError as err:
-                    raise HTTPException(status_code=400, detail=str(err))
-
-                linhas_macrotema = linhas_df.to_dict("records")
-
-                if not linhas_macrotema:
-                    raise HTTPException(
-                        status_code=404, detail=f"Cidade '{cidade}' não encontrada."
-                    )
-
-        for linha in linhas_macrotema:
-            linha["data_relatorio"] = gerado_em.strftime("%d/%m/%Y")
-            linha["hora_relatorio"] = gerado_em.strftime("%H:%M")
-
-        if not db_consultado:
-            nome_cidade_db, uf_db = resolver_nome_uf(linhas_macrotema[0])
-            dados_caracteristicas_db = buscar_caracteristicas_municipio(nome_cidade_db, uf_db)
-            if "demografia" in macrotema_slugs:
-                dados_demografia_db = buscar_populacao_demografia(nome_cidade_db, uf_db)
-                dados_sexo_faixa = buscar_demografia_sexo_faixa_etaria(nome_cidade_db, uf_db)
-                dados_indigena = buscar_populacao_indigena(nome_cidade_db, uf_db)
-                dados_quilombola = buscar_populacao_quilombola(nome_cidade_db, uf_db)
-            if "saude" in macrotema_slugs:
-                dados_publico_etario = buscar_publico_etario_vacinas(nome_cidade_db, uf_db)
-                dados_cobertura_vacinal = buscar_cobertura_vacinal(nome_cidade_db, uf_db)
-                dados_mortalidade_infantil = buscar_mortalidade_infantil_serie(
-                    nome_cidade_db, uf_db
-                )
-                dados_estabelecimentos_saude = buscar_estabelecimentos_saude_serie(
-                    nome_cidade_db, uf_db
-                )
-                dados_perfil_saude = buscar_perfil_saude_municipal(
-                    nome_cidade_db, uf_db
-                )
-            if "educacao" in macrotema_slugs:
-                dados_taxas_educacao = buscar_taxas_educacao_cor_faixa_etaria(nome_cidade_db, uf_db)
-            if "hidraulica" in macrotema_slugs:
-                dados_tecnologias_acesso_agua = buscar_tecnologias_acesso_agua(
-                    nome_cidade_db, uf_db
-                )
-            if "saneamento" in macrotema_slugs:
-                dados_esgotamento = buscar_esgotamento_sanitario(nome_cidade_db, uf_db)
-            if "desenvolvimento-social" in macrotema_slugs:
-                dados_perfil_desenvolvimento_social = (
-                    buscar_perfil_desenvolvimento_social(nome_cidade_db, uf_db)
-                )
-            if "economia-renda" in macrotema_slugs:
-                linhas_pib = buscar_linhas_pib_municipal(nome_cidade_db, uf_db)
-                dados_pib = processar_pib_evolucao(linhas_pib)
-                dados_indicadores_economia = processar_indicadores_economia(linhas_pib)
-                linhas_importacao = buscar_linhas_importacao(nome_cidade_db, uf_db)
-                dados_importacao = processar_importacao(linhas_importacao)
-                dados_comercio_exterior = buscar_comercio_exterior_economia(
-                    nome_cidade_db, uf_db
-                )
-            dados_rua = buscar_populacao_rua(nome_cidade_db, uf_db)
-            # Painel de indicadores da capa: uma única linha em vw_indicadores
-            # cobre todos os macrotemas, então a busca fica fora dos ifs.
-            dados_indicadores = buscar_indicadores_municipio(nome_cidade_db, uf_db)
-            db_consultado = True
-
-        if dados_caracteristicas_db:
-            for linha in linhas_macrotema:
-                linha.update(dados_caracteristicas_db)
-
-        if macrotema_slug == "demografia" and dados_demografia_db:
-            for linha in linhas_macrotema:
-                linha.update(dados_demografia_db)
-
-        if "demografia" in macrotema_slugs and dados_sexo_faixa:
-            for linha in linhas_macrotema:
-                linha.update(dados_sexo_faixa)
-        if "demografia" in macrotema_slugs and dados_indigena:
-            for linha in linhas_macrotema:
-                linha.update(dados_indigena)
-        if "demografia" in macrotema_slugs and dados_quilombola:
-            for linha in linhas_macrotema:
-                linha.update(dados_quilombola)
-
-        if dados_rua:
-            for linha in linhas_macrotema:
-                linha.update(dados_rua)
-
-        if dados_indicadores:
-            for linha in linhas_macrotema:
-                linha.update(dados_indicadores)
-
-        if "saude" in macrotema_slugs:
-            for dados_saude in (
-                dados_publico_etario,
-                dados_cobertura_vacinal,
-                dados_mortalidade_infantil,
-                dados_estabelecimentos_saude,
-                dados_perfil_saude,
-            ):
-                if dados_saude:
-                    for linha in linhas_macrotema:
-                        linha.update(dados_saude)
-
-        if "educacao" in macrotema_slugs and dados_taxas_educacao:
-            for linha in linhas_macrotema:
-                linha.update(dados_taxas_educacao)
-
-        if "hidraulica" in macrotema_slugs and dados_tecnologias_acesso_agua:
-            for linha in linhas_macrotema:
-                linha.update(dados_tecnologias_acesso_agua)
-
-        if "saneamento" in macrotema_slugs and dados_esgotamento:
-            for linha in linhas_macrotema:
-                linha.update(dados_esgotamento)
-
-        if (
-            "desenvolvimento-social" in macrotema_slugs
-            and dados_perfil_desenvolvimento_social
-        ):
-            for linha in linhas_macrotema:
-                linha.update(dados_perfil_desenvolvimento_social)
-
-        if "economia-renda" in macrotema_slugs and dados_pib:
-            for linha in linhas_macrotema:
-                linha.update(dados_pib)
-
-        if "economia-renda" in macrotema_slugs and dados_indicadores_economia:
-            for linha in linhas_macrotema:
-                linha.update(dados_indicadores_economia)
-
-        if "economia-renda" in macrotema_slugs and dados_importacao:
-            for linha in linhas_macrotema:
-                linha.update(dados_importacao)
-
-        if "economia-renda" in macrotema_slugs and dados_comercio_exterior:
-            for linha in linhas_macrotema:
-                linha.update(dados_comercio_exterior)
+        linhas_macrotema, _origem = montar_linhas_macrotema(
+            macrotema_slug,
+            macrotema_dados,
+            cidade,
+            gerado_em,
+            macrotema_slugs,
+            cache_enriquecimento,
+        )
 
         if linhas is None:
             linhas = linhas_macrotema
@@ -513,7 +274,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 ) or primeiro_slug
             else:
                 slug_arquivo = macrotema.split(",")[0].strip()
-            safe_report = f"{slug_arquivo}__{safe_city}"
+            safe_report = f"{prefixo_artefato}{slug_arquivo}__{safe_city}"
 
             legenda_mapa_localizacao = None
             if CARACTERISTICAS_DOCS_URL:
@@ -861,9 +622,16 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                     err,
                 )
 
-        docs_url = require_config_value(macrotema_dados["docs_url"], macrotema_dados["docs_env"])
+        # Único ponto de entrada da prosa do macrotema. É o seam entre o Google
+        # Doc e o painel editorial: quem decide a fonte é FONTE_EDITORIAL, por
+        # macrotema (docs/PLANO-PAINEL-EDITORIAL.md §3.1). Daqui para baixo o
+        # texto é o mesmo nos dois caminhos.
         try:
-            docs_texto = await carregar_texto_do_docs(docs_url)
+            docs_texto = await carregar_texto_editorial(
+                macrotema_slug, macrotema_dados, linhas_macrotema[0]
+            )
+        except ContratoIndisponivel as err:
+            raise HTTPException(status_code=500, detail=str(err)) from err
         except ValueError as err:
             raise HTTPException(status_code=400, detail=str(err)) from err
 
@@ -1059,7 +827,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         except FileNotFoundError:
             pass
 
-    if not await _gerar_pdf(html_content, pdf_file):
+    if gerar_pdf and not await _gerar_pdf(html_content, pdf_file):
         raise HTTPException(
             status_code=500,
             detail="Falha ao gerar o PDF do relatório.",
