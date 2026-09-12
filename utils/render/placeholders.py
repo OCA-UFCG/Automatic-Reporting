@@ -3,6 +3,11 @@ from decimal import Decimal
 
 from utils.formatting import coerce_para_float, formatar_numero_ptbr
 
+# Definidos aqui, e não em utils/editorial, para não criar dependência do
+# caminho Docs sobre o pacote do painel. utils/editorial/render.py reexporta.
+CHAVE_FONTE_PAINEL = "_fonte_editorial"
+FONTE_PAINEL = "painel"
+
 _MARCADOR_CAMPO_CONDICIONAL = re.compile(r"(?:[A-Za-z_][\w-]*\.)?\$([A-Za-z_][\w]*)")
 
 _ALIASES_NAMESPACE = {
@@ -93,7 +98,17 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
     imediatamente anterior. O documento de desenvolvimento social usa uma
     variante própria, sem "Para" e sem dois-pontos: ``Quando o índice de Gini
     for maior e igual a 0,5`` / ``... for menor que 0,5``.
+
+    Texto vindo do painel editorial já chega com as regras avaliadas e sem
+    nenhuma instrução ``Para quando ... :``; nesse caso a função devolve o
+    texto intacto. O curto-circuito é necessário, e não só uma otimização:
+    a máquina de estado abaixo também reage ao *conteúdo* do parágrafo (as
+    frases de população quilombola e de situação de rua), e aplicá-la a um
+    texto que não é do Doc reescreveria prosa que o operador escreveu.
     """
+    if contexto.get(CHAVE_FONTE_PAINEL) == FONTE_PAINEL:
+        return texto
+
     resultado: list[str] = []
     bloco_ativo = True
     bloco_populacoes_ativo = True

@@ -43,6 +43,20 @@ SAUDE_DOCS_URL = get_config_value("SAUDE_DOCS_URL")
 ECONOMIA_RENDA_DOCS_URL = get_config_value("ECONOMIA_RENDA_DOCS_URL")
 SANEAMENTO_DOCS_URL = get_config_value("SANEAMENTO_DOCS_URL")
 HIDRAULICA_DOCS_URL = get_config_value("HIDRAULICA_DOCS_URL")
+# Painel editorial (docs/PLANO-PAINEL-EDITORIAL.md). "docs" mantém o caminho
+# atual, via Google Docs; "painel" lê o contrato publicado. A escolha é por
+# macrotema (FONTE_EDITORIAL_EDUCACAO=painel), com FONTE_EDITORIAL como padrão,
+# para que a migração aconteça um tema por vez sem afetar os demais.
+FONTE_EDITORIAL = get_config_value("FONTE_EDITORIAL") or "docs"
+CONTRATOS_DIR = BASE_DIR / "output" / "contratos"
+# Senha compartilhada do painel. Sem ela o painel não abre — falhar fechado é a
+# escolha certa, porque o que se edita lá sai publicado em relatório. Não há
+# papéis: quem entra, edita e publica (decisão registrada no plano, §2).
+PAINEL_SENHA = get_config_value("PAINEL_SENHA")
+# Opcional: fixa a chave que assina os tokens de sessão. Sem ela, a chave é
+# derivada da senha, e trocar a senha derruba as sessões abertas.
+PAINEL_SEGREDO = get_config_value("PAINEL_SEGREDO")
+
 DB_HOST = get_config_value("DB_HOST")
 DB_DATABASE = get_config_value("DB_DATABASE")
 DB_USER = get_config_value("DB_USER")
