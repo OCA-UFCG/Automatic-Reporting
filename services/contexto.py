@@ -46,10 +46,7 @@ from utils.queries.economia_renda import (
     processar_indicadores_economia,
     processar_pib_evolucao,
 )
-from utils.queries.educacao import (
-    buscar_perfil_educacional_municipio,
-    buscar_taxas_educacao_cor_faixa_etaria,
-)
+from utils.queries.educacao import buscar_taxas_educacao_cor_faixa_etaria
 from utils.queries.hidraulica import buscar_tecnologias_acesso_agua
 from utils.queries.indicadores import buscar_indicadores_municipio
 from utils.queries.perfil_municipal import buscar_perfil_municipal
@@ -127,43 +124,38 @@ def carregar_linha_base(
     """
     nome_cidade, uf = separar_cidade_uf(cidade)
 
-    if macrotema_slug == "educacao":
-        # Educação usa sua própria view (vw_perfil_educacional_municipal, via
-        # buscar_perfil_educacional_municipio) em vez de buscar_perfil_municipal,
-        # mas segue a mesma regra das demais.
-        try:
-            perfil = buscar_perfil_educacional_municipio(nome_cidade, uf)
-        except ValueError as err:
-            raise HTTPException(status_code=400, detail=str(err)) from err
-        if perfil:
-            return [dict(perfil)], ORIGEM_VIEW
-    else:
-        try:
-            perfil = buscar_perfil_municipal(macrotema_slug, nome_cidade, uf) if uf else None
-        except ValueError as err:
-            raise HTTPException(status_code=400, detail=str(err)) from err
-        if perfil:
-            linha = dict(perfil)
-            # Usa o nome canônico da própria view (grafia/acentuação corretas),
-            # nunca o texto digitado pelo usuário — do contrário o
-            # enriquecimento a jusante (características, demografia, saúde…), que
-            # casa nm_mun de forma case-sensitive, não encontra a cidade. Garante
-            # o formato "Cidade (UF)" que resolver_nome_uf/capa/mapas esperam,
-            # removendo antes um sufixo "(UF)" que algumas views já trazem.
-            nome_canonico = re.sub(
-                r"\s*\([^)]*\)\s*$", "", str(perfil.get("nm_mun") or nome_cidade)
-            ).strip()
-            linha["nm_mun"] = f"{nome_canonico} ({uf})"
-            return [linha], ORIGEM_VIEW
+    # Um único caminho para os oito macrotemas: a view do tema, com `SELECT *`.
+    # O ramo especial que educação tinha aqui lia uma lista fixa de colunas e
+    # ficou para trás quando a view ganhou colunas novas (`tend_ens_sup` saía
+    # como placeholder cru no PDF). Regra por tema mora em VIEW_POR_MACROTEMA,
+    # não em `if slug ==`.
+    try:
+        perfil = buscar_perfil_municipal(macrotema_slug, nome_cidade, uf)
+    except ValueError as err:
+        # Cidade ambígua sem UF: 400 pedindo o estado, não 500.
+        raise HTTPException(status_code=400, detail=str(err)) from err
 
-    if uf:
-        # Só é fallback de verdade quando o banco foi consultado e não tinha a
-        # cidade; sem UF a view sequer é chamada.
-        logger.warning(
-            "Sem dados no banco para '%s' (%s); usando CSV como fallback.",
-            cidade,
-            macrotema_slug,
-        )
+    if perfil:
+        linha = dict(perfil)
+        # Usa o nome canônico da própria view (grafia/acentuação corretas),
+        # nunca o texto digitado pelo usuário — do contrário o
+        # enriquecimento a jusante (características, demografia, saúde…), que
+        # casa nm_mun de forma case-sensitive, não encontra a cidade. Garante
+        # o formato "Cidade (UF)" que resolver_nome_uf/capa/mapas esperam,
+        # removendo antes um sufixo "(UF)" que algumas views já trazem.
+        nome_canonico = re.sub(
+            r"\s*\([^)]*\)\s*$", "", str(perfil.get("nm_mun") or nome_cidade)
+        ).strip()
+        # Sem UF digitada, a UF vem da própria linha encontrada.
+        uf_canonica = uf or str(perfil.get("sigla_uf") or "").strip()
+        linha["nm_mun"] = f"{nome_canonico} ({uf_canonica})" if uf_canonica else nome_canonico
+        return [linha], ORIGEM_VIEW
+
+    logger.warning(
+        "Sem dados no banco para '%s' (%s); usando CSV como fallback.",
+        cidade,
+        macrotema_slug,
+    )
     csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
     df = carregar_csv(resolve_csv_source(csv_url, csv_env))
     df = normalizar_colunas_macrotema(df, macrotema_slug)

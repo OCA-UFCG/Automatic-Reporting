@@ -240,7 +240,12 @@ def _contrato_publicado(macrotema_slug: str) -> dict | None:
 
 def montar_manifesto(usar_banco: bool = True) -> dict[str, Any]:
     """Payload do ``GET /manifesto``."""
-    from utils.external.editorial import fonte_editorial
+    from utils.external.editorial import (
+        alternavel_no_painel,
+        fonte_do_ambiente,
+        fonte_editorial,
+        variavel_de_ambiente,
+    )
 
     macrotemas = []
     campos: dict[str, Any] = {}
@@ -254,6 +259,12 @@ def montar_manifesto(usar_banco: bool = True) -> dict[str, Any]:
                 "cor": dados["cor"],
                 "icone": dados["icone"],
                 "fonte_editorial": fonte_editorial(slug),
+                # Quem manda é o ambiente; o painel só alterna dentro do que ele
+                # libera. A tela precisa dos dois para explicar por que o botão
+                # está desabilitado em vez de só desabilitá-lo.
+                "fonte_do_ambiente": fonte_do_ambiente(slug),
+                "pode_alternar_fonte": alternavel_no_painel(slug),
+                "variavel_de_ambiente": variavel_de_ambiente(slug),
                 "contrato": _contrato_publicado(slug),
             }
         )

@@ -27,8 +27,15 @@ from fastapi import HTTPException
 from config import CONTRATOS_DIR, PAINEL_SEGREDO, PAINEL_SENHA
 from utils.data.macrotemas import MACROTEMAS
 from utils.editorial.contrato import ErroDeContrato, novo_contrato, validar_contrato
+from utils.editorial.fontes import escolha_do_painel, registrar_escolha
 from utils.editorial.repositorio import ConflitoDeVersao, RepositorioDeContratos
-from utils.external.editorial import fonte_editorial
+from utils.external.editorial import (
+    FONTES_VALIDAS,
+    alternavel_no_painel,
+    fonte_do_ambiente,
+    fonte_editorial,
+    variavel_de_ambiente,
+)
 from utils.geografia import separar_cidade_uf
 
 logger = logging.getLogger(__name__)
@@ -124,11 +131,66 @@ def listar_contratos_handler() -> list[dict[str, Any]]:
                 "cor": dados["cor"],
                 "icone": dados["icone"],
                 "fonte_editorial": fonte_editorial(slug),
+                # O painel precisa distinguir "está em docs" de "está em docs e
+                # eu posso mudar": sem a chave-mestra no ambiente, o botão de
+                # alternar não teria efeito e não deve sequer parecer clicável.
+                "fonte_do_ambiente": fonte_do_ambiente(slug),
+                "pode_alternar_fonte": alternavel_no_painel(slug),
+                "fonte_escolhida_no_painel": escolha_do_painel(slug),
+                "variavel_de_ambiente": variavel_de_ambiente(slug),
                 "tem_doc": bool(dados["docs_url"]),
                 "contrato": repositorio.metadados(slug),
             }
         )
     return temas
+
+
+def alternar_fonte_handler(slug: str, fonte: str, editor: str) -> dict[str, Any]:
+    """Alterna a fonte editorial de **um** macrotema, pelo painel.
+
+    A variável de ambiente continua mandando: sem ela em `painel`, este handler
+    recusa em vez de gravar uma escolha que não teria efeito — uma chave que não
+    faz nada é pior do que uma chave que não existe.
+
+    Ligar `painel` num tema sem contrato publicado também é recusado: o
+    relatório sairia sem a prosa do macrotema, e o erro apareceria no PDF do
+    portal, longe de quem clicou.
+    """
+    _exigir_macrotema(slug)
+
+    fonte = (fonte or "").strip().casefold()
+    if fonte not in FONTES_VALIDAS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Fonte inválida: {fonte!r}. Use {' ou '.join(FONTES_VALIDAS)}.",
+        )
+
+    if not alternavel_no_painel(slug):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"A fonte de '{slug}' está travada em '{fonte_do_ambiente(slug)}' "
+                f"pelo ambiente do servidor. Para liberar o botão, defina "
+                f"{variavel_de_ambiente(slug)}=painel e reinicie a API."
+            ),
+        )
+
+    if fonte == "painel" and repositorio.metadados(slug) is None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"'{slug}' ainda não tem contrato publicado: ligar o painel "
+                "agora deixaria o relatório sem a prosa deste macrotema. "
+                "Importe do Doc e publique antes de alternar."
+            ),
+        )
+
+    registro = registrar_escolha(slug, fonte, editor)
+    return {
+        "slug": slug,
+        "fonte_editorial": fonte_editorial(slug),
+        "registro": registro,
+    }
 
 
 def _exigir_macrotema(slug: str) -> dict:
@@ -331,12 +393,18 @@ async def previa_handler(slug: str, contrato: dict, cidade: str) -> dict[str, An
     assim que a prévia antiga passou a divergir do relatório sem ninguém notar.
 
     Os artefatos saem com prefixo `previa__` para nunca sobrescrever o
-    `output/relatorio_<tema>__<cidade>.pdf` que o portal entrega ao público, e
-    o PDF não é gerado: o HTML é a fonte dele, então o conteúdo é o mesmo e o
-    editor não espera a conversão.
+    `output/relatorio_<tema>__<cidade>.pdf` que o portal entrega ao público.
+
+    O PDF **é** gerado, e é ele que a tela mostra. Já foi só HTML, para poupar a
+    conversão, e o resultado foi uma prévia que não parecia o relatório: o
+    cabeçalho com as logos do Data Nordeste e da Sudene vive dentro de
+    `@media print` (report/src/styles/print.css) e a quebra de páginas é do
+    `@page` do WeasyPrint — nenhum dos dois existe no HTML visto no navegador.
+    O `html` continua indo junto porque é dele que sai a lista de placeholders
+    não resolvidos.
     """
     _exigir_macrotema(slug)
-    from services.generation import gerar_relatorio_handler
+    from services.generation import gerar_relatorio_handler, slug_de_cidade
     from utils.external.editorial import contrato_em_edicao
 
     erros = validar_contrato(contrato)
@@ -349,10 +417,11 @@ async def previa_handler(slug: str, contrato: dict, cidade: str) -> dict[str, An
 
     with contrato_em_edicao(slug, contrato):
         resposta = await gerar_relatorio_handler(
-            cidade, macrotema=slug, prefixo_artefato="previa__", gerar_pdf=False
+            cidade, macrotema=slug, prefixo_artefato="previa__"
         )
 
     html = resposta.body.decode("utf-8")
+    arquivo_pdf = f"relatorio_previa__{slug}__{slug_de_cidade(cidade)}.pdf"
 
     # Placeholders que sobraram crus são a informação mais útil da prévia: cada
     # um é um campo que não existe para este município.
@@ -360,6 +429,12 @@ async def previa_handler(slug: str, contrato: dict, cidade: str) -> dict[str, An
 
     return {
         "html": html,
+        # O nome do arquivo é sempre o mesmo para tema+cidade, então cada prévia
+        # sobrescreve a anterior. O carimbo na query não muda o arquivo servido:
+        # existe só para o pdf.js do painel não reaproveitar o PDF anterior que
+        # já tem em memória para aquela URL.
+        "pdf_url": f"/output/{arquivo_pdf}?gerado={int(time.time())}",
+        "arquivo_pdf": arquivo_pdf,
         "aviso": aviso,
         "campos_nao_resolvidos": nao_resolvidos,
     }

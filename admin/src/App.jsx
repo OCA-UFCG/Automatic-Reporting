@@ -7,6 +7,7 @@ import EditorDeBloco from './components/EditorDeBloco.jsx'
 import PaletaDeVariaveis from './components/PaletaDeVariaveis.jsx'
 import Previa from './components/Previa.jsx'
 import EstadoDaConexao from './components/EstadoDaConexao.jsx'
+import SeletorDeFonte from './components/SeletorDeFonte.jsx'
 import Guia from './components/Guia.jsx'
 import { IconeDoMacrotema, SpriteDeIcones } from './icones.jsx'
 import {
@@ -34,6 +35,7 @@ export default function App() {
   const [mensagem, setMensagem] = useState(null);
   const [publicando, setPublicando] = useState(false);
   const [guiaAberto, setGuiaAberto] = useState(false);
+  const [alternandoFonte, setAlternandoFonte] = useState(false);
 
   const [cidade, setCidade] = useState('');
   const [previa, setPrevia] = useState(null);
@@ -196,6 +198,30 @@ export default function App() {
     }
   };
 
+  // Alterna a fonte da prosa deste macrotema. O backend é quem decide se pode:
+  // com a chave-mestra do ambiente desligada ele recusa, e a mensagem dele já
+  // diz o que falta — repetir a regra aqui só criaria duas versões dela.
+  const alternarFonte = async (fonte) => {
+    setAlternandoFonte(true);
+    try {
+      const { fonte_editorial: nova } = await api.alternarFonte(slug, fonte, token);
+      setTemas((atuais) =>
+        atuais.map((t) => (t.slug === slug ? { ...t, fonte_editorial: nova } : t))
+      );
+      setMensagem({
+        tipo: 'ok',
+        texto:
+          nova === 'painel'
+            ? 'Os relatórios deste macrotema passam a usar o texto publicado aqui.'
+            : 'Os relatórios deste macrotema voltam a usar o Google Doc.',
+      });
+    } catch (erro) {
+      if (!tratarErro(erro)) setMensagem({ tipo: 'erro', texto: erro.message });
+    } finally {
+      setAlternandoFonte(false);
+    }
+  };
+
   const gerarPrevia = async () => {
     setCarregandoPrevia(true);
     setErroPrevia('');
@@ -280,6 +306,8 @@ export default function App() {
           )}
         </nav>
 
+        <SeletorDeFonte tema={tema} aoAlternar={alternarFonte} salvando={alternandoFonte} />
+
         <div className="acoes-tema">
           {tema?.tem_doc && (
             <>
@@ -300,8 +328,10 @@ export default function App() {
       {tema?.fonte_editorial === 'docs' && (
         <p className="faixa-info">
           Os relatórios de <strong>{tema.nome}</strong> ainda são gerados pelo Google Doc.
-          Publicar aqui <strong>não muda</strong> o que sai em produção — para isso, ligue
-          <code> FONTE_EDITORIAL_{slug.toUpperCase().replaceAll('-', '_')}=painel</code>.
+          Publicar aqui <strong>não muda</strong> o que sai em produção.{' '}
+          {tema.pode_alternar_fonte
+            ? 'Quando o texto estiver pronto, troque para “Este painel” no topo.'
+            : 'A troca está travada pela configuração do servidor — veja o aviso no topo.'}
         </p>
       )}
 

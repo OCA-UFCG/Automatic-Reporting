@@ -76,7 +76,35 @@ def test_previa_nao_sobrescreve_os_artefatos_de_producao(monkeypatch, contrato):
     asyncio.run(admin.previa_handler("demografia", contrato, "X (PB)"))
 
     assert chamadas["prefixo_artefato"], "sem prefixo a prévia grava por cima do relatório publicado"
-    assert chamadas["gerar_pdf"] is False
+
+
+def test_previa_devolve_o_pdf_e_nao_so_o_html(monkeypatch, contrato):
+    """A tela mostra o PDF, então o handler precisa gerá-lo e dizer onde ele está.
+
+    Regressão: a prévia já rodou com `gerar_pdf=False`. O HTML sozinho não tem
+    o cabeçalho com as logos (vive em `@media print`) nem quebra de página (é
+    do `@page` do WeasyPrint), e não havia arquivo para o botão de baixar.
+    """
+    chamadas = {}
+
+    async def handler_falso(cidade, macrotema=None, **kwargs):
+        chamadas.update(kwargs)
+        return RespostaFalsa("<p>ok</p>")
+
+    monkeypatch.setattr("services.generation.gerar_relatorio_handler", handler_falso)
+    monkeypatch.setattr(
+        admin, "montar_contexto_de_previa", lambda slug, cidade: ({}, None)
+    )
+
+    import asyncio
+
+    resultado = asyncio.run(
+        admin.previa_handler("demografia", contrato, "Campina Grande (PB)")
+    )
+
+    assert chamadas.get("gerar_pdf") is not False
+    assert resultado["arquivo_pdf"] == "relatorio_previa__demografia__campina_grande_pb_.pdf"
+    assert resultado["pdf_url"].startswith(f"/output/{resultado['arquivo_pdf']}?")
 
 
 def test_contrato_em_edicao_vence_a_fonte_configurada():

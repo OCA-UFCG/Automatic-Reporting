@@ -181,6 +181,16 @@ GRAFICOS_AUTO_MARCADOR = {
 }
 
 
+def slug_de_cidade(cidade: str) -> str:
+    """Nome de arquivo a partir do município: "Belém (AL)" -> "bel_m_al_".
+
+    Vive aqui, e não embutido no handler, porque quem só quer *saber* o nome do
+    artefato — a prévia do painel, que precisa devolver a URL do PDF — não pode
+    depender de reimplementar esta regra e errar num acento.
+    """
+    return re.sub(r"[^a-zA-Z0-9_-]+", "_", cidade.strip().lower())
+
+
 async def gerar_relatorio_handler(
     cidade: str,
     macrotema: str = "demografia",
@@ -196,9 +206,10 @@ async def gerar_relatorio_handler(
     o arquivo que o portal entrega ao público — prosa não publicada iria ao ar
     pela porta dos fundos.
 
-    ``gerar_pdf=False`` devolve só o HTML. É o que a prévia quer: o PDF sai
-    desse mesmo HTML pelo WeasyPrint, então o conteúdo é o mesmo e o editor não
-    precisa esperar a conversão.
+    ``gerar_pdf=False`` devolve só o HTML, sem passar pelo WeasyPrint. Serve a
+    quem quer o conteúdo e não o arquivo paginado — a prévia do painel **não**
+    é esse caso: ela precisa do PDF, porque cabeçalho com as logos e quebra de
+    página só existem depois da conversão.
     """
     reset_figura_contador()
     try:
@@ -264,7 +275,7 @@ async def gerar_relatorio_handler(
                 }
                 for slug in macrotema_slugs
             ]
-            safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", cidade.strip().lower())
+            safe_city = slug_de_cidade(cidade)
             primeiro_slug = macrotema_slugs[0]
             if macrotema == TODOS_MACROTEMAS_SLUG:
                 slug_arquivo = TODOS_MACROTEMAS_SLUG

@@ -181,9 +181,10 @@ export function montarSecoes(totalDeCidades) {
             A prévia chama <code>gerar_relatorio_handler</code> — o mesmo caminho do
             portal — com o contrato ainda não publicado injetado por{' '}
             <code>contrato_em_edicao</code>. Ela escreve em{' '}
-            <code>output/previa__*</code>, prefixo que existe justamente para não
-            sobrescrever o PDF de produção; o PDF em si não é gerado (
-            <code>gerar_pdf=False</code>), só o HTML.
+            <code>output/relatorio_previa__*</code>, prefixo que existe justamente para
+            não sobrescrever o PDF de produção. O PDF é gerado e é ele que a tela
+            mostra, pelo <code>pdf.js</code>: cabeçalho e quebra de página só existem
+            depois do WeasyPrint.
           </Dev>
         </>
       ),
@@ -404,7 +405,9 @@ export function montarSecoes(totalDeCidades) {
           <p>
             Não é uma simulação: é o relatório sendo gerado pelo mesmo caminho que atende
             o site, com o seu texto ainda não publicado no lugar do atual. Capa,
-            gráficos, mapa e diagramação são os mesmos que sairiam no PDF.
+            gráficos, mapa e diagramação são os mesmos que sairiam no PDF — porque o
+            que aparece na tela <em>é</em> o PDF, aberto página a página no mesmo
+            visualizador do site.
           </p>
           <Botao nome="Município">
             Escreva o nome com a sigla do estado, como{' '}
@@ -419,6 +422,11 @@ export function montarSecoes(totalDeCidades) {
             A lista de variáveis que ficaram sem preenchimento. Cada uma sai impressa
             como texto cru no relatório final, então vale resolver todas: ou o bloco
             precisa de regra, ou a variável está errada para este tema.
+          </Botao>
+          <Botao nome="Baixar PDF">
+            Salva o arquivo da prévia. É o mesmo documento que está na tela, com a
+            prosa que você ainda não publicou — serve para mandar para alguém revisar
+            antes de publicar.
           </Botao>
           <p>
             Gerar a prévia <strong>não</strong> publica nada e não toca no relatório que

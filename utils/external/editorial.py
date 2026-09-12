@@ -25,6 +25,7 @@ from typing import Any
 
 from config import CONTRATOS_DIR, FONTE_EDITORIAL, require_config_value
 from utils.editorial.contrato import exigir_contrato_valido
+from utils.editorial.fontes import escolha_do_painel
 from utils.editorial.render import (
     CHAVE_FONTE_PAINEL,
     FONTE_PAINEL,
@@ -70,18 +71,19 @@ class ContratoIndisponivel(RuntimeError):
     """O macrotema está marcado como 'painel' mas não há contrato publicado."""
 
 
-def _variavel_do_macrotema(macrotema_slug: str) -> str:
+def variavel_de_ambiente(macrotema_slug: str) -> str:
+    """Nome da variável de ambiente que governa este macrotema."""
     return f"FONTE_EDITORIAL_{macrotema_slug.upper().replace('-', '_')}"
 
 
-def fonte_editorial(macrotema_slug: str) -> str:
-    """``docs`` ou ``painel`` para este macrotema.
+def fonte_do_ambiente(macrotema_slug: str) -> str:
+    """``docs`` ou ``painel`` segundo a variável de ambiente — a chave-mestra.
 
     Lida com ``os.environ`` a cada chamada, e não uma vez na importação, para
     que dar ``FONTE_EDITORIAL_EDUCACAO=painel`` na linha de comando de um teste
     ou de um script surta efeito sem reiniciar o processo.
     """
-    especifica = os.getenv(_variavel_do_macrotema(macrotema_slug))
+    especifica = os.getenv(variavel_de_ambiente(macrotema_slug))
     escolhida = (especifica or FONTE_EDITORIAL or FONTE_DOCS).strip().casefold()
     if escolhida not in FONTES_VALIDAS:
         logger.warning(
@@ -92,6 +94,37 @@ def fonte_editorial(macrotema_slug: str) -> str:
         )
         return FONTE_DOCS
     return escolhida
+
+
+def fonte_editorial(macrotema_slug: str) -> str:
+    """A fonte que vale para este macrotema agora.
+
+    A variável de ambiente manda: enquanto ela estiver em ``docs``, é ``docs``,
+    e o botão do painel não muda nada — trocar a origem da prosa de um relatório
+    público é decisão de operação, não de um clique na tela. Com ela em
+    ``painel``, a escolha registrada pelo painel decide tema a tema, e o padrão
+    de quem nunca alternou continua sendo ``painel``, como era antes do botão.
+    """
+    do_ambiente = fonte_do_ambiente(macrotema_slug)
+    if do_ambiente != FONTE_PAINEL:
+        return do_ambiente
+
+    escolhida = escolha_do_painel(macrotema_slug)
+    if escolhida in FONTES_VALIDAS:
+        return escolhida
+    if escolhida:
+        logger.warning(
+            "Escolha de fonte inválida para '%s' em _fontes.json: %r. Usando '%s'.",
+            macrotema_slug,
+            escolhida,
+            FONTE_PAINEL,
+        )
+    return FONTE_PAINEL
+
+
+def alternavel_no_painel(macrotema_slug: str) -> bool:
+    """O botão do painel tem efeito neste tema? Só com a chave-mestra ligada."""
+    return fonte_do_ambiente(macrotema_slug) == FONTE_PAINEL
 
 
 def caminho_do_contrato(macrotema_slug: str):

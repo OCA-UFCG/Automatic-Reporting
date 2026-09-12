@@ -1,73 +1,7 @@
-import pytest
-
 from utils.queries import educacao
 
-
-def _linha_perfil(nm_mun: str, sigla_uf: str):
-    valores = {"nm_mun": nm_mun, "sigla_uf": sigla_uf}
-    return tuple(
-        valores.get(coluna, f"valor_{coluna}")
-        for coluna in educacao.COLUNAS_PERFIL_EDUCACIONAL
-    )
-
-
-def test_busca_com_uf_usa_nm_mun_sem_sufixo(monkeypatch):
-    chamadas = []
-
-    def executar_query_fake(query, params, contexto_erro, buscar_todas=False):
-        chamadas.append(params)
-        return _linha_perfil("Campina Grande", "PB")
-
-    monkeypatch.setattr(educacao, "executar_query", executar_query_fake)
-
-    dados = educacao.buscar_perfil_educacional_municipio("Campina Grande", "PB")
-
-    assert chamadas[-1] == ("Campina Grande", "PB")
-    assert dados["nm_mun"] == "Campina Grande"
-    assert dados["sigla_uf"] == "PB"
-
-
-def test_busca_com_uf_retorna_none_sem_correspondencia(monkeypatch):
-    monkeypatch.setattr(educacao, "executar_query", lambda *a, **k: None)
-
-    dados = educacao.buscar_perfil_educacional_municipio("Cidade Inexistente", "PB")
-
-    assert dados is None
-
-
-def test_busca_sem_uf_resolve_cidade_unica(monkeypatch):
-    monkeypatch.setattr(
-        educacao,
-        "executar_query",
-        lambda *a, **k: [_linha_perfil("Campina Grande", "PB")],
-    )
-
-    dados = educacao.buscar_perfil_educacional_municipio("campina grande")
-
-    assert dados["nm_mun"] == "Campina Grande"
-    assert dados["sigla_uf"] == "PB"
-
-
-def test_busca_sem_uf_levanta_erro_em_ambiguidade(monkeypatch):
-    monkeypatch.setattr(
-        educacao,
-        "executar_query",
-        lambda *a, **k: [
-            _linha_perfil("Formosa", "GO"),
-            _linha_perfil("Formosa", "BA"),
-        ],
-    )
-
-    with pytest.raises(ValueError, match="Cidade ambígua"):
-        educacao.buscar_perfil_educacional_municipio("Formosa")
-
-
-def test_busca_sem_uf_retorna_none_sem_correspondencia(monkeypatch):
-    monkeypatch.setattr(educacao, "executar_query", lambda *a, **k: [])
-
-    dados = educacao.buscar_perfil_educacional_municipio("Cidade Inexistente")
-
-    assert dados is None
+# O perfil educacional migrou para tests/test_perfil_municipal_query.py: ele
+# passou a usar o mesmo `buscar_perfil_municipal` dos outros macrotemas.
 
 
 def test_taxas_educacao_agrega_por_cor_e_faixa(monkeypatch):
@@ -90,15 +24,3 @@ def test_taxas_educacao_retorna_none_sem_dados(monkeypatch):
     dados = educacao.buscar_taxas_educacao_cor_faixa_etaria("Cidade Sem Dados", "PB")
 
     assert dados is None
-
-
-def test_queries_perfil_normalizam_sufixo_uf_no_nm_mun():
-    # `vw_perfil_educacional_municipal` guarda nm_mun como "Cidade (UF)" em todas
-    # as linhas, mas separar_cidade_uf entrega o nome sem sufixo. Sem normalizar a
-    # coluna (regexp_replace, como perfil_municipal.py já faz), o match por nome
-    # nunca casa e a educação retorna 404. Regressão desse 404.
-    for query in (
-        educacao.PERFIL_EDUCACIONAL_MUNICIPIO,
-        educacao.PERFIL_EDUCACIONAL_MUNICIPIO_POR_NOME,
-    ):
-        assert "regexp_replace(nm_mun" in query

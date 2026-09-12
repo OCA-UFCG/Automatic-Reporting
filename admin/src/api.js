@@ -72,6 +72,8 @@ export const api = {
   manifesto: () => pedir('/manifesto?usar_banco=true'),
   cidades: () => pedir('/cities'),
   conexao: (token) => pedir('/admin/conexao', { token }),
+  alternarFonte: (slug, fonte, token) =>
+    pedir(`/admin/macrotemas/${slug}/fonte`, { metodo: 'PUT', corpo: { fonte }, token }),
   contratos: (token) => pedir('/admin/contratos', { token }),
   contrato: (slug, token) => pedir(`/admin/contratos/${slug}`, { token }),
   historico: (slug, token) => pedir(`/admin/contratos/${slug}/historico`, { token }),

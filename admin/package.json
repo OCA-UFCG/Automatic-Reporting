@@ -11,6 +11,7 @@
     "smoke": "esbuild smoke.jsx --bundle --platform=node --format=cjs --packages=external --outfile=.smoke-build.cjs --log-level=error && node .smoke-build.cjs"
   },
   "dependencies": {
+    "pdfjs-dist": "^4.10.38",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

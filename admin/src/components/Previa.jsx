@@ -1,9 +1,15 @@
 import React from 'react'
+import VisualizadorDePdf from './VisualizadorDePdf.jsx'
 
 // A prévia é o relatório de verdade: o backend roda `gerar_relatorio_handler`,
 // o mesmo caminho que atende o portal, com o contrato ainda não publicado
 // injetado no lugar da prosa. Capa, gráficos, mapa e SSR são os mesmos — o que
 // aparece aqui é o que sai no PDF.
+//
+// E o que a tela mostra é o PDF, não o HTML, pelo mesmo visualizador do portal.
+// Com o HTML solto na página faltavam justamente as três coisas que o editor
+// usa para conferir: as logos do cabeçalho (que só existem em `@media print`),
+// a quebra de páginas (que é do WeasyPrint) e o botão de baixar.
 
 export default function Previa({ cidades, cidade, aoTrocarCidade, resultado, carregando, erro, aoGerar }) {
   const semCidade = !cidade.trim();
@@ -62,10 +68,11 @@ export default function Previa({ cidades, cidade, aoTrocarCidade, resultado, car
         </div>
       )}
 
-      {resultado && !carregando && (
-        <div className="previa-papel">
-          <div className="previa-conteudo" dangerouslySetInnerHTML={{ __html: resultado.html }} />
-        </div>
+      {resultado?.pdf_url && !carregando && (
+        <VisualizadorDePdf
+          urlDoPdf={resultado.pdf_url}
+          nomeDoArquivo={resultado.arquivo_pdf || 'relatorio.pdf'}
+        />
       )}
 
       {!resultado && !carregando && !erro && (

@@ -1,100 +1,11 @@
 from utils.queries.base import executar_query
 
-COLUNAS_PERFIL_EDUCACIONAL = [
-    "nm_mun",
-    "estado",
-    "sigla_uf",
-    "ano",
-    "pri_nivel_classe",
-    "pri_nivel_per",
-    "pri_nivel_pop",
-    "seg_nivel_classe",
-    "seg_nivel_per",
-    "seg_nivel_pop",
-    "ter_nivel_classe",
-    "ter_nivel_per",
-    "ter_nivel_pop",
-    "quar_nivel_classe",
-    "quar_nivel_per",
-    "quar_nivel_pop",
-    "alfabetizado_per",
-    "tend_sem_instr",
-    "sem_instr_2000",
-    "sem_instr_2022",
-    "tend_nivel_sup",
-    "fund_comp_per",
-    "comp_fund_br",
-    "sup_comp_per",
-    "comp_sup_br",
-    "sup_comp_mulher",
-    "sup_comp_homem",
-    "comp_alfab_pne",
-    "analf_faixa_maior",
-    "pri_cor_analf",
-    "pri_cor_analf_per",
-    "seg_cor_analf",
-    "ter_cor_analf",
-    "inter_cor_analf_per",
-    "ult_cor_analf",
-    "ult_cor_analf_per",
-    "tend_sem_instr_per",
-    "tend_nivel_sup_per",
-    "comp_fund_br_per",
-    "comp_sup_br_per",
-    "comp_alfab_pne_per",
-    "analf_faixa_menor",
-    "sint_evolucao_per",
-    "sint_evolucao",
-]
-
-PERFIL_EDUCACIONAL_MUNICIPIO = f"""
-    SELECT {", ".join(COLUNAS_PERFIL_EDUCACIONAL)}
-    FROM relatorios_auto.vw_perfil_educacional_municipal
-    WHERE LOWER(regexp_replace(nm_mun, '\\s*\\([^)]*\\)\\s*$', '')) = LOWER(%s)
-      AND UPPER(sigla_uf) = UPPER(%s)
-"""
-
-PERFIL_EDUCACIONAL_MUNICIPIO_POR_NOME = f"""
-    SELECT {", ".join(COLUNAS_PERFIL_EDUCACIONAL)}
-    FROM relatorios_auto.vw_perfil_educacional_municipal
-    WHERE LOWER(regexp_replace(nm_mun, '\\s*\\([^)]*\\)\\s*$', '')) = LOWER(%s)
-"""
-
-_INDICE_SIGLA_UF = COLUNAS_PERFIL_EDUCACIONAL.index("sigla_uf")
-
-
-def buscar_perfil_educacional_municipio(
-    nome_municipio: str, sigla_uf: str = ""
-) -> dict[str, object] | None:
-    if sigla_uf:
-        linha = executar_query(
-            PERFIL_EDUCACIONAL_MUNICIPIO,
-            (nome_municipio, sigla_uf),
-            f"perfil educacional de '{nome_municipio} ({sigla_uf})'",
-        )
-        if linha is None:
-            return None
-        return dict(zip(COLUNAS_PERFIL_EDUCACIONAL, linha))
-
-    linhas = executar_query(
-        PERFIL_EDUCACIONAL_MUNICIPIO_POR_NOME,
-        (nome_municipio,),
-        f"perfil educacional de '{nome_municipio}'",
-        buscar_todas=True,
-    )
-    if not linhas:
-        return None
-
-    ufs_encontradas = sorted({linha[_INDICE_SIGLA_UF] for linha in linhas})
-    if len(ufs_encontradas) > 1:
-        raise ValueError(
-            f"Cidade ambígua: '{nome_municipio}' encontrada em "
-            f"{', '.join(ufs_encontradas)}. Indique o estado, ex: "
-            f"'{nome_municipio} ({ufs_encontradas[0]})'"
-        )
-
-    return dict(zip(COLUNAS_PERFIL_EDUCACIONAL, linhas[0]))
-
+# O perfil educacional não mora mais aqui: ele vem de
+# `utils.queries.perfil_municipal.buscar_perfil_municipal`, o mesmo caminho dos
+# outros sete macrotemas. A lista fixa de colunas que existia neste arquivo
+# ficou três colunas atrás de `relatorios_auto.vw_perfil_educacional_municipal`
+# e fazia `$tend_ens_sup` sair cru no relatório; com `SELECT *` na view, coluna
+# nova chega sozinha ao contexto.
 
 # O gráfico de taxas por cor/faixa etária consulta edu_analfabetismo.vw_analfabetismo_2022,
 # uma fonte diferente de relatorios_auto.vw_perfil_educacional_municipal (usada pelo texto

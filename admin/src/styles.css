@@ -407,12 +407,95 @@ textarea { width: 100%; resize: vertical; }
   background: var(--alerta-suave); color: #9e161f; border: 1px solid #ffc8cc;
   padding: .1rem .4rem; border-radius: 4px; font-size: .78rem; font-family: var(--mono);
 }
-.previa-papel {
-  background: var(--papel-2); border: 1px solid var(--linha); border-radius: var(--raio-g);
-  padding: clamp(20px, 4vw, 44px); box-shadow: var(--sombra);
+/* -- visualizador de PDF ----------------------------------------------- */
+/* Copiado de `data-nordeste-frontend/src/components/PdfViewer/PdfViewer.css`,
+   com os mesmos nomes de classe: é a mesma tela que o editor vê no portal, e
+   manter o CSS reconhecível lado a lado facilita repassar uma mudança de lá
+   para cá. */
+
+.pdf-viewer {
+  position: relative; width: 100%; display: flex; flex-direction: column;
+  border: 1px solid #efefef; border-radius: 8px; background: #dcdbdc; overflow: hidden;
 }
-.previa-conteudo { max-width: 68ch; }
-.previa-conteudo img { max-width: 100%; }
+
+.pdf-toolbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 16px 24px; background: #f8f7f8; border-bottom: 1px solid #efefef; min-height: 72px;
+}
+.pdf-toolbar-left { flex: 0 1 auto; overflow: hidden; min-width: 0; }
+.pdf-toolbar-center { display: flex; align-items: center; justify-content: center; gap: 24px; }
+.pdf-toolbar-right { flex: 0 0 auto; }
+.pdf-toolbar-filename {
+  font-size: .9rem; color: #000; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; max-width: 100%; font-family: var(--mono);
+}
+.pdf-toolbar-page-indicator { display: flex; align-items: center; gap: 8px; }
+.pdf-toolbar-btn-page,
+.pdf-toolbar-btn-icon {
+  display: flex; align-items: center; justify-content: center; width: 40px; height: 40px;
+  background: #fff; border: 1px solid #efefef; border-radius: 4px; cursor: pointer;
+  padding: 8px; transition: background 150ms ease;
+}
+.pdf-toolbar-btn-icon { color: #018f39; }
+.pdf-toolbar-btn-page:hover:not(:disabled),
+.pdf-toolbar-btn-icon:hover:not(:disabled) { background: #f0efee; }
+.pdf-toolbar-btn-page:disabled { opacity: .4; cursor: not-allowed; }
+.pdf-toolbar-btn-icon:disabled { color: #bab8ba; cursor: not-allowed; }
+.pdf-toolbar-btn-icon .icone-svg { width: 18px; height: 18px; }
+.pdf-toolbar-page-nav { font-size: 16px; line-height: 24px; color: #292829; }
+.pdf-toolbar-page-field,
+.pdf-toolbar-zoom-field {
+  display: flex; align-items: center; padding: 8px 12px; height: 40px;
+  background: #fff; border: 1px solid #dcdbdc; border-radius: 6px; gap: 6px;
+}
+.pdf-toolbar-page-current,
+.pdf-toolbar-zoom-level { font-size: 16px; line-height: 24px; color: #7e797b; }
+.pdf-toolbar-zoom-level { min-width: 32px; text-align: center; }
+.pdf-toolbar-page-sep,
+.pdf-toolbar-page-total { font-size: 16px; line-height: 24px; color: #292829; }
+.pdf-toolbar-zoom { display: flex; align-items: center; gap: 8px; }
+.pdf-toolbar-download {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 8px 16px; height: 40px; background: #018f39; border: 0; border-radius: 4px;
+  font-size: 14px; font-weight: 500; line-height: 24px; color: #f8f7f8;
+  text-decoration: none; transition: background 150ms ease;
+}
+.pdf-toolbar-download:hover { background: #017032; }
+.pdf-toolbar-download .icone-svg { width: 11px; height: 11px; }
+
+.pdf-viewer-canvas-wrapper {
+  display: flex; justify-content: center; overflow: auto; padding: 16px; max-height: 80vh;
+}
+.pdf-viewer-pages-column {
+  display: flex; flex-direction: column; gap: 24px; align-items: center;
+  width: 100%; max-width: 100%;
+}
+.pdf-viewer-pages-column > div { display: flex; justify-content: center; }
+.pdf-viewer-canvas { display: block; max-width: 100%; box-shadow: 0 2px 10px rgba(0, 0, 0, .3); }
+.pdf-viewer-placeholder {
+  width: 100%; aspect-ratio: 1 / 1.414;
+  background: linear-gradient(90deg, #cfcecf 25%, #e2e1e2 50%, #cfcecf 75%);
+  background-size: 200% 100%; animation: pdf-shimmer 1.8s ease-in-out infinite;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .3);
+}
+@keyframes pdf-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.pdf-viewer-fullscreen .pdf-viewer-canvas-wrapper { max-height: none; overflow: auto; }
+
+.pdf-viewer-error,
+.pdf-viewer-loading {
+  display: flex; align-items: center; justify-content: center; width: 100%;
+  min-height: 400px; border-radius: var(--raio); font-size: .95rem; color: var(--grafite);
+}
+.pdf-viewer-error { background: var(--alerta-suave); border: 1px solid #ffc8cc; color: #9e161f; }
+.pdf-viewer-loading { flex-direction: column; gap: 16px; background: transparent; }
+.pdf-viewer-spinner {
+  width: 40px; height: 40px; border: 4px solid #ddd; border-top-color: #078f39;
+  border-radius: 50%; animation: pdf-spin 1s linear infinite;
+}
+@keyframes pdf-spin { to { transform: rotate(360deg); } }
 
 /* -- divergências ------------------------------------------------------ */
 
@@ -481,12 +564,17 @@ textarea { width: 100%; resize: vertical; }
 }
 @keyframes girar-previa { to { transform: rotate(360deg); } }
 
-/* A prévia é o relatório inteiro, gerado pelo mesmo pipeline do portal. O
-   papel imita a folha do PDF; o conteúdo traz seu próprio CSS do SSR, então
-   aqui só se controla a moldura e a largura. */
-.previa-papel { overflow-x: auto; }
-.previa-conteudo { max-width: none; }
-.previa-conteudo img { max-width: 100%; height: auto; }
+/* Em tela estreita a barra vira três linhas empilhadas, como no portal: o
+   nome do arquivo, a navegação e o botão de baixar. */
+@media (max-width: 640px) {
+  .pdf-toolbar { flex-direction: column; gap: 16px; padding: 16px; }
+  .pdf-toolbar-left,
+  .pdf-toolbar-center,
+  .pdf-toolbar-right { width: 100%; justify-content: center; }
+  .pdf-toolbar-right { display: flex; }
+  .pdf-viewer-canvas-wrapper { padding: 8px; }
+  .pdf-viewer-pages-column { gap: 8px; }
+}
 
 .dica-botao { font-size: .8rem; color: var(--grafite); align-self: center; }
 .dica-botao.alerta { color: #943d0c; }
@@ -671,4 +759,32 @@ textarea { width: 100%; resize: vertical; }
   }
   .guia-indice button { white-space: nowrap; }
   .guia-botao { grid-template-columns: 1fr; }
+}
+
+/* -- seletor de fonte editorial ---------------------------------------- */
+/* Fica na barra do tema, colado no nome dele: a pergunta "de onde sai o texto
+   deste relatório?" é sobre o macrotema aberto, não sobre o painel inteiro. */
+
+.seletor-fonte { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.seletor-fonte-titulo { font-size: .78rem; color: var(--grafite); text-transform: lowercase; }
+.seletor-fonte-opcoes {
+  display: inline-flex; border: 1px solid var(--linha);
+  border-radius: 999px; overflow: hidden; background: var(--papel);
+}
+.seletor-fonte-opcoes button {
+  background: none; border: none; border-radius: 0;
+  padding: .3rem .75rem; font-size: .8rem; font-weight: 600; color: var(--grafite);
+}
+.seletor-fonte-opcoes button:hover:not(:disabled) { background: var(--papel-3); color: var(--tinta); }
+.seletor-fonte-opcoes button.ativa,
+.seletor-fonte-opcoes button.ativa:disabled {
+  background: var(--marca); color: #fff; opacity: 1;
+}
+.seletor-fonte-nota { display: none; }
+.seletor-fonte.travado .seletor-fonte-opcoes { opacity: .65; }
+/* Com a escolha travada pelo servidor, o motivo não pode depender de passar o
+   mouse: quem opera precisa ler por que o botão não responde. */
+.seletor-fonte.travado .seletor-fonte-nota {
+  display: block; flex-basis: 100%;
+  font-size: .74rem; color: var(--grafite); max-width: 46ch;
 }

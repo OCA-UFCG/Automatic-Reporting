@@ -10,6 +10,7 @@ from services import (
     listar_relatorios_handler,
 )
 from services.admin import (
+    alternar_fonte_handler,
     conexao_handler,
     historico_handler,
     importar_do_doc_handler,
@@ -198,6 +199,15 @@ async def admin_previa(
     return await previa_handler(
         slug, corpo.get("contrato") or {}, corpo.get("cidade") or ""
     )
+
+
+# Alterna a fonte editorial de um macrotema só. A variável de ambiente continua
+# sendo a chave-mestra: o handler recusa quando ela não libera o tema.
+@app.put("/admin/macrotemas/{slug}/fonte")
+def admin_alternar_fonte(
+    slug: str, corpo: dict, editor: str = Depends(editor_autenticado)
+):
+    return alternar_fonte_handler(slug, corpo.get("fonte") or "", editor)
 
 
 @app.get("/admin/conexao")
