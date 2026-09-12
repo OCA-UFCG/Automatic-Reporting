@@ -26,6 +26,12 @@ Companion docs, read them instead of re-deriving their content:
   Doc URLs, DB connection). Never commit a real `.env`.
 - `docs/editorial/` — the rules editors follow when writing a macrotheme's Google Doc
   (block markers, `$placeholders`, editorial conditionals).
+- `admin/CLAUDE.md` — **the editorial panel**, the React screen at `/painel` plus its
+  backend (`utils/editorial/`, `utils/external/editorial.py`, `services/admin.py`): the
+  block contract, the rule operators, the `FONTE_EDITORIAL` precedence, and the guards
+  that path has of its own (pt-BR). Read it before touching any of those files, not just
+  the ones under `admin/`. `docs/PLANO-PAINEL-EDITORIAL.md` holds the design decisions and
+  `docs/TESTAR-PAINEL-EDITORIAL.md` the manual test script.
 
 ## Learning is part of the work
 
