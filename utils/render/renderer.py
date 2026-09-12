@@ -39,7 +39,14 @@ def reset_figura_contador() -> None:
     _proxima_referencia_inline = 1
 
 
-_REFERENCIA_FIGURA_INLINE = re.compile(r"(?i)\bfigura\s+\[?[Xx&]\]?\b")
+# As letras aceitas como placeholder de numeração são as que os Docs usam de
+# fato — W, X, Y, Z e `&` —, com um sufixo numérico opcional ("Figura X2").
+# Aceitar qualquer letra casaria frases comuns em pt-BR ("a figura a seguir"),
+# e aceitar algarismos romanos genéricos confundiria com figura já numerada.
+# Antes só `X`/`x`/`&` entravam, e "(Figura Z)" em demografia, "(Figura W)" em
+# educação, "(Figura Y)" em saneamento e "(Figura X2)" em economia saíam cruas
+# no PDF — pelo painel e pelo portal.
+_REFERENCIA_FIGURA_INLINE = re.compile(r"(?i)\bfigura\s+\[?(?:[WXYZ]\d{0,2}|&)\]?\b")
 
 
 def _substituir_referencia_figura_inline(linha: str) -> str:

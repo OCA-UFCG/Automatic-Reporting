@@ -691,3 +691,52 @@ Cinco ou mais."""
     )
     assert "Cinco ou mais." in cinco_ou_mais
     assert "De 2 a 4" not in cinco_ou_mais
+
+
+def test_inline_figure_reference_with_letters_other_than_x_is_replaced():
+    """Os Docs numeram os placeholders com W, X, Y e Z — não só com X.
+
+    "(Figura Z)" em demografia, "(Figura W)" em educação e "(Figura Y)" em
+    saneamento saíam crus no PDF, pelo painel e pelo portal, porque o regex só
+    reconhecia `X`, `x` e `&`.
+    """
+    reset_figura_contador()
+    texto = (
+        "A população cresceu no período (Figura Z).\n"
+        "\n"
+        "Figura Z – Visão histórica da população."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "(Figura 2)" in html
+    assert "Figura Z" not in html
+
+
+def test_inline_figure_reference_with_numeric_suffix_is_replaced():
+    """Economia numera as figuras como "Figura X2", "Figura X4"..."""
+    reset_figura_contador()
+    texto = (
+        "O VAB por setor mostra a composição (Figura X2).\n"
+        "\n"
+        "Figura X- Valor Adicionado Bruto por setor."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "(Figura 2)" in html
+    assert "Figura X2" not in html
+
+
+def test_common_portuguese_phrase_is_not_mistaken_for_a_figure_placeholder():
+    """Aceitar qualquer letra casaria "a figura a seguir" e quebraria a frase."""
+    reset_figura_contador()
+    texto = (
+        "Como mostra a figura a seguir, o indicador melhorou.\n"
+        "\n"
+        "Figura X- População por faixa etária e sexo."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "a figura a seguir" in html
