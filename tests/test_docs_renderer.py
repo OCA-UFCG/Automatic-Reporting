@@ -691,3 +691,61 @@ Cinco ou mais."""
     )
     assert "Cinco ou mais." in cinco_ou_mais
     assert "De 2 a 4" not in cinco_ou_mais
+
+
+def test_field_vs_field_condition_picks_the_matching_block():
+    """educacao compara dois campos entre si ($sem_instr_2000 vs
+    $sem_instr_2022), não um campo contra um número literal — os operadores
+    fixos exigem \\d+ e nunca casavam, então nenhum dos dois parágrafos era
+    exibido, independente dos dados (bug real, não hipotético)."""
+    texto = """Para quando educacao.$sem_instr_2000 for igual a educacao.$sem_instr_2022, então:
+Sem variação no número de pessoas sem instrução.
+Para quando educacao.$sem_instr_2000 for diferente de educacao.$sem_instr_2022, então:
+Houve variação no número de pessoas sem instrução."""
+
+    sem_variacao = interpretar_blocos_condicionais(
+        texto, {"sem_instr_2000": 100, "sem_instr_2022": 100}
+    )
+    assert "Sem variação no número de pessoas sem instrução." in sem_variacao
+    assert "Houve variação no número de pessoas sem instrução." not in sem_variacao
+
+    com_variacao = interpretar_blocos_condicionais(
+        texto, {"sem_instr_2000": 100, "sem_instr_2022": 80}
+    )
+    assert "Houve variação no número de pessoas sem instrução." in com_variacao
+    assert "Sem variação no número de pessoas sem instrução." not in com_variacao
+
+
+def test_condition_and_its_guarded_paragraph_separated_by_a_blank_line_still_gates_correctly():
+    """No Doc exportado do Google Docs, a regra 'Para quando ...:' fica em um
+    parágrafo próprio, separado do parágrafo que ela guarda por uma linha em
+    branco (como qualquer parágrafo do Doc) — não colado na mesma linha como
+    nos outros testes deste arquivo. Essa linha em branco não pode ser
+    tratada como 'fim do bloco condicional': se for, o bloco reativa antes do
+    parágrafo guardado ser lido, e as duas versões (igual/diferente) vazam
+    juntas no relatório, não importa o dado (bug real, não hipotético)."""
+    texto = """Antes do bloco condicional.
+
+Para quando educacao.$sem_instr_2000 for igual a educacao.$sem_instr_2022, então:
+
+TEXTO_IGUAL
+
+Para quando educacao.$sem_instr_2000 for diferente de educacao.$sem_instr_2022, então:
+
+TEXTO_DIFERENTE
+
+Depois do bloco condicional."""
+
+    igual = interpretar_blocos_condicionais(
+        texto, {"sem_instr_2000": 100, "sem_instr_2022": 100}
+    )
+    assert "TEXTO_IGUAL" in igual
+    assert "TEXTO_DIFERENTE" not in igual
+    assert "Antes do bloco condicional." in igual
+    assert "Depois do bloco condicional." in igual
+
+    diferente = interpretar_blocos_condicionais(
+        texto, {"sem_instr_2000": 100, "sem_instr_2022": 80}
+    )
+    assert "TEXTO_DIFERENTE" in diferente
+    assert "TEXTO_IGUAL" not in diferente
