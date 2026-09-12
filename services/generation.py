@@ -197,6 +197,7 @@ async def gerar_relatorio_handler(
     *,
     prefixo_artefato: str = "",
     gerar_pdf: bool = True,
+    coletar_origens: dict[str, str] | None = None,
 ):
     """Gera o relatório do município.
 
@@ -205,6 +206,12 @@ async def gerar_relatorio_handler(
     o prefixo ela sobrescreveria `output/relatorio_<tema>__<cidade>.pdf`, que é
     o arquivo que o portal entrega ao público — prosa não publicada iria ao ar
     pela porta dos fundos.
+
+    ``coletar_origens``, quando passado, recebe a origem dos dados de cada
+    macrotema (view, CSV sem banco, CSV sem a cidade). Existe para a prévia do
+    painel: ela precisa dizer ao editor de onde veio o número, e antes montava
+    o contexto inteiro uma segunda vez só para descobrir isso — o que dobrava o
+    tempo da prévia (55s em saúde, cuja view custa ~12s por consulta).
 
     ``gerar_pdf=False`` devolve só o HTML, sem passar pelo WeasyPrint. Serve a
     quem quer o conteúdo e não o arquivo paginado — a prévia do painel **não**
@@ -248,7 +255,7 @@ async def gerar_relatorio_handler(
                 macrotema_dados["docs_env"],
             )
             continue
-        linhas_macrotema, _origem = montar_linhas_macrotema(
+        linhas_macrotema, origem = montar_linhas_macrotema(
             macrotema_slug,
             macrotema_dados,
             cidade,
@@ -256,6 +263,8 @@ async def gerar_relatorio_handler(
             macrotema_slugs,
             cache_enriquecimento,
         )
+        if coletar_origens is not None:
+            coletar_origens[macrotema_slug] = origem
 
         if linhas is None:
             linhas = linhas_macrotema

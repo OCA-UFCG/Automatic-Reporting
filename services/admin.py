@@ -327,10 +327,15 @@ def montar_contexto_de_previa(slug: str, cidade: str) -> tuple[dict, str | None]
     sem as consultas de enriquecimento — então ficava com dois campos enquanto o
     relatório tinha dezenas, e o editor via `$placeholder` cru na tela achando
     que o contrato estava errado.
+
+    A prévia **não** chama mais esta função: ela recebe a origem do próprio
+    `gerar_relatorio_handler` (`coletar_origens`), porque montar o contexto aqui
+    e deixar o handler montá-lo de novo dobrava o custo da prévia. O que sobrou
+    aqui é a ferramenta de inspeção — responder "que dados este município tem
+    para este macrotema?" sem gerar relatório nenhum —, e a paridade que esta
+    função defendia passou a ser estrutural: a prévia é o handler.
     """
     from services.contexto import (
-        ORIGEM_CSV_SEM_BANCO,
-        ORIGEM_CSV_SEM_CIDADE,
         CacheDeEnriquecimento,
         montar_linhas_macrotema,
     )
@@ -358,25 +363,33 @@ def montar_contexto_de_previa(slug: str, cidade: str) -> tuple[dict, str | None]
     if uf:
         contexto.setdefault("sigla_uf", uf)
 
-    # O aviso não é sobre "ter dado ou não" — é sobre de onde ele veio. Com o
-    # túnel fora do ar o relatório cai para o CSV e continua saindo, mas com
-    # menos campos do que a view entrega; o editor precisa saber que o que ele
-    # está vendo é o cenário degradado, não o definitivo.
-    aviso = None
+    return contexto, aviso_de_origem(origem, cidade)
+
+
+def aviso_de_origem(origem: str, cidade: str) -> str | None:
+    """Traduz a origem dos dados no alerta que o editor lê na prévia.
+
+    O aviso não é sobre "ter dado ou não" — é sobre de onde ele veio. Com o
+    túnel fora do ar o relatório cai para o CSV e continua saindo, mas com
+    menos campos do que a view entrega; o editor precisa saber que o que ele
+    está vendo é o cenário degradado, não o definitivo.
+    """
+    from services.contexto import ORIGEM_CSV_SEM_BANCO, ORIGEM_CSV_SEM_CIDADE
+
     if origem == ORIGEM_CSV_SEM_BANCO:
-        aviso = (
+        return (
             "Sem conexão com o banco do Data Nordeste: a prévia está usando a "
             "planilha CSV, igual ao que o relatório faz nessa situação. Campos "
             "que só existem na view aparecem como placeholder. Confira se o "
             "túnel SSH está aberto na porta configurada em DB_PORT."
         )
-    elif origem == ORIGEM_CSV_SEM_CIDADE:
-        aviso = (
+    if origem == ORIGEM_CSV_SEM_CIDADE:
+        return (
             f"O banco respondeu, mas não tem '{cidade}' na view deste "
             "macrotema. A prévia está usando a planilha CSV, igual ao que o "
             "relatório faz nessa situação."
         )
-    return contexto, aviso
+    return None
 
 
 async def previa_handler(slug: str, contrato: dict, cidade: str) -> dict[str, Any]:
@@ -413,12 +426,21 @@ async def previa_handler(slug: str, contrato: dict, cidade: str) -> dict[str, An
             status_code=422, detail={"mensagem": "Contrato inválido", "erros": erros}
         )
 
-    _, aviso = montar_contexto_de_previa(slug, cidade)
-
+    # A origem vem do próprio pipeline, não de uma montagem à parte: antes esta
+    # linha era `montar_contexto_de_previa(slug, cidade)`, que consultava a view
+    # e as consultas de enriquecimento inteiras só para descobrir se o dado
+    # tinha vindo do banco ou do CSV — e o handler logo abaixo refazia tudo. Em
+    # saúde, cuja view custa ~12s por consulta, isso era metade dos 55s da
+    # prévia.
+    origens: dict[str, str] = {}
     with contrato_em_edicao(slug, contrato):
         resposta = await gerar_relatorio_handler(
-            cidade, macrotema=slug, prefixo_artefato="previa__"
+            cidade,
+            macrotema=slug,
+            prefixo_artefato="previa__",
+            coletar_origens=origens,
         )
+    aviso = aviso_de_origem(origens.get(slug, ""), cidade)
 
     html = resposta.body.decode("utf-8")
     arquivo_pdf = f"relatorio_previa__{slug}__{slug_de_cidade(cidade)}.pdf"
