@@ -10,6 +10,13 @@ React. A única diferença é que a prosa do macrotema vem do contrato que você
 está editando e ainda não publicou. Se o que você vê na prévia não for igual ao
 que sai no PDF, é bug.
 
+> **O que cada botão faz está dentro da própria tela.** O botão **Guia**, no
+> topo do painel, abre a documentação de todos os controles, com um exemplo
+> passo a passo do zero ao PDF. Este documento aqui responde a outra pergunta —
+> como provar que o painel está correto —, e os dois não se substituem. O guia
+> tem um interruptor de *notas técnicas*: ligado, ele cita arquivo e variável
+> de ambiente; desligado, sobra o texto escrito para quem só opera.
+
 ---
 
 ## Passo 0 — Por que o túnel é obrigatório aqui e não no portal

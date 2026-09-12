@@ -15,6 +15,8 @@ import EditorDeBloco from './src/components/EditorDeBloco.jsx'
 import PaletaDeVariaveis from './src/components/PaletaDeVariaveis.jsx'
 import ConstrutorDeRegra from './src/components/ConstrutorDeRegra.jsx'
 import Previa from './src/components/Previa.jsx'
+import Guia, { montarSecoes } from './src/components/Guia.jsx'
+import { SpriteDeIcones } from './src/icones.jsx'
 
 const manifesto = {
   operadores: [
@@ -59,6 +61,14 @@ const casos = {
     regra={{ condicoes: [{ campo: 'gini', op: 'entre', valor: [0, 1] }] }} />,
   'Regra vazia': <ConstrutorDeRegra manifesto={manifesto} campos={campos} aoMudar={nada} regra={null} />,
   PaletaDeVariaveis: <PaletaDeVariaveis campos={campos} graficos={graficos} origem="cache" aviso="Banco fora" usados={new Set(['matriculas'])} aoInserir={nada} aoInserirGrafico={nada} />,
+  SpriteDeIcones: <SpriteDeIcones />,
+  Guia: <Guia aoFechar={nada} totalDeCidades={2074} />,
+  'Guia sem a lista carregada': <Guia aoFechar={nada} totalDeCidades={0} />,
+  // O guia só monta a seção aberta: sem isto, um erro da sétima seção em
+  // diante só apareceria para quem clicasse nela.
+  ...Object.fromEntries(
+    montarSecoes(2074).map((s) => [`Guia § ${s.titulo}`, <div>{s.corpo}</div>])
+  ),
   Previa: <Previa cidades={['Campina Grande (PB)']} cidade="Campina Grande (PB)" aoTrocarCidade={nada} aoGerar={nada} carregando={false} erro=""
     resultado={{ html: '<p>oi</p>', aviso: 'Sem banco', campos_nao_resolvidos: ['x', 'y'] }} />,
 };

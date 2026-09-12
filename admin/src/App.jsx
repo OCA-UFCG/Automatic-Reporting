@@ -7,6 +7,8 @@ import EditorDeBloco from './components/EditorDeBloco.jsx'
 import PaletaDeVariaveis from './components/PaletaDeVariaveis.jsx'
 import Previa from './components/Previa.jsx'
 import EstadoDaConexao from './components/EstadoDaConexao.jsx'
+import Guia from './components/Guia.jsx'
+import { IconeDoMacrotema, SpriteDeIcones } from './icones.jsx'
 import {
   atualizarBloco, blocoVazio, camposUsados, contarRegras, encontrarBloco,
   inserirBloco, moverBloco, removerBloco, todosOsBlocos,
@@ -31,6 +33,7 @@ export default function App() {
   const [divergencias, setDivergencias] = useState(null);
   const [mensagem, setMensagem] = useState(null);
   const [publicando, setPublicando] = useState(false);
+  const [guiaAberto, setGuiaAberto] = useState(false);
 
   const [cidade, setCidade] = useState('');
   const [previa, setPrevia] = useState(null);
@@ -228,22 +231,39 @@ export default function App() {
 
   if (!sessao) return <Login aoEntrar={entrar} erro={erroLogin} carregando={entrando} />;
 
+  // O <defs> dos ícones precisa existir no documento antes de qualquer <use>;
+  // por isso entra nas duas telas, e não só na de edição.
+  const moldura = (conteudo) => (
+    <div className="app">
+      <SpriteDeIcones />
+      <TopoDoPainel
+        nome={sessao.nome}
+        aoSair={sair}
+        token={token}
+        aoReconectar={recarregarManifesto}
+        aoAbrirGuia={() => setGuiaAberto(true)}
+      />
+      {conteudo}
+      {guiaAberto && <Guia aoFechar={() => setGuiaAberto(false)} totalDeCidades={cidades.length} />}
+    </div>
+  );
+
   if (!slug) {
-    return (
-      <div className="app">
-        <TopoDoPainel nome={sessao.nome} aoSair={sair} token={token} aoReconectar={recarregarManifesto} />
+    return moldura(
+      <>
         {mensagem && <Faixa mensagem={mensagem} aoFechar={() => setMensagem(null)} />}
         <SeletorDeTema temas={temas} aoEscolher={abrirTema} carregando={carregando} />
-      </div>
+      </>
     );
   }
 
-  return (
-    <div className="app">
-      <TopoDoPainel nome={sessao.nome} aoSair={sair} token={token} aoReconectar={recarregarManifesto} />
-
+  return moldura(
+    <>
       <header className="barra-tema" style={{ '--cor-tema': tema?.cor || '#001A72' }}>
         <button type="button" className="link voltar" onClick={voltar}>← macrotemas</button>
+        <span className="tema-icone" aria-hidden="true">
+          <IconeDoMacrotema slug={slug} />
+        </span>
         <h1>{tema?.nome || slug}</h1>
         <span className="versao">
           {versaoBase ? `versão ${versaoBase}` : 'ainda não publicado'}
@@ -388,15 +408,18 @@ export default function App() {
           </>
         )}
       </footer>
-    </div>
+    </>
   );
 }
 
-function TopoDoPainel({ nome, aoSair, token, aoReconectar }) {
+function TopoDoPainel({ nome, aoSair, token, aoReconectar, aoAbrirGuia }) {
   return (
     <div className="topo">
       <span className="marca">Data Nordeste · Painel Editorial</span>
       <span className="usuario">
+        <button type="button" className="secundario botao-guia" onClick={aoAbrirGuia}>
+          Guia
+        </button>
         <EstadoDaConexao token={token} api={api} aoReconectar={aoReconectar} />
         {nome}
         <button type="button" className="link" onClick={aoSair}>sair</button>

@@ -1,4 +1,5 @@
 import React from 'react'
+import { IconeDoMacrotema } from '../icones.jsx'
 
 function estado(tema) {
   if (!tema.contrato) return { texto: 'não importado', classe: 'ausente' };
@@ -21,8 +22,16 @@ export default function SeletorDeTema({ temas, aoEscolher, carregando }) {
           return (
             <li key={tema.slug}>
               <button type="button" onClick={() => aoEscolher(tema.slug)}>
-                <span className="faixa-cor" style={{ background: tema.cor }} aria-hidden="true" />
-                <span className="tema-nome">{tema.nome}</span>
+                {/* Ícone branco sobre um quadrado da cor do tema — é como o
+                    portal desenha o mesmo ícone em `CategoryCard.tsx`. Colorido
+                    sobre o branco do cartão, o amarelo de Educação e o verde
+                    limão de Meio Ambiente ficavam quase invisíveis. */}
+                <span className="tema-cabecalho">
+                  <span className="tema-icone" style={{ background: tema.cor }}>
+                    <IconeDoMacrotema slug={tema.slug} />
+                  </span>
+                  <span className="tema-nome">{tema.nome}</span>
+                </span>
                 <span className="tema-meta">
                   <span className={`situacao ${situacao.classe}`}>{situacao.texto}</span>
                   <span

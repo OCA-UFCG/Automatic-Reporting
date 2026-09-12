@@ -218,20 +218,34 @@ textarea { width: 100%; resize: vertical; }
   list-style: none; margin: 0; padding: 0;
   display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
 }
+/* O <li> estica na linha do grid, mas o botão dentro dele não herdava altura:
+   o cartão de nome comprido crescia e os vizinhos ficavam desalinhados. */
+.grade-temas li { display: flex; }
 .grade-temas button {
-  width: 100%; text-align: left; background: var(--papel-2); color: var(--tinta);
-  border: 1px solid var(--linha); border-radius: var(--raio-g); padding: 0 0 .9rem;
-  display: flex; flex-direction: column; gap: .35rem; overflow: hidden; font-weight: 400;
+  width: 100%; height: 100%; text-align: left;
+  background: var(--papel-2); color: var(--tinta);
+  border: 1px solid var(--linha); border-radius: var(--raio-g); padding: .9rem;
+  display: flex; flex-direction: column; gap: .55rem; font-weight: 400;
   box-shadow: var(--sombra); transition: border-color .12s ease, box-shadow .12s ease;
 }
 .grade-temas button:hover {
   background: var(--papel-2); border-color: var(--marca);
   box-shadow: 0 2px 10px rgb(7 116 50 / .10);
 }
-.faixa-cor { display: block; height: 5px; width: 100%; }
-.tema-nome { font-weight: 600; font-size: 1.02rem; padding: .75rem .9rem 0; letter-spacing: -.01em; }
-.tema-meta { display: flex; gap: .4rem; flex-wrap: wrap; padding: 0 .9rem; }
-.tema-autor { font-size: .78rem; color: var(--grafite); padding: 0 .9rem; }
+.tema-cabecalho { display: flex; align-items: center; gap: .7rem; }
+/* Quadrado fixo de 40px, como no portal. Os símbolos têm viewBox de proporções
+   bem diferentes (o de desenvolvimento social é 169×123): sem uma caixa comum
+   eles sairiam de tamanhos visivelmente distintos lado a lado. */
+.tema-icone {
+  flex: 0 0 auto; width: 40px; height: 40px; border-radius: 4px;
+  display: grid; place-items: center; color: #fff;
+}
+.tema-icone .icone-svg { width: 20px; height: 20px; }
+.tema-nome { font-weight: 600; font-size: 1.02rem; letter-spacing: -.01em; color: var(--tinta); }
+.tema-meta { display: flex; gap: .4rem; flex-wrap: wrap; }
+/* Empurrado para o rodapé do cartão para que a linha do autor fique na mesma
+   altura em todos, mesmo com nomes de uma ou duas linhas. */
+.tema-autor { font-size: .78rem; color: var(--grafite); margin-top: auto; }
 .situacao, .fonte {
   font: 600 .7rem/1.7 var(--texto); padding: .05rem .5rem; border-radius: 999px;
   border: 1px solid transparent;
@@ -531,4 +545,130 @@ textarea { width: 100%; resize: vertical; }
 
 @media (max-width: 640px) {
   .conexao-ajuda { position: fixed; left: 16px; right: 16px; width: auto; top: 4rem; }
+}
+
+/* -- ícones ------------------------------------------------------------ */
+
+/* Todos os símbolos vêm do sprite do portal e desenham em `currentColor`
+   (admin/src/icones.jsx): a cor é sempre a do contexto, nunca do ícone. */
+.icone-svg { display: block; width: 1em; height: 1em; fill: currentColor; }
+.barra-tema .tema-icone { width: 28px; height: 28px; background: var(--cor-tema); }
+.barra-tema .tema-icone .icone-svg { width: 15px; height: 15px; }
+.guia-topo .icone-info { width: 1.05em; height: 1.05em; color: var(--info); }
+
+/* -- guia -------------------------------------------------------------- */
+
+.botao-guia { padding: .3rem .7rem; font-size: .82rem; }
+
+.guia-fundo {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgb(41 40 41 / .42);
+  display: grid; place-items: center; padding: clamp(12px, 3vw, 32px);
+}
+.guia {
+  width: min(980px, 100%); max-height: min(760px, calc(100vh - 48px));
+  display: flex; flex-direction: column;
+  background: var(--papel-2); border: 1px solid var(--linha);
+  border-radius: var(--raio-g); box-shadow: 0 16px 48px rgb(41 40 41 / .22);
+  overflow: hidden;
+}
+.guia:focus { outline: none; }
+
+.guia-topo {
+  display: flex; align-items: center; gap: 1rem;
+  padding: .8rem 1.1rem; border-bottom: 1px solid var(--linha);
+  background: var(--papel);
+}
+.guia-topo h2 {
+  margin: 0; font-size: 1rem; letter-spacing: -.01em;
+  display: flex; align-items: center; gap: .45rem;
+}
+.guia-alternador {
+  margin-left: auto; display: flex; align-items: center; gap: .35rem;
+  font-size: .8rem; color: var(--grafite); cursor: pointer;
+}
+.guia-alternador input { accent-color: var(--marca); cursor: pointer; }
+
+.guia-corpo { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 0; flex: 1; }
+
+.guia-indice {
+  border-right: 1px solid var(--linha); background: var(--papel);
+  padding: .6rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1px;
+}
+.guia-indice button {
+  background: none; border: none; border-radius: 6px;
+  text-align: left; padding: .42rem .6rem; font-size: .85rem; font-weight: 500;
+  color: var(--grafite);
+}
+.guia-indice button:hover { background: var(--papel-3); color: var(--tinta); }
+.guia-indice button.ativa {
+  background: var(--marca-suave); color: var(--marca-forte);
+  border: 1px solid var(--marca-borda); font-weight: 600;
+}
+
+.guia-texto { padding: 1.2rem 1.5rem 2rem; overflow-y: auto; max-width: 70ch; }
+.guia-texto h3 { margin: 0 0 .9rem; font-size: 1.2rem; letter-spacing: -.02em; text-wrap: balance; }
+.guia-texto h4 { margin: 0 0 .25rem; font-size: .93rem; }
+.guia-texto p { margin: 0 0 .85rem; }
+.guia-texto code {
+  background: var(--papel-3); border: 1px solid var(--linha);
+  border-radius: 4px; padding: .05rem .3rem;
+}
+
+/* O nome do botão dentro do texto é desenhado como o botão de verdade em
+   miniatura, para que a frase e a tela sejam a mesma coisa aos olhos. */
+.guia-chip-botao {
+  display: inline-block; background: var(--papel-3); border: 1px solid var(--linha-forte);
+  border-radius: 5px; padding: .02rem .38rem;
+  font: 600 .84em/1.5 var(--texto); color: var(--tinta); white-space: nowrap;
+}
+
+.guia-passos { margin: 0; padding-left: 1.4rem; display: flex; flex-direction: column; gap: 1.1rem; }
+.guia-passos li::marker { font-weight: 700; color: var(--marca); }
+.guia-passos p { margin: 0 0 .4rem; }
+.guia-passos p:last-child { margin-bottom: 0; }
+
+.guia-botao {
+  display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: .2rem 1rem;
+  padding: .7rem 0; border-top: 1px solid var(--linha);
+  align-items: start;
+}
+.guia-botao-nome {
+  display: flex; flex-direction: column; gap: .2rem; align-items: flex-start; min-width: 0;
+}
+/* Na lista de referência a etiqueta pode ser longa ("no ar pelo painel / ainda
+   pelo Doc") e não cabe na coluna: aqui ela quebra em duas linhas, ao contrário
+   da mesma etiqueta usada no meio de uma frase, que continua inteira. */
+.guia-botao-nome .guia-chip-botao { white-space: normal; max-width: 100%; }
+.guia-botao-onde { font-size: .74rem; color: var(--grafite); }
+.guia-botao-texto { font-size: .92rem; }
+
+.guia-alerta {
+  background: var(--aviso-suave); border: 1px solid #ffe588; color: #943d0c;
+  border-radius: var(--raio); padding: .55rem .7rem; font-size: .88rem;
+}
+
+/* As notas técnicas somem inteiras quando o operador desliga o interruptor —
+   nunca ficam meia-frase dentro de um parágrafo, justamente para poder sumir. */
+.guia-dev {
+  background: var(--dado-suave); border: 1px solid var(--dado-borda);
+  border-radius: var(--raio); padding: .55rem .7rem;
+  font-size: .84rem; color: #10556f;
+}
+.guia-dev code { background: #fff; border-color: var(--dado-borda); }
+.guia-dev-selo {
+  display: inline-block; margin-right: .45rem;
+  font: 700 .66rem/1.7 var(--texto); text-transform: uppercase; letter-spacing: .06em;
+  color: var(--dado);
+}
+.guia.sem-dev .guia-dev { display: none; }
+
+@media (max-width: 720px) {
+  .guia-corpo { grid-template-columns: 1fr; }
+  .guia-indice {
+    border-right: none; border-bottom: 1px solid var(--linha);
+    flex-direction: row; overflow-x: auto; gap: .3rem;
+  }
+  .guia-indice button { white-space: nowrap; }
+  .guia-botao { grid-template-columns: 1fr; }
 }
