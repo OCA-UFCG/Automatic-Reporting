@@ -102,15 +102,6 @@ MACROTEMAS: dict[str, Macrotema] = {
         "csv_url": SANEAMENTO_CSV_URL,
         "csv_env": "SANEAMENTO_CSV_URL",
     },
-    "instrumentos-sudene": {
-        "nome": "Ações Institucionais",
-        "cor": "#018F39",
-        "icone": "chart",
-        "docs_url": "",
-        "docs_env": "INSTRUMENTOS_SUDENE_DOCS_URL",
-        "csv_url": "",
-        "csv_env": "INSTRUMENTOS_SUDENE_CSV_URL",
-    },
 }
 
 TODOS_MACROTEMAS_SLUG = "todos"
