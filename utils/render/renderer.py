@@ -30,6 +30,18 @@ _CONFIG_GRAFICOS = {
         "largura_maxima": "560px",
         "margem_vertical": "16px",
     },
+    "grafico_publico_etario": {
+        "margem_vertical": "12px",
+    },
+    "grafico_cobertura_vacinal": {
+        "margem_vertical": "12px",
+    },
+    "grafico_taxa_mortalidade": {
+        "margem_vertical": "12px",
+    },
+    "grafico_de_estabelecimento": {
+        "margem_vertical": "12px",
+    },
 }
 
 
