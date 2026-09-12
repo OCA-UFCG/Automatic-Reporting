@@ -135,9 +135,14 @@ through these layers, orchestrated by `services/generation.py:gerar_relatorio_ha
   once can exhaust the database host's memory.
 - **The view is primary, CSV is the fallback** (PR #91). Keep both paths working; a
   view that lacks a city must fall through to CSV, not error.
-- **A placeholder with no value stays literal in the output** (e.g. `$esgoto_rede_2022`
-  prints raw). It doesn't crash, but it's a visible bug — closing those gaps is why the
-  views are primary. A `namespace.$campo` whose namespace is another view (e.g.
+- **A null variable hides the block that depends on it.** Prose coming from the panel's
+  contract (`utils/editorial/render.py`) drops any paragraph, caption or list item whose
+  `$campo` doesn't resolve for that city, and a section left with no children drops its
+  heading too — a `$sol_predom` printed raw in a mayor's report is worse than the
+  sentence not being there. Write the "no data" wording as another block guarded by a
+  rule when the trecho should survive. Prose still coming from a Google Doc keeps the old
+  behaviour (the placeholder prints literally), which is one more reason to migrate a
+  macrotheme to the panel. A `namespace.$campo` whose namespace is another view (e.g.
   `demografia.$nm_mun` in a saneamento report) resolves against the merged `contexto`.
 - **`nm_mun` is canonicalized to `"Cidade (UF)"`** in `generation.py` before the
   downstream `buscar_*` run, because their joins match `nm_mun` case-sensitively. Don't
