@@ -7,7 +7,17 @@ VIEW_POR_MACROTEMA = {
     "economia-renda": "vw_perfil_economia",
     "saneamento": "vw_perfil_infraestrutura_municipal",
     "hidraulica": "vw_seguranca_hidrica",
-    "meio-ambiente": "vw_perfil_ambiente_municipal",
+    # Ficou de fora do mapa quando as views viraram fonte primária (PR #91), e o
+    # tema caía no CSV mesmo com o banco no ar — um CSV que traz colunas de
+    # demografia (pop_homem, cor_raca_pri) e o data story de outro macrotema. A
+    # view cobre os 2.074 municípios e todos os campos que o contrato usa.
+    "desenvolvimento-social": "vw_perfil_desen_social_municipal",
+    # Sem o prefixo `vw_perfil_` das demais: o objeto no banco chama-se apenas
+    # `ambiente`. O nome antigo (`vw_perfil_ambiente_municipal`) nunca existiu —
+    # o PostgreSQL respondia "relation does not exist", `executar_query` engolia
+    # o erro e o tema caía sempre no CSV, com 37 placeholders crus no PDF de
+    # qualquer município.
+    "meio-ambiente": "ambiente",
 }
 
 # `SELECT *` e não uma lista de colunas: a view é o contrato. Educação tinha até

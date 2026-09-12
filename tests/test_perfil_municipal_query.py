@@ -74,8 +74,20 @@ def test_busca_sem_uf_retorna_none_sem_correspondencia(monkeypatch):
     assert buscar_perfil_municipal("saude", "Cidade Inexistente") is None
 
 
-def test_macrotema_sem_view_mapeada_retorna_none():
-    assert buscar_perfil_municipal("desenvolvimento-social", "Campina Grande", "PB") is None
+def test_macrotema_sem_view_mapeada_retorna_none(monkeypatch):
+    """Slug fora de VIEW_POR_MACROTEMA sai antes de tocar o banco.
+
+    O exemplo aqui era `desenvolvimento-social`, que deixou de servir quando o
+    tema ganhou a view que já existia no banco e nunca fora mapeada — e o teste
+    passava a consultar o banco de verdade em vez de exercitar o ramo.
+    """
+    monkeypatch.setattr(
+        perfil_municipal,
+        "executar_query_dict",
+        lambda *a, **k: pytest.fail("não deve consultar o banco sem view mapeada"),
+    )
+
+    assert buscar_perfil_municipal("macrotema-inexistente", "Campina Grande", "PB") is None
 
 
 @pytest.mark.parametrize("slug", sorted(MACROTEMAS))
@@ -99,3 +111,20 @@ def test_todo_macrotema_usa_o_mesmo_caminho_de_perfil(slug, monkeypatch):
     assert chamados == [(slug, "Campina Grande", "PB")]
     assert origem == servico_contexto.ORIGEM_VIEW
     assert linhas[0]["nm_mun"] == "Campina Grande (PB)"
+
+
+def test_todo_macrotema_tem_view_mapeada():
+    """Macrotema fora de VIEW_POR_MACROTEMA cai no CSV para sempre, em silêncio.
+
+    Foi o que aconteceu com desenvolvimento-social: a view existia no banco com
+    os 2.074 municípios desde a migração para fonte primária (PR #91), e o tema
+    seguia lendo uma planilha que trazia colunas de demografia e o data story de
+    outro macrotema. Nada falhava — o fallback é justamente projetado para não
+    falhar —, então ninguém notou.
+    """
+    faltando = sorted(set(MACROTEMAS) - set(perfil_municipal.VIEW_POR_MACROTEMA))
+
+    assert not faltando, (
+        f"macrotemas sem view mapeada: {faltando}. Sem o mapeamento o tema "
+        "lê o CSV mesmo com o banco no ar."
+    )
