@@ -40,7 +40,7 @@ def _rotular_barra_vertical(ax, barra, texto: str, limite: float) -> None:
     )
 
 
-def gerar_grafico_mortalidade_infantil(
+def gerar_grafico_taxa_mortalidade(
     cidade: dict,
     OUTPUT_DIR: pathlib.Path,
     safe_city: str,
@@ -60,14 +60,14 @@ def gerar_grafico_mortalidade_infantil(
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    chart_file = OUTPUT_DIR / f"grafico_mortalidade_infantil_{safe_city}.png"
+    chart_file = OUTPUT_DIR / f"grafico_taxa_mortalidade_{safe_city}.png"
 
     x = np.arange(len(anos))
 
     fig, ax = iniciar_card_grafico(
-        (10, 4.4), "Visão histórica da taxa de mortalidade infantil"
+        (10, 4.4), "Histórico da taxa de mortalidade infantil"
     )
-    _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas=0.5)
+    _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas=0.6)
 
     barras = ax.bar(x, taxas, width=0.62, color="#9E2A3F", zorder=3)
 
@@ -81,7 +81,7 @@ def gerar_grafico_mortalidade_infantil(
 
     ax.set_xticks(x)
     ax.set_xticklabels(anos, fontsize=11*ESCALA_FONTE)
-    ax.set_xlabel("Ano", fontsize=12*ESCALA_FONTE)
+    ax.set_xlabel("Ano", fontsize=12*ESCALA_FONTE, labelpad=14)
 
     ax.yaxis.set_major_locator(MaxNLocator(nbins=3, integer=True))
     ax.grid(
@@ -137,9 +137,11 @@ def gerar_grafico_de_estabelecimento(
     x = np.arange(len(anos))
 
     fig, ax = iniciar_card_grafico(
-        (10, 4.4), "Visão histórica do número de estabelecimentos de saúde"
+        (10, 4.4),
+        "Histórico do número de Estabelecimento de Saúde",
+        margem_esquerda=0.20,
     )
-    _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas=0.5)
+    _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas=0.6)
 
     barras = ax.bar(x, totais, width=0.62, color="#FF5A6E", zorder=3)
 
@@ -151,8 +153,9 @@ def gerar_grafico_de_estabelecimento(
 
     ax.set_xticks(x)
     ax.set_xticklabels(anos, fontsize=11*ESCALA_FONTE)
-    ax.set_xlabel("Ano", fontsize=12*ESCALA_FONTE)
+    ax.set_xlabel("Ano", fontsize=12*ESCALA_FONTE, labelpad=14)
 
+    ax.set_ylabel("Número de estabelecimentos\nde saúde", fontsize=9*ESCALA_FONTE)
     ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _: _formatar_valor_mil(valor)))
     ax.yaxis.set_major_locator(MaxNLocator(nbins=3))
 
@@ -201,17 +204,19 @@ def gerar_grafico_cobertura_vacinal(
 
     chart_file = OUTPUT_DIR / f"grafico_cobertura_vacinal_{safe_city}.png"
 
+    titulo = "Taxa de cobertura vacinal por tipo de vacina"
+
     altura = max(4.2, 0.55 * len(vacinas) + 1.2)
     # Faixa de header proporcionalmente menor em cards mais altos (muitas
     # vacinas), senão o título fica desproporcionalmente grande no topo.
     altura_header = min(0.14, 3.6 * 0.14 / altura)
     fig, ax = iniciar_card_grafico(
         (11, altura),
-        "Taxa de cobertura vacinal por tipo de vacina",
+        titulo,
         altura_header=altura_header,
         margem_direita=0.09,
     )
-    _reservar_espaco_rotulo_x(fig, ax)
+    _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas=0.5)
 
     y = np.arange(len(vacinas))
 
@@ -221,7 +226,7 @@ def gerar_grafico_cobertura_vacinal(
     ax.set_yticklabels(vacinas, fontsize=11*ESCALA_FONTE)
     ax.invert_yaxis()
 
-    ax.set_ylabel("Imunobiológico", fontsize=12*ESCALA_FONTE)
+    ax.set_ylabel("Vacina", fontsize=12*ESCALA_FONTE)
     # Nomes de vacina variam muito de tamanho (de "BCG" a "Pentavalente
     # (DTP/Hib/HepB)"); a margem esquerda fixa do card não dá conta dos mais
     # longos e eles saem cortados pra fora da moldura — mede o rótulo mais
@@ -264,7 +269,7 @@ def gerar_grafico_cobertura_vacinal(
 
     ax.tick_params(axis="both", length=0, labelsize=11*ESCALA_FONTE, colors="#4A4A4A")
 
-    ax.set_xlabel("Taxa de cobertura vacinal (%)", fontsize=12*ESCALA_FONTE)
+    ax.set_xlabel("Taxa de cobertura vacinal (%)", fontsize=12*ESCALA_FONTE, labelpad=14)
 
     salvar_card_grafico(fig, chart_file)
 
@@ -310,11 +315,13 @@ def gerar_grafico_publico_etario(
     # Largura das barras
     largura = 0.30
 
-    fig, ax = iniciar_card_grafico((10, 4.6), "Público-alvo etário e doses aplicadas")
+    titulo = "Metas e doses aplicadas por público-alvo etário"
+
+    fig, ax = iniciar_card_grafico((10, 4.6), titulo)
     # A legenda fica abaixo do eixo (bbox_to_anchor negativo); sem encolher o
     # `ax` ela cai fora da área desenhada e sai cortada do card.
     posicao = ax.get_position()
-    altura_legenda = posicao.height * 0.34
+    altura_legenda = posicao.height * 0.40
     ax.set_position(
         (posicao.x0, posicao.y0 + altura_legenda, posicao.width, posicao.height - altura_legenda)
     )
@@ -381,15 +388,18 @@ def gerar_grafico_publico_etario(
     # Legenda
     ax.legend(
         loc="upper center",
-        bbox_to_anchor=(0.5, -0.20),
+        bbox_to_anchor=(0.5, -0.48),
         ncol=2,
         frameon=False,
         fontsize=11*ESCALA_FONTE,
+        columnspacing=3.5,
+        handletextpad=0.6,
     )
 
     ax.set_xlabel(
         "Público-alvo etário",
         fontsize=12*ESCALA_FONTE,
+        labelpad=14,
     )
 
     salvar_card_grafico(fig, chart_file)
