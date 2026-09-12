@@ -31,6 +31,24 @@ _OPERADORES_EDITORIAIS: list[tuple[re.Pattern, object]] = [
     (re.compile(r"igual\s+a\s+(\d+)"), lambda v, n: v == n),
 ]
 
+# Variante "campo A for <operador> campo B" (ex.: "educacao.$sem_instr_2000 for
+# igual a educacao.$sem_instr_2022"): os operadores acima exigem um número
+# literal (\d+) logo após a frase, então nunca casam quando o outro lado da
+# comparação também é um "$campo". Só cobre os dois únicos casos usados hoje
+# (igual/diferente); os operadores de faixa/ordem não têm uso campo-a-campo
+# no momento.
+_OPERADORES_CAMPO_A_CAMPO: list[tuple[re.Pattern, object]] = [
+    (re.compile(r"diferente\s+de\s*$"), lambda a, b: a != b),
+    (re.compile(r"igual\s+a\s*$"), lambda a, b: a == b),
+]
+
+
+def _parse_operador_campo_a_campo(trecho: str):
+    for padrao, atende in _OPERADORES_CAMPO_A_CAMPO:
+        if padrao.search(trecho):
+            return atende
+    return None
+
 # Campos onde `None` (sem dado no banco) não pode ser tratado como zero: a
 # ausência de dado é distinta de um valor zero de fato, e confundi-las
 # afirmaria algo que a fonte de dados não garante (ver o caso histórico de
@@ -62,6 +80,20 @@ def _avaliar_condicao_editorial(
             return 0.0
 
     valores = [numero(campo) for campo in campos]
+
+    # "campo A for igual a/diferente de campo B": dois marcadores e nada além
+    # do operador entre eles — compara os dois valores resolvidos entre si,
+    # em vez de cada campo contra um número literal.
+    if len(matches) == 2:
+        trecho_entre = expressao[matches[0].end():matches[1].start()].casefold()
+        trecho_apos = expressao[matches[1].end():].casefold()
+        atende_campo_a_campo = _parse_operador_campo_a_campo(trecho_entre)
+        # Só assume campo-a-campo se não houver, depois do segundo campo, um
+        # operador de número literal (que indicaria o formato "campo A for X
+        # e campo B for Y" já suportado, não uma comparação entre os dois).
+        if atende_campo_a_campo is not None and _parse_operador_editorial(trecho_apos) is None:
+            return atende_campo_a_campo(valores[0], valores[1])
+
     operadores = []
     for indice, match in enumerate(matches):
         fim = matches[indice + 1].start() if indice + 1 < len(matches) else len(expressao)
@@ -103,13 +135,26 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
     # o parágrafo seguinte; sem isso, o conteúdo incondicional que vem depois
     # herdaria o resultado da última condição avaliada e sumiria do relatório.
     aguardando_fim_de_bloco_simples = False
+    # No Doc exportado, a regra "Para quando ...:" e o parágrafo que ela guarda
+    # normalmente vêm em parágrafos separados (uma linha em branco entre os
+    # dois, como em qualquer texto do Google Docs) — essa linha em branco não
+    # pode ser tratada como "fim do bloco", senão o bloco reativa antes mesmo
+    # do parágrafo guardado ser lido, e as duas versões (ex.: igual/diferente)
+    # vazam juntas no relatório, não importa o dado. Só a primeira linha em
+    # branco *depois* de já termos visto conteúdo do parágrafo guardado conta
+    # como fim de bloco.
+    bloco_simples_teve_conteudo = False
 
     for linha in texto.splitlines():
         limpa = linha.strip()
 
-        if not limpa and aguardando_fim_de_bloco_simples:
-            bloco_ativo = True
-            aguardando_fim_de_bloco_simples = False
+        if aguardando_fim_de_bloco_simples:
+            if limpa:
+                bloco_simples_teve_conteudo = True
+            elif bloco_simples_teve_conteudo:
+                bloco_ativo = True
+                aguardando_fim_de_bloco_simples = False
+                bloco_simples_teve_conteudo = False
 
         if re.match(r"(?i)^sequ[eê]ncia do texto,?\s*sem condi[cç][aã]o:?$", limpa):
             bloco_ativo = True
@@ -138,6 +183,7 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                 else:
                     bloco_ativo = atende
                     aguardando_fim_de_bloco_simples = True
+                    bloco_simples_teve_conteudo = False
                 continue
             # Sem "$campo", não é uma instrução editorial de fato — é uma frase
             # comum do texto (ex.: "Para efeito de análise:") e deve ser mantida.
