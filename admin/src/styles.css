@@ -1,0 +1,534 @@
+/* Painel Editorial — Data Nordeste.
+
+   A paleta, a tipografia e o raio vêm do portal (`data-nordeste-frontend`,
+   src/app/globals.css): verde da marca, cinzas neutros, Inter. Quem opera esta
+   tela é a mesma pessoa que usa o portal, e a familiaridade visual é parte do
+   que torna a ferramenta fácil.
+
+   O portal não tem tema escuro — define a classe `.dark` do shadcn mas nunca a
+   liga. Esta tela segue a mesma decisão: claro sempre, `color-scheme` fixo,
+   para não herdar do sistema um tema que o produto não tem.
+
+   Ferramenta de trabalho, não peça de leitura: o que precisa ler à distância é
+   o estado (o que tem regra, o que não foi publicado, o que falta dado). Por
+   isso a cor é usada por significado, e não por decoração. */
+
+:root {
+  color-scheme: light;
+
+  /* Cinzas — grey-100 … grey-1100 do portal */
+  --papel: #f8f7f8;
+  --papel-2: #ffffff;
+  --papel-3: #efefef;
+  --linha: #dcdbdc;
+  --linha-forte: #bebbbd;
+  --tinta: #292829;
+  --grafite: #676264;
+
+  /* Verde da marca — green-800 … green-1100 */
+  --marca: #018f39;
+  --marca-forte: #077432;
+  --marca-suave: #eefff3;
+  --marca-borda: #b0ffcf;
+
+  /* Azul — reservado para as variáveis: é "dado", não é ação. blue-700/100 */
+  --dado: #1878a2;
+  --dado-suave: #eefafd;
+  --dado-borda: #ade5f4;
+
+  /* Card informativo — .pdf-viewer-empty-card do /reports do portal */
+  --info: #075985;
+  --info-suave: #eaf8fd;
+  --info-borda: #94dcf7;
+
+  --ok: #018f39;
+  --ok-suave: #eefff3;
+  --aviso: #dd7402;
+  --aviso-suave: #fffbeb;
+  --alerta: #bf1621;
+  --alerta-suave: #fef2f3;
+
+  --texto: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: 'SFMono-Regular', 'JetBrains Mono', Consolas, monospace;
+  --raio: 8px;
+  --raio-g: 10px;
+  --sombra: 0 1px 2px rgb(41 40 41 / .06);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--texto);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--tinta);
+  background: var(--papel);
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font: inherit; cursor: pointer; }
+code { font-family: var(--mono); font-size: .86em; }
+
+/* `:where()` não soma especificidade: a regra fica valendo (0,0,1), o peso de
+   um seletor de elemento. Sem isso ela valia (0,3,1) e vencia `.abas button`,
+   `.lista-campos button` e `.grade-temas button` — as abas viravam botões
+   verdes cheios e a lista de variáveis ficava verde-escuro sobre verde-escuro,
+   ilegível. Toda regra de contexto abaixo depende disto para funcionar. */
+button:where(:not(.link, .icone, .bloco-alvo)) {
+  background: var(--marca);
+  color: #fff;
+  border: 1px solid var(--marca);
+  border-radius: var(--raio);
+  padding: .48rem .95rem;
+  font-weight: 600;
+  transition: background-color .12s ease, border-color .12s ease;
+}
+button:where(:not(.link, .icone, .bloco-alvo)):hover:not(:disabled) {
+  background: var(--marca-forte); border-color: var(--marca-forte);
+}
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.secundario {
+  background: var(--papel-2); color: var(--tinta); border-color: var(--linha);
+  box-shadow: var(--sombra);
+}
+button.secundario:hover:not(:disabled) {
+  background: var(--papel-3); border-color: var(--linha-forte);
+}
+button.link {
+  background: none; border: none; color: var(--marca);
+  text-decoration: underline; padding: 0 .2rem; font-size: .88rem; font-weight: 600;
+}
+button.icone {
+  background: none; border: 1px solid transparent; color: var(--grafite);
+  border-radius: 6px; width: 1.7rem; height: 1.7rem; line-height: 1;
+  padding: 0; font-size: 1rem;
+}
+button.icone:hover { border-color: var(--linha); background: var(--papel-3); color: var(--tinta); }
+button.icone.perigo:hover { color: var(--alerta); border-color: var(--alerta); background: var(--alerta-suave); }
+:focus-visible { outline: 2px solid var(--marca); outline-offset: 2px; }
+
+input, select, textarea {
+  font: inherit;
+  color: var(--tinta);
+  background: var(--papel-2);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  padding: .42rem .55rem;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none; border-color: var(--marca); box-shadow: 0 0 0 3px var(--marca-suave);
+}
+textarea { width: 100%; resize: vertical; }
+
+/* -- login ------------------------------------------------------------- */
+
+.tela-login {
+  min-height: 100vh; display: grid; place-items: center; padding: 24px;
+  background: linear-gradient(165deg, var(--papel) 45%, var(--marca-suave));
+}
+.cartao-login {
+  width: min(420px, 100%); background: var(--papel-2);
+  border: 1px solid var(--linha); border-radius: var(--raio-g); padding: 2rem;
+  display: flex; flex-direction: column; gap: 1rem;
+  box-shadow: 0 4px 16px rgb(41 40 41 / .06);
+}
+.cartao-login .marca {
+  margin: 0; font: 700 .7rem/1 var(--texto); letter-spacing: .12em;
+  text-transform: uppercase; color: var(--marca);
+}
+.cartao-login h1 { margin: 0; font-size: 1.5rem; letter-spacing: -.02em; }
+.cartao-login .sub { margin: 0; font-size: .9rem; color: var(--grafite); }
+.cartao-login label { display: flex; flex-direction: column; gap: .3rem; font-size: .86rem; font-weight: 600; }
+
+/* -- estrutura --------------------------------------------------------- */
+
+.app { min-height: 100vh; display: flex; flex-direction: column; }
+
+.topo {
+  display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+  padding: .7rem clamp(16px, 3vw, 28px);
+  border-bottom: 1px solid var(--linha); background: var(--papel-2);
+}
+.topo .marca {
+  font: 700 .74rem/1 var(--texto); letter-spacing: .1em;
+  text-transform: uppercase; color: var(--marca);
+}
+.topo .usuario { display: flex; align-items: center; gap: .6rem; font-size: .86rem; color: var(--grafite); }
+
+.barra-tema {
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  padding: .8rem clamp(16px, 3vw, 28px);
+  border-bottom: 1px solid var(--linha);
+  border-left: 5px solid var(--cor-tema);
+  background: var(--papel-2);
+}
+.barra-tema h1 { margin: 0; font-size: 1.15rem; letter-spacing: -.01em; }
+.barra-tema .versao { font-size: .82rem; color: var(--grafite); display: flex; gap: .5rem; align-items: center; }
+.barra-tema .sujo {
+  font-style: normal; font-weight: 600; color: var(--aviso);
+  background: var(--aviso-suave); border: 1px solid #ffe588;
+  padding: .15rem .5rem; border-radius: 999px; font-size: .74rem;
+}
+.barra-tema .voltar { margin-right: .2rem; }
+.acoes-tema { margin-left: auto; display: flex; gap: .5rem; flex-wrap: wrap; }
+
+.abas { display: flex; gap: .2rem; }
+.abas button, .paleta-abas button {
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--grafite); padding: .4rem .7rem; font-weight: 600; font-size: .88rem;
+  border-radius: 0;
+}
+.abas button:hover, .paleta-abas button:hover { color: var(--tinta); background: none; }
+.abas button.ativa, .paleta-abas button.ativa { color: var(--marca); border-bottom-color: var(--marca); }
+.contagem {
+  display: inline-block; background: var(--papel-3); color: var(--grafite);
+  border-radius: 999px; padding: 0 .45rem; font: 600 .72rem/1.6 var(--texto); margin-left: .35rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.faixa-info {
+  margin: 0; padding: .65rem clamp(16px, 3vw, 28px);
+  background: var(--aviso-suave); color: #943d0c;
+  font-size: .86rem; border-bottom: 1px solid #ffe588;
+}
+.faixa {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;
+  padding: .7rem clamp(16px, 3vw, 28px); border-bottom: 1px solid var(--linha);
+}
+.faixa p { margin: 0; }
+.faixa ul { margin: .4rem 0 0; padding-left: 1.1rem; font-size: .86rem; }
+.faixa.ok { background: var(--ok-suave); color: #085f2d; border-bottom-color: var(--marca-borda); }
+.faixa.erro { background: var(--alerta-suave); color: #9e161f; border-bottom-color: #ffc8cc; }
+.faixa.conflito { background: var(--aviso-suave); color: #943d0c; border-bottom-color: #ffe588; }
+.faixa-acoes { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; }
+
+.rodape {
+  margin-top: auto; padding: .6rem clamp(16px, 3vw, 28px);
+  border-top: 1px solid var(--linha); background: var(--papel-2);
+  font: .78rem/1.4 var(--mono); color: var(--grafite);
+}
+
+/* -- seletor de tema --------------------------------------------------- */
+
+.seletor { padding: clamp(20px, 4vw, 40px); max-width: 1100px; margin: 0 auto; width: 100%; }
+.seletor-topo h1 { margin: 0 0 .25rem; font-size: 1.6rem; letter-spacing: -.02em; }
+.seletor-topo p { margin: 0 0 1.6rem; color: var(--grafite); }
+.grade-temas {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.grade-temas button {
+  width: 100%; text-align: left; background: var(--papel-2); color: var(--tinta);
+  border: 1px solid var(--linha); border-radius: var(--raio-g); padding: 0 0 .9rem;
+  display: flex; flex-direction: column; gap: .35rem; overflow: hidden; font-weight: 400;
+  box-shadow: var(--sombra); transition: border-color .12s ease, box-shadow .12s ease;
+}
+.grade-temas button:hover {
+  background: var(--papel-2); border-color: var(--marca);
+  box-shadow: 0 2px 10px rgb(7 116 50 / .10);
+}
+.faixa-cor { display: block; height: 5px; width: 100%; }
+.tema-nome { font-weight: 600; font-size: 1.02rem; padding: .75rem .9rem 0; letter-spacing: -.01em; }
+.tema-meta { display: flex; gap: .4rem; flex-wrap: wrap; padding: 0 .9rem; }
+.tema-autor { font-size: .78rem; color: var(--grafite); padding: 0 .9rem; }
+.situacao, .fonte {
+  font: 600 .7rem/1.7 var(--texto); padding: .05rem .5rem; border-radius: 999px;
+  border: 1px solid transparent;
+}
+.situacao.pronto { background: var(--ok-suave); color: #085f2d; border-color: var(--marca-borda); }
+.situacao.ausente { background: var(--papel-3); color: var(--grafite); border-color: var(--linha); }
+.fonte.painel { background: var(--dado-suave); color: var(--dado); border-color: var(--dado-borda); }
+.fonte.docs { background: var(--papel-3); color: var(--grafite); border-color: var(--linha); }
+
+/* -- área de edição ---------------------------------------------------- */
+
+.area-edicao {
+  flex: 1; display: grid; gap: 0;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) minmax(240px, 300px);
+  align-items: start;
+}
+.arvore, .paleta {
+  border-right: 1px solid var(--linha); height: 100%; overflow-y: auto;
+  max-height: calc(100vh - 160px); background: var(--papel-2);
+}
+.paleta { border-right: none; border-left: 1px solid var(--linha); display: flex; flex-direction: column; }
+.painel-central { padding: clamp(16px, 2.4vw, 28px); min-width: 0; }
+
+.grupo-blocos { padding: .85rem .9rem; border-bottom: 1px solid var(--linha); }
+.grupo-blocos header h3 {
+  margin: 0; font-size: .72rem; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--grafite); font-weight: 700;
+}
+.grupo-blocos header p { margin: .2rem 0 .55rem; font-size: .78rem; color: var(--grafite); }
+.grupo-blocos ul { list-style: none; margin: 0 0 .5rem; padding: 0; }
+.grupo-blocos .vazio { font-size: .8rem; color: var(--grafite); font-style: italic; padding: .3rem 0; }
+.rotulo-moldura {
+  margin: 0; padding: .95rem .9rem .25rem;
+  font: 700 .7rem/1 var(--texto); letter-spacing: .1em; text-transform: uppercase; color: var(--grafite);
+}
+.largura-total { width: 100%; }
+
+.bloco-linha {
+  display: flex; align-items: center; gap: .2rem; border-radius: 6px;
+  padding-left: calc(var(--nivel) * 14px);
+}
+.bloco-linha:hover { background: var(--papel-3); }
+.bloco-linha.selecionada { background: var(--marca-suave); box-shadow: inset 2px 0 0 var(--marca); }
+.bloco-alvo {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: .45rem;
+  background: none; border: none; text-align: left; padding: .32rem .3rem; color: var(--tinta);
+}
+.bloco-icone { font-family: var(--mono); color: var(--grafite); flex-shrink: 0; width: 1rem; }
+.bloco-resumo { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .86rem; }
+.selo-regra {
+  flex-shrink: 0; font: 700 .64rem/1.8 var(--texto); text-transform: uppercase; letter-spacing: .04em;
+  background: var(--aviso-suave); color: #943d0c; border: 1px solid #ffe588;
+  padding: 0 .35rem; border-radius: 4px;
+}
+.bloco-botoes { display: flex; gap: .1rem; opacity: 0; flex-shrink: 0; }
+.bloco-linha:hover .bloco-botoes, .bloco-linha.selecionada .bloco-botoes { opacity: 1; }
+
+/* -- editor de bloco --------------------------------------------------- */
+
+.editor-vazio { color: var(--grafite); padding: 2rem 0; }
+.editor-cabecalho { display: flex; align-items: baseline; gap: .6rem; margin-bottom: 1rem; }
+.editor-cabecalho h2 { margin: 0; font-size: 1.1rem; letter-spacing: -.01em; }
+.id-bloco { color: var(--grafite); font-size: .76rem; font-family: var(--mono); }
+
+.trocador-tipo { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; font-size: .84rem; }
+.trocador-tipo small { color: var(--grafite); flex-basis: 100%; }
+
+.campo-formulario { display: flex; flex-direction: column; gap: .35rem; margin-bottom: 1.3rem; }
+.campo-formulario > span { font-weight: 600; font-size: .84rem; }
+.campo-formulario small { color: var(--grafite); font-size: .78rem; }
+
+.editor-texto {
+  min-height: 4.2rem; padding: .65rem .75rem; line-height: 1.7;
+  background: var(--papel-2); border: 1px solid var(--linha); border-radius: var(--raio);
+}
+.editor-texto:focus {
+  outline: none; border-color: var(--marca); box-shadow: 0 0 0 3px var(--marca-suave);
+}
+.editor-texto:empty::before { content: attr(data-placeholder); color: var(--grafite); }
+.chip {
+  display: inline-block; background: var(--dado-suave); border: 1px solid var(--dado-borda);
+  color: var(--dado); border-radius: 5px; padding: 0 .35rem; margin: 0 .06rem;
+  font: 600 .82em/1.5 var(--mono); white-space: nowrap; user-select: none;
+}
+.item-lista { display: flex; gap: .35rem; align-items: flex-start; margin-bottom: .4rem; }
+.item-lista .editor-texto { flex: 1; min-height: 2.4rem; }
+
+/* -- regras ------------------------------------------------------------ */
+
+.bloco-regra { border-top: 1px solid var(--linha); padding-top: 1.1rem; }
+.bloco-regra h3 { margin: 0 0 .6rem; font-size: .92rem; }
+.regra-vazia p { margin: 0 0 .5rem; color: var(--grafite); font-size: .88rem; }
+.regra-cabecalho { margin: 0 0 .6rem; font-size: .86rem; color: var(--grafite); }
+.condicao {
+  display: flex; gap: .35rem; align-items: center; flex-wrap: wrap;
+  padding: .5rem; margin-bottom: .4rem;
+  background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio);
+}
+.condicao select, .condicao input { max-width: 100%; }
+.condicao input[type="number"] { width: 6.5rem; font-variant-numeric: tabular-nums; }
+.faixa { display: contents; }
+.condicao .faixa { display: flex; gap: .35rem; align-items: center; }
+.condicao .e { color: var(--grafite); font-size: .84rem; }
+.regra-acoes { display: flex; gap: .6rem; align-items: center; margin-bottom: .8rem; }
+.sem-dado { font-size: .86rem; display: flex; flex-direction: column; gap: .4rem; }
+.aviso-inline { color: #943d0c; font-size: .8rem; }
+
+/* -- paleta ------------------------------------------------------------ */
+
+.paleta-abas { display: flex; border-bottom: 1px solid var(--linha); }
+.paleta .busca { margin: .75rem .8rem .45rem; }
+.paleta-aviso {
+  margin: 0 .8rem .45rem; font-size: .76rem; color: #943d0c;
+  background: var(--aviso-suave); border: 1px solid #ffe588;
+  padding: .4rem .55rem; border-radius: var(--raio);
+}
+.lista-campos { list-style: none; margin: 0; padding: 0 .5rem .8rem; overflow-y: auto; }
+.lista-campos button {
+  width: 100%; text-align: left; background: none; border: 1px solid transparent;
+  border-radius: 6px; padding: .38rem .45rem; color: var(--tinta);
+  display: flex; flex-direction: column; gap: .1rem; font-weight: 400;
+}
+.lista-campos button:hover { background: var(--dado-suave); border-color: var(--dado-borda); }
+.campo-nome {
+  font: 500 .84rem/1.5 var(--mono); color: var(--tinta);
+  overflow-wrap: anywhere;
+}
+.lista-campos button:hover .campo-nome { color: var(--dado); }
+.campo-meta {
+  display: flex; gap: .4rem; align-items: center;
+  font-size: .72rem; color: var(--grafite); overflow-wrap: anywhere;
+}
+.campo-meta em { font-style: normal; background: var(--papel-3); padding: 0 .3rem; border-radius: 3px; font-family: var(--mono); }
+.campo-meta .usado { color: var(--ok); font-size: 1rem; line-height: 0; }
+.lista-campos .vazio { padding: .6rem .45rem; font-size: .82rem; color: var(--grafite); }
+
+/* -- prévia ------------------------------------------------------------ */
+
+.previa { padding: clamp(16px, 3vw, 28px); max-width: 900px; margin: 0 auto; width: 100%; }
+.previa-cabecalho { display: flex; gap: .7rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 1rem; }
+.previa-cabecalho label { display: flex; flex-direction: column; gap: .25rem; font-size: .84rem; font-weight: 600; }
+.previa .erro {
+  color: #9e161f; background: var(--alerta-suave); border: 1px solid #ffc8cc;
+  padding: .6rem .8rem; border-radius: var(--raio);
+}
+.previa .aviso {
+  color: #943d0c; background: var(--aviso-suave); border: 1px solid #ffe588;
+  padding: .6rem .8rem; border-radius: var(--raio); font-size: .88rem;
+}
+.previa .dica { color: var(--grafite); }
+.nao-resolvidos {
+  border: 1px solid var(--linha); border-radius: var(--raio);
+  padding: .65rem .8rem; margin-bottom: 1rem; background: var(--papel-2);
+}
+.nao-resolvidos summary { cursor: pointer; font-weight: 600; font-size: .88rem; color: #943d0c; }
+.nao-resolvidos p { font-size: .82rem; color: var(--grafite); }
+.nao-resolvidos ul { display: flex; flex-wrap: wrap; gap: .3rem; list-style: none; padding: 0; margin: 0; }
+.nao-resolvidos li {
+  background: var(--alerta-suave); color: #9e161f; border: 1px solid #ffc8cc;
+  padding: .1rem .4rem; border-radius: 4px; font-size: .78rem; font-family: var(--mono);
+}
+.previa-papel {
+  background: var(--papel-2); border: 1px solid var(--linha); border-radius: var(--raio-g);
+  padding: clamp(20px, 4vw, 44px); box-shadow: var(--sombra);
+}
+.previa-conteudo { max-width: 68ch; }
+.previa-conteudo img { max-width: 100%; }
+
+/* -- divergências ------------------------------------------------------ */
+
+.divergencias { padding: clamp(16px, 3vw, 28px); max-width: 860px; margin: 0 auto; width: 100%; }
+.divergencias header h2 { margin: 0 0 .3rem; font-size: 1.25rem; letter-spacing: -.01em; }
+.divergencias header p { margin: 0 0 1.6rem; color: var(--grafite); }
+.divergencias h3 {
+  font-size: .75rem; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--grafite); font-weight: 700;
+}
+.divergencia {
+  border: 1px solid var(--linha); border-left: 3px solid var(--aviso);
+  background: var(--papel-2);
+  padding: .75rem .9rem; margin-bottom: .7rem; border-radius: 0 var(--raio) var(--raio) 0;
+}
+.divergencia p { margin: 0 0 .3rem; font-size: .88rem; }
+.divergencia .trecho { display: flex; gap: .6rem; align-items: baseline; flex-wrap: wrap; }
+.divergencia .linha { font: .74rem var(--mono); color: var(--grafite); }
+.divergencia .prova { color: var(--grafite); font-size: .82rem; }
+
+/* -- telas estreitas --------------------------------------------------- */
+
+@media (max-width: 1024px) {
+  .area-edicao { grid-template-columns: 1fr; }
+  .arvore, .paleta { max-height: none; border: none; border-bottom: 1px solid var(--linha); }
+  .paleta { border-left: none; }
+  .lista-campos { max-height: 320px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+/* Aviso de origem dos dados. O tom "brando" é para quando a lista está
+   completa, só que vinda do CSV — é informação, não problema. */
+.paleta-aviso.brando {
+  color: var(--info); background: var(--info-suave); border-color: var(--info-borda);
+}
+
+
+/* -- padrões trazidos do /reports do portal ---------------------------- */
+
+/* Card informativo: mesmo desenho de .pdf-viewer-empty-card. Serve ao estado
+   vazio da prévia, que no portal é onde o usuário lê "selecione as informações
+   ao lado primeiro". */
+.cartao-info {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px; margin: 0;
+  background: var(--info-suave); border: 1px solid var(--info-borda);
+  border-radius: 8px; color: var(--info); font-size: .875rem; line-height: 1.5;
+}
+.cartao-info strong { font-weight: 600; }
+
+/* Spinner de carregamento — .report-preview-loading-spinner do portal, na
+   mesma proporção mas menor, porque aqui divide espaço com o editor. */
+.carregando-previa {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 20px; padding: 3rem 0; color: var(--marca); font-size: 1.05rem;
+}
+.carregando-previa-spinner {
+  width: 72px; height: 72px;
+  border: 8px solid rgb(1 143 57 / .12);
+  border-right-color: #08bd58; border-bottom-color: #08bd58;
+  border-radius: 50%;
+  animation: girar-previa 900ms linear infinite;
+}
+@keyframes girar-previa { to { transform: rotate(360deg); } }
+
+/* A prévia é o relatório inteiro, gerado pelo mesmo pipeline do portal. O
+   papel imita a folha do PDF; o conteúdo traz seu próprio CSS do SSR, então
+   aqui só se controla a moldura e a largura. */
+.previa-papel { overflow-x: auto; }
+.previa-conteudo { max-width: none; }
+.previa-conteudo img { max-width: 100%; height: auto; }
+
+.dica-botao { font-size: .8rem; color: var(--grafite); align-self: center; }
+.dica-botao.alerta { color: #943d0c; }
+
+/* -- estado da conexão com o banco ------------------------------------- */
+
+.conexao { position: relative; display: flex; align-items: center; }
+
+.selo-conexao {
+  display: inline-flex; align-items: center; gap: .45rem;
+  background: var(--papel-3); color: var(--grafite);
+  border: 1px solid var(--linha); border-radius: 999px;
+  padding: .22rem .7rem .22rem .6rem;
+  font: 600 .78rem/1.5 var(--texto);
+}
+.selo-conexao:hover:not(:disabled) { border-color: var(--linha-forte); background: var(--papel-3); }
+.selo-conexao .bolinha {
+  width: .5rem; height: .5rem; border-radius: 50%;
+  background: var(--linha-forte); flex-shrink: 0;
+}
+.selo-conexao.ligado {
+  background: var(--marca-suave); color: #085f2d; border-color: var(--marca-borda);
+}
+.selo-conexao.ligado:hover:not(:disabled) { background: var(--marca-suave); }
+.selo-conexao.ligado .bolinha { background: var(--ok); }
+.selo-conexao.desligado {
+  background: var(--alerta-suave); color: #9e161f; border-color: #ffc8cc;
+}
+.selo-conexao.desligado:hover:not(:disabled) { background: var(--alerta-suave); }
+.selo-conexao.desligado .bolinha { background: var(--alerta); }
+
+/* O painel de ajuda abre ancorado ao selo. Em tela estreita vira bloco
+   normal, porque um popover flutuante de 380px não cabe. */
+.conexao-ajuda {
+  position: absolute; top: calc(100% + .5rem); right: 0; z-index: 20;
+  width: min(420px, calc(100vw - 32px));
+  background: var(--papel-2); border: 1px solid var(--linha);
+  border-radius: var(--raio-g); padding: 1rem;
+  box-shadow: 0 8px 24px rgb(41 40 41 / .14);
+  font-size: .86rem; text-align: left; color: var(--tinta);
+}
+.conexao-ajuda p { margin: 0 0 .6rem; }
+.conexao-erro {
+  color: #9e161f; background: var(--alerta-suave); border: 1px solid #ffc8cc;
+  padding: .5rem .6rem; border-radius: var(--raio); font-size: .82rem;
+  overflow-wrap: anywhere;
+}
+.conexao-ajuda pre {
+  margin: 0 0 .7rem; padding: .6rem .7rem; overflow-x: auto;
+  background: var(--term-fundo, #1f2420); color: #e8ece9;
+  border-radius: var(--raio); font: .74rem/1.6 var(--mono);
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.conexao-acoes { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+.conexao-nota { margin: .7rem 0 0; font-size: .78rem; color: var(--grafite); }
+
+@media (max-width: 640px) {
+  .conexao-ajuda { position: fixed; left: 16px; right: 16px; width: auto; top: 4rem; }
+}

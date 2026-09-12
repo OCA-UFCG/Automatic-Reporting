@@ -15,3 +15,7 @@ report/node_modules/
 /map_shape
 /mapas
 .opencode
+admin/dist/
+admin/node_modules/
+admin/.smoke-build.cjs
+.env.backup*

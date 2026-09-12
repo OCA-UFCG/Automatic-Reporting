@@ -1,0 +1,20 @@
+{
+  "name": "painel-editorial",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "start": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "smoke": "esbuild smoke.jsx --bundle --platform=node --format=cjs --packages=external --outfile=.smoke-build.cjs --log-level=error && node .smoke-build.cjs"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "vite": "^5.4.10"
+  }
+}
