@@ -51,8 +51,11 @@ def gerar_grafico_esgotamento_sanitario(
     rotulos = [rotulo for _, rotulo, _ in _CATEGORIAS]
     cores = [cor for _, _, cor in _CATEGORIAS]
 
+    # margem_esquerda pequena: a rosca não tem rótulos de eixo Y, então a faixa
+    # padrão reservada pra eles vira espaço branco morto à esquerda. Reclamando
+    # ela, a rosca ocupa mais da região esquerda e sobra folga pro texto central.
     fig, ax = iniciar_card_grafico(
-        (8, 4.6), "Domicílios por tipo de esgotamento sanitário"
+        (8, 4.6), "Domicílios por tipo de esgotamento sanitário", margem_esquerda=0.02
     )
     # A legenda fica à direita da rosca (fora do eixo, na horizontal) — encolhe
     # a largura do `ax` pra sobrar uma faixa à direita, dentro do card, onde
@@ -75,10 +78,12 @@ def gerar_grafico_esgotamento_sanitario(
         counterclock=False,
         autopct=_autopct,
         pctdistance=1.18,
-        wedgeprops={"width": 0.42, "edgecolor": "white", "linewidth": 1.5},
+        # Anel mais fino (0.30) → furo central maior, pra o total ("547 Mil")
+        # caber sem encostar na rosca.
+        wedgeprops={"width": 0.30, "edgecolor": "white", "linewidth": 1.5},
     )
     for autotexto in autotextos:
-        autotexto.set_fontsize(8)
+        autotexto.set_fontsize(9.5 * ESCALA_FONTE)
         autotexto.set_color("#4A4A4A")
 
     ax.text(0, 0.12, _formatar_total(total), ha="center", va="center",
@@ -90,7 +95,7 @@ def gerar_grafico_esgotamento_sanitario(
         wedges,
         rotulos,
         loc="center left",
-        bbox_to_anchor=(1.0, 0.5),
+        bbox_to_anchor=(1.14, 0.5),
         frameon=False,
         fontsize=7.5*ESCALA_FONTE,
         handlelength=1.0,
