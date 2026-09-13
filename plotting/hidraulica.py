@@ -1,11 +1,10 @@
 import math
 import pathlib
 
-import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 
-from plotting import ESCALA_FONTE
+from plotting import ESCALA_FONTE, iniciar_card_grafico, salvar_card_grafico
 
 
 def _numero(valor: object) -> float:
@@ -41,9 +40,16 @@ def gerar_grafico_tecnologias_acesso_agua(
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_tecnologias_acesso_agua_{safe_city}.png"
 
-    fig, ax = plt.subplots(figsize=(8, 3.6))
-    fig.patch.set_facecolor("white")
-    ax.set_facecolor("white")
+    fig, ax = iniciar_card_grafico(
+        (8, 4.0), "Tecnologias de acesso à água ao longo dos anos"
+    )
+    # Reserva uma faixa abaixo do corpo do gráfico, dentro do card, para o
+    # rótulo "Ano" (senão ele fica colado/cortado na borda inferior do card).
+    posicao = ax.get_position()
+    altura_rotulo_x = posicao.height * 0.12
+    ax.set_position(
+        (posicao.x0, posicao.y0 + altura_rotulo_x, posicao.width, posicao.height - altura_rotulo_x)
+    )
 
     barras = ax.bar(x, totais, width=0.78, color="#2098BD", zorder=3)
     limite = max(max(totais, default=0) * 1.22, 10)
@@ -70,7 +76,5 @@ def gerar_grafico_tecnologias_acesso_agua(
     for borda in ax.spines.values():
         borda.set_visible(False)
 
-    plt.tight_layout()
-    plt.savefig(chart_file, dpi=180, bbox_inches="tight", facecolor="white")
-    plt.close(fig)
+    salvar_card_grafico(fig, chart_file)
     return chart_file.name

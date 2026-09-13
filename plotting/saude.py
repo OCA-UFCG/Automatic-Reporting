@@ -1,12 +1,28 @@
 import pathlib
 
-import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 
-from plotting import ESCALA_FONTE
-from plotting.demografia import _salvar_figura_com_fundo_branco
+from plotting import (
+    ESCALA_FONTE,
+    ajustar_margem_esquerda_para_rotulos,
+    iniciar_card_grafico,
+    salvar_card_grafico,
+)
 from utils.formatting import coerce_para_float as _coerce_numero
+
+
+def _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas: float = 0.34) -> None:
+    # `iniciar_card_grafico` posiciona o corpo do card sem folga para um
+    # `ax.set_xlabel`: o texto cai abaixo da moldura e some do PNG. Encolhe o
+    # eixo (mesmo truque usado pra legenda em demografia.py) reservando uma
+    # faixa fixa, em polegadas, na base do card.
+    altura_fig = fig.get_size_inches()[1]
+    fracao = reserva_polegadas / altura_fig
+    posicao = ax.get_position()
+    ax.set_position(
+        (posicao.x0, posicao.y0 + fracao, posicao.width, posicao.height - fracao)
+    )
 
 
 def _rotular_barra_vertical(ax, barra, texto: str, limite: float) -> None:
@@ -18,13 +34,13 @@ def _rotular_barra_vertical(ax, barra, texto: str, limite: float) -> None:
         texto,
         ha="center",
         va="bottom" if pequena else "top",
-        fontsize=8*ESCALA_FONTE,
+        fontsize=11*ESCALA_FONTE,
         fontweight="bold",
         color="#4A4A4A" if pequena else "white",
     )
 
 
-def gerar_grafico_mortalidade_infantil(
+def gerar_grafico_taxa_mortalidade(
     cidade: dict,
     OUTPUT_DIR: pathlib.Path,
     safe_city: str,
@@ -44,13 +60,14 @@ def gerar_grafico_mortalidade_infantil(
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    chart_file = OUTPUT_DIR / f"grafico_mortalidade_infantil_{safe_city}.png"
+    chart_file = OUTPUT_DIR / f"grafico_taxa_mortalidade_{safe_city}.png"
 
     x = np.arange(len(anos))
 
-    fig, ax = plt.subplots(figsize=(8, 3.2))
-    fig.patch.set_facecolor("white")
-    ax.set_facecolor("white")
+    fig, ax = iniciar_card_grafico(
+        (10, 4.4), "Histórico da taxa de mortalidade infantil"
+    )
+    _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas=0.6)
 
     barras = ax.bar(x, taxas, width=0.62, color="#9E2A3F", zorder=3)
 
@@ -63,8 +80,8 @@ def gerar_grafico_mortalidade_infantil(
         )
 
     ax.set_xticks(x)
-    ax.set_xticklabels(anos, fontsize=8*ESCALA_FONTE)
-    ax.set_xlabel("Ano", fontsize=9*ESCALA_FONTE)
+    ax.set_xticklabels(anos, fontsize=11*ESCALA_FONTE)
+    ax.set_xlabel("Ano", fontsize=12*ESCALA_FONTE, labelpad=14)
 
     ax.yaxis.set_major_locator(MaxNLocator(nbins=3, integer=True))
     ax.grid(
@@ -77,13 +94,13 @@ def gerar_grafico_mortalidade_infantil(
     )
     ax.set_axisbelow(True)
 
-    ax.tick_params(axis="both", length=0, labelsize=8*ESCALA_FONTE, colors="#4A4A4A")
+    ax.tick_params(axis="both", length=0, labelsize=11*ESCALA_FONTE, colors="#4A4A4A")
 
     for lado in ("top", "right", "left"):
         ax.spines[lado].set_visible(False)
     ax.spines["bottom"].set_color("#4A4A4A")
 
-    _salvar_figura_com_fundo_branco(fig, ax, chart_file)
+    salvar_card_grafico(fig, chart_file)
 
     return chart_file.name
 
@@ -119,9 +136,12 @@ def gerar_grafico_de_estabelecimento(
 
     x = np.arange(len(anos))
 
-    fig, ax = plt.subplots(figsize=(8, 3.2))
-    fig.patch.set_facecolor("white")
-    ax.set_facecolor("white")
+    fig, ax = iniciar_card_grafico(
+        (10, 4.4),
+        "Histórico do número de Estabelecimento de Saúde",
+        margem_esquerda=0.20,
+    )
+    _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas=0.6)
 
     barras = ax.bar(x, totais, width=0.62, color="#FF5A6E", zorder=3)
 
@@ -132,9 +152,10 @@ def gerar_grafico_de_estabelecimento(
         _rotular_barra_vertical(ax, barra, _formatar_valor_mil(total), limite)
 
     ax.set_xticks(x)
-    ax.set_xticklabels(anos, fontsize=8*ESCALA_FONTE)
-    ax.set_xlabel("Ano", fontsize=9*ESCALA_FONTE)
+    ax.set_xticklabels(anos, fontsize=11*ESCALA_FONTE)
+    ax.set_xlabel("Ano", fontsize=12*ESCALA_FONTE, labelpad=14)
 
+    ax.set_ylabel("Número de estabelecimentos\nde saúde", fontsize=9*ESCALA_FONTE)
     ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _: _formatar_valor_mil(valor)))
     ax.yaxis.set_major_locator(MaxNLocator(nbins=3))
 
@@ -148,13 +169,13 @@ def gerar_grafico_de_estabelecimento(
     )
     ax.set_axisbelow(True)
 
-    ax.tick_params(axis="both", length=0, labelsize=8*ESCALA_FONTE, colors="#4A4A4A")
+    ax.tick_params(axis="both", length=0, labelsize=11*ESCALA_FONTE, colors="#4A4A4A")
 
     for lado in ("top", "right", "left"):
         ax.spines[lado].set_visible(False)
     ax.spines["bottom"].set_color("#4A4A4A")
 
-    _salvar_figura_com_fundo_branco(fig, ax, chart_file)
+    salvar_card_grafico(fig, chart_file)
 
     return chart_file.name
 
@@ -183,18 +204,37 @@ def gerar_grafico_cobertura_vacinal(
 
     chart_file = OUTPUT_DIR / f"grafico_cobertura_vacinal_{safe_city}.png"
 
-    altura = max(3.2, 0.34 * len(vacinas) + 0.8)
-    fig, ax = plt.subplots(figsize=(8, altura))
-    fig.patch.set_facecolor("white")
-    ax.set_facecolor("white")
+    titulo = "Taxa de cobertura vacinal por tipo de vacina"
+
+    altura = max(4.2, 0.55 * len(vacinas) + 1.2)
+    # Faixa de header proporcionalmente menor em cards mais altos (muitas
+    # vacinas), senão o título fica desproporcionalmente grande no topo.
+    altura_header = min(0.14, 3.6 * 0.14 / altura)
+    fig, ax = iniciar_card_grafico(
+        (11, altura),
+        titulo,
+        altura_header=altura_header,
+        margem_direita=0.09,
+    )
+    _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas=0.5)
 
     y = np.arange(len(vacinas))
 
-    ax.barh(y, coberturas, height=0.62, color="#FF5A6E", zorder=3)
+    ax.barh(y, coberturas, height=0.5, color="#FF5A6E", zorder=3)
 
     ax.set_yticks(y)
-    ax.set_yticklabels(vacinas, fontsize=8*ESCALA_FONTE)
+    ax.set_yticklabels(vacinas, fontsize=11*ESCALA_FONTE)
     ax.invert_yaxis()
+
+    ax.set_ylabel("Vacina", fontsize=12*ESCALA_FONTE)
+    # Nomes de vacina variam muito de tamanho (de "BCG" a "Pentavalente
+    # (DTP/Hib/HepB)"); a margem esquerda fixa do card não dá conta dos mais
+    # longos e eles saem cortados pra fora da moldura — mede o rótulo mais
+    # largo já desenhado e expande a margem até caber. Precisa rodar depois do
+    # `set_ylabel` acima: a função só reserva espaço e fixa a posição do rótulo
+    # se ele já existir, senão o posicionamento automático do matplotlib some
+    # com o texto (fica fora do canvas) quando o `set_ylabel` roda depois.
+    ajustar_margem_esquerda_para_rotulos(fig, ax)
 
     limite_superior = max(110.0, max(coberturas) * 1.08)
     ax.set_xlim(0, limite_superior)
@@ -210,7 +250,7 @@ def gerar_grafico_cobertura_vacinal(
             f"{valor:.2f}".replace(".", ",") + "%",
             va="center",
             ha="left",
-            fontsize=7.5*ESCALA_FONTE,
+            fontsize=10.5*ESCALA_FONTE,
             color="#3F3F3F",
         )
 
@@ -227,12 +267,11 @@ def gerar_grafico_cobertura_vacinal(
     ax.spines["right"].set_visible(False)
     ax.spines["left"].set_visible(False)
 
-    ax.tick_params(axis="both", length=0, labelsize=8*ESCALA_FONTE, colors="#4A4A4A")
+    ax.tick_params(axis="both", length=0, labelsize=11*ESCALA_FONTE, colors="#4A4A4A")
 
-    ax.set_xlabel("Taxa de cobertura vacinal (%)", fontsize=9*ESCALA_FONTE)
-    ax.set_ylabel("Imunobiológico", fontsize=9*ESCALA_FONTE)
+    ax.set_xlabel("Taxa de cobertura vacinal (%)", fontsize=12*ESCALA_FONTE, labelpad=14)
 
-    _salvar_figura_com_fundo_branco(fig, ax, chart_file)
+    salvar_card_grafico(fig, chart_file)
 
     return chart_file.name
 
@@ -276,9 +315,16 @@ def gerar_grafico_publico_etario(
     # Largura das barras
     largura = 0.30
 
-    fig, ax = plt.subplots(figsize=(8, 3.2))
-    fig.patch.set_facecolor("white")
-    ax.set_facecolor("white")
+    titulo = "Metas e doses aplicadas por público-alvo etário"
+
+    fig, ax = iniciar_card_grafico((10, 4.6), titulo)
+    # A legenda fica abaixo do eixo (bbox_to_anchor negativo); sem encolher o
+    # `ax` ela cai fora da área desenhada e sai cortada do card.
+    posicao = ax.get_position()
+    altura_legenda = posicao.height * 0.40
+    ax.set_position(
+        (posicao.x0, posicao.y0 + altura_legenda, posicao.width, posicao.height - altura_legenda)
+    )
 
     ax.bar(
         x - largura / 2,
@@ -300,7 +346,7 @@ def gerar_grafico_publico_etario(
     ax.set_xticks(x)
     ax.set_xticklabels(
         categorias,
-        fontsize=8*ESCALA_FONTE,
+        fontsize=11*ESCALA_FONTE,
     )
 
     # Eixo Y
@@ -336,32 +382,26 @@ def gerar_grafico_publico_etario(
     ax.tick_params(
         axis="both",
         length=0,
-        labelsize=8*ESCALA_FONTE,
+        labelsize=11*ESCALA_FONTE,
     )
 
     # Legenda
     ax.legend(
         loc="upper center",
-        bbox_to_anchor=(0.5, -0.20),
+        bbox_to_anchor=(0.5, -0.48),
         ncol=2,
         frameon=False,
-        fontsize=8*ESCALA_FONTE,
+        fontsize=11*ESCALA_FONTE,
+        columnspacing=3.5,
+        handletextpad=0.6,
     )
 
     ax.set_xlabel(
         "Público-alvo etário",
-        fontsize=9*ESCALA_FONTE,
+        fontsize=12*ESCALA_FONTE,
+        labelpad=14,
     )
 
-    plt.tight_layout()
-
-    plt.savefig(
-        chart_file,
-        dpi=150,
-        bbox_inches="tight",
-        facecolor="white",
-    )
-
-    plt.close(fig)
+    salvar_card_grafico(fig, chart_file)
 
     return chart_file.name

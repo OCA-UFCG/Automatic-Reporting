@@ -153,6 +153,68 @@ demografia.$nm_datastory1 = https://example.com/data-story
     assert "nm_datastory1" not in caixa
 
 
+def test_source_badge_label_comes_from_the_placeholder_name():
+    """O tipo do conteúdo vem do nome do campo ($nm_boletim/$nm_datastory/
+    $nm_painel); antes dessa distinção todos saíam como "Narrativa de dados"."""
+    texto = """#!Conteúdos relacionados
+
+demografia.“$nm_datastory1” = https://datanordeste.sudene.gov.br/data-stories/f7d447d1
+demografia.“$nm_boletim1” = https://datanordeste.sudene.gov.br/boletim/22yf24FX8
+
+#!Fontes
+
+demografia.“$nm_painel1” = https://datanordeste.sudene.gov.br/data-panel/populacao
+"""
+    contexto = {
+        "nm_datastory1": "Estabelecimentos de saúde",
+        "nm_boletim1": "Terceira Idade",
+        "nm_painel1": "População",
+    }
+
+    caixa = "".join(render_descricao_tema_html(texto, contexto, namespace="demografia"))
+
+    assert (
+        '<a class="fonte-badge" href="https://datanordeste.sudene.gov.br/data-stories/f7d447d1">'
+        "<strong>Narrativa de dados:</strong> Estabelecimentos de saúde</a>"
+    ) in caixa
+    assert (
+        '<a class="fonte-badge" href="https://datanordeste.sudene.gov.br/boletim/22yf24FX8">'
+        "<strong>Boletim:</strong> Terceira Idade</a>"
+    ) in caixa
+    assert (
+        '<a class="fonte-badge" href="https://datanordeste.sudene.gov.br/data-panel/populacao">'
+        "<strong>Painel de dados:</strong> População</a>"
+    ) in caixa
+
+
+def test_source_badge_label_accepts_field_names_without_the_nm_prefix():
+    """O Doc de economia-renda usa "$painel1"/"$boletim1", sem "nm_"."""
+    texto = """#!Fontes
+
+economia.“$painel1” =  https://datanordeste.sudene.gov.br/data-panel/pib
+
+economia.“$boletim1” = https://datanordeste.sudene.gov.br/boletim/4stpvtz
+"""
+    contexto = {"painel1": "Produto Interno Bruto", "boletim1": "Emprego e Renda"}
+
+    caixa = "".join(render_descricao_tema_html(texto, contexto, namespace="economia-renda"))
+
+    assert "<strong>Painel de dados:</strong> Produto Interno Bruto</a>" in caixa
+    assert "<strong>Boletim:</strong> Emprego e Renda</a>" in caixa
+
+
+def test_source_badge_label_falls_back_to_the_url_when_the_field_name_says_nothing():
+    texto = """#!Fontes
+
+demografia.“$conteudo1” = https://datanordeste.sudene.gov.br/boletim/22yf24FX8
+"""
+    contexto = {"conteudo1": "Terceira Idade"}
+
+    caixa = "".join(render_descricao_tema_html(texto, contexto, namespace="demografia"))
+
+    assert "<strong>Boletim:</strong> Terceira Idade</a>" in caixa
+
+
 def test_fontes_box_opened_with_hash_bang_heading_closes_before_a_later_regular_heading():
     texto = """#!Fontes
 
@@ -674,3 +736,148 @@ Três condições de aridez."""
         },
     )
     assert "Três condições de aridez." in tres
+
+
+def test_caption_is_dropped_when_its_chart_was_not_generated():
+    # Municípios sem comércio exterior não geram o gráfico de países, e a
+    # legenda ficava órfã no relatório (4 imagens para 6 legendas em Anadia/AL).
+    reset_figura_contador()
+    texto = (
+        "%%grafico_fob\n"
+        "\n"
+        "\n"
+        "Figura X- Destinos das importações ordenados pelo valor líquido FOB.\n"
+        "\n"
+        "%%grafico_balanca\n"
+        "\n"
+        "Figura X- Visão mensal da balança comercial."
+    )
+
+    html = texto_para_html(
+        texto, {}, graficos_por_placeholder={"grafico_balanca": "balanca.png"}
+    )
+
+    assert "Destinos das importações" not in html
+    # A legenda suprimida não consome número: a balança continua sendo a 2.
+    assert "Figura 2 – Visão mensal da balança comercial." in html
+    assert "balanca.png" in html
+
+
+def test_caption_is_kept_when_its_chart_exists():
+    reset_figura_contador()
+    texto = (
+        "%%grafico_fob\n"
+        "\n"
+        "\n"
+        "Figura X- Destinos das importações ordenados pelo valor líquido FOB."
+    )
+
+    html = texto_para_html(
+        texto, {}, graficos_por_placeholder={"grafico_fob": "fob.png"}
+    )
+
+    assert "Figura 2 – Destinos das importações" in html
+    assert "fob.png" in html
+
+
+def test_caption_without_any_chart_marker_is_still_rendered():
+    # A legenda do mapa e outras sem marcador não podem ser afetadas pela
+    # supressão — ela só vale para a legenda imediatamente após um marcador.
+    reset_figura_contador()
+    texto = (
+        "%%grafico_fob\n"
+        "\n"
+        "Um parágrafo qualquer entre o marcador e a legenda.\n"
+        "\n"
+        "Figura X- Localização do município."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "Figura 2 – Localização do município." in html
+
+
+def test_caption_is_dropped_even_when_rendered_in_a_separate_call():
+    # render_descricao_tema_html quebra o texto por linha em branco e chama
+    # texto_para_html uma vez por parágrafo, então marcador e legenda chegam em
+    # chamadas distintas sempre que há linha em branco entre eles no Doc.
+    reset_figura_contador()
+
+    html_marcador = texto_para_html("%%grafico_fob", {}, graficos_por_placeholder={})
+    html_legenda = texto_para_html(
+        "Figura X- Destinos das importações ordenados pelo valor líquido FOB.",
+        {},
+        graficos_por_placeholder={},
+    )
+
+    assert "Destinos das importações" not in html_marcador + html_legenda
+
+
+def test_supression_does_not_leak_past_an_intervening_paragraph_across_calls():
+    reset_figura_contador()
+
+    texto_para_html("%%grafico_fob", {}, graficos_por_placeholder={})
+    texto_para_html("Um parágrafo qualquer no meio.", {}, graficos_por_placeholder={})
+    html = texto_para_html(
+        "Figura X- Localização do município.", {}, graficos_por_placeholder={}
+    )
+
+    assert "Figura 2 – Localização do município." in html
+
+
+def test_field_vs_field_condition_picks_the_matching_block():
+    """educacao compara dois campos entre si ($sem_instr_2000 vs
+    $sem_instr_2022), não um campo contra um número literal — os operadores
+    fixos exigem \\d+ e nunca casavam, então nenhum dos dois parágrafos era
+    exibido, independente dos dados (bug real, não hipotético)."""
+    texto = """Para quando educacao.$sem_instr_2000 for igual a educacao.$sem_instr_2022, então:
+Sem variação no número de pessoas sem instrução.
+Para quando educacao.$sem_instr_2000 for diferente de educacao.$sem_instr_2022, então:
+Houve variação no número de pessoas sem instrução."""
+
+    sem_variacao = interpretar_blocos_condicionais(
+        texto, {"sem_instr_2000": 100, "sem_instr_2022": 100}
+    )
+    assert "Sem variação no número de pessoas sem instrução." in sem_variacao
+    assert "Houve variação no número de pessoas sem instrução." not in sem_variacao
+
+    com_variacao = interpretar_blocos_condicionais(
+        texto, {"sem_instr_2000": 100, "sem_instr_2022": 80}
+    )
+    assert "Houve variação no número de pessoas sem instrução." in com_variacao
+    assert "Sem variação no número de pessoas sem instrução." not in com_variacao
+
+
+def test_condition_and_its_guarded_paragraph_separated_by_a_blank_line_still_gates_correctly():
+    """No Doc exportado do Google Docs, a regra 'Para quando ...:' fica em um
+    parágrafo próprio, separado do parágrafo que ela guarda por uma linha em
+    branco (como qualquer parágrafo do Doc) — não colado na mesma linha como
+    nos outros testes deste arquivo. Essa linha em branco não pode ser
+    tratada como 'fim do bloco condicional': se for, o bloco reativa antes do
+    parágrafo guardado ser lido, e as duas versões (igual/diferente) vazam
+    juntas no relatório, não importa o dado (bug real, não hipotético)."""
+    texto = """Antes do bloco condicional.
+
+Para quando educacao.$sem_instr_2000 for igual a educacao.$sem_instr_2022, então:
+
+TEXTO_IGUAL
+
+Para quando educacao.$sem_instr_2000 for diferente de educacao.$sem_instr_2022, então:
+
+TEXTO_DIFERENTE
+
+Depois do bloco condicional."""
+
+    igual = interpretar_blocos_condicionais(
+        texto, {"sem_instr_2000": 100, "sem_instr_2022": 100}
+    )
+    assert "TEXTO_IGUAL" in igual
+    assert "TEXTO_DIFERENTE" not in igual
+    assert "Antes do bloco condicional." in igual
+    assert "Depois do bloco condicional." in igual
+
+    diferente = interpretar_blocos_condicionais(
+        texto, {"sem_instr_2000": 100, "sem_instr_2022": 80}
+    )
+    assert "TEXTO_DIFERENTE" in diferente
+    assert "TEXTO_IGUAL" not in diferente
