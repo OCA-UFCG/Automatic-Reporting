@@ -693,6 +693,51 @@ Cinco ou mais."""
     assert "De 2 a 4" not in cinco_ou_mais
 
 
+def test_aridez_condition_count_picks_the_matching_block():
+    """meio-ambiente descreve 1, 2 ou 3 classes de aridez presentes em 1991.
+    Não existe operador de "contagem" no motor — a regra editorial expressa
+    isso como uma cadeia de "diferente de 0"/"igual a 0" sobre os três
+    campos ordenados (aridez_cond1..3_area1991), do mesmo jeito que as
+    faixas de UC acima."""
+    texto = """Para meio-ambiente.$aridez_cond1_area1991 for igual a 0:
+Sem dados de aridez.
+Para meio-ambiente.$aridez_cond1_area1991 for diferente de 0 e meio-ambiente.$aridez_cond2_area1991 for igual a 0:
+Uma condição de aridez.
+Para meio-ambiente.$aridez_cond2_area1991 for diferente de 0 e meio-ambiente.$aridez_cond3_area1991 for igual a 0:
+Duas condições de aridez.
+Para meio-ambiente.$aridez_cond3_area1991 for diferente de 0:
+Três condições de aridez."""
+
+    sem_dados = interpretar_blocos_condicionais(texto, {})
+    assert "Sem dados de aridez." in sem_dados
+    assert "Uma condição de aridez." not in sem_dados
+    assert "Duas condições de aridez." not in sem_dados
+    assert "Três condições de aridez." not in sem_dados
+
+    uma = interpretar_blocos_condicionais(
+        texto, {"aridez_cond1_area1991": 10, "aridez_cond2_area1991": 0, "aridez_cond3_area1991": 0}
+    )
+    assert "Uma condição de aridez." in uma
+    assert "Duas condições de aridez." not in uma
+    assert "Três condições de aridez." not in uma
+
+    duas = interpretar_blocos_condicionais(
+        texto, {"aridez_cond1_area1991": 10, "aridez_cond2_area1991": 5, "aridez_cond3_area1991": 0}
+    )
+    assert "Duas condições de aridez." in duas
+    assert "Três condições de aridez." not in duas
+
+    tres = interpretar_blocos_condicionais(
+        texto,
+        {
+            "aridez_cond1_area1991": 10,
+            "aridez_cond2_area1991": 5,
+            "aridez_cond3_area1991": 2,
+        },
+    )
+    assert "Três condições de aridez." in tres
+
+
 def test_caption_is_dropped_when_its_chart_was_not_generated():
     # Municípios sem comércio exterior não geram o gráfico de países, e a
     # legenda ficava órfã no relatório (4 imagens para 6 legendas em Anadia/AL).

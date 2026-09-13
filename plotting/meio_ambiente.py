@@ -8,8 +8,8 @@ from matplotlib.ticker import FuncFormatter
 from plotting import ESCALA_FONTE
 
 # (campo no contexto, rótulo da legenda, cor) — ordem e cores espelham o Doc.
-# Campos vêm de relatorios_auto.vw_perfil_ambiente_municipal (percentual da
-# área municipal em cada classe de aridez, ano de 2021).
+# Campos vêm de relatorios_auto.ambiente (percentual da área municipal em
+# cada classe de aridez, ano de 2021).
 _CATEGORIAS_ARIDEZ = (
     ("area_arida2021_per", "Árido", "#C0392B"),
     ("area_semiarida2021_per", "Semiárido", "#E67E22"),
