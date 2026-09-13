@@ -338,6 +338,13 @@ def render_descricao_tema_html(
     safe_report: str | None = None,
     graficos_por_placeholder: dict[str, str] | None = None,
 ) -> list[str]:
+    # A flag de supressão é estado de módulo e sobrevive entre chamadas de
+    # texto_para_html (necessário porque marcador e legenda caem em parágrafos
+    # separados). Zeramos no início de cada macrotema para que uma flag deixada
+    # True por um marcador órfão no fim do tema anterior não descarte, por
+    # engano, a primeira legenda deste tema.
+    global _suprimir_proxima_legenda
+    _suprimir_proxima_legenda = False
     descricao_tema = interpretar_blocos_condicionais(descricao_tema, contexto)
     partes = []
     intro_ja_inserida = False
