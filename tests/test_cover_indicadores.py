@@ -23,6 +23,10 @@ CONTEXTO = {
     "potencia_renovavel": "0",
     "potencia_nao_renovavel": "169080.00",
     "aumento_domicilios_rede_esgoto_2010_2022": 38621,
+    # Saneamento lê da view de PERFIL (não da vw_indicadores) — percentuais.
+    "esgoto_rede_2022": 60.4,
+    "coleta_domicilio_per": 94.6,
+    "descarte_irregular_per": 1.5,
 }
 
 
@@ -46,6 +50,23 @@ def test_percentuais_e_contagens_sao_formatados_em_ptbr():
     assert valores["Pessoas não alfabetizadas (15 anos ou mais)"] == "26.939"
     assert valores["Sem instrução ou fundamental incompleto"] == "46,5%"
     assert valores["Superior completo"] == "12,7%"
+
+
+def test_saneamento_le_percentuais_do_perfil_sem_simbolo():
+    valores = _por_nome(montar_indicadores_macrotema("saneamento", CONTEXTO))
+
+    # Percentual de domicílios, exibido SEM o "%" (o rodapé diz a unidade).
+    assert valores["Domicílios conectados à rede geral de esgoto ou pluvial"] == "60,4"
+    assert valores["Domicílios com lixo coletado por serviço de limpeza"] == "94,6"
+    assert (
+        valores["Domicílios que descartam lixo em terreno baldio, encosta ou área pública"]
+        == "1,5"
+    )
+    assert set(valores) == {
+        "Domicílios conectados à rede geral de esgoto ou pluvial",
+        "Domicílios com lixo coletado por serviço de limpeza",
+        "Domicílios que descartam lixo em terreno baldio, encosta ou área pública",
+    }
 
 
 def test_indicador_sem_valor_no_banco_e_omitido():

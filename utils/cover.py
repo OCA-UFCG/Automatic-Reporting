@@ -143,36 +143,31 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "decimais": 2,
         },
     ),
+    # Indicadores do saneamento vêm da view de PERFIL
+    # (vw_perfil_infraestrutura_municipal), já mesclada no contexto — não da
+    # vw_indicadores. O valor é percentual de domicílios, mas exibido sem o "%"
+    # (o rodapé já diz "Percentual de domicílios").
     "saneamento": (
         {
-            "coluna": "aumento_domicilios_rede_esgoto_2010_2022",
-            "nome": "Aumento de domicílios com rede de esgoto (2010–2022)",
-            "fonte": "Censo demográfico 2010 e 2022",
-            "rodape": "Domicílios ligados à rede geral ou pluvial",
-            "decimais": 0,
+            "coluna": "esgoto_rede_2022",
+            "nome": "Domicílios conectados à rede geral de esgoto ou pluvial",
+            "fonte": "Censo demográfico 2022",
+            "rodape": "Percentual de domicílios",
+            "decimais": 1,
         },
         {
-            "coluna": "qtd_usinas",
-            "nome": "Usinas de geração de energia",
-            "fonte": "ANEEL / SIGA",
-            "rodape": "Usinas em operação no município",
-            "decimais": 0,
+            "coluna": "coleta_domicilio_per",
+            "nome": "Domicílios com lixo coletado por serviço de limpeza",
+            "fonte": "Censo demográfico 2022",
+            "rodape": "Percentual de domicílios",
+            "decimais": 1,
         },
         {
-            "coluna": "potencia_renovavel",
-            "nome": "Potência instalada renovável",
-            "fonte": "ANEEL / SIGA",
-            "rodape": "Solar, eólica, biomassa e hídrica",
-            "decimais": 0,
-            "sufixo": " kW",
-        },
-        {
-            "coluna": "potencia_nao_renovavel",
-            "nome": "Potência instalada não renovável",
-            "fonte": "ANEEL / SIGA",
-            "rodape": "Fontes fósseis",
-            "decimais": 0,
-            "sufixo": " kW",
+            "coluna": "descarte_irregular_per",
+            "nome": "Domicílios que descartam lixo em terreno baldio, encosta ou área pública",
+            "fonte": "Censo demográfico 2022",
+            "rodape": "Percentual de domicílios",
+            "decimais": 1,
         },
     ),
     "hidraulica": (
