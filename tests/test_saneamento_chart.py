@@ -3,10 +3,17 @@ from pathlib import Path
 import pytest
 
 from plotting.saneamento import (
+    _formatar_total,
     gerar_grafico_esgotamento_sanitario,
     gerar_grafico_evolucao_coleta_lixo,
     gerar_grafico_evolucao_rede_geral_esgoto,
 )
+
+
+def test_formatar_total_usa_mil_por_extenso():
+    # Acima de 10 mil abrevia com "Mil" (não "K"); abaixo, separador de milhar.
+    assert _formatar_total(547000) == "547 Mil"
+    assert _formatar_total(1676) == "1.676"
 
 
 def test_gera_rosca_de_esgotamento(tmp_path: Path):

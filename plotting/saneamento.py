@@ -28,8 +28,10 @@ def _numero(valor: object) -> float:
 
 
 def _formatar_total(total: float) -> str:
+    # "Mil" por extenso em vez de "K": a unidade do destaque vai em português,
+    # igual ao resto do relatório.
     if total >= 10000:
-        return f"{round(total / 1000)}K"
+        return f"{round(total / 1000)} Mil"
     return f"{total:,.0f}".replace(",", ".")
 
 
@@ -56,7 +58,7 @@ def gerar_grafico_esgotamento_sanitario(
     # a largura do `ax` pra sobrar uma faixa à direita, dentro do card, onde
     # ela cabe inteira sem vazar da moldura nem se sobrepor à rosca.
     posicao = ax.get_position()
-    largura_legenda = posicao.width * 0.44
+    largura_legenda = posicao.width * 0.48
     ax.set_position(
         (posicao.x0, posicao.y0, posicao.width - largura_legenda, posicao.height)
     )
@@ -88,10 +90,11 @@ def gerar_grafico_esgotamento_sanitario(
         wedges,
         rotulos,
         loc="center left",
-        bbox_to_anchor=(1.06, 0.5),
+        bbox_to_anchor=(1.0, 0.5),
         frameon=False,
-        fontsize=8.5*ESCALA_FONTE,
+        fontsize=7.5*ESCALA_FONTE,
         handlelength=1.0,
+        handletextpad=0.5,
         labelspacing=0.7,
     )
     ax.set_aspect("equal")
