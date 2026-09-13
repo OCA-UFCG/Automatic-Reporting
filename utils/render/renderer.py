@@ -18,6 +18,14 @@ from utils.render.sections import identificar_secao_macrotema
 
 _figura_contador = 1
 _proxima_referencia_inline = 1
+# Um marcador de gráfico que não gerou imagem (ex.: município sem comércio
+# exterior) deixava a legenda seguinte órfã no relatório, e ainda consumindo
+# um número de figura. O marcador sinaliza aqui que a próxima legenda deve ser
+# descartada. É estado de módulo, e não local, porque
+# render_descricao_tema_html quebra o texto em parágrafos e chama
+# texto_para_html uma vez para cada um: marcador e legenda caem em chamadas
+# diferentes sempre que há linha em branco entre eles no Doc.
+_suprimir_proxima_legenda = False
 
 _LARGURA_MAXIMA_GRAFICO_PADRAO = "480px"
 _MARGEM_VERTICAL_GRAFICOS_PADRAO = "32px"
@@ -47,8 +55,10 @@ _CONFIG_GRAFICOS = {
 
 def reset_figura_contador() -> None:
     global _figura_contador, _proxima_referencia_inline
+    global _suprimir_proxima_legenda
     _figura_contador = 1
     _proxima_referencia_inline = 1
+    _suprimir_proxima_legenda = False
 
 
 _REFERENCIA_FIGURA_INLINE = re.compile(r"(?i)\bfigura\s+\[?[Xx&]\]?\b")
@@ -452,6 +462,13 @@ def render_descricao_tema_html(
     safe_report: str | None = None,
     graficos_por_placeholder: dict[str, str] | None = None,
 ) -> list[str]:
+    # A flag de supressão é estado de módulo e sobrevive entre chamadas de
+    # texto_para_html (necessário porque marcador e legenda caem em parágrafos
+    # separados). Zeramos no início de cada macrotema para que uma flag deixada
+    # True por um marcador órfão no fim do tema anterior não descarte, por
+    # engano, a primeira legenda deste tema.
+    global _suprimir_proxima_legenda
+    _suprimir_proxima_legenda = False
     descricao_tema = interpretar_blocos_condicionais(descricao_tema, contexto)
     descricao_tema = _rotular_linhas_de_fonte(descricao_tema)
     partes = []
@@ -583,6 +600,8 @@ def texto_para_html(
 
     proximo_paragrafo_destaque = False
 
+    global _suprimir_proxima_legenda
+
     for linha in linhas:
 
         linha_sem_bom = linha.lstrip("\ufeff")
@@ -698,6 +717,8 @@ def texto_para_html(
                     + "</div>"
                 )
 
+            _suprimir_proxima_legenda = not figuras
+
             continue
 
         # TÍTULO PRINCIPAL
@@ -707,6 +728,7 @@ def texto_para_html(
                 html_lines.append("</ul>")
                 em_lista = False
 
+            _suprimir_proxima_legenda = False
             titulo = linha_limpa[2:].strip()
 
             if titulo:
@@ -718,6 +740,8 @@ def texto_para_html(
 
         # LISTAS
         if linha_limpa.startswith(("- ", "• ", "* ")):
+
+            _suprimir_proxima_legenda = False
 
             if not em_lista:
                 html_lines.append("<ul>")
@@ -751,6 +775,7 @@ def texto_para_html(
             in {"apresentação", "demografia"}
         ):
 
+            _suprimir_proxima_legenda = False
             html_lines.append(
                 f"<h2>{html_module.escape(linha_limpa)}</h2>"
             )
@@ -764,6 +789,14 @@ def texto_para_html(
         ):
 
             global _figura_contador
+
+            # O gráfico desta legenda não existe para este município: descarta
+            # a legenda sem consumir número, para a numeração seguir contínua.
+            if _suprimir_proxima_legenda:
+                _suprimir_proxima_legenda = False
+                proximo_paragrafo_destaque = False
+                continue
+
             _figura_contador += 1
 
             legenda = re.sub(
@@ -788,6 +821,8 @@ def texto_para_html(
             proximo_paragrafo_destaque = False
 
         else:
+
+            _suprimir_proxima_legenda = False
 
             linha_limpa = re.sub(
                 r"\[[A-Za-z0-9]{1,3}\]",
