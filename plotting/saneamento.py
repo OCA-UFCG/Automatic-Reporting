@@ -1,6 +1,8 @@
 import math
 import pathlib
 
+from matplotlib.ticker import FuncFormatter, MaxNLocator
+
 from plotting import ESCALA_FONTE, iniciar_card_grafico, salvar_card_grafico
 
 # (chave no contexto, rótulo da legenda, cor) — ordem e cores espelham o Doc.
@@ -95,4 +97,100 @@ def gerar_grafico_esgotamento_sanitario(
     ax.set_aspect("equal")
 
     salvar_card_grafico(fig, chart_file)
+    return chart_file.name
+
+
+def _grafico_evolucao_percentual(
+    pontos: list[tuple[str, float]], titulo: str, chart_file: pathlib.Path
+) -> None:
+    """Card de barras com um percentual por ano (0–100%), rotulado no topo.
+
+    Compartilhado pelas Figuras 2 e 4 do saneamento — mesma forma, só muda o
+    título e a série. Os valores das colunas `esgoto_rede_*`/`coleta_*` da view
+    já são percentuais de domicílios.
+    """
+    anos = [ano for ano, _ in pontos]
+    valores = [valor for _, valor in pontos]
+    x = list(range(len(anos)))
+
+    fig, ax = iniciar_card_grafico((8, 4.0), titulo)
+
+    barras = ax.bar(x, valores, width=0.5, color="#5B8DEF", zorder=3)
+
+    # Folga no topo pra caber o rótulo da barra mais alta; piso de 10% evita
+    # que uma série toda baixa vire barras minúsculas coladas no eixo.
+    limite = max(max(valores, default=0) * 1.25, 10)
+    ax.set_ylim(0, limite)
+    for barra, valor in zip(barras, valores):
+        ax.text(
+            barra.get_x() + barra.get_width() / 2,
+            barra.get_height() + limite * 0.03,
+            f"{valor:.1f}".replace(".", ",") + "%",
+            ha="center",
+            va="bottom",
+            fontsize=9.5 * ESCALA_FONTE,
+            fontweight="bold",
+            color="#4A4A4A",
+        )
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(anos, fontsize=9 * ESCALA_FONTE)
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:.0f}%"))
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=4))
+    ax.grid(axis="y", linestyle="--", linewidth=0.5, color="#D9D9D9", alpha=0.6, zorder=0)
+    ax.set_axisbelow(True)
+    ax.tick_params(axis="both", length=0, labelsize=9 * ESCALA_FONTE, colors="#4A4A4A")
+    for lado in ("top", "right", "left"):
+        ax.spines[lado].set_visible(False)
+    ax.spines["bottom"].set_color("#4A4A4A")
+
+    salvar_card_grafico(fig, chart_file)
+
+
+def gerar_grafico_evolucao_rede_geral_esgoto(
+    cidade: dict,
+    OUTPUT_DIR: pathlib.Path,
+    safe_city: str,
+) -> str:
+    """Figura 2 — evolução do % de domicílios conectados à rede geral/pluvial."""
+    pontos = [
+        (ano, _numero(cidade.get(chave)))
+        for ano, chave in (
+            ("2000", "esgoto_rede_2000"),
+            ("2010", "esgoto_rede_2010"),
+            ("2022", "esgoto_rede_2022"),
+        )
+        if cidade.get(chave) is not None
+    ]
+    if not pontos:
+        raise ValueError("Dados de evolução da rede geral de esgoto não disponíveis.")
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    chart_file = OUTPUT_DIR / f"grafico_evolucao_rede_geral_esgoto_{safe_city}.png"
+    _grafico_evolucao_percentual(
+        pontos, "Domicílios conectados à rede geral de esgoto ou pluvial", chart_file
+    )
+    return chart_file.name
+
+
+def gerar_grafico_evolucao_coleta_lixo(
+    cidade: dict,
+    OUTPUT_DIR: pathlib.Path,
+    safe_city: str,
+) -> str:
+    """Figura 4 — evolução do % de domicílios com coleta de lixo."""
+    pontos = [
+        (ano, _numero(cidade.get(chave)))
+        for ano, chave in (
+            ("2010", "coleta_2010"),
+            ("2022", "coleta_2022"),
+        )
+        if cidade.get(chave) is not None
+    ]
+    if not pontos:
+        raise ValueError("Dados de evolução da coleta de lixo não disponíveis.")
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    chart_file = OUTPUT_DIR / f"grafico_evolucao_coleta_lixo_{safe_city}.png"
+    _grafico_evolucao_percentual(pontos, "Domicílios com coleta de lixo", chart_file)
     return chart_file.name
