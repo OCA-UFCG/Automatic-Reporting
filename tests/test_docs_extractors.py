@@ -2,6 +2,7 @@ from utils.external.docs import (
     extrair_descricao_tema,
     extrair_inicio_relatorio,
     extrair_introducao,
+    extrair_legenda_mapa_localizacao,
     extrair_referencias,
     extrair_relatorio_geral,
     extrair_resumo_relatorio,
@@ -25,6 +26,21 @@ def test_global_report_summary_is_extracted_from_characteristics_document():
 
     assert resumo == "Síntese de caract_mun.$nm_mun."
     assert restante == "#! Resumo"
+
+
+def test_location_map_caption_is_extracted_and_removed_from_the_summary():
+    texto = (
+        "O município de caract_mun.$nm_mun está localizado (Figura X).\n\n\n"
+        "Figura X- Localização do município caract_mun.$nm_mun (caract_mun.$sigla_uf)\n\n\n"
+        "https://datanordeste.sudene.gov.br/"
+    )
+
+    legenda, restante = extrair_legenda_mapa_localizacao(texto)
+
+    assert legenda == (
+        "Figura X- Localização do município caract_mun.$nm_mun (caract_mun.$sigla_uf)"
+    )
+    assert "Localização do município" not in restante
 
 
 def test_introduction_without_closing_marker_stops_before_next_field():

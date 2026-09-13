@@ -1,20 +1,24 @@
 import pathlib
 
-import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 
-from plotting import ESCALA_FONTE
+from plotting import ESCALA_FONTE, iniciar_card_grafico, salvar_card_grafico
+from utils.formatting import formatar_numero_ptbr
+from utils.queries.base import escalar_valor
 
 
-def _salvar_figura_com_fundo_branco(
-    fig, ax, chart_file: pathlib.Path, pad: float | None = None
-) -> None:
-    fig.patch.set_facecolor("white")
-    ax.set_facecolor("white")
-    plt.tight_layout() if pad is None else plt.tight_layout(pad=pad)
-    plt.savefig(chart_file, dpi=180, bbox_inches="tight", facecolor="white")
-    plt.close(fig)
+def _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas: float = 0.34) -> None:
+    # Mesmo ajuste de plotting.saude: `iniciar_card_grafico` posiciona o
+    # corpo do card sem folga para um `ax.set_xlabel` — o texto cai abaixo da
+    # moldura e some do PNG. Encolhe o eixo reservando uma faixa fixa, em
+    # polegadas, na base do card.
+    altura_fig = fig.get_size_inches()[1]
+    fracao = reserva_polegadas / altura_fig
+    posicao = ax.get_position()
+    ax.set_position(
+        (posicao.x0, posicao.y0 + fracao, posicao.width, posicao.height - fracao)
+    )
 
 
 def gerar_grafico_faixa_etaria_e_sexo(
@@ -34,7 +38,14 @@ def gerar_grafico_faixa_etaria_e_sexo(
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_faixa_etaria_e_sexo_{safe_city}.png"
 
-    fig, ax = plt.subplots(figsize=(8, 5.2))
+    fig, ax = iniciar_card_grafico((8, 5.6), "População por faixa etária e sexo")
+    # Reserva uma faixa abaixo do corpo do gráfico, dentro do card, para a
+    # legenda (senão ela cai fora da área desenhada e some do PNG).
+    posicao = ax.get_position()
+    altura_legenda = posicao.height * 0.12
+    ax.set_position(
+        (posicao.x0, posicao.y0 + altura_legenda, posicao.width, posicao.height - altura_legenda)
+    )
     ax.barh(y, -mulheres, height=0.86, color="#C92F67", label="Mulheres")
     ax.barh(y, homens, height=0.86, color="#8DB52B", label="Homens")
 
@@ -56,9 +67,9 @@ def gerar_grafico_faixa_etaria_e_sexo(
     ax.tick_params(axis="y", length=0, pad=8)
     for borda in ax.spines.values():
         borda.set_visible(False)
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.06), ncol=2,
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.05), ncol=2,
               frameon=False, fontsize=9*ESCALA_FONTE)
-    _salvar_figura_com_fundo_branco(fig, ax, chart_file)
+    salvar_card_grafico(fig, chart_file)
     return chart_file.name
 
 
@@ -99,34 +110,101 @@ def gerar_grafico_composicao_cor_raca(
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_composicao_cor_raca_{safe_city}.png"
 
-    fig, ax = plt.subplots(figsize=(6.1, 4.05))
-    x = np.arange(len(labels))
-    barras = ax.bar(x, percentuais, width=0.6, color=cores, zorder=3)
-    limite = max(percentuais) * 1.26 if percentuais else 1
+    fig, ax = iniciar_card_grafico((6.4, 4.3), "Composição por cor ou raça")
+
+    # Maior percentual no topo, como na lista do card (barras horizontais).
+    y = np.arange(len(labels))[::-1]
+    ax.barh(y, percentuais, height=0.56, color=cores, zorder=3)
+
+    limite = max(percentuais) * 1.3 if percentuais else 1
+    ax.set_xlim(0, limite)
+    ax.set_ylim(-0.7, len(labels) - 0.3)
+    for pos_y, percentual in zip(y, percentuais):
+        ax.text(
+            percentual + limite * 0.02,
+            pos_y,
+            f"{percentual:.1f}%".replace(".", ","),
+            ha="left",
+            va="center",
+            fontsize=10*ESCALA_FONTE,
+            fontweight=600,
+            color="#292829",
+        )
+
+    ax.set_yticks(y)
+    ax.set_yticklabels(labels, fontsize=10*ESCALA_FONTE, fontweight=600, color="#292829")
+    ax.set_xticks([])
+    ax.tick_params(axis="y", length=0, pad=10)
+    for borda in ax.spines.values():
+        borda.set_visible(False)
+    salvar_card_grafico(fig, chart_file)
+    return chart_file.name
+
+
+_ANOS_VISAO_HISTORICA = (2000, 2010, 2022)
+_SUFIXO_UNIDADE_POPULACAO = {"bilhões": "Bi", "milhões": "Mi", "mil": "mil", "": ""}
+_DIVISOR_UNIDADE_POPULACAO = {"bilhões": 1e9, "milhões": 1e6, "mil": 1e3, "": 1}
+
+
+def gerar_grafico_visao_historica_populacao(
+    cidade: dict,
+    OUTPUT_DIR: pathlib.Path,
+    safe_city: str,
+) -> str:
+    populacao_por_ano = {
+        ano: cidade.get(f"pop_total_{ano}") for ano in _ANOS_VISAO_HISTORICA
+    }
+    if any(valor is None for valor in populacao_por_ano.values()):
+        raise ValueError("Dados de visão histórica da população não disponíveis.")
+
+    anos = [str(ano) for ano in _ANOS_VISAO_HISTORICA]
+    valores = [float(populacao_por_ano[ano]) for ano in _ANOS_VISAO_HISTORICA]
+
+    # A unidade é escolhida a partir do maior valor da série (municípios
+    # pequenos ficam na casa do "mil", não de "Mi" — dividir tudo por milhão
+    # fazia a barra inteira arredondar para "0 Mi").
+    _, unidade = escalar_valor(max(valores))
+    divisor = _DIVISOR_UNIDADE_POPULACAO[unidade]
+    sufixo = _SUFIXO_UNIDADE_POPULACAO[unidade]
+    decimais = 1 if divisor > 1 else 0
+    valores_escalados = [valor / divisor for valor in valores]
+
+    def _rotulo(valor_escalado: float) -> str:
+        texto = formatar_numero_ptbr(valor_escalado, decimais=decimais)
+        return f"{texto} {sufixo}".strip()
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    chart_file = OUTPUT_DIR / f"grafico_visao_historica_populacao_{safe_city}.png"
+
+    fig, ax = iniciar_card_grafico((8, 4.4), "Visão histórica da população total")
+    _reservar_espaco_rotulo_x(fig, ax)
+    x = np.arange(len(anos))
+    barras = ax.bar(x, valores_escalados, width=0.6, color="#D97AAA", zorder=3)
+    limite = max(valores_escalados) * 1.26 if valores_escalados else 1
     ax.set_ylim(0, limite)
 
-    for barra, percentual in zip(barras, percentuais):
+    for barra, valor_escalado in zip(barras, valores_escalados):
         ax.text(
             barra.get_x() + barra.get_width() / 2,
-            percentual + limite * 0.025,
-            f"{percentual:.1f}%".replace(".", ","),
+            valor_escalado + limite * 0.025,
+            _rotulo(valor_escalado),
             ha="center",
             va="bottom",
-            fontsize=10*ESCALA_FONTE,
+            fontsize=11*ESCALA_FONTE,
             fontweight=600,
             color="#514C50",
         )
 
     ax.set_xticks(x)
-    ax.set_xticklabels(labels, fontsize=10*ESCALA_FONTE, fontweight=600)
-    ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _: f"{valor:.0f}%"))
+    ax.set_xticklabels(anos, fontsize=11*ESCALA_FONTE, fontweight=600)
+    ax.set_xlabel("Ano", fontsize=12*ESCALA_FONTE, color="#514C50")
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _: _rotulo(valor)))
     ax.yaxis.set_major_locator(MaxNLocator(4))
+    ax.tick_params(axis="both", length=0, colors="#514C50", labelsize=11*ESCALA_FONTE)
     ax.grid(axis="y", linestyle=(0, (1, 4)), linewidth=0.8, color="#D9D9D9", zorder=0)
-    ax.tick_params(axis="both", length=0, colors="#514C50", labelsize=9*ESCALA_FONTE)
-    for lado in ("left", "right", "bottom"):
+    for lado in ("left", "right", "top"):
         ax.spines[lado].set_visible(False)
-    ax.spines["top"].set_color("#ECECEC")
-    ax.spines["top"].set_linewidth(7)
+    ax.spines["bottom"].set_color("#514C50")
     ax.margins(x=0.18)
-    _salvar_figura_com_fundo_branco(fig, ax, chart_file, pad=1.2)
+    salvar_card_grafico(fig, chart_file)
     return chart_file.name

@@ -38,6 +38,18 @@ _CONFIG_GRAFICOS = {
         "largura_maxima": "560px",
         "margem_vertical": "16px",
     },
+    "grafico_publico_etario": {
+        "margem_vertical": "12px",
+    },
+    "grafico_cobertura_vacinal": {
+        "margem_vertical": "12px",
+    },
+    "grafico_taxa_mortalidade": {
+        "margem_vertical": "12px",
+    },
+    "grafico_de_estabelecimento": {
+        "margem_vertical": "12px",
+    },
 }
 
 
@@ -74,11 +86,24 @@ def _substituir_referencia_figura_inline(linha: str) -> str:
     return _REFERENCIA_FIGURA_INLINE.sub(_proxima_figura, linha)
 
 
+def resolver_referencia_figura_do_mapa(texto: str) -> str:
+    """Fixa em "Figura 1" a menção "(Figura X)" ao mapa dentro do resumo_cidade.
+
+    Essa menção está na mesma frase que descreve o mapa de localização, cuja
+    legenda é sempre "Figura 1" (ver render_mapa_marker). Se não for resolvida
+    aqui, ela cai no contador genérico de _substituir_referencia_figura_inline
+    e consome o número da próxima figura real do relatório, empurrando a
+    numeração de todos os gráficos seguintes em uma casa.
+    """
+    return _REFERENCIA_FIGURA_INLINE.sub("Figura 1", texto, count=1)
+
+
 __all__ = [
     "convert_links_to_html",
     "render_descricao_tema_html",
     "render_mapa_marker",
     "reset_figura_contador",
+    "resolver_referencia_figura_do_mapa",
     "substituir_placeholders",
     "texto_para_html",
 ]
@@ -88,7 +113,17 @@ FALLBACK_DOC_TEXT = """deu erro.
 """
 
 
-def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
+def _legenda_mapa_localizacao_html(legenda: str | None) -> str:
+    if not legenda:
+        return "Figura 1- Localização do município."
+    legenda = re.sub(r"(?i)^figura\s+[^–-]*[–-]", "Figura 1 –", legenda.strip())
+    return html_module.escape(legenda)
+
+
+def render_mapa_marker(
+    contexto: dict, safe_report: str | None = None, legenda: str | None = None
+) -> str:
+    legenda_html = _legenda_mapa_localizacao_html(legenda)
     mapa_estatico = buscar_mapa_estatico(
         contexto.get("nm_mun", ""), contexto.get("sigla_uf")
     )
@@ -98,7 +133,7 @@ def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
             '<figure class="map-block map-block--region">'
             f'<img class="region-map-image" src="/mapas/{quote(mapa_estatico)}" '
             f'alt="Mapa da região de {cidade_segura}">'
-            '<figcaption>Figura 1- Localização do município.</figcaption>'
+            f'<figcaption>{legenda_html}</figcaption>'
             '</figure>'
             '<!-- fonte: mapa_estatico -->'
         )
@@ -110,7 +145,7 @@ def render_mapa_marker(contexto: dict, safe_report: str | None = None) -> str:
             '<figure class="map-block map-block--region">'
             f'<img class="region-map-image" src="/output/{html_module.escape(mapa_file)}" '
             f'alt="Mapa da região de {cidade_segura}">'
-            '<figcaption>Figura 1- Localização do município.</figcaption>'
+            f'<figcaption>{legenda_html}</figcaption>'
             '</figure>'
             '<!-- fonte: gerado_localmente -->'
         )
@@ -125,56 +160,149 @@ _SECOES_TITULO_ESPECIAL = {
 }
 _SECOES_CAIXA_FONTES = {"fontes", "conteúdos relacionados", "conteudos relacionados"}
 
-# Ex.: "[Painel: Terceira Idade](https://...)" ou "[Narrativa de dados: X](https://...)".
+# Ex.: "[Painel: Terceira Idade](https://...)" ou "[Boletim: X](https://...)".
 _BADGE_LINK = re.compile(
-    r"(?i)^\[\s*(painel|narrativa de dados)\s*:\s*([^\]]*?)\s*\]\((\S+)\)$"
+    r"(?i)^\[\s*(painel de dados|painel|narrativa de dados|boletim)\s*:\s*"
+    r"([^\]]*?)\s*\]\((\S+)\)$"
 )
 
-# Ex.: "demografia.“$nm_datastory1” = https://...". Roda depois de
-# substituir_placeholders, então "$campo" só sobra aqui se não tinha valor.
-_LINHA_NARRATIVA_DADOS = re.compile(
-    r"(?i)^[a-z][\w-]*\.\s*(.+?)\s*=\s*(https?://\S+)$"
+_ROTULOS_BADGE = {
+    "boletim": "Boletim",
+    "narrativa de dados": "Narrativa de dados",
+    "painel": "Painel",
+    "painel de dados": "Painel de dados",
+}
+
+# Ex.: "demografia.“$nm_painel1” = https://...", a forma que os Docs usam nas
+# seções "Fontes"/"Conteúdos relacionados".
+_LINHA_FONTE = re.compile(
+    r"(?i)^([a-z][\w-]*\.\s*.+?)\s*=\s*(https?://\S+)$"
+)
+
+# O tipo do conteúdo vive no nome do campo ($nm_boletim1, $nm_datastory2,
+# $painel3), e não em nada que sobre depois de substituir_placeholders — daí
+# rotular a linha antes da substituição, em _rotular_linhas_de_fonte.
+_ROTULO_POR_CAMPO = (
+    (re.compile(r"(?i)\$\s*(?:nm[_-]?)?boletim"), "Boletim"),
+    (re.compile(r"(?i)\$\s*(?:nm[_-]?)?data[_-]?stor"), "Narrativa de dados"),
+    (re.compile(r"(?i)\$\s*(?:nm[_-]?)?painel"), "Painel de dados"),
+)
+
+# Rede de segurança para quando o campo não denuncia o tipo (nome fora do
+# padrão, ou título já escrito literalmente no Doc): a rota do portal denuncia.
+_ROTULO_POR_URL = (
+    ("/boletim/", "Boletim"),
+    ("/data-stories/", "Narrativa de dados"),
+    ("/data-panel/", "Painel de dados"),
 )
 
 
-_LINK_DATA_NORDESTE = "https://qr.codes/Bw7u3I"
-_QR_DATA_NORDESTE_PATH = BASE_DIR / "report" / "src" / "assets" / "qr-code-datanordeste.png"
+_LINK_DATA_NORDESTE = "https://datanordeste.sudene.gov.br"
+_QR_CODES_DIR = BASE_DIR / "report" / "src" / "assets" / "qr_codes"
+_QR_DATA_NORDESTE_PATH_PADRAO = BASE_DIR / "report" / "src" / "assets" / "qr-code-datanordeste.png"
+
+# Um QR code por macrotema (aponta para o conteúdo do tema no portal); o
+# arquivo já é a imagem do QR pronta, não é gerado a partir de um link daqui.
+_QR_POR_MACROTEMA = {
+    "demografia": _QR_CODES_DIR / "qr-demografia.jpg",
+    "educacao": _QR_CODES_DIR / "qr-educacao.jpg",
+    "saude": _QR_CODES_DIR / "qr-saude.jpg",
+    "economia-renda": _QR_CODES_DIR / "qr-economia-renda.jpg",
+    "hidraulica": _QR_CODES_DIR / "qr-hidraulica.jpg",
+    "desenvolvimento-social": _QR_CODES_DIR / "qr-desenvolvimento-social.jpg",
+    "meio-ambiente": _QR_CODES_DIR / "qr-meio-ambiente.jpg",
+    "saneamento": _QR_CODES_DIR / "qr-saneamento.jpg",
+}
+
+# O link por trás do QR code (o href clicável), por macrotema — o shortlink
+# genérico antigo (qr.codes/Bw7u3I) expirou, então cada tema aponta direto
+# para a página do macrotema no portal.
+_LINK_POR_MACROTEMA = {
+    "demografia": "https://datanordeste.sudene.gov.br/macrothemes/demografia",
+    "educacao": "https://datanordeste.sudene.gov.br/macrothemes/educacao",
+    "saude": "https://datanordeste.sudene.gov.br/macrothemes/saude",
+    "economia-renda": "https://datanordeste.sudene.gov.br/macrothemes/economia-e-renda",
+    "hidraulica": "https://datanordeste.sudene.gov.br/macrothemes/seguranca-hidrica",
+    "desenvolvimento-social": "https://datanordeste.sudene.gov.br/macrothemes/desenvolvimento-social",
+    "meio-ambiente": "https://datanordeste.sudene.gov.br/macrothemes/meio-ambiente",
+    "saneamento": "https://datanordeste.sudene.gov.br/macrothemes/infraestrutura-e-saneamento",
+}
 
 
-def _carregar_qr_data_nordeste() -> str:
+def _carregar_qr(caminho) -> str:
     try:
-        dados = _QR_DATA_NORDESTE_PATH.read_bytes()
+        dados = caminho.read_bytes()
     except OSError:
         return ""
-    return "data:image/png;base64," + base64.b64encode(dados).decode("ascii")
+    mime = "image/jpeg" if caminho.suffix.lower() in (".jpg", ".jpeg") else "image/png"
+    return f"data:{mime};base64," + base64.b64encode(dados).decode("ascii")
 
 
-_QR_DATA_NORDESTE = _carregar_qr_data_nordeste()
+# Carregado uma vez por processo: os arquivos não mudam em runtime.
+_QR_DATA_NORDESTE_PADRAO = _carregar_qr(_QR_DATA_NORDESTE_PATH_PADRAO)
+_QR_DATA_NORDESTE_POR_MACROTEMA = {
+    slug: _carregar_qr(caminho) for slug, caminho in _QR_POR_MACROTEMA.items()
+}
 
-_FONTES_BOX_INTRO_HTML = (
-    '<div class="fontes-box-intro">'
-    '<div class="fontes-box-intro-text">'
-    '<p class="fontes-box-intro-title">Continue explorando o tema</p>'
-    '<p class="fontes-box-intro-body">Escaneie ou clique no QR code ao lado para '
-    "conhecer mais conteúdos do Data Nordeste sobre este tema.</p>"
-    "</div>"
-    f'<a class="fontes-box-intro-qr" href="{html_module.escape(_LINK_DATA_NORDESTE)}" '
-    'aria-label="Conheça mais conteúdos do Data Nordeste">'
-    f'<img src="{_QR_DATA_NORDESTE}" alt="QR code do Data Nordeste" width="96" height="96">'
-    "</a>"
-    "</div>"
-)
+
+def _montar_fontes_box_intro_html(namespace: str) -> str:
+    qr = _QR_DATA_NORDESTE_POR_MACROTEMA.get(namespace) or _QR_DATA_NORDESTE_PADRAO
+    link = _LINK_POR_MACROTEMA.get(namespace, _LINK_DATA_NORDESTE)
+    return (
+        '<div class="fontes-box-intro">'
+        '<div class="fontes-box-intro-text">'
+        '<p class="fontes-box-intro-title">Continue explorando o tema</p>'
+        '<p class="fontes-box-intro-body">Escaneie ou clique no QR code ao lado para '
+        "conhecer mais conteúdos do Data Nordeste sobre este tema.</p>"
+        "</div>"
+        f'<a class="fontes-box-intro-qr" href="{html_module.escape(link)}" '
+        'aria-label="Conheça mais conteúdos do Data Nordeste">'
+        f'<img src="{qr}" alt="QR code do Data Nordeste" width="96" height="96">'
+        "</a>"
+        "</div>"
+    )
 
 
 def _normalizar_quebras_de_link(paragrafo: str) -> str:
     return re.sub(r"\]\s*\(", "](", paragrafo)
 
 
+def _rotulo_da_fonte(campo: str, url: str) -> str:
+    for padrao, rotulo in _ROTULO_POR_CAMPO:
+        if padrao.search(campo):
+            return rotulo
+    url_normalizada = url.casefold()
+    for trecho, rotulo in _ROTULO_POR_URL:
+        if trecho in url_normalizada:
+            return rotulo
+    return "Narrativa de dados"
+
+
+def _rotular_linhas_de_fonte(texto: str) -> str:
+    """Reescreve "tema.“$nm_painel1” = https://..." como
+    "[Painel de dados: tema.$nm_painel1](https://...)", a forma de badge que
+    _renderizar_conteudo_caixa_fontes já entende. Tem que rodar antes de
+    substituir_placeholders: é o nome do campo que diz se o conteúdo é boletim,
+    narrativa de dados ou painel, e ele não sobrevive à substituição.
+    """
+    linhas = []
+    for linha in texto.splitlines():
+        fonte = _LINHA_FONTE.match(linha.strip())
+        if not fonte:
+            linhas.append(linha)
+            continue
+        campo, url = fonte.group(1), fonte.group(2)
+        campo_limpo = campo.replace("“", "").replace("”", "").replace('"', "").strip()
+        linhas.append(f"[{_rotulo_da_fonte(campo, url)}: {campo_limpo}]({url})")
+    return "\n".join(linhas)
+
+
 def _renderizar_badge_fonte(rotulo: str, nome: str, url: str) -> str | None:
     if not _url_is_safe(url):
         return None
-    rotulo_normalizado = "Narrativa de dados" if rotulo.casefold() == "narrativa de dados" else "Painel"
-    nome_normalizado = html_module.escape(re.sub(r"\s+", " ", nome).strip())
+    rotulo_normalizado = _ROTULOS_BADGE.get(rotulo.casefold(), "Painel")
+    nome_limpo = re.sub(r"\s+", " ", nome).strip().strip("\"'“”").strip()
+    nome_normalizado = html_module.escape(nome_limpo)
     return (
         f'<a class="fonte-badge" href="{html_module.escape(url)}">'
         f"<strong>{rotulo_normalizado}:</strong> {nome_normalizado}</a>"
@@ -215,17 +343,11 @@ def _renderizar_conteudo_caixa_fontes(
 
         badge_link = _BADGE_LINK.match(linha_limpa)
         if badge_link:
-            badge = _renderizar_badge_fonte(*badge_link.groups())
-            if badge:
-                descarregar_texto()
-                fragmentos.append(badge)
-            continue
-
-        narrativa = _LINHA_NARRATIVA_DADOS.match(linha_limpa)
-        if narrativa:
-            nome = narrativa.group(1).strip().strip("\"'“”").strip()
+            rotulo, nome, url = badge_link.groups()
+            # Placeholder sem valor no contexto: a linha inteira sai da caixa,
+            # em vez de imprimir "$nm_boletim1" cru como rótulo do link.
             if "$" not in nome:
-                badge = _renderizar_badge_fonte("Narrativa de dados", nome, narrativa.group(2))
+                badge = _renderizar_badge_fonte(rotulo, nome, url)
                 if badge:
                     descarregar_texto()
                     fragmentos.append(badge)
@@ -248,13 +370,15 @@ def _chave_secao_caixa(titulo_casefold: str) -> str:
     return "fontes"
 
 
-def _montar_caixa_fontes(secoes: dict[str, list[str]], incluir_intro: bool) -> str:
+def _montar_caixa_fontes(
+    secoes: dict[str, list[str]], incluir_intro: bool, namespace: str = ""
+) -> str:
     if not secoes:
         return ""
     corpo = "".join(
         "".join(secoes[chave]) for chave in _ORDEM_SECOES_CAIXA if chave in secoes
     )
-    intro = _FONTES_BOX_INTRO_HTML if incluir_intro else ""
+    intro = _montar_fontes_box_intro_html(namespace) if incluir_intro else ""
     # padding-top em ".fontes-box-wrap" (não margin em ".fontes-box"): margem
     # de quem começa uma página nova é descartada pelo WeasyPrint.
     return (
@@ -300,7 +424,7 @@ def _renderizar_secao_caixa_fontes(
             )
         )
 
-    return _montar_caixa_fontes(secoes, incluir_intro=True)
+    return _montar_caixa_fontes(secoes, incluir_intro=True, namespace=namespace)
 
 
 _CABECALHO_TITULO = re.compile(r"(?i)^#!\s*(.*)$")
@@ -346,6 +470,7 @@ def render_descricao_tema_html(
     global _suprimir_proxima_legenda
     _suprimir_proxima_legenda = False
     descricao_tema = interpretar_blocos_condicionais(descricao_tema, contexto)
+    descricao_tema = _rotular_linhas_de_fonte(descricao_tema)
     partes = []
     intro_ja_inserida = False
     secoes_caixa: dict[str, list[str]] | None = None
@@ -361,7 +486,11 @@ def render_descricao_tema_html(
     def fechar_caixa_fontes() -> None:
         nonlocal secoes_caixa, secao_atual, intro_ja_inserida
         if secoes_caixa:
-            partes.append(_montar_caixa_fontes(secoes_caixa, incluir_intro=not intro_ja_inserida))
+            partes.append(
+                _montar_caixa_fontes(
+                    secoes_caixa, incluir_intro=not intro_ja_inserida, namespace=namespace
+                )
+            )
             intro_ja_inserida = True
         secoes_caixa = None
         secao_atual = None
@@ -435,6 +564,9 @@ def texto_para_html(
 
     if not blocos_condicionais_ja_interpretados:
         texto = interpretar_blocos_condicionais(texto, contexto)
+    # Idempotente: a linha já reescrita por render_descricao_tema_html deixa de
+    # casar com _LINHA_FONTE (passa a começar com "[").
+    texto = _rotular_linhas_de_fonte(texto)
     texto_renderizado = substituir_placeholders(texto, contexto, namespace)
 
     # Seções "#!Fontes"/"#!Conteúdos relacionados" (quando sobram aqui em vez
