@@ -5,8 +5,8 @@ import pytest
 from plotting.saude import (
     gerar_grafico_cobertura_vacinal,
     gerar_grafico_de_estabelecimento,
-    gerar_grafico_mortalidade_infantil,
     gerar_grafico_publico_etario,
+    gerar_grafico_taxa_mortalidade,
 )
 
 
@@ -20,18 +20,18 @@ def _cidade_mortalidade_infantil():
     }
 
 
-def test_gera_grafico_mortalidade_infantil(tmp_path: Path):
-    arquivo = gerar_grafico_mortalidade_infantil(
+def test_gera_grafico_taxa_mortalidade(tmp_path: Path):
+    arquivo = gerar_grafico_taxa_mortalidade(
         _cidade_mortalidade_infantil(), tmp_path, "campina_grande_pb"
     )
 
-    assert arquivo == "grafico_mortalidade_infantil_campina_grande_pb.png"
+    assert arquivo == "grafico_taxa_mortalidade_campina_grande_pb.png"
     assert (tmp_path / arquivo).is_file()
 
 
-def test_grafico_mortalidade_infantil_exige_dados(tmp_path: Path):
+def test_grafico_taxa_mortalidade_exige_dados(tmp_path: Path):
     with pytest.raises(ValueError, match="Dados históricos de mortalidade infantil"):
-        gerar_grafico_mortalidade_infantil({}, tmp_path, "sem_dados")
+        gerar_grafico_taxa_mortalidade({}, tmp_path, "sem_dados")
 
 
 def _cidade_estabelecimentos_saude():

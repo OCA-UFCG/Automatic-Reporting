@@ -758,3 +758,193 @@ Cinco ou mais."""
     )
     assert "Cinco ou mais." in cinco_ou_mais
     assert "De 2 a 4" not in cinco_ou_mais
+
+
+def test_aridez_condition_count_picks_the_matching_block():
+    """meio-ambiente descreve 1, 2 ou 3 classes de aridez presentes em 1991.
+    Não existe operador de "contagem" no motor — a regra editorial expressa
+    isso como uma cadeia de "diferente de 0"/"igual a 0" sobre os três
+    campos ordenados (aridez_cond1..3_area1991), do mesmo jeito que as
+    faixas de UC acima."""
+    texto = """Para meio-ambiente.$aridez_cond1_area1991 for igual a 0:
+Sem dados de aridez.
+Para meio-ambiente.$aridez_cond1_area1991 for diferente de 0 e meio-ambiente.$aridez_cond2_area1991 for igual a 0:
+Uma condição de aridez.
+Para meio-ambiente.$aridez_cond2_area1991 for diferente de 0 e meio-ambiente.$aridez_cond3_area1991 for igual a 0:
+Duas condições de aridez.
+Para meio-ambiente.$aridez_cond3_area1991 for diferente de 0:
+Três condições de aridez."""
+
+    sem_dados = interpretar_blocos_condicionais(texto, {})
+    assert "Sem dados de aridez." in sem_dados
+    assert "Uma condição de aridez." not in sem_dados
+    assert "Duas condições de aridez." not in sem_dados
+    assert "Três condições de aridez." not in sem_dados
+
+    uma = interpretar_blocos_condicionais(
+        texto, {"aridez_cond1_area1991": 10, "aridez_cond2_area1991": 0, "aridez_cond3_area1991": 0}
+    )
+    assert "Uma condição de aridez." in uma
+    assert "Duas condições de aridez." not in uma
+    assert "Três condições de aridez." not in uma
+
+    duas = interpretar_blocos_condicionais(
+        texto, {"aridez_cond1_area1991": 10, "aridez_cond2_area1991": 5, "aridez_cond3_area1991": 0}
+    )
+    assert "Duas condições de aridez." in duas
+    assert "Três condições de aridez." not in duas
+
+    tres = interpretar_blocos_condicionais(
+        texto,
+        {
+            "aridez_cond1_area1991": 10,
+            "aridez_cond2_area1991": 5,
+            "aridez_cond3_area1991": 2,
+        },
+    )
+    assert "Três condições de aridez." in tres
+
+
+def test_caption_is_dropped_when_its_chart_was_not_generated():
+    # Municípios sem comércio exterior não geram o gráfico de países, e a
+    # legenda ficava órfã no relatório (4 imagens para 6 legendas em Anadia/AL).
+    reset_figura_contador()
+    texto = (
+        "%%grafico_fob\n"
+        "\n"
+        "\n"
+        "Figura X- Destinos das importações ordenados pelo valor líquido FOB.\n"
+        "\n"
+        "%%grafico_balanca\n"
+        "\n"
+        "Figura X- Visão mensal da balança comercial."
+    )
+
+    html = texto_para_html(
+        texto, {}, graficos_por_placeholder={"grafico_balanca": "balanca.png"}
+    )
+
+    assert "Destinos das importações" not in html
+    # A legenda suprimida não consome número: a balança continua sendo a 2.
+    assert "Figura 2 – Visão mensal da balança comercial." in html
+    assert "balanca.png" in html
+
+
+def test_caption_is_kept_when_its_chart_exists():
+    reset_figura_contador()
+    texto = (
+        "%%grafico_fob\n"
+        "\n"
+        "\n"
+        "Figura X- Destinos das importações ordenados pelo valor líquido FOB."
+    )
+
+    html = texto_para_html(
+        texto, {}, graficos_por_placeholder={"grafico_fob": "fob.png"}
+    )
+
+    assert "Figura 2 – Destinos das importações" in html
+    assert "fob.png" in html
+
+
+def test_caption_without_any_chart_marker_is_still_rendered():
+    # A legenda do mapa e outras sem marcador não podem ser afetadas pela
+    # supressão — ela só vale para a legenda imediatamente após um marcador.
+    reset_figura_contador()
+    texto = (
+        "%%grafico_fob\n"
+        "\n"
+        "Um parágrafo qualquer entre o marcador e a legenda.\n"
+        "\n"
+        "Figura X- Localização do município."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "Figura 2 – Localização do município." in html
+
+
+def test_caption_is_dropped_even_when_rendered_in_a_separate_call():
+    # render_descricao_tema_html quebra o texto por linha em branco e chama
+    # texto_para_html uma vez por parágrafo, então marcador e legenda chegam em
+    # chamadas distintas sempre que há linha em branco entre eles no Doc.
+    reset_figura_contador()
+
+    html_marcador = texto_para_html("%%grafico_fob", {}, graficos_por_placeholder={})
+    html_legenda = texto_para_html(
+        "Figura X- Destinos das importações ordenados pelo valor líquido FOB.",
+        {},
+        graficos_por_placeholder={},
+    )
+
+    assert "Destinos das importações" not in html_marcador + html_legenda
+
+
+def test_supression_does_not_leak_past_an_intervening_paragraph_across_calls():
+    reset_figura_contador()
+
+    texto_para_html("%%grafico_fob", {}, graficos_por_placeholder={})
+    texto_para_html("Um parágrafo qualquer no meio.", {}, graficos_por_placeholder={})
+    html = texto_para_html(
+        "Figura X- Localização do município.", {}, graficos_por_placeholder={}
+    )
+
+    assert "Figura 2 – Localização do município." in html
+
+
+def test_field_vs_field_condition_picks_the_matching_block():
+    """educacao compara dois campos entre si ($sem_instr_2000 vs
+    $sem_instr_2022), não um campo contra um número literal — os operadores
+    fixos exigem \\d+ e nunca casavam, então nenhum dos dois parágrafos era
+    exibido, independente dos dados (bug real, não hipotético)."""
+    texto = """Para quando educacao.$sem_instr_2000 for igual a educacao.$sem_instr_2022, então:
+Sem variação no número de pessoas sem instrução.
+Para quando educacao.$sem_instr_2000 for diferente de educacao.$sem_instr_2022, então:
+Houve variação no número de pessoas sem instrução."""
+
+    sem_variacao = interpretar_blocos_condicionais(
+        texto, {"sem_instr_2000": 100, "sem_instr_2022": 100}
+    )
+    assert "Sem variação no número de pessoas sem instrução." in sem_variacao
+    assert "Houve variação no número de pessoas sem instrução." not in sem_variacao
+
+    com_variacao = interpretar_blocos_condicionais(
+        texto, {"sem_instr_2000": 100, "sem_instr_2022": 80}
+    )
+    assert "Houve variação no número de pessoas sem instrução." in com_variacao
+    assert "Sem variação no número de pessoas sem instrução." not in com_variacao
+
+
+def test_condition_and_its_guarded_paragraph_separated_by_a_blank_line_still_gates_correctly():
+    """No Doc exportado do Google Docs, a regra 'Para quando ...:' fica em um
+    parágrafo próprio, separado do parágrafo que ela guarda por uma linha em
+    branco (como qualquer parágrafo do Doc) — não colado na mesma linha como
+    nos outros testes deste arquivo. Essa linha em branco não pode ser
+    tratada como 'fim do bloco condicional': se for, o bloco reativa antes do
+    parágrafo guardado ser lido, e as duas versões (igual/diferente) vazam
+    juntas no relatório, não importa o dado (bug real, não hipotético)."""
+    texto = """Antes do bloco condicional.
+
+Para quando educacao.$sem_instr_2000 for igual a educacao.$sem_instr_2022, então:
+
+TEXTO_IGUAL
+
+Para quando educacao.$sem_instr_2000 for diferente de educacao.$sem_instr_2022, então:
+
+TEXTO_DIFERENTE
+
+Depois do bloco condicional."""
+
+    igual = interpretar_blocos_condicionais(
+        texto, {"sem_instr_2000": 100, "sem_instr_2022": 100}
+    )
+    assert "TEXTO_IGUAL" in igual
+    assert "TEXTO_DIFERENTE" not in igual
+    assert "Antes do bloco condicional." in igual
+    assert "Depois do bloco condicional." in igual
+
+    diferente = interpretar_blocos_condicionais(
+        texto, {"sem_instr_2000": 100, "sem_instr_2022": 80}
+    )
+    assert "TEXTO_DIFERENTE" in diferente
+    assert "TEXTO_IGUAL" not in diferente

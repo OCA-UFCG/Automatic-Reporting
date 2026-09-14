@@ -32,8 +32,8 @@ from plotting.saneamento import gerar_grafico_esgotamento_sanitario
 from plotting.saude import (
     gerar_grafico_cobertura_vacinal,
     gerar_grafico_de_estabelecimento,
-    gerar_grafico_mortalidade_infantil,
     gerar_grafico_publico_etario,
+    gerar_grafico_taxa_mortalidade,
 )
 from services.csv_loader import (
     carregar_csv,
@@ -142,13 +142,6 @@ GRAFICOS_AUTO_MARCADOR = {
             (
                 r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
                 r"Taxa\s+de\s+cobertura\s+vacinal\s+por\s+tipo\s+de\s+vacina[^\n]*)$"
-            ),
-        ),
-        (
-            "grafico_mortalidade_infantil",
-            (
-                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
-                r"Vis[aã]o\s+hist[oó]rica\s+da\s+taxa\s+de\s+mortalidade\s+infantil[^\n]*)$"
             ),
         ),
         (
@@ -700,7 +693,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             for nome_grafico, gerar_grafico in (
                 ("grafico_publico_etario", gerar_grafico_publico_etario),
                 ("grafico_cobertura_vacinal", gerar_grafico_cobertura_vacinal),
-                ("grafico_mortalidade_infantil", gerar_grafico_mortalidade_infantil),
+                ("grafico_taxa_mortalidade", gerar_grafico_taxa_mortalidade),
                 ("grafico_de_estabelecimento", gerar_grafico_de_estabelecimento),
             ):
                 try:

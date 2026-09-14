@@ -18,7 +18,12 @@ from matplotlib.transforms import blended_transform_factory
 logger = logging.getLogger(__name__)
 
 _FONTS_DIR = Path(__file__).resolve().parent.parent / "report" / "src" / "styles" / "fonts"
-_ARQUIVOS_INTER = ("Inter-Regular.ttf", "Inter-SemiBold.ttf", "Inter-Bold.ttf")
+_ARQUIVOS_INTER = (
+    "Inter-Regular.ttf",
+    "Inter-Medium.ttf",
+    "Inter-SemiBold.ttf",
+    "Inter-Bold.ttf",
+)
 
 # Multiplicador aplicado a todos os tamanhos de fonte dos gráficos (fontsize/
 # labelsize). Preserva as proporções entre os textos; ajuste este único número
@@ -39,6 +44,11 @@ def _registrar_inter() -> None:
         logger.warning("Fontes Inter ausentes em %s: %s", _FONTS_DIR, faltando)
         return
     rcParams["font.family"] = "Inter"
+    # Figma pede peso 500 (Medium) pros textos dos gráficos — título e rótulos
+    # (eixos, ticks, legenda). Vira o padrão de todo texto matplotlib; onde um
+    # texto específico precisa de outro peso (ex.: valor da barra em negrito),
+    # o `fontweight` é passado explicitamente naquela chamada e sobrepõe isso.
+    rcParams["font.weight"] = "medium"
 
 
 _registrar_inter()
@@ -107,7 +117,7 @@ def iniciar_card_grafico(
         ha="left",
         va="center",
         fontsize=tamanho_titulo * ESCALA_FONTE,
-        fontweight=600,
+        fontweight="medium",
         color=_CARD_COR_TITULO,
         zorder=3,
     )
