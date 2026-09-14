@@ -34,6 +34,12 @@ _MARGEM_VERTICAL_GRAFICOS_PADRAO = "32px"
 # duas e deixava ~43px de respiro entre o gráfico e a legenda — demais.
 _MARGEM_INFERIOR_GRAFICOS = "8px"
 _CONFIG_GRAFICOS = {
+    # A rosca de esgotamento é desenhada num card mais largo (10") para os
+    # rótulos de % caberem sem se sobrepor; exibi-la nos 480px padrão
+    # encolheria o texto na mesma proporção, então ela ganha largura própria.
+    "grafico_esgotamento_sanitario": {
+        "largura_maxima": "600px",
+    },
     "grafico_composicao_cor_raca": {
         "largura_maxima": "350px",
         "margem_vertical": "12px",
@@ -715,11 +721,14 @@ def texto_para_html(
 
             if figuras:
 
+                # `.get`: uma entrada de _CONFIG_GRAFICOS pode configurar só
+                # a largura e herdar a margem padrão — indexar direto quebrava
+                # a renderização inteira com KeyError nesse caso.
                 margem_vertical = next(
                     (
                         _CONFIG_GRAFICOS[tipo]["margem_vertical"]
                         for tipo in tipos
-                        if tipo in _CONFIG_GRAFICOS
+                        if _CONFIG_GRAFICOS.get(tipo, {}).get("margem_vertical")
                     ),
                     _MARGEM_VERTICAL_GRAFICOS_PADRAO,
                 )

@@ -49,25 +49,32 @@ def _quebrar_rotulo_longo(rotulo: str) -> str:
 
 
 # Distância angular mínima, em graus, entre os centros de dois rótulos de
-# percentual vizinhos no anel. Calibrado para o rótulo mais largo ("12,3%")
-# na fonte atual: abaixo disso os textos encostam um no outro.
-_ANGULO_MINIMO_ENTRE_ROTULOS = 21.0
-# Abaixo deste percentual a fatia não recebe rótulo nem quando está isolada:
-# o texto ficaria maior que a própria fatia.
+# percentual vizinhos para que caibam no mesmo raio. Abaixo disso o de fora
+# é empurrado para um raio maior, em vez de ser omitido: esconder o número
+# de uma categoria que existe no dado é pior que um rótulo deslocado.
+_ANGULO_MINIMO_ENTRE_ROTULOS = 15.0
+# Raio (em frações do raio da rosca) onde os rótulos são escritos: o padrão e
+# o "degrau" usado quando o rótulo vizinho está perto demais.
+_RAIO_ROTULO = 1.18
+_RAIO_ROTULO_AFASTADO = 1.40
+# Abaixo deste percentual a fatia fica sem rótulo: o texto seria maior que a
+# própria fatia e não haveria como ligá-lo a ela sem linha-guia. A categoria
+# continua na legenda. Limiar herdado do gráfico original.
 _PCT_MINIMO_PARA_ROTULO = 2.0
 
 
-def _indices_com_rotulo(valores: list[float]) -> set[int]:
-    """Índices das fatias que podem exibir o rótulo de percentual sem colidir
-    com o rótulo da fatia anterior, na ordem em que são desenhadas."""
+def _raios_dos_rotulos(valores: list[float]) -> dict[int, float]:
+    """Raio de cada rótulo de percentual, por índice de fatia. Rótulos que
+    ficariam colados no vizinho vão para um raio maior, alternadamente, de
+    modo que nenhum seja omitido."""
     total = sum(valores)
     if total <= 0:
-        return set()
+        return {}
 
-    indices: set[int] = set()
+    raios: dict[int, float] = {}
     angulo_acumulado = 0.0
     centro_anterior = None
-    primeiro_centro = None
+    raio_anterior = _RAIO_ROTULO
 
     for indice, valor in enumerate(valores):
         angulo = 360.0 * valor / total
@@ -76,25 +83,24 @@ def _indices_com_rotulo(valores: list[float]) -> set[int]:
 
         if 100.0 * valor / total < _PCT_MINIMO_PARA_ROTULO:
             continue
-        if (
+
+        perto_do_anterior = (
             centro_anterior is not None
             and centro - centro_anterior < _ANGULO_MINIMO_ENTRE_ROTULOS
-        ):
-            continue
-        # A última fatia fecha o círculo: precisa de folga também para a
-        # primeira rotulada, senão os dois rótulos se encontram no topo.
-        if (
-            primeiro_centro is not None
-            and primeiro_centro + 360.0 - centro < _ANGULO_MINIMO_ENTRE_ROTULOS
-        ):
-            continue
-
-        indices.add(indice)
+        )
+        # Só alterna se o anterior estava no raio de dentro: três rótulos
+        # seguidos e próximos ficam dentro/fora/dentro, nunca dois fora
+        # colados um no outro.
+        raio = (
+            _RAIO_ROTULO_AFASTADO
+            if perto_do_anterior and raio_anterior == _RAIO_ROTULO
+            else _RAIO_ROTULO
+        )
+        raios[indice] = raio
         centro_anterior = centro
-        if primeiro_centro is None:
-            primeiro_centro = centro
+        raio_anterior = raio
 
-    return indices
+    return raios
 
 
 def _formatar_total(total: float) -> str:
@@ -123,7 +129,7 @@ def gerar_grafico_esgotamento_sanitario(
     rotulos_legenda = [_quebrar_rotulo_longo(rotulo) for rotulo in rotulos]
 
     fig, ax = iniciar_card_grafico(
-        (8, 4.6),
+        (10, 5.4),
         "Domicílios por tipo de esgotamento sanitário",
         # A rosca não tem eixo Y rotulado, então a margem esquerda default
         # (reservada pra esses rótulos) só empurraria o desenho pra direita.
@@ -133,21 +139,18 @@ def gerar_grafico_esgotamento_sanitario(
     # a faixa que ela precisa passou a ser maior que a própria rosca: o `ax`
     # cede 56% da largura (antes 44%), senão o rótulo mais longo vaza o card.
     posicao = ax.get_position()
-    largura_legenda = posicao.width * 0.56
+    largura_legenda = posicao.width * 0.42
     ax.set_position(
         (posicao.x0, posicao.y0, posicao.width - largura_legenda, posicao.height)
     )
 
-    # Quais fatias levam rótulo de %: o critério é a distância angular entre
-    # rótulos vizinhos, não o percentual em si. Duas fatias finas e coladas
-    # (ex.: 3,2% e 3,5% em Belém/AL) têm percentual "alto o bastante" e mesmo
-    # assim seus rótulos se sobrepõem no anel; já uma fatia pequena isolada
-    # cabe sem colidir. A categoria de quem fica sem rótulo segue na legenda.
-    com_rotulo = _indices_com_rotulo(valores)
+    # Todas as fatias >= 2% recebem rótulo; quem ficaria colado no vizinho
+    # é afastado radialmente (ver `_raios_dos_rotulos`), nunca omitido.
+    raios_rotulos = _raios_dos_rotulos(valores)
     indice_fatia = itertools.count()
 
     def _autopct(pct: float) -> str:
-        if next(indice_fatia) not in com_rotulo:
+        if next(indice_fatia) not in raios_rotulos:
             return ""
         return f"{pct:.1f}%".replace(".", ",")
 
@@ -157,16 +160,24 @@ def gerar_grafico_esgotamento_sanitario(
         startangle=90,
         counterclock=False,
         autopct=_autopct,
-        pctdistance=1.22,
+        pctdistance=_RAIO_ROTULO,
         wedgeprops={"width": 0.42, "edgecolor": "white", "linewidth": 1.5},
     )
-    for autotexto in autotextos:
+    # `pctdistance` é único para todas as fatias, então o degrau de quem está
+    # apertado é aplicado aqui, reposicionando o texto no raio escolhido.
+    for autotexto, raio in zip(
+        autotextos, [raios_rotulos[i] for i in sorted(raios_rotulos)]
+    ):
+        x, y = autotexto.get_position()
+        fator = raio / _RAIO_ROTULO
+        autotexto.set_position((x * fator, y * fator))
         autotexto.set_fontsize(12)
         autotexto.set_color("#4A4A4A")
 
-    # Miolo da rosca: tamanhos e posições originais, de propósito — o pedido
-    # de fonte maior vale para os percentuais e a legenda, não para o big
-    # number, que já é o maior texto do gráfico.
+    # Espaço para o degrau externo dos rótulos sem cortá-los na borda do eixo.
+    ax.set_xlim(-1.55, 1.55)
+    ax.set_ylim(-1.55, 1.55)
+
     ax.text(0, 0.12, _formatar_total(total), ha="center", va="center",
             fontsize=22*ESCALA_FONTE, fontweight="bold", color="#3F3F3F")
     ax.text(0, -0.18, "domicílios", ha="center", va="center",

@@ -5,9 +5,9 @@ import pytest
 
 from plotting.saneamento import (
     _ANOS_DINAMICA_ESGOTO,
-    _indices_com_rotulo,
     _pontos_por_ano,
     _quebrar_rotulo_longo,
+    _raios_dos_rotulos,
     gerar_grafico_coleta_lixo,
     gerar_grafico_dinamica_esgoto,
     gerar_grafico_esgotamento_sanitario,
@@ -126,24 +126,26 @@ def test_quebra_rotulo_longo_da_legenda():
     assert "\n" not in _quebrar_rotulo_longo("Fossa séptica ou fossa filtro")
 
 
-def test_rotulos_de_percentual_nao_colidem_em_fatias_vizinhas():
-    # Belém/AL: 3,2% (vala) e 3,5% (rio/lago) são fatias finas e coladas —
-    # ambas passariam num filtro por percentual, mas seus rótulos se
-    # sobrepõem no anel. Só uma das duas pode ser rotulada.
+def test_rotulos_proximos_sao_afastados_em_vez_de_omitidos():
+    # Belém/AL: 3,2% (vala) e 3,5% (rio/lago) são fatias finas e coladas. Os
+    # dois rótulos continuam no gráfico — o segundo vai para um raio maior.
     valores = [123, 10, 1397, 54, 59, 27, 6]
 
-    com_rotulo = _indices_com_rotulo(valores)
+    raios = _raios_dos_rotulos(valores)
 
-    assert 2 in com_rotulo  # 83,4% — a fatia dominante sempre cabe
-    assert 0 in com_rotulo  # 7,3% — isolada o suficiente
-    assert not {3, 4} <= com_rotulo  # vala e rio não podem coexistir
-    assert 1 not in com_rotulo  # 0,6%: abaixo do mínimo, mesmo isolada
+    assert set(raios) == {0, 2, 3, 4}  # 7,3%, 83,4%, 3,2% e 3,5% rotulados
+    assert raios[3] != raios[4]  # vala e rio em raios diferentes
+    assert 1 not in raios  # 0,6%: fatia menor que o próprio texto
+    assert 6 not in raios  # 0,4%: idem
 
 
-def test_todas_as_fatias_rotuladas_quando_bem_distribuidas():
-    # Sete fatias iguais: 51,4° entre centros, bem acima do mínimo.
-    assert _indices_com_rotulo([100] * 7) == set(range(7))
+def test_rotulos_ficam_no_mesmo_raio_quando_bem_distribuidos():
+    # Sete fatias iguais: 51,4° entre centros, folga de sobra.
+    raios = _raios_dos_rotulos([100] * 7)
+
+    assert set(raios) == set(range(7))
+    assert len(set(raios.values())) == 1
 
 
 def test_sem_rotulo_quando_nao_ha_total():
-    assert _indices_com_rotulo([0, 0, 0]) == set()
+    assert _raios_dos_rotulos([0, 0, 0]) == {}

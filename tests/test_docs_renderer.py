@@ -942,3 +942,20 @@ Depois do bloco condicional."""
     )
     assert "TEXTO_DIFERENTE" in diferente
     assert "TEXTO_IGUAL" not in diferente
+
+
+def test_config_de_grafico_sem_margem_usa_a_padrao():
+    # Regressão: uma entrada de _CONFIG_GRAFICOS que configura só a largura
+    # (como a da rosca de esgotamento) derrubava a renderização inteira com
+    # KeyError, porque a margem era lida por indexação direta.
+    reset_figura_contador()
+    texto = "%%grafico_esgotamento_sanitario\n\nFigura X- Legenda de teste."
+
+    html = texto_para_html(
+        texto,
+        {},
+        graficos_por_placeholder={"grafico_esgotamento_sanitario": "rosca.png"},
+    )
+
+    assert "margin:32px 0 8px;" in html
+    assert "max-width:600px" in html
