@@ -1,8 +1,12 @@
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
-from plotting.saneamento import gerar_grafico_esgotamento_sanitario
+from plotting.saneamento import (
+    gerar_grafico_dinamica_esgoto,
+    gerar_grafico_esgotamento_sanitario,
+)
 
 
 def test_gera_rosca_de_esgotamento(tmp_path: Path):
@@ -27,3 +31,28 @@ def test_gera_rosca_de_esgotamento(tmp_path: Path):
 def test_grafico_exige_dados(tmp_path: Path):
     with pytest.raises(ValueError, match="não disponíveis"):
         gerar_grafico_esgotamento_sanitario({"esg_total": 0}, tmp_path, "sem_dados")
+
+
+def test_gera_dinamica_esgoto(tmp_path: Path):
+    # Campina Grande/PB: 2000 vem como string (fonte antiga da view), 2010 e
+    # 2022 como Decimal — mistura real que o parser precisa suportar.
+    cidade = {
+        "esgoto_rede_2000": "68.4",
+        "esgoto_rede_2010": Decimal("79.4"),
+        "esgoto_rede_2022": Decimal("86.6"),
+    }
+
+    arquivo = gerar_grafico_dinamica_esgoto(cidade, tmp_path, "campina_grande_pb")
+
+    assert arquivo == "grafico_dinamica_esgoto_campina_grande_pb.png"
+    assert (tmp_path / arquivo).is_file()
+
+
+def test_grafico_dinamica_esgoto_exige_dados(tmp_path: Path):
+    cidade = {
+        "esgoto_rede_2000": None,
+        "esgoto_rede_2010": 0,
+        "esgoto_rede_2022": "0",
+    }
+    with pytest.raises(ValueError, match="não disponíveis"):
+        gerar_grafico_dinamica_esgoto(cidade, tmp_path, "sem_dados")
