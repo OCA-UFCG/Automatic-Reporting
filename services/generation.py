@@ -135,7 +135,14 @@ GRAFICOS_AUTO_MARCADOR = {
             "grafico_visao_historica",
             (
                 r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
-                r"Vis[aã]o\s+hist[oó]rica\s+da\s+popula[cç][aã]o[^\n]*)$"
+                # Aceita tanto a legenda antiga do Doc ("Visão histórica da
+                # população...") quanto uma já alinhada ao título novo do
+                # card ("Dinâmica Populacional"): se alguém editar a legenda
+                # pra combinar com o título sem coordenar com o código, o
+                # gráfico não pode simplesmente sumir do relatório (regra de
+                # "no caption in the Doc → no chart", CLAUDE.md).
+                r"(?:Vis[aã]o\s+hist[oó]rica\s+da\s+popula[cç][aã]o|"
+                r"Din[aâ]mica\s+Populacional)[^\n]*)$"
             ),
         ),
     ),
