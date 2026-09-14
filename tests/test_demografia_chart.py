@@ -70,6 +70,35 @@ def test_gera_visao_historica_populacao(tmp_path: Path):
     assert (tmp_path / arquivo).is_file()
 
 
+def test_visao_historica_populacao_usa_titulo_e_legenda_do_eixo_y(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    import plotting.demografia as demografia_module
+    from plotting import salvar_card_grafico as salvar_card_grafico_original
+
+    figuras_capturadas = []
+
+    def _capturar_e_salvar(fig, chart_file, dpi=180):
+        figuras_capturadas.append(fig)
+        salvar_card_grafico_original(fig, chart_file, dpi=dpi)
+
+    monkeypatch.setattr(demografia_module, "salvar_card_grafico", _capturar_e_salvar)
+
+    cidade = {
+        "pop_total_2000": 355331,
+        "pop_total_2010": 385213,
+        "pop_total_2022": 405072,
+    }
+
+    gerar_grafico_visao_historica_populacao(cidade, tmp_path, "campina_grande_pb")
+
+    (fig,) = figuras_capturadas
+    titulo = fig.texts[0].get_text()
+    assert titulo == "Dinâmica Populacional"
+    (ax,) = fig.axes
+    assert ax.get_ylabel() == "População"
+
+
 def test_grafico_usa_unidade_mil_para_municipios_pequenos(tmp_path: Path):
     # Canapi/AL: população na casa do milhar, não do milhão — dividir tudo
     # por 1_000_000 fazia toda barra arredondar para "0 Mi" (regressão).

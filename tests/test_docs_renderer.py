@@ -70,6 +70,21 @@ def test_frase_com_linha_em_branco_antes_nao_e_mesclada():
     assert html.count("<p>") == 2
 
 
+def test_linha_de_condicionante_nao_reconhecida_nao_e_mesclada_no_paragrafo_anterior():
+    # Se uma linha "Para quando ...:" escapa de interpretar_blocos_condicionais
+    # (ex.: por não conter um "$campo" reconhecido), ela termina em ":" — não
+    # deve ser tratada como frase única e colada no parágrafo visível acima.
+    texto = (
+        "Primeira frase do parágrafo, com bastante contexto.\n"
+        "Para quando alguma condição não reconhecida:"
+    )
+
+    html = texto_para_html(texto, {}, namespace="demografia")
+
+    assert html.count("<p>") == 2
+    assert "contexto. Para quando" not in html
+
+
 def test_fontes_box_from_texto_para_html_includes_the_explore_intro_row():
     texto = "#!Fontes\n\n[Painel: Quilombola](teste)\n"
 

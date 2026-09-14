@@ -28,11 +28,21 @@ _proxima_referencia_inline = 1
 _suprimir_proxima_legenda = False
 
 _PONTUACAO_FINAL_FRASE = re.compile(r"[.!?…]+(?=[\"'”’)]*(?:\s|$))")
+_TERMINA_EM_FRASE = re.compile(r"[.!?…]+[\"'”’)]*$")
 
 
 def _eh_frase_unica(texto: str) -> bool:
-    """Uma linha com no máximo uma pontuação final de frase é uma frase só."""
-    return len(_PONTUACAO_FINAL_FRASE.findall(texto.strip())) <= 1
+    """Uma linha termina em UMA frase completa (não em ':' ou sem pontuação).
+
+    Sem essa exigência de terminar em pontuação de frase, uma linha de
+    condicionante mal reconhecida por interpretar_blocos_condicionais (ex.:
+    "Para quando ...:") também "passava" como frase única e era colada no
+    parágrafo anterior, misturando instrução editorial com texto visível.
+    """
+    texto = texto.strip()
+    if not _TERMINA_EM_FRASE.search(texto):
+        return False
+    return len(_PONTUACAO_FINAL_FRASE.findall(texto)) == 1
 
 
 _LARGURA_MAXIMA_GRAFICO_PADRAO = "480px"
