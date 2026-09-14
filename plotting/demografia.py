@@ -176,7 +176,7 @@ def gerar_grafico_visao_historica_populacao(
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_visao_historica_populacao_{safe_city}.png"
 
-    fig, ax = iniciar_card_grafico((8, 4.4), "Visão histórica da população total")
+    fig, ax = iniciar_card_grafico((8, 4.4), "Dinâmica Populacional")
     _reservar_espaco_rotulo_x(fig, ax)
     x = np.arange(len(anos))
     barras = ax.bar(x, valores_escalados, width=0.6, color="#D97AAA", zorder=3)
@@ -198,6 +198,7 @@ def gerar_grafico_visao_historica_populacao(
     ax.set_xticks(x)
     ax.set_xticklabels(anos, fontsize=11*ESCALA_FONTE, fontweight=600)
     ax.set_xlabel("Ano", fontsize=12*ESCALA_FONTE, color="#514C50")
+    ax.set_ylabel("População", fontsize=12*ESCALA_FONTE, color="#514C50")
     ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _: _rotulo(valor)))
     ax.yaxis.set_major_locator(MaxNLocator(4))
     ax.tick_params(axis="both", length=0, colors="#514C50", labelsize=11*ESCALA_FONTE)

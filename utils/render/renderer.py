@@ -27,6 +27,14 @@ _proxima_referencia_inline = 1
 # diferentes sempre que há linha em branco entre eles no Doc.
 _suprimir_proxima_legenda = False
 
+_PONTUACAO_FINAL_FRASE = re.compile(r"[.!?…]+(?=[\"'”’)]*(?:\s|$))")
+
+
+def _eh_frase_unica(texto: str) -> bool:
+    """Uma linha com no máximo uma pontuação final de frase é uma frase só."""
+    return len(_PONTUACAO_FINAL_FRASE.findall(texto.strip())) <= 1
+
+
 _LARGURA_MAXIMA_GRAFICO_PADRAO = "480px"
 _MARGEM_VERTICAL_GRAFICOS_PADRAO = "32px"
 _CONFIG_GRAFICOS = {
@@ -600,6 +608,15 @@ def texto_para_html(
 
     proximo_paragrafo_destaque = False
 
+    # Uma quebra de linha "solta" (Shift+Enter no Doc, sem linha em branco
+    # antes) que deixa s\u00f3 uma frase na linha seguinte n\u00e3o deve virar um <p>
+    # pr\u00f3prio \u2014 fica visualmente como um par\u00e1grafo quebrado ao meio. Essas
+    # duas flags rastreiam se a \u00faltima linha era vazia e se o \u00faltimo <p>
+    # emitido foi um par\u00e1grafo comum (n\u00e3o t\u00edtulo/lista/legenda de figura),
+    # que s\u00e3o os \u00fanicos casos em que faz sentido colar a frase nele.
+    linha_anterior_vazia = True
+    ultimo_foi_paragrafo_plano = False
+
     global _suprimir_proxima_legenda
 
     for linha in linhas:
@@ -611,6 +628,11 @@ def texto_para_html(
         n_espacos = len(sem_tabs) - len(sem_espacos)
         nivel_indentacao = n_tabs + n_espacos // 4
         linha_limpa = linha_sem_bom.strip()
+
+        linha_anterior_estava_vazia = linha_anterior_vazia
+        linha_anterior_vazia = not linha_limpa
+        veio_de_paragrafo_plano = ultimo_foi_paragrafo_plano
+        ultimo_foi_paragrafo_plano = False
 
         if linha_limpa in caixas_por_marcador:
             if em_lista:
@@ -831,25 +853,44 @@ def texto_para_html(
             )
             linha_limpa = _substituir_referencia_figura_inline(linha_limpa)
 
-            if classe_paragrafo:
-                classe = f' class="{classe_paragrafo}"'
-            elif proximo_paragrafo_destaque:
-                classe = ' class="lead"'
+            texto_html = convert_links_to_html(linha_limpa)
+
+            # Frase órfã: linha colada na anterior no Doc (sem linha em
+            # branco entre elas) e que sozinha não passa de uma frase. Em
+            # vez de virar um <p> isolado, ela continua o parágrafo anterior.
+            pode_mesclar = (
+                not linha_anterior_estava_vazia
+                and veio_de_paragrafo_plano
+                and _eh_frase_unica(linha_limpa)
+                and html_lines
+                and html_lines[-1].endswith("</p>")
+            )
+
+            if pode_mesclar:
+                html_lines[-1] = (
+                    html_lines[-1][: -len("</p>")] + " " + texto_html + "</p>"
+                )
             else:
-                classe = ""
+                if classe_paragrafo:
+                    classe = f' class="{classe_paragrafo}"'
+                elif proximo_paragrafo_destaque:
+                    classe = ' class="lead"'
+                else:
+                    classe = ""
 
-            estilo = (
-                f' style="text-indent: {round(nivel_indentacao * 32, 2)}px;"'
-                if nivel_indentacao
-                else ""
-            )
+                estilo = (
+                    f' style="text-indent: {round(nivel_indentacao * 32, 2)}px;"'
+                    if nivel_indentacao
+                    else ""
+                )
 
-            html_lines.append(
-                f"<p{classe}{estilo}>"
-                f"{convert_links_to_html(linha_limpa)}"
-                f"</p>"
-            )
+                html_lines.append(
+                    f"<p{classe}{estilo}>"
+                    f"{texto_html}"
+                    f"</p>"
+                )
 
+            ultimo_foi_paragrafo_plano = True
             proximo_paragrafo_destaque = False
 
     if em_lista:

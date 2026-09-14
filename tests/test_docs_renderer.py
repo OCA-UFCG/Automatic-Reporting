@@ -39,6 +39,37 @@ referencia= "IBGE, 2023."@@
     assert '<a href="https://example.com/relatorio">' in html
 
 
+def test_frase_orfa_sem_linha_em_branco_junta_no_paragrafo_anterior():
+    # Quebra de linha solta (Shift+Enter no Doc, sem linha em branco antes)
+    # deixando só uma frase na segunda linha: não deve virar <p> isolado.
+    texto = (
+        "Primeira frase do parágrafo, com bastante contexto.\n"
+        "Segunda frase, órfã."
+    )
+
+    html = texto_para_html(texto, {}, namespace="demografia")
+
+    assert html.count("<p>") == 1
+    assert (
+        "<p>Primeira frase do parágrafo, com bastante contexto. "
+        "Segunda frase, órfã.</p>" == html
+    )
+
+
+def test_frase_com_linha_em_branco_antes_nao_e_mesclada():
+    # Quando há linha em branco separando, é mesmo um novo parágrafo — não
+    # deve ser colado no anterior mesmo sendo uma frase só.
+    texto = (
+        "Primeira frase do parágrafo, com bastante contexto.\n"
+        "\n"
+        "Segunda frase, em parágrafo próprio."
+    )
+
+    html = texto_para_html(texto, {}, namespace="demografia")
+
+    assert html.count("<p>") == 2
+
+
 def test_fontes_box_from_texto_para_html_includes_the_explore_intro_row():
     texto = "#!Fontes\n\n[Painel: Quilombola](teste)\n"
 
