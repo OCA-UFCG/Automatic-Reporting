@@ -61,7 +61,10 @@ _RAIO_ROTULO_AFASTADO = 1.40
 # dominante (83,4% em Belém/AL, por exemplo) é desenhada menor que a sua
 # proporção real para as fatias pequenas aparecerem e caberem seus rótulos.
 # Os percentuais escritos continuam sendo os reais — só o desenho é ajustado.
-_ANGULO_MINIMO_DA_FATIA = 12.0
+# Precisa ser maior que `_ANGULO_MINIMO_ENTRE_ROTULOS`: duas fatias no piso
+# ficam a exatamente este ângulo uma da outra, e é essa folga que garante
+# que todo rótulo caiba ao lado da sua fatia, sem ser empurrado para fora.
+_ANGULO_MINIMO_DA_FATIA = 16.0
 
 
 def _angulos_de_desenho(valores: list[float]) -> list[float]:

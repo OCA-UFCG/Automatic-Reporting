@@ -4,7 +4,10 @@ from pathlib import Path
 import pytest
 
 from plotting.saneamento import (
+    _ANGULO_MINIMO_DA_FATIA,
+    _ANGULO_MINIMO_ENTRE_ROTULOS,
     _ANOS_DINAMICA_ESGOTO,
+    _RAIO_ROTULO,
     _angulos_de_desenho,
     _pontos_por_ano,
     _quebrar_rotulo_longo,
@@ -155,6 +158,21 @@ def test_todos_os_rotulos_cabem_apos_o_ajuste():
     angulos = _angulos_de_desenho([123, 10, 1397, 54, 59, 27, 6])
 
     assert set(_raios_dos_rotulos(angulos)) == set(range(7))
+
+
+def test_nenhum_rotulo_precisa_do_raio_afastado():
+    # O piso de ângulo é maior que a distância mínima entre rótulos, então
+    # todo rótulo cabe ao lado da sua fatia: o degrau externo — que solta o
+    # texto da fatia — vira só rede de segurança e não deve disparar aqui.
+    assert _ANGULO_MINIMO_DA_FATIA > _ANGULO_MINIMO_ENTRE_ROTULOS
+
+    for valores in (
+        [123, 10, 1397, 54, 59, 27, 6],  # Belém/AL
+        [127454, 7799, 6327, 2060, 1913, 442, 1154],  # Campina Grande/PB
+        [1, 1, 1, 1, 1, 1, 9994],  # seis fatias mínimas coladas
+    ):
+        raios = _raios_dos_rotulos(_angulos_de_desenho(valores))
+        assert set(raios.values()) == {_RAIO_ROTULO}
 
 
 def test_sem_rotulo_quando_nao_ha_total():
