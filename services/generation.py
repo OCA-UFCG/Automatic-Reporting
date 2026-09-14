@@ -32,6 +32,7 @@ from plotting.educacao import (
 from plotting.hidraulica import gerar_grafico_tecnologias_acesso_agua
 from plotting.meio_ambiente import gerar_grafico_aridez
 from plotting.saneamento import (
+    gerar_grafico_coleta_lixo,
     gerar_grafico_dinamica_esgoto,
     gerar_grafico_esgotamento_sanitario,
 )
@@ -223,6 +224,14 @@ GRAFICOS_AUTO_MARCADOR = {
             (
                 r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
                 r"Domic[ií]lios\s+por\s+tipo\s+de\s+esgotamento\s+sanit[aá]rio[^\n]*)$"
+            ),
+        ),
+        (
+            "grafico_coleta_lixo",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Evolu[cç][aã]o\s+do\s+percentual\s+de\s+domic[ií]lios\s+"
+                r"com\s+coleta\s+de\s+lixo[^\n]*)$"
             ),
         ),
     ),
@@ -812,6 +821,22 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             except (ValueError, KeyError) as err:
                 logger.warning(
                     "Não foi possível gerar o gráfico de esgotamento sanitário "
+                    "para '%s': %s",
+                    safe_report,
+                    err,
+                )
+
+            try:
+                graficos_por_placeholder["grafico_coleta_lixo"] = (
+                    gerar_grafico_coleta_lixo(
+                        cidade=linhas_macrotema[0],
+                        OUTPUT_DIR=OUTPUT_DIR,
+                        safe_city=safe_report or "relatorio",
+                    )
+                )
+            except (ValueError, KeyError) as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de coleta de lixo "
                     "para '%s': %s",
                     safe_report,
                     err,

@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from plotting.saneamento import (
+    gerar_grafico_coleta_lixo,
     gerar_grafico_dinamica_esgoto,
     gerar_grafico_esgotamento_sanitario,
 )
@@ -56,3 +57,25 @@ def test_grafico_dinamica_esgoto_exige_dados(tmp_path: Path):
     }
     with pytest.raises(ValueError, match="não disponíveis"):
         gerar_grafico_dinamica_esgoto(cidade, tmp_path, "sem_dados")
+
+
+def test_gera_coleta_lixo(tmp_path: Path):
+    # Campina Grande/PB.
+    cidade = {
+        "coleta_2010": Decimal("94.8"),
+        "coleta_2022": Decimal("97.5"),
+    }
+
+    arquivo = gerar_grafico_coleta_lixo(cidade, tmp_path, "campina_grande_pb")
+
+    assert arquivo == "grafico_coleta_lixo_campina_grande_pb.png"
+    assert (tmp_path / arquivo).is_file()
+
+
+def test_grafico_coleta_lixo_exige_dados(tmp_path: Path):
+    cidade = {
+        "coleta_2010": None,
+        "coleta_2022": "0",
+    }
+    with pytest.raises(ValueError, match="não disponíveis"):
+        gerar_grafico_coleta_lixo(cidade, tmp_path, "sem_dados")

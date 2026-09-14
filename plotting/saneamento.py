@@ -134,39 +134,24 @@ _ANOS_DINAMICA_ESGOTO = (
     ("esgoto_rede_2022", "2022"),
 )
 
+# (chave no contexto, rótulo do ano) — ordem cronológica pedida no Doc.
+_ANOS_COLETA_LIXO = (
+    ("coleta_2010", "2010"),
+    ("coleta_2022", "2022"),
+)
 
-def gerar_grafico_dinamica_esgoto(
-    cidade: dict,
-    OUTPUT_DIR: pathlib.Path,
-    safe_city: str,
-) -> str:
-    pontos = [
-        (rotulo, _numero_percentual(cidade.get(chave)))
-        for chave, rotulo in _ANOS_DINAMICA_ESGOTO
-    ]
-    # Omite anos sem valor válido (>0) em vez de plotar uma barra zerada, que
-    # sugeriria "0% de cobertura" ao invés de "sem dado".
-    pontos = [(rotulo, valor) for rotulo, valor in pontos if valor > 0]
-    if not pontos:
-        raise ValueError("Dados de dinâmica de esgotamento não disponíveis.")
 
+def _barras_percentual_por_ano(
+    titulo: str,
+    pontos: list[tuple[str, float]],
+    chart_file: pathlib.Path,
+    altura_header: float = 0.14,
+    figsize: tuple[float, float] = (8, 4.0),
+) -> None:
     anos = [rotulo for rotulo, _ in pontos]
     valores = [valor for _, valor in pontos]
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    chart_file = OUTPUT_DIR / f"grafico_dinamica_esgoto_{safe_city}.png"
-
-    fig, ax = iniciar_card_grafico(
-        (8, 4.3),
-        # Título longo demais para uma linha no tamanho padrão do card (o
-        # mesmo da Figura 3): quebra em duas e alarga a faixa do cabeçalho
-        # para acomodá-las, em vez de diminuir a fonte. A quebra vai no
-        # último ponto que ainda cabe na largura útil do cabeçalho (medida:
-        # ~95% dela), pra não sobrar espaço vazio na primeira linha.
-        "Dinâmica do percentual de domicílios conectados à rede geral de\n"
-        "esgoto ou à rede pluvial",
-        altura_header=0.21,
-    )
+    fig, ax = iniciar_card_grafico(figsize, titulo, altura_header=altura_header)
     # Reserva uma faixa abaixo do corpo do gráfico, dentro do card, para o
     # rótulo "Ano" (senão ele fica colado/cortado na borda inferior do card).
     posicao = ax.get_position()
@@ -201,4 +186,63 @@ def gerar_grafico_dinamica_esgoto(
         borda.set_visible(False)
 
     salvar_card_grafico(fig, chart_file)
+
+
+def gerar_grafico_dinamica_esgoto(
+    cidade: dict,
+    OUTPUT_DIR: pathlib.Path,
+    safe_city: str,
+) -> str:
+    pontos = [
+        (rotulo, _numero_percentual(cidade.get(chave)))
+        for chave, rotulo in _ANOS_DINAMICA_ESGOTO
+    ]
+    # Omite anos sem valor válido (>0) em vez de plotar uma barra zerada, que
+    # sugeriria "0% de cobertura" ao invés de "sem dado".
+    pontos = [(rotulo, valor) for rotulo, valor in pontos if valor > 0]
+    if not pontos:
+        raise ValueError("Dados de dinâmica de esgotamento não disponíveis.")
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    chart_file = OUTPUT_DIR / f"grafico_dinamica_esgoto_{safe_city}.png"
+
+    _barras_percentual_por_ano(
+        # Título longo demais para uma linha no tamanho padrão do card (o
+        # mesmo da Figura 3): quebra em duas e alarga a faixa do cabeçalho
+        # para acomodá-las, em vez de diminuir a fonte. A quebra vai no
+        # último ponto que ainda cabe na largura útil do cabeçalho (medida:
+        # ~95% dela), pra não sobrar espaço vazio na primeira linha.
+        "Dinâmica do percentual de domicílios conectados à rede geral de\n"
+        "esgoto ou à rede pluvial",
+        pontos,
+        chart_file,
+        altura_header=0.21,
+        figsize=(8, 4.3),
+    )
+    return chart_file.name
+
+
+def gerar_grafico_coleta_lixo(
+    cidade: dict,
+    OUTPUT_DIR: pathlib.Path,
+    safe_city: str,
+) -> str:
+    pontos = [
+        (rotulo, _numero_percentual(cidade.get(chave)))
+        for chave, rotulo in _ANOS_COLETA_LIXO
+    ]
+    # Omite anos sem valor válido (>0) em vez de plotar uma barra zerada, que
+    # sugeriria "0% de cobertura" ao invés de "sem dado".
+    pontos = [(rotulo, valor) for rotulo, valor in pontos if valor > 0]
+    if not pontos:
+        raise ValueError("Dados de coleta de lixo não disponíveis.")
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    chart_file = OUTPUT_DIR / f"grafico_coleta_lixo_{safe_city}.png"
+
+    _barras_percentual_por_ano(
+        "Evolução do percentual de domicílios com coleta de lixo",
+        pontos,
+        chart_file,
+    )
     return chart_file.name
