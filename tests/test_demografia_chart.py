@@ -28,6 +28,15 @@ def _cidade_faixa_etaria():
     }
 
 
+def _cidade_visao_historica():
+    # Campina Grande/PB (Censo 2000/2010/2022).
+    return {
+        "pop_total_2000": 355331,
+        "pop_total_2010": 385213,
+        "pop_total_2022": 405072,
+    }
+
+
 def test_gera_grafico_composicao_cor_raca(tmp_path: Path):
     arquivo = gerar_grafico_composicao_cor_raca(
         _cidade_cor_raca(), tmp_path, "campina_grande_pb"
@@ -57,14 +66,9 @@ def test_grafico_faixa_etaria_e_sexo_exige_dados(tmp_path: Path):
 
 
 def test_gera_visao_historica_populacao(tmp_path: Path):
-    # Campina Grande/PB (Censo 2000/2010/2022).
-    cidade = {
-        "pop_total_2000": 355331,
-        "pop_total_2010": 385213,
-        "pop_total_2022": 405072,
-    }
-
-    arquivo = gerar_grafico_visao_historica_populacao(cidade, tmp_path, "campina_grande_pb")
+    arquivo = gerar_grafico_visao_historica_populacao(
+        _cidade_visao_historica(), tmp_path, "campina_grande_pb"
+    )
 
     assert arquivo == "grafico_visao_historica_populacao_campina_grande_pb.png"
     assert (tmp_path / arquivo).is_file()
@@ -84,19 +88,53 @@ def test_visao_historica_populacao_usa_titulo_e_legenda_do_eixo_y(
 
     monkeypatch.setattr(demografia_module, "salvar_card_grafico", _capturar_e_salvar)
 
-    cidade = {
-        "pop_total_2000": 355331,
-        "pop_total_2010": 385213,
-        "pop_total_2022": 405072,
-    }
-
-    gerar_grafico_visao_historica_populacao(cidade, tmp_path, "campina_grande_pb")
+    gerar_grafico_visao_historica_populacao(
+        _cidade_visao_historica(), tmp_path, "campina_grande_pb"
+    )
 
     (fig,) = figuras_capturadas
     titulo = fig.texts[0].get_text()
     assert titulo == "Dinâmica Populacional"
     (ax,) = fig.axes
     assert ax.get_ylabel() == "População"
+
+
+def test_ylabel_nao_sai_cortado_para_municipio_de_porte_medio(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    # Regressão: cidades na faixa de Maceió/Teresina/João Pessoa (pop na
+    # casa dos 900 mil) empurram o MaxNLocator para ticks de "1.200,0 mil" —
+    # sem ajustar_margem_esquerda_para_rotulos, o "População" rotacionado
+    # cai fora da moldura do card (x0 negativo em relação à borda).
+    import plotting.demografia as demografia_module
+    from plotting import _CARD_MARGEM
+    from plotting import salvar_card_grafico as salvar_card_grafico_original
+
+    bboxes_capturadas = []
+
+    def _medir_e_salvar(fig, chart_file, dpi=180):
+        # Mede o layout antes do savefig/close originais fecharem a figura —
+        # depois disso o canvas deixa de ter um renderer utilizável.
+        ax = fig.axes[0]
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        ylabel_bbox = ax.yaxis.get_label().get_window_extent(renderer=renderer)
+        largura_fig_px = fig.get_size_inches()[0] * fig.dpi
+        bboxes_capturadas.append((ylabel_bbox.x0, _CARD_MARGEM * largura_fig_px))
+        salvar_card_grafico_original(fig, chart_file, dpi=dpi)
+
+    monkeypatch.setattr(demografia_module, "salvar_card_grafico", _medir_e_salvar)
+
+    cidade = {
+        "pop_total_2000": 700_000,
+        "pop_total_2010": 850_000,
+        "pop_total_2022": 999_000,
+    }
+
+    gerar_grafico_visao_historica_populacao(cidade, tmp_path, "porte_medio")
+
+    ylabel_x0, borda_card_px = bboxes_capturadas[0]
+    assert ylabel_x0 >= borda_card_px
 
 
 def test_grafico_usa_unidade_mil_para_municipios_pequenos(tmp_path: Path):

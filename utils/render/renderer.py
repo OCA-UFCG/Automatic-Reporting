@@ -30,6 +30,22 @@ _suprimir_proxima_legenda = False
 _PONTUACAO_FINAL_FRASE = re.compile(r"[.!?…]+(?=[\"'”’)]*(?:\s|$))")
 _TERMINA_EM_FRASE = re.compile(r"[.!?…]+[\"'”’)]*$")
 
+# Abreviações comuns cujo "." não fecha frase (ex.: "Conforme o art. 5º..."):
+# sem essa lista, um "." de abreviação no meio da linha conta como um fim de
+# frase a mais e _eh_frase_unica trata a linha como "mais de uma frase" —
+# desligando o merge em silêncio para uma redação que o editor não vê como
+# diferente de qualquer outra.
+_ABREVIACOES_COMUNS = frozenset({
+    "art", "arts", "etc", "sr", "sra", "srs", "dr", "dra", "drs",
+    "vs", "ex", "pag", "pág", "cf", "no",
+})
+_PALAVRA_ANTES_DO_PONTO = re.compile(r"(\w+)\.$")
+
+
+def _eh_abreviacao(texto_ate_o_ponto: str) -> bool:
+    match = _PALAVRA_ANTES_DO_PONTO.search(texto_ate_o_ponto)
+    return bool(match) and match.group(1).casefold() in _ABREVIACOES_COMUNS
+
 
 def _eh_frase_unica(texto: str) -> bool:
     """Uma linha termina em UMA frase completa (não em ':' ou sem pontuação).
@@ -42,7 +58,12 @@ def _eh_frase_unica(texto: str) -> bool:
     texto = texto.strip()
     if not _TERMINA_EM_FRASE.search(texto):
         return False
-    return len(_PONTUACAO_FINAL_FRASE.findall(texto)) == 1
+    terminacoes = [
+        match
+        for match in _PONTUACAO_FINAL_FRASE.finditer(texto)
+        if not (match.group() == "." and _eh_abreviacao(texto[: match.end()]))
+    ]
+    return len(terminacoes) == 1
 
 
 _LARGURA_MAXIMA_GRAFICO_PADRAO = "480px"
@@ -616,16 +637,17 @@ def texto_para_html(
     em_metadado_docs = False
     metadado_visivel: list[str] | None = None
 
-    proximo_paragrafo_destaque = False
-
     # Uma quebra de linha "solta" (Shift+Enter no Doc, sem linha em branco
-    # antes) que deixa s\u00f3 uma frase na linha seguinte n\u00e3o deve virar um <p>
-    # pr\u00f3prio \u2014 fica visualmente como um par\u00e1grafo quebrado ao meio. Essas
-    # duas flags rastreiam se a \u00faltima linha era vazia e se o \u00faltimo <p>
-    # emitido foi um par\u00e1grafo comum (n\u00e3o t\u00edtulo/lista/legenda de figura),
-    # que s\u00e3o os \u00fanicos casos em que faz sentido colar a frase nele.
-    linha_anterior_vazia = True
+    # antes) que deixa só uma frase na linha seguinte não deve virar um <p>
+    # próprio — fica visualmente como um parágrafo quebrado ao meio. Rastreia
+    # se o último <p> emitido foi um parágrafo comum (não título/lista/legenda
+    # de figura) e o texto-fonte que ele contém, os únicos casos em que faz
+    # sentido colar a frase nele. `ultimo_foi_paragrafo_plano` só é True logo
+    # após esse mesmo bloco rodar, então ela já garante que a linha anterior
+    # não era vazia nem pertencia a outro tipo de linha — sem precisar de uma
+    # flag extra pra isso.
     ultimo_foi_paragrafo_plano = False
+    ultimo_texto_paragrafo_plano = ""
 
     global _suprimir_proxima_legenda
 
@@ -639,8 +661,6 @@ def texto_para_html(
         nivel_indentacao = n_tabs + n_espacos // 4
         linha_limpa = linha_sem_bom.strip()
 
-        linha_anterior_estava_vazia = linha_anterior_vazia
-        linha_anterior_vazia = not linha_limpa
         veio_de_paragrafo_plano = ultimo_foi_paragrafo_plano
         ultimo_foi_paragrafo_plano = False
 
@@ -798,7 +818,6 @@ def texto_para_html(
         )
 
         if secao_macrotema:
-            proximo_paragrafo_destaque = False
             continue
 
         elif (
@@ -812,8 +831,6 @@ def texto_para_html(
                 f"<h2>{html_module.escape(linha_limpa)}</h2>"
             )
 
-            proximo_paragrafo_destaque = False
-
         elif re.match(
             r"^figura\s+(?:[&a-z]|\d+)\s*[–-]",
             linha_limpa,
@@ -826,7 +843,6 @@ def texto_para_html(
             # a legenda sem consumir número, para a numeração seguir contínua.
             if _suprimir_proxima_legenda:
                 _suprimir_proxima_legenda = False
-                proximo_paragrafo_destaque = False
                 continue
 
             _figura_contador += 1
@@ -850,8 +866,6 @@ def texto_para_html(
                 f"</p>"
             )
 
-            proximo_paragrafo_destaque = False
-
         else:
 
             _suprimir_proxima_legenda = False
@@ -866,27 +880,32 @@ def texto_para_html(
             texto_html = convert_links_to_html(linha_limpa)
 
             # Frase órfã: linha colada na anterior no Doc (sem linha em
-            # branco entre elas) e que sozinha não passa de uma frase. Em
-            # vez de virar um <p> isolado, ela continua o parágrafo anterior.
+            # branco entre elas) e que sozinha não passa de uma frase. Em vez
+            # de virar um <p> isolado, ela continua o parágrafo anterior — mas
+            # só quando os dois lados realmente parecem prosa contínua: nem a
+            # linha de entrada nem o parágrafo que já estava lá podem ser um
+            # fragmento sem pontuação de frase (ex.: uma linha de condicionante
+            # "Para quando ...:" que escapou de interpretar_blocos_condicionais
+            # não deve ser colada em nada, nos dois sentidos), e uma indentação
+            # explícita na linha de entrada é sinal editorial (ver
+            # utils/external/docs.py:_remover_separador_apos_marcador), não
+            # continuação solta.
             pode_mesclar = (
-                not linha_anterior_estava_vazia
-                and veio_de_paragrafo_plano
+                veio_de_paragrafo_plano
+                and nivel_indentacao == 0
                 and _eh_frase_unica(linha_limpa)
-                and html_lines
-                and html_lines[-1].endswith("</p>")
+                and _TERMINA_EM_FRASE.search(ultimo_texto_paragrafo_plano)
             )
 
             if pode_mesclar:
                 html_lines[-1] = (
                     html_lines[-1][: -len("</p>")] + " " + texto_html + "</p>"
                 )
+                ultimo_texto_paragrafo_plano = (
+                    f"{ultimo_texto_paragrafo_plano} {linha_limpa}"
+                )
             else:
-                if classe_paragrafo:
-                    classe = f' class="{classe_paragrafo}"'
-                elif proximo_paragrafo_destaque:
-                    classe = ' class="lead"'
-                else:
-                    classe = ""
+                classe = f' class="{classe_paragrafo}"' if classe_paragrafo else ""
 
                 estilo = (
                     f' style="text-indent: {round(nivel_indentacao * 32, 2)}px;"'
@@ -899,9 +918,9 @@ def texto_para_html(
                     f"{texto_html}"
                     f"</p>"
                 )
+                ultimo_texto_paragrafo_plano = linha_limpa
 
             ultimo_foi_paragrafo_plano = True
-            proximo_paragrafo_destaque = False
 
     if em_lista:
         html_lines.append("</ul>")

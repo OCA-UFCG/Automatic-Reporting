@@ -85,6 +85,50 @@ def test_linha_de_condicionante_nao_reconhecida_nao_e_mesclada_no_paragrafo_ante
     assert "contexto. Para quando" not in html
 
 
+def test_linha_de_condicionante_nao_reconhecida_antes_do_paragrafo_nao_recebe_merge():
+    # Espelho do teste acima: a condicionante vindo ANTES (ela mesma termina
+    # em ":", nunca em pontuação de frase) também não pode "receber" a frase
+    # de baixo colada nela — regressão de um bug que a correção acima, sozinha,
+    # não fechava (só validava a linha que entra, não a que já estava lá).
+    texto = (
+        "Para efeito de análise:\n"
+        "O município registrou crescimento populacional."
+    )
+
+    html = texto_para_html(texto, {}, namespace="demografia")
+
+    assert html.count("<p>") == 2
+    assert "análise: O município" not in html
+
+
+def test_frase_indentada_nao_e_mesclada_e_mantem_o_recuo():
+    # utils/external/docs.py preserva indentação (tab/4+ espaços) como sinal
+    # editorial explícito — não é ruído de Shift+Enter, não deve ser colada.
+    texto = (
+        "Parágrafo normal com contexto suficiente.\n"
+        "\tFrase indentada única."
+    )
+
+    html = texto_para_html(texto, {}, namespace="demografia")
+
+    assert html.count("<p") == 2
+    assert '<p style="text-indent: 32px;">Frase indentada única.</p>' in html
+
+
+def test_abreviacao_comum_nao_desliga_o_merge():
+    # "art." não fecha frase de verdade — sem tratar isso, a linha seguinte
+    # parece ter "mais de uma frase" e o merge é desligado em silêncio.
+    texto = (
+        "Texto base com contexto suficiente para o teste.\n"
+        "Conforme o art. 5º, isso vale."
+    )
+
+    html = texto_para_html(texto, {}, namespace="demografia")
+
+    assert html.count("<p>") == 1
+    assert "Conforme o art. 5º, isso vale.</p>" in html
+
+
 def test_fontes_box_from_texto_para_html_includes_the_explore_intro_row():
     texto = "#!Fontes\n\n[Painel: Quilombola](teste)\n"
 
