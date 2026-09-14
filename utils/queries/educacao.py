@@ -45,6 +45,9 @@ COLUNAS_PERFIL_EDUCACIONAL = [
     "analf_faixa_menor",
     "sint_evolucao_per",
     "sint_evolucao",
+    "nm_painel1",
+    "nm_boletim1",
+    "nm_boletim2",
 ]
 
 PERFIL_EDUCACIONAL_MUNICIPIO = f"""

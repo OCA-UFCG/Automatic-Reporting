@@ -25,7 +25,10 @@ from plotting.economia_renda import (
     gerar_grafico_pib,
     gerar_grafico_vab,
 )
-from plotting.educacao import gerar_grafico_cor_faixa_etaria
+from plotting.educacao import (
+    gerar_grafico_cor_faixa_etaria,
+    gerar_grafico_nivel_instrucao,
+)
 from plotting.hidraulica import gerar_grafico_tecnologias_acesso_agua
 from plotting.meio_ambiente import gerar_grafico_aridez
 from plotting.saneamento import gerar_grafico_esgotamento_sanitario
@@ -189,6 +192,16 @@ GRAFICOS_AUTO_MARCADOR = {
             (
                 r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
                 r"Vis[aã]o\s+mensal\s+da\s+balan[cç]a\s+comercial[^\n]*)$"
+            ),
+        ),
+    ),
+    "educacao": (
+        (
+            "grafico_nivel_instrucao",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Distribui[cç][aã]o\s+da\s+popula[cç][aã]o\s+por\s+n[ií]vel\s+"
+                r"de\s+instru[cç][aã]o[^\n]*)$"
             ),
         ),
     ),
@@ -685,6 +698,22 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 logger.warning(
                     "Não foi possível gerar o gráfico de cor/faixa etária de "
                     "educação para '%s': %s",
+                    safe_report,
+                    err,
+                )
+
+            try:
+                graficos_por_placeholder["grafico_nivel_instrucao"] = (
+                    gerar_grafico_nivel_instrucao(
+                        cidade=linhas_macrotema[0],
+                        OUTPUT_DIR=OUTPUT_DIR,
+                        safe_city=safe_city or "relatorio",
+                    )
+                )
+            except ValueError as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de nível de instrução "
+                    "de educação para '%s': %s",
                     safe_report,
                     err,
                 )
