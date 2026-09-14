@@ -5,6 +5,7 @@ import pytest
 
 from plotting.saneamento import (
     _ANOS_DINAMICA_ESGOTO,
+    _angulos_de_desenho,
     _pontos_por_ano,
     _quebrar_rotulo_longo,
     _raios_dos_rotulos,
@@ -126,25 +127,34 @@ def test_quebra_rotulo_longo_da_legenda():
     assert "\n" not in _quebrar_rotulo_longo("Fossa séptica ou fossa filtro")
 
 
-def test_rotulos_proximos_sao_afastados_em_vez_de_omitidos():
-    # Belém/AL: 3,2% (vala) e 3,5% (rio/lago) são fatias finas e coladas. Os
-    # dois rótulos continuam no gráfico — o segundo vai para um raio maior.
+def test_angulos_de_desenho_dao_piso_as_fatias_pequenas():
+    # Belém/AL: a fatia de 83,4% é desenhada menor que a proporção real para
+    # as pequenas aparecerem — ajuste puramente visual, o rótulo segue com o
+    # percentual real (ver `gerar_grafico_esgotamento_sanitario`).
     valores = [123, 10, 1397, 54, 59, 27, 6]
 
-    raios = _raios_dos_rotulos(valores)
+    angulos = _angulos_de_desenho(valores)
 
-    assert set(raios) == {0, 2, 3, 4}  # 7,3%, 83,4%, 3,2% e 3,5% rotulados
-    assert raios[3] != raios[4]  # vala e rio em raios diferentes
-    assert 1 not in raios  # 0,6%: fatia menor que o próprio texto
-    assert 6 not in raios  # 0,4%: idem
+    assert round(sum(angulos), 6) == 360.0
+    assert all(angulo >= 12.0 for angulo in angulos)  # nenhuma fatia invisível
+    assert angulos[2] < 360.0 * 1397 / sum(valores)  # a dominante cede espaço
+    # A ordem das fatias (quem é maior que quem) não muda com o ajuste.
+    assert sorted(range(7), key=lambda i: angulos[i]) == sorted(
+        range(7), key=lambda i: valores[i]
+    )
 
 
-def test_rotulos_ficam_no_mesmo_raio_quando_bem_distribuidos():
-    # Sete fatias iguais: 51,4° entre centros, folga de sobra.
-    raios = _raios_dos_rotulos([100] * 7)
+def test_categoria_zerada_nao_ganha_fatia():
+    angulos = _angulos_de_desenho([100, 0, 50])
 
-    assert set(raios) == set(range(7))
-    assert len(set(raios.values())) == 1
+    assert angulos[1] == 0.0
+
+
+def test_todos_os_rotulos_cabem_apos_o_ajuste():
+    # Com o piso de ângulo, as sete categorias de Belém/AL são rotuladas.
+    angulos = _angulos_de_desenho([123, 10, 1397, 54, 59, 27, 6])
+
+    assert set(_raios_dos_rotulos(angulos)) == set(range(7))
 
 
 def test_sem_rotulo_quando_nao_ha_total():

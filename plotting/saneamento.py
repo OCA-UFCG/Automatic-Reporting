@@ -50,24 +50,48 @@ def _quebrar_rotulo_longo(rotulo: str) -> str:
 
 # Distância angular mínima, em graus, entre os centros de dois rótulos de
 # percentual vizinhos para que caibam no mesmo raio. Abaixo disso o de fora
-# é empurrado para um raio maior, em vez de ser omitido: esconder o número
-# de uma categoria que existe no dado é pior que um rótulo deslocado.
+# é empurrado para um raio maior — rede de segurança para distribuições que
+# escapem do ajuste de ângulo abaixo.
 _ANGULO_MINIMO_ENTRE_ROTULOS = 15.0
 # Raio (em frações do raio da rosca) onde os rótulos são escritos: o padrão e
 # o "degrau" usado quando o rótulo vizinho está perto demais.
 _RAIO_ROTULO = 1.18
 _RAIO_ROTULO_AFASTADO = 1.40
-# Abaixo deste percentual a fatia fica sem rótulo: o texto seria maior que a
-# própria fatia e não haveria como ligá-lo a ela sem linha-guia. A categoria
-# continua na legenda. Limiar herdado do gráfico original.
-_PCT_MINIMO_PARA_ROTULO = 2.0
+# Ângulo mínimo de desenho de cada fatia, em graus. AJUSTE VISUAL: a fatia
+# dominante (83,4% em Belém/AL, por exemplo) é desenhada menor que a sua
+# proporção real para as fatias pequenas aparecerem e caberem seus rótulos.
+# Os percentuais escritos continuam sendo os reais — só o desenho é ajustado.
+_ANGULO_MINIMO_DA_FATIA = 12.0
 
 
-def _raios_dos_rotulos(valores: list[float]) -> dict[int, float]:
-    """Raio de cada rótulo de percentual, por índice de fatia. Rótulos que
-    ficariam colados no vizinho vão para um raio maior, alternadamente, de
-    modo que nenhum seja omitido."""
+def _angulos_de_desenho(valores: list[float]) -> list[float]:
+    """Ângulos usados para DESENHAR as fatias: cada categoria com valor > 0
+    recebe um piso de `_ANGULO_MINIMO_DA_FATIA` e o resto do círculo é
+    repartido proporcionalmente. Mantém a ordem e o ranking das fatias; os
+    percentuais dos rótulos continuam vindo dos valores reais."""
     total = sum(valores)
+    if total <= 0:
+        return list(valores)
+
+    com_valor = [valor > 0 for valor in valores]
+    piso_total = _ANGULO_MINIMO_DA_FATIA * sum(com_valor)
+    # Se os pisos já consomem o círculo (muitas categorias), cai para a
+    # proporção real — melhor um desenho apertado que um sem ordenação.
+    if piso_total >= 360.0:
+        return list(valores)
+
+    restante = 360.0 - piso_total
+    return [
+        (_ANGULO_MINIMO_DA_FATIA + restante * valor / total) if tem else 0.0
+        for valor, tem in zip(valores, com_valor)
+    ]
+
+
+def _raios_dos_rotulos(angulos: list[float]) -> dict[int, float]:
+    """Raio de cada rótulo de percentual, por índice de fatia. Recebe os
+    ângulos de DESENHO (é a geometria do anel que decide se dois rótulos
+    colidem). Quem ficaria colado no vizinho vai para um raio maior."""
+    total = sum(angulos)
     if total <= 0:
         return {}
 
@@ -76,13 +100,11 @@ def _raios_dos_rotulos(valores: list[float]) -> dict[int, float]:
     centro_anterior = None
     raio_anterior = _RAIO_ROTULO
 
-    for indice, valor in enumerate(valores):
-        angulo = 360.0 * valor / total
+    for indice, angulo in enumerate(angulos):
+        if angulo <= 0:
+            continue
         centro = angulo_acumulado + angulo / 2
         angulo_acumulado += angulo
-
-        if 100.0 * valor / total < _PCT_MINIMO_PARA_ROTULO:
-            continue
 
         perto_do_anterior = (
             centro_anterior is not None
@@ -144,18 +166,24 @@ def gerar_grafico_esgotamento_sanitario(
         (posicao.x0, posicao.y0, posicao.width - largura_legenda, posicao.height)
     )
 
-    # Todas as fatias >= 2% recebem rótulo; quem ficaria colado no vizinho
-    # é afastado radialmente (ver `_raios_dos_rotulos`), nunca omitido.
-    raios_rotulos = _raios_dos_rotulos(valores)
+    # AJUSTE VISUAL das fatias: o desenho usa ângulos com piso mínimo (ver
+    # `_angulos_de_desenho`), não a proporção crua — assim as fatias pequenas
+    # aparecem e cada rótulo fica junto da sua fatia. Os percentuais escritos
+    # vêm dos valores REAIS, calculados aqui e não pelo `autopct` do
+    # matplotlib (que os derivaria dos ângulos ajustados).
+    angulos = _angulos_de_desenho(valores)
+    percentuais_reais = [100.0 * valor / total for valor in valores]
+    raios_rotulos = _raios_dos_rotulos(angulos)
     indice_fatia = itertools.count()
 
-    def _autopct(pct: float) -> str:
-        if next(indice_fatia) not in raios_rotulos:
+    def _autopct(_pct_do_desenho: float) -> str:
+        indice = next(indice_fatia)
+        if indice not in raios_rotulos:
             return ""
-        return f"{pct:.1f}%".replace(".", ",")
+        return f"{percentuais_reais[indice]:.1f}%".replace(".", ",")
 
     wedges, _textos, autotextos = ax.pie(
-        valores,
+        angulos,
         colors=cores,
         startangle=90,
         counterclock=False,
@@ -163,7 +191,7 @@ def gerar_grafico_esgotamento_sanitario(
         pctdistance=_RAIO_ROTULO,
         wedgeprops={"width": 0.42, "edgecolor": "white", "linewidth": 1.5},
     )
-    # `pctdistance` é único para todas as fatias, então o degrau de quem está
+    # `pctdistance` é único para todas as fatias, então o degrau de quem ficou
     # apertado é aplicado aqui, reposicionando o texto no raio escolhido.
     for autotexto, raio in zip(
         autotextos, [raios_rotulos[i] for i in sorted(raios_rotulos)]
