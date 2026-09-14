@@ -7,6 +7,73 @@ from utils.render.renderer import (
 )
 
 
+def test_novas_condicoes_demografia_com_markdown_e_comparacoes():
+    texto = """**Para quando** demografia.$dif\\_etaria\\_09\\_60 **for positivo, então :**
+Mais crianças.
+
+**Para quando** demografia.$dif\\_etaria\\_09\\_60 **for negativo, então :**
+Mais idosos.
+
+**Para quando** demografia.$cres\\_pop\\_analise **for 0%, então:**
+População estável.
+
+**Para quando** demografia.$cres\\_pop\\_analise for maior ou menor que 0%**, então:**
+População mudou.
+
+**Para quando demografia.$pop\\_rua\\_2022 for 0 em 2022; demografia.$pop\\_rua\\_2026 for > 1 e demografia.$pop\\_familias\\_rua\\_2026 = demografia.$pop\\_rua\\_bolsaf\\_2026:**
+Todas as famílias recebem.
+
+**Para quando demografia.$pop\\_rua\\_2022 for 0 em 2022; demografia.$pop\\_rua\\_2026 for > 1 e demografia.$pop\\_familias\\_rua\\_2026 for 0:**
+Não há famílias.
+"""
+    contexto = {
+        "dif_etaria_09_60": -20,
+        "cres_pop": 0,
+        "pop_rua_2022": 0,
+        "pop_rua_2026": 3,
+        "familias_rua_total": 2,
+        "familias_rua_bf": 2,
+    }
+    resultado = interpretar_blocos_condicionais(texto, contexto)
+    assert "Mais crianças." in resultado
+    assert "Mais idosos." not in resultado
+    assert "População estável." in resultado
+    assert "População mudou." not in resultado
+    assert "Todas as famílias recebem." in resultado
+    assert "Não há famílias." not in resultado
+    assert "Para quando" not in resultado
+
+
+def test_novas_condicoes_rua_nao_tratam_dado_ausente_como_zero():
+    texto = """Para quando demografia.$pop_rua_2022 e demografia.$pop_rua_2026 for 0:
+Sem registros nos dois anos.
+
+Para quando demografia.$pop_rua_2022 for >=1 e demografia.$pop_rua_2026 for 0:
+Houve redução a zero.
+"""
+    assert "Sem registros" not in interpretar_blocos_condicionais(texto, {})
+    assert "Houve redução" not in interpretar_blocos_condicionais(texto, {})
+    assert "Sem registros" in interpretar_blocos_condicionais(
+        texto, {"pop_rua_2022": 0, "pop_rua_2026": 0}
+    )
+    assert "Houve redução" in interpretar_blocos_condicionais(
+        texto, {"pop_rua_2022": 2, "pop_rua_2026": 0}
+    )
+
+
+def test_condicao_todas_as_familias_nao_casa_com_zero_familias():
+    texto = """Para quando demografia.$pop_rua_2022 for 0; demografia.$pop_rua_2026 for > 1 e demografia.$pop_familias_rua_2026 = demografia.$pop_rua_bolsaf_2026:
+Todas recebem.
+
+Para quando demografia.$pop_rua_2022 for 0; demografia.$pop_rua_2026 for > 1 e demografia.$pop_familias_rua_2026 for 0:
+Não há famílias.
+"""
+    resultado = interpretar_blocos_condicionais(
+        texto,
+        {"pop_rua_2022": 0, "pop_rua_2026": 3, "familias_rua_total": 0, "familias_rua_bf": 0},
+    )
+    assert "Todas recebem." not in resultado
+    assert "Não há famílias." in resultado
 def test_references_render_as_html_and_related_content_gets_boxed():
     texto = """#! Referências
 

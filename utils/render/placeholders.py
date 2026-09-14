@@ -41,6 +41,80 @@ _OPERADORES_EDITORIAIS: list[tuple[re.Pattern, object]] = [
 _CAMPOS_NULL_SENSIVEIS = {"centro_pop", "n_uc"}
 
 
+def _normalizar_condicao_editorial(linha: str) -> str:
+    # A exportação Markdown do Docs intercala negrito e escapa operadores e
+    # underscores; o texto obtido diretamente da API já vem sem essas marcas.
+    linha = re.sub(r"\\([_=>])", r"\1", linha.strip())
+    return linha.replace("**", "").replace("\u00a0", " ").strip()
+
+
+def _avaliar_condicao_demografia(expressao: str, contexto: dict) -> bool | None:
+    """Condições novas do documento de demografia, inclusive comparações de campos."""
+    campos = _MARCADOR_CAMPO_CONDICIONAL.findall(expressao)
+    if not campos:
+        return None
+
+    def valor(campo: str) -> float | None:
+        if campo == "pop_rua_2022" and "pop_rua_2026" in contexto:
+            return coerce_para_float(contexto.get(campo), default=None)
+        bruto = _resolver_campo_com_alias(contexto, campo)
+        return coerce_para_float(bruto, default=None)
+
+    if "dif_etaria_09_60" in campos:
+        diferenca = valor("dif_etaria_09_60")
+        if diferenca is None:
+            return False
+        # A query calcula idosos - crianças; o texto chama de positivo o
+        # cenário inverso, em que há mais crianças.
+        return diferenca < 0 if "positivo" in expressao else diferenca > 0
+
+    if "cres_pop_analise" in campos:
+        crescimento = valor("cres_pop")
+        if crescimento is None:
+            return False
+        return crescimento != 0 if "maior ou menor" in expressao else crescimento == 0
+
+    if not any(campo.startswith("pop_rua_") or campo == "pop_familias_rua_2026" for campo in campos):
+        return None
+
+    # Ausência de levantamento não significa zero pessoas.
+    if any(valor(campo) is None for campo in campos):
+        return False
+
+    partes = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(expressao))
+    for indice, match in enumerate(partes):
+        campo = match.group(1)
+        fim = partes[indice + 1].start() if indice + 1 < len(partes) else len(expressao)
+        trecho = expressao[match.end():fim].casefold()
+        atual = valor(campo)
+        if indice + 1 < len(partes) and re.search(r"(?:for\s*)?=\s*$", trecho):
+            if campo == "pop_familias_rua_2026" and atual == 0:
+                return False
+            if atual != valor(partes[indice + 1].group(1)):
+                return False
+            continue
+        operador = re.search(r"(?:for\s*)?(>=|>|=|maior\s+que|igual\s+a)?\s*(\d+)", trecho)
+        if operador is None:
+            # "X e Y for 0" aplica o mesmo limiar aos dois campos.
+            trecho_final = expressao[partes[-1].end():].casefold()
+            operador = re.search(r"(?:for\s*)?(>=|>|=|maior\s+que|igual\s+a)?\s*(\d+)", trecho_final)
+        if operador is None:
+            continue
+        sinal, limite_texto = operador.groups()
+        limite = float(limite_texto)
+        if sinal in {">", "maior que"} and not atual > limite:
+            return False
+        if sinal == ">=" and not atual >= limite:
+            return False
+        if sinal not in {">", ">=", "maior que"} and atual != limite:
+            return False
+    # Uma condição diz "família recebe Bolsa Família = 0" sem marcador.
+    return not (
+        "família recebe bolsa família = 0" in expressao
+        and valor("pop_rua_bolsaf_2026") != 0
+    )
+
+
 def _parse_operador_editorial(trecho: str):
     for padrao, atende in _OPERADORES_EDITORIAIS:
         match = padrao.search(trecho)
@@ -98,6 +172,7 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
     bloco_ativo = True
     bloco_populacoes_ativo = True
     bloco_rua_ativo = True
+    bloco_rua_condicional = False
     # "Para quando X:"/"Para quando NÃO-X:" simples (fora dos casos especiais
     # abaixo, que têm estado próprio e persistem de propósito) só devem gatear
     # o parágrafo seguinte; sem isso, o conteúdo incondicional que vem depois
@@ -105,7 +180,7 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
     aguardando_fim_de_bloco_simples = False
 
     for linha in texto.splitlines():
-        limpa = linha.strip()
+        limpa = _normalizar_condicao_editorial(linha)
 
         if not limpa and aguardando_fim_de_bloco_simples:
             bloco_ativo = True
@@ -117,13 +192,16 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
             aguardando_fim_de_bloco_simples = False
             continue
 
-        condicao = re.match(r"(?i)^para(?:\s+quando)?\s+(.+?):\s*$", limpa)
+        condicao = re.match(r"(?i)^para(?:\s+quando)?\s+(.+?):\s*(.*)$", limpa)
         if condicao:
-            expressao = condicao.group(1)
+            expressao = condicao.group(1).casefold()
             matches = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(expressao))
             if matches:
                 campos = {match.group(1) for match in matches}
-                atende = _avaliar_condicao_editorial(matches, expressao, contexto)
+                especial = _avaliar_condicao_demografia(expressao, contexto)
+                atende = especial if especial is not None else _avaliar_condicao_editorial(matches, expressao, contexto)
+                if any(campo.startswith("pop_rua_") or campo == "pop_familias_rua_2026" for campo in campos):
+                    bloco_rua_condicional = True
                 if campos & {"pop_ind_2022", "pop_qui"}:
                     bloco_populacoes_ativo = atende
                     bloco_ativo = atende
@@ -138,6 +216,11 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                 else:
                     bloco_ativo = atende
                     aguardando_fim_de_bloco_simples = True
+                if condicao.group(2):
+                    if bloco_ativo:
+                        resultado.append(condicao.group(2))
+                    bloco_ativo = True
+                    aguardando_fim_de_bloco_simples = False
                 continue
             # Sem "$campo", não é uma instrução editorial de fato — é uma frase
             # comum do texto (ex.: "Para efeito de análise:") e deve ser mantida.
@@ -176,7 +259,7 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
         # podem não existir para o município. Sem eles, evitamos expor os
         # placeholders crus e usamos um texto equivalente ao das outras seções
         # quando não há registros.
-        if re.match(
+        if not bloco_rua_condicional and re.match(
             r"(?i)^outro grupo relevante para a caracteriza[cç][aã]o da popula[cç][aã]o municipal",
             limpa,
         ):
@@ -264,6 +347,8 @@ def _resolver_campo_com_alias(contexto: dict, campo: str) -> object | None:
         "pop_ind_homem_2022": "homem_indigena",
         "pop_ind_mulher_2022": "mulher_indigena",
         "pop_rua_2022": "pop_rua_total",
+        "pop_familias_rua_2026": "familias_rua_total",
+        "pop_rua_bolsaf_2026": "familias_rua_bf",
         "pop_rua_pobreza": "pobreza_cadunico",
         "pop_rua_br": "baixa_renda_cadunico",
         "pop_rua_acima_br": "acima_meio_sm_cadunico",

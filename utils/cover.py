@@ -28,6 +28,46 @@ def formatar_data_hora_extenso(data: datetime) -> str:
 INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
     "demografia": (
         {
+            "coluna": "populacao_residente_2022",
+            "nome": "População residente",
+            "fonte": "Censo demográfico 2022",
+            "rodape": "Total de pessoas residentes no município",
+            "decimais": 0,
+            "icone": "people",
+        },
+        {
+            "coluna": "pop_masc_2022",
+            "nome": "População masculina",
+            "fonte": "Censo demográfico 2022",
+            "rodape": "Pessoas residentes do sexo masculino",
+            "decimais": 0,
+            "icone": "people",
+        },
+        {
+            "coluna": "pop_feminina_2022",
+            "nome": "População feminina",
+            "fonte": "Censo demográfico 2022",
+            "rodape": "Pessoas residentes do sexo feminino",
+            "decimais": 0,
+            "icone": "people",
+        },
+        {
+            "coluna": "pop_indigena_2022",
+            "nome": "População indígena",
+            "fonte": "Censo demográfico 2022",
+            "rodape": "Pessoas residentes que se autodeclaram indígenas",
+            "decimais": 0,
+            "icone": "people",
+        },
+        {
+            "coluna": "pop_rua_2022",
+            "nome": "População em situação de rua",
+            "fonte": "Censo demográfico 2022",
+            "rodape": "Pessoas em situação de rua identificadas no município",
+            "decimais": 0,
+            "icone": "people",
+        },
+        {
             "coluna": "pop_quilombola_2022",
             "nome": "População quilombola",
             "fonte": "Censo demográfico 2022",
@@ -35,8 +75,12 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "decimais": 0,
             "icone": "people",
         },
+        # `pop_quilombola_per_2022` não existe em `vw_indicadores` (o card nunca
+        # tinha valor e era sempre omitido); `pop_qui_per` vem de
+        # `buscar_populacao_quilombola` (utils/queries/demografia.py) e já chega
+        # mesclado no contexto de demografia com o mesmo significado.
         {
-            "coluna": "pop_quilombola_per_2022",
+            "coluna": "pop_qui_per",
             "nome": "Participação da população quilombola",
             "fonte": "Censo demográfico 2022",
             "rodape": "Percentual sobre a população residente",
