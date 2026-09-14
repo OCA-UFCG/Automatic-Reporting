@@ -41,7 +41,7 @@ def gerar_grafico_tecnologias_acesso_agua(
     chart_file = OUTPUT_DIR / f"grafico_tecnologias_acesso_agua_{safe_city}.png"
 
     fig, ax = iniciar_card_grafico(
-        (8, 4.0), "Tecnologias de acesso à água ao longo dos anos"
+        (8, 4.0), "Tecnologia de acesso à água"
     )
     # Reserva uma faixa abaixo do corpo do gráfico, dentro do card, para o
     # rótulo "Ano" (senão ele fica colado/cortado na borda inferior do card).
