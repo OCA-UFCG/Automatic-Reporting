@@ -27,6 +27,26 @@ def _numero(valor: object) -> float:
     return numero if math.isfinite(numero) else 0.0
 
 
+# Largura máxima, em caracteres, de uma linha de rótulo na legenda. Acima
+# disso o texto fica mais largo que a faixa reservada à legenda e vaza a
+# borda do card — o que já aconteceu com "Não tinham banheiro e/ou
+# sanitário", o mais longo de `_CATEGORIAS`. O corte é por comprimento (e não
+# por um texto fixo) para continuar valendo se um rótulo do Doc for
+# renomeado ou se uma categoria nova entrar em `_CATEGORIAS`.
+_MAX_CARACTERES_ROTULO_LEGENDA = 30
+
+
+def _quebrar_rotulo_longo(rotulo: str) -> str:
+    """Quebra o rótulo em duas linhas no último espaço que ainda cabe na
+    largura da legenda. Rótulos curtos voltam inalterados."""
+    if len(rotulo) <= _MAX_CARACTERES_ROTULO_LEGENDA:
+        return rotulo
+    corte = rotulo.rfind(" ", 0, _MAX_CARACTERES_ROTULO_LEGENDA + 1)
+    if corte <= 0:
+        return rotulo
+    return f"{rotulo[:corte]}\n{rotulo[corte + 1:]}"
+
+
 def _formatar_total(total: float) -> str:
     if total >= 10000:
         return f"{round(total / 1000)}K"
@@ -48,23 +68,29 @@ def gerar_grafico_esgotamento_sanitario(
 
     rotulos = [rotulo for _, rotulo, _ in _CATEGORIAS]
     cores = [cor for _, _, cor in _CATEGORIAS]
+    rotulos_legenda = [_quebrar_rotulo_longo(rotulo) for rotulo in rotulos]
 
     fig, ax = iniciar_card_grafico(
-        (8, 4.6), "Domicílios por tipo de esgotamento sanitário"
+        (8, 4.6),
+        "Domicílios por tipo de esgotamento sanitário",
+        # A rosca não tem eixo Y rotulado, então a margem esquerda default
+        # (reservada pra esses rótulos) só empurraria o desenho pra direita.
+        margem_esquerda=0.05,
     )
-    # A legenda fica à direita da rosca (fora do eixo, na horizontal) — encolhe
-    # a largura do `ax` pra sobrar uma faixa à direita, dentro do card, onde
-    # ela cabe inteira sem vazar da moldura nem se sobrepor à rosca.
+    # A legenda fica à direita da rosca, fora do eixo. Com a fonte 50% maior,
+    # a faixa que ela precisa passou a ser maior que a própria rosca: o `ax`
+    # cede 56% da largura (antes 44%), senão o rótulo mais longo vaza o card.
     posicao = ax.get_position()
-    largura_legenda = posicao.width * 0.44
+    largura_legenda = posicao.width * 0.56
     ax.set_position(
         (posicao.x0, posicao.y0, posicao.width - largura_legenda, posicao.height)
     )
 
-    # Rótulo de % só nas fatias >= 2%: as menores ficam quase do mesmo tamanho
-    # e seus rótulos se sobreporiam no anel — a categoria delas vai na legenda.
+    # Rótulo de % só nas fatias >= 3%: com a fonte maior, as fatias de 2 a 3%
+    # — que antes ainda cabiam — passaram a colidir entre si no anel; a
+    # categoria delas continua identificada na legenda.
     def _autopct(pct: float) -> str:
-        return f"{pct:.1f}%".replace(".", ",") if pct >= 2 else ""
+        return f"{pct:.1f}%".replace(".", ",") if pct >= 3 else ""
 
     wedges, _textos, autotextos = ax.pie(
         valores,
@@ -72,13 +98,16 @@ def gerar_grafico_esgotamento_sanitario(
         startangle=90,
         counterclock=False,
         autopct=_autopct,
-        pctdistance=1.18,
+        pctdistance=1.22,
         wedgeprops={"width": 0.42, "edgecolor": "white", "linewidth": 1.5},
     )
     for autotexto in autotextos:
-        autotexto.set_fontsize(8)
+        autotexto.set_fontsize(12)
         autotexto.set_color("#4A4A4A")
 
+    # Miolo da rosca: tamanhos e posições originais, de propósito — o pedido
+    # de fonte maior vale para os percentuais e a legenda, não para o big
+    # number, que já é o maior texto do gráfico.
     ax.text(0, 0.12, _formatar_total(total), ha="center", va="center",
             fontsize=22*ESCALA_FONTE, fontweight="bold", color="#3F3F3F")
     ax.text(0, -0.18, "domicílios", ha="center", va="center",
@@ -86,13 +115,14 @@ def gerar_grafico_esgotamento_sanitario(
 
     ax.legend(
         wedges,
-        rotulos,
+        rotulos_legenda,
         loc="center left",
-        bbox_to_anchor=(1.06, 0.5),
+        bbox_to_anchor=(1.04, 0.5),
         frameon=False,
-        fontsize=8.5*ESCALA_FONTE,
+        fontsize=12.75*ESCALA_FONTE,
         handlelength=1.0,
-        labelspacing=0.7,
+        handletextpad=0.5,
+        labelspacing=0.6,
     )
     ax.set_aspect("equal")
 

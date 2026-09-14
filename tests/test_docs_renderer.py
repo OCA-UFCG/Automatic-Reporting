@@ -613,6 +613,67 @@ def test_inline_figure_reference_regex_does_not_match_unrelated_words():
     assert "Como visto na Figura 2, o IDHM cresceu." in html
 
 
+def test_container_do_grafico_usa_margem_inferior_reduzida():
+    # Regressão: com `margin:32px 0`, a margem cheia do contêiner somava à
+    # margin-top da própria legenda (.figure-caption) e sobravam ~43px entre
+    # o gráfico e o texto que o descreve.
+    reset_figura_contador()
+    texto = "%%grafico_teste\n\nFigura X- Legenda de teste."
+
+    html = texto_para_html(
+        texto, {}, graficos_por_placeholder={"grafico_teste": "grafico_teste.png"}
+    )
+
+    assert "margin:32px 0 8px;" in html
+
+
+def test_inline_figure_reference_nao_casa_artigo_de_uma_letra():
+    # Regressão: com `(?i)` no padrão, `[A-Zx]` casava minúsculas e frases como
+    # "a figura a seguir" viravam "Figura N seguir" no meio do parágrafo.
+    reset_figura_contador()
+    texto = (
+        "Como mostra a figura a seguir, e também a figura e o mapa ao lado, "
+        "na figura o padrão se mantém.\n"
+        "\n"
+        "Figura X- População por faixa etária e sexo."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "a figura a seguir" in html
+    assert "a figura e o mapa ao lado" in html
+    assert "na figura o padrão" in html
+    assert "Figura 2 – População" in html
+
+
+def test_inline_figure_reference_accepts_any_uppercase_letter_placeholder():
+    reset_figura_contador()
+    texto = (
+        "Primeiro trecho com um dado (Figura X).\n"
+        "\n"
+        "Figura X- Legenda da primeira figura.\n"
+        "\n"
+        "Segundo trecho com outro dado (Figura Y).\n"
+        "\n"
+        "Figura Y- Legenda da segunda figura.\n"
+        "\n"
+        "Terceiro trecho com mais um dado (Figura Z).\n"
+        "\n"
+        "Figura Z- Legenda da terceira figura."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "(Figura 2)" in html
+    assert "(Figura 3)" in html
+    assert "(Figura 4)" in html
+    assert "Figura 2 – Legenda da primeira" in html
+    assert "Figura 3 – Legenda da segunda" in html
+    assert "Figura 4 – Legenda da terceira" in html
+    assert "Figura Y" not in html
+    assert "Figura Z" not in html
+
+
 def test_single_asterisk_chart_placeholder_is_rendered():
     html = texto_para_html(
         "*grafico_faixa_etaria_e_sexo",

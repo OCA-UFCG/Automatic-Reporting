@@ -6,6 +6,7 @@ import pytest
 from plotting.saneamento import (
     _ANOS_DINAMICA_ESGOTO,
     _pontos_por_ano,
+    _quebrar_rotulo_longo,
     gerar_grafico_coleta_lixo,
     gerar_grafico_dinamica_esgoto,
     gerar_grafico_esgotamento_sanitario,
@@ -111,3 +112,14 @@ def test_grafico_coleta_lixo_exige_dados(tmp_path: Path):
     }
     with pytest.raises(ValueError, match="não disponíveis"):
         gerar_grafico_coleta_lixo(cidade, tmp_path, "sem_dados")
+
+
+def test_quebra_rotulo_longo_da_legenda():
+    # O rótulo mais longo de _CATEGORIAS vaza a faixa da legenda se não
+    # quebrar; o corte é por comprimento, então continua valendo se o texto
+    # do Doc mudar ou entrar categoria nova.
+    assert _quebrar_rotulo_longo("Não tinham banheiro e/ou sanitário") == (
+        "Não tinham banheiro e/ou\nsanitário"
+    )
+    assert _quebrar_rotulo_longo("Vala") == "Vala"
+    assert "\n" not in _quebrar_rotulo_longo("Fossa séptica ou fossa filtro")
