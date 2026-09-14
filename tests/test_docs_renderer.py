@@ -1049,3 +1049,19 @@ def test_conjuncao_com_numero_literal_continua_no_caminho_numerico():
 
     assert "ATENDE" in interpretar_blocos_condicionais(texto, {"a": 20, "b": 2})
     assert "ATENDE" not in interpretar_blocos_condicionais(texto, {"a": 20, "b": 9})
+
+
+def test_titulo_de_secao_solto_no_meio_do_bloco_vira_heading():
+    # "Síntese" é escrito no Doc sem "#!" e sem linha em branco antes, então
+    # chegava colado no parágrafo anterior e saía como texto corrido, e não
+    # verde como "Apresentação"/"Características Gerais".
+    reset_figura_contador()
+    texto = "Parágrafo anterior sem linha em branco depois.\nSíntese\nTexto da síntese."
+
+    html = texto_para_html(
+        texto, {}, graficos_por_placeholder={}, classe_paragrafo="theme-detail-text"
+    )
+
+    assert '<h2 class="theme-detail-heading">Síntese</h2>' in html
+    assert '<p class="theme-detail-text">Síntese</p>' not in html
+    assert "Texto da síntese." in html

@@ -178,6 +178,10 @@ _SECOES_TITULO_ESPECIAL = {
     "fontes", "referências", "referencias",
 }
 _SECOES_CAIXA_FONTES = {"fontes", "conteúdos relacionados", "conteudos relacionados"}
+# Títulos que também valem quando aparecem soltos no meio de um bloco (sem
+# "#!" e sem linha em branco antes). Fora os da caixa de fontes, que têm
+# tratamento próprio e não podem virar um <h2> solto no meio do texto.
+_TITULOS_SECAO_NA_LINHA = _SECOES_TITULO_ESPECIAL - _SECOES_CAIXA_FONTES
 
 # Ex.: "[Painel: Terceira Idade](https://...)" ou "[Boletim: X](https://...)".
 _BADGE_LINK = re.compile(
@@ -841,6 +845,21 @@ def texto_para_html(
                 f"</p>"
             )
 
+            proximo_paragrafo_destaque = False
+
+        elif linha_limpa.casefold() in _TITULOS_SECAO_NA_LINHA:
+            # Título de seção escrito no Doc sem o marcador "#!" e sem linha
+            # em branco antes — aí ele chega colado no parágrafo anterior e
+            # escapa da checagem por bloco em render_descricao_tema_html,
+            # saindo como texto corrido. Ex.: o "Síntese" do Doc de
+            # Infraestrutura e Saneamento, que precisa ficar verde como
+            # "Apresentação" e "Características Gerais".
+            _suprimir_proxima_legenda = False
+            html_lines.append(
+                f'<h2 class="theme-detail-heading">'
+                f"{html_module.escape(linha_limpa)}"
+                f"</h2>"
+            )
             proximo_paragrafo_destaque = False
 
         else:
