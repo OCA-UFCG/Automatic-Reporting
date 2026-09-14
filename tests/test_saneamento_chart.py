@@ -5,6 +5,7 @@ import pytest
 
 from plotting.saneamento import (
     _ANOS_DINAMICA_ESGOTO,
+    _indices_com_rotulo,
     _pontos_por_ano,
     _quebrar_rotulo_longo,
     gerar_grafico_coleta_lixo,
@@ -123,3 +124,26 @@ def test_quebra_rotulo_longo_da_legenda():
     )
     assert _quebrar_rotulo_longo("Vala") == "Vala"
     assert "\n" not in _quebrar_rotulo_longo("Fossa séptica ou fossa filtro")
+
+
+def test_rotulos_de_percentual_nao_colidem_em_fatias_vizinhas():
+    # Belém/AL: 3,2% (vala) e 3,5% (rio/lago) são fatias finas e coladas —
+    # ambas passariam num filtro por percentual, mas seus rótulos se
+    # sobrepõem no anel. Só uma das duas pode ser rotulada.
+    valores = [123, 10, 1397, 54, 59, 27, 6]
+
+    com_rotulo = _indices_com_rotulo(valores)
+
+    assert 2 in com_rotulo  # 83,4% — a fatia dominante sempre cabe
+    assert 0 in com_rotulo  # 7,3% — isolada o suficiente
+    assert not {3, 4} <= com_rotulo  # vala e rio não podem coexistir
+    assert 1 not in com_rotulo  # 0,6%: abaixo do mínimo, mesmo isolada
+
+
+def test_todas_as_fatias_rotuladas_quando_bem_distribuidas():
+    # Sete fatias iguais: 51,4° entre centros, bem acima do mínimo.
+    assert _indices_com_rotulo([100] * 7) == set(range(7))
+
+
+def test_sem_rotulo_quando_nao_ha_total():
+    assert _indices_com_rotulo([0, 0, 0]) == set()

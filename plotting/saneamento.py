@@ -1,3 +1,4 @@
+import itertools
 import math
 import pathlib
 
@@ -47,9 +48,60 @@ def _quebrar_rotulo_longo(rotulo: str) -> str:
     return f"{rotulo[:corte]}\n{rotulo[corte + 1:]}"
 
 
+# Distância angular mínima, em graus, entre os centros de dois rótulos de
+# percentual vizinhos no anel. Calibrado para o rótulo mais largo ("12,3%")
+# na fonte atual: abaixo disso os textos encostam um no outro.
+_ANGULO_MINIMO_ENTRE_ROTULOS = 21.0
+# Abaixo deste percentual a fatia não recebe rótulo nem quando está isolada:
+# o texto ficaria maior que a própria fatia.
+_PCT_MINIMO_PARA_ROTULO = 2.0
+
+
+def _indices_com_rotulo(valores: list[float]) -> set[int]:
+    """Índices das fatias que podem exibir o rótulo de percentual sem colidir
+    com o rótulo da fatia anterior, na ordem em que são desenhadas."""
+    total = sum(valores)
+    if total <= 0:
+        return set()
+
+    indices: set[int] = set()
+    angulo_acumulado = 0.0
+    centro_anterior = None
+    primeiro_centro = None
+
+    for indice, valor in enumerate(valores):
+        angulo = 360.0 * valor / total
+        centro = angulo_acumulado + angulo / 2
+        angulo_acumulado += angulo
+
+        if 100.0 * valor / total < _PCT_MINIMO_PARA_ROTULO:
+            continue
+        if (
+            centro_anterior is not None
+            and centro - centro_anterior < _ANGULO_MINIMO_ENTRE_ROTULOS
+        ):
+            continue
+        # A última fatia fecha o círculo: precisa de folga também para a
+        # primeira rotulada, senão os dois rótulos se encontram no topo.
+        if (
+            primeiro_centro is not None
+            and primeiro_centro + 360.0 - centro < _ANGULO_MINIMO_ENTRE_ROTULOS
+        ):
+            continue
+
+        indices.add(indice)
+        centro_anterior = centro
+        if primeiro_centro is None:
+            primeiro_centro = centro
+
+    return indices
+
+
 def _formatar_total(total: float) -> str:
+    # "mil" por extenso, e não o "K": a unidade aparece no miolo da rosca,
+    # lida por leitores não técnicos do relatório.
     if total >= 10000:
-        return f"{round(total / 1000)}K"
+        return f"{round(total / 1000)} mil"
     return f"{total:,.0f}".replace(",", ".")
 
 
@@ -86,11 +138,18 @@ def gerar_grafico_esgotamento_sanitario(
         (posicao.x0, posicao.y0, posicao.width - largura_legenda, posicao.height)
     )
 
-    # Rótulo de % só nas fatias >= 3%: com a fonte maior, as fatias de 2 a 3%
-    # — que antes ainda cabiam — passaram a colidir entre si no anel; a
-    # categoria delas continua identificada na legenda.
+    # Quais fatias levam rótulo de %: o critério é a distância angular entre
+    # rótulos vizinhos, não o percentual em si. Duas fatias finas e coladas
+    # (ex.: 3,2% e 3,5% em Belém/AL) têm percentual "alto o bastante" e mesmo
+    # assim seus rótulos se sobrepõem no anel; já uma fatia pequena isolada
+    # cabe sem colidir. A categoria de quem fica sem rótulo segue na legenda.
+    com_rotulo = _indices_com_rotulo(valores)
+    indice_fatia = itertools.count()
+
     def _autopct(pct: float) -> str:
-        return f"{pct:.1f}%".replace(".", ",") if pct >= 3 else ""
+        if next(indice_fatia) not in com_rotulo:
+            return ""
+        return f"{pct:.1f}%".replace(".", ",")
 
     wedges, _textos, autotextos = ax.pie(
         valores,
