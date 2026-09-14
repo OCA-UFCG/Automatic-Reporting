@@ -412,9 +412,20 @@ def _resolver_campo_com_alias(contexto: dict, campo: str) -> object | None:
     return None
 
 
+# Decimal com ponto guardado em coluna de texto (ex.: esgoto_rede_2000 =
+# "4.4"). Sem isso o valor escapa da formatação pt-BR e o relatório mistura
+# "4.4%" com "7,3%" na mesma frase. Só casa o que é número decimal puro:
+# string inteira ("2801108", código de município) fica intacta, para não
+# ganhar separador de milhar, e texto com unidade ("12,2 pontos percentuais")
+# também não casa.
+_TEXTO_DECIMAL_COM_PONTO = re.compile(r"^-?\d+\.\d+$")
+
+
 def _formatar_valor(valor: object, decimais: int | None = None) -> str:
     if isinstance(valor, bool):
         return str(valor)
+    if isinstance(valor, str) and _TEXTO_DECIMAL_COM_PONTO.match(valor.strip()):
+        valor = float(valor)
     if isinstance(valor, (int, float, Decimal)):
         numero = float(valor)
         if decimais is None:

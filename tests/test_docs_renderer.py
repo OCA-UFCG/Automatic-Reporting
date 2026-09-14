@@ -1065,3 +1065,27 @@ def test_titulo_de_secao_solto_no_meio_do_bloco_vira_heading():
     assert '<h2 class="theme-detail-heading">Síntese</h2>' in html
     assert '<p class="theme-detail-text">Síntese</p>' not in html
     assert "Texto da síntese." in html
+
+
+def test_decimal_em_coluna_de_texto_sai_no_padrao_ptbr():
+    # `esgoto_rede_2000` é coluna de texto e guarda "4.4"; sem formatação o
+    # relatório misturava "4.4%" e "7,3%" na mesma frase.
+    texto = "de infraestrutura.$esgoto_rede_2000% em 2000 para infraestrutura.$esgoto_rede_2022% em 2022"
+
+    resultado = substituir_placeholders(
+        texto, {"esgoto_rede_2000": "4.4", "esgoto_rede_2022": 7.3}, "saneamento"
+    )
+
+    assert resultado == "de 4,4% em 2000 para 7,3% em 2022"
+
+
+def test_texto_que_nao_e_decimal_puro_fica_intacto():
+    # Código de município (inteiro) não pode ganhar separador de milhar, e
+    # texto com unidade por extenso não é número.
+    contexto = {"cod_mun": "2801108", "var_coleta_pp": "12,2 pontos percentuais"}
+
+    resultado = substituir_placeholders(
+        "saneamento.$cod_mun / saneamento.$var_coleta_pp", contexto, "saneamento"
+    )
+
+    assert resultado == "2801108 / 12,2 pontos percentuais"
