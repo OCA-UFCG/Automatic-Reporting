@@ -105,7 +105,11 @@ def gerar_grafico_esgotamento_sanitario(
 # acima, que usam `_numero` (separador de milhar em ponto, decimal em vírgula).
 # Reaproveitar `_numero` aqui trocaria "68.4" por 684.0, então este parser
 # tenta o ponto como decimal primeiro e só cai pra vírgula-decimal depois.
-def _numero_percentual(valor: object) -> float:
+# Devolve None (e não 0.0) quando não há número: 0% é um valor legítimo e
+# frequente nestas colunas — 469 dos 2.074 municípios têm 0% em 2000 —, então
+# quem chama precisa distinguir "zero" de "sem dado" (a view guarda o texto
+# "sem dados" em alguns municípios).
+def _numero_percentual(valor: object) -> float | None:
     if isinstance(valor, str):
         valor = valor.strip()
         try:
@@ -114,13 +118,27 @@ def _numero_percentual(valor: object) -> float:
             try:
                 numero = float(valor.replace(".", "").replace(",", "."))
             except ValueError:
-                return 0.0
+                return None
     else:
         try:
             numero = float(valor)
         except (TypeError, ValueError):
-            return 0.0
-    return numero if math.isfinite(numero) else 0.0
+            return None
+    return numero if math.isfinite(numero) else None
+
+
+def _pontos_por_ano(
+    cidade: dict, anos: tuple[tuple[str, str], ...]
+) -> list[tuple[str, float]]:
+    """Pares (rótulo do ano, percentual) dos anos que têm número na view.
+    Ano ausente/"sem dados" fica de fora do gráfico; 0% entra como barra
+    zerada, porque é cobertura real e não falta de dado."""
+    pontos = []
+    for chave, rotulo in anos:
+        valor = _numero_percentual(cidade.get(chave))
+        if valor is not None:
+            pontos.append((rotulo, valor))
+    return pontos
 
 
 def _formatar_percentual(valor: float) -> str:
@@ -193,13 +211,7 @@ def gerar_grafico_dinamica_esgoto(
     OUTPUT_DIR: pathlib.Path,
     safe_city: str,
 ) -> str:
-    pontos = [
-        (rotulo, _numero_percentual(cidade.get(chave)))
-        for chave, rotulo in _ANOS_DINAMICA_ESGOTO
-    ]
-    # Omite anos sem valor válido (>0) em vez de plotar uma barra zerada, que
-    # sugeriria "0% de cobertura" ao invés de "sem dado".
-    pontos = [(rotulo, valor) for rotulo, valor in pontos if valor > 0]
+    pontos = _pontos_por_ano(cidade, _ANOS_DINAMICA_ESGOTO)
     if not pontos:
         raise ValueError("Dados de dinâmica de esgotamento não disponíveis.")
 
@@ -227,13 +239,7 @@ def gerar_grafico_coleta_lixo(
     OUTPUT_DIR: pathlib.Path,
     safe_city: str,
 ) -> str:
-    pontos = [
-        (rotulo, _numero_percentual(cidade.get(chave)))
-        for chave, rotulo in _ANOS_COLETA_LIXO
-    ]
-    # Omite anos sem valor válido (>0) em vez de plotar uma barra zerada, que
-    # sugeriria "0% de cobertura" ao invés de "sem dado".
-    pontos = [(rotulo, valor) for rotulo, valor in pontos if valor > 0]
+    pontos = _pontos_por_ano(cidade, _ANOS_COLETA_LIXO)
     if not pontos:
         raise ValueError("Dados de coleta de lixo não disponíveis.")
 

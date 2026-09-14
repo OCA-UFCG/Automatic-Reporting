@@ -4,6 +4,8 @@ from pathlib import Path
 import pytest
 
 from plotting.saneamento import (
+    _ANOS_DINAMICA_ESGOTO,
+    _pontos_por_ano,
     gerar_grafico_coleta_lixo,
     gerar_grafico_dinamica_esgoto,
     gerar_grafico_esgotamento_sanitario,
@@ -49,11 +51,41 @@ def test_gera_dinamica_esgoto(tmp_path: Path):
     assert (tmp_path / arquivo).is_file()
 
 
+def test_dinamica_esgoto_mantem_ano_com_zero(tmp_path: Path):
+    # 0% é cobertura real, não falta de dado: 469 dos 2.074 municípios da view
+    # têm 0% em 2000. O ano precisa virar barra zerada, não sumir do gráfico.
+    cidade = {
+        "esgoto_rede_2000": "0",
+        "esgoto_rede_2010": Decimal("12.5"),
+        "esgoto_rede_2022": Decimal("30.0"),
+    }
+
+    assert _pontos_por_ano(cidade, _ANOS_DINAMICA_ESGOTO) == [
+        ("2000", 0.0),
+        ("2010", 12.5),
+        ("2022", 30.0),
+    ]
+    arquivo = gerar_grafico_dinamica_esgoto(cidade, tmp_path, "com_zero")
+    assert (tmp_path / arquivo).is_file()
+
+
+def test_dinamica_esgoto_omite_ano_sem_dado(tmp_path: Path):
+    # "sem dados" é o texto que a view guarda em alguns municípios; junto com
+    # None, é o único caso que deve sair do gráfico.
+    cidade = {
+        "esgoto_rede_2000": "sem dados",
+        "esgoto_rede_2010": None,
+        "esgoto_rede_2022": Decimal("30.0"),
+    }
+
+    assert _pontos_por_ano(cidade, _ANOS_DINAMICA_ESGOTO) == [("2022", 30.0)]
+
+
 def test_grafico_dinamica_esgoto_exige_dados(tmp_path: Path):
     cidade = {
         "esgoto_rede_2000": None,
-        "esgoto_rede_2010": 0,
-        "esgoto_rede_2022": "0",
+        "esgoto_rede_2010": "sem dados",
+        "esgoto_rede_2022": None,
     }
     with pytest.raises(ValueError, match="não disponíveis"):
         gerar_grafico_dinamica_esgoto(cidade, tmp_path, "sem_dados")
@@ -75,7 +107,7 @@ def test_gera_coleta_lixo(tmp_path: Path):
 def test_grafico_coleta_lixo_exige_dados(tmp_path: Path):
     cidade = {
         "coleta_2010": None,
-        "coleta_2022": "0",
+        "coleta_2022": "sem dados",
     }
     with pytest.raises(ValueError, match="não disponíveis"):
         gerar_grafico_coleta_lixo(cidade, tmp_path, "sem_dados")
