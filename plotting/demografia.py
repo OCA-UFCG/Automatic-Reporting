@@ -10,6 +10,7 @@ from plotting import (
     salvar_card_grafico,
 )
 from utils.formatting import formatar_numero_ptbr
+from utils.geografia import resolver_nome_uf
 from utils.queries.base import escalar_valor
 
 
@@ -181,8 +182,10 @@ def gerar_grafico_visao_historica_populacao(
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_visao_historica_populacao_{safe_city}.png"
 
-    nome_municipio = cidade.get("nm_mun")
-    sigla_uf = cidade.get("sigla_uf")
+    # nm_mun já chega canonicalizado como "Cidade (UF)" (ver
+    # services/generation.py); separar_cidade_uf evita duplicar a UF que
+    # um simples cidade.get("sigla_uf") colado no fim causaria.
+    nome_municipio, sigla_uf = resolver_nome_uf(cidade)
     titulo = "Dinâmica populacional"
     if nome_municipio:
         titulo += f" de {nome_municipio}"
