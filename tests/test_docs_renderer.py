@@ -342,6 +342,28 @@ Com vários Centros POP."""
     assert "Para quando" not in resultado
 
 
+def test_dead_leading_condition_does_not_swallow_the_fontes_marker():
+    # A primeira condicional do cascateamento fica órfã depois que
+    # extrair_descricao_tema varre o "descricao_tema =" que a segue (ver
+    # utils/external/docs.py) — sobra só o "Para quando ...:" colado, com
+    # linhas em branco, direto em cima de "#!Fontes". Se essa condição for
+    # falsa para a cidade, "#!Fontes" era lido como o conteúdo guardado por
+    # ela e sumia (PR #116).
+    texto = (
+        "Para quando seg_hidrica.$total_2025 for igual a 0, então:\n"
+        "\n\n\n"
+        "#!Fontes\n"
+        "\n\n"
+        "[Painel de dados: Cisternas](https://example.com/cisternas)\n"
+    )
+    contexto = {"total_2025": 1101}
+
+    resultado = interpretar_blocos_condicionais(texto, contexto)
+
+    assert "#!Fontes" in resultado
+    assert "Para quando" not in resultado
+
+
 def test_social_development_gini_condition_renders_only_the_matching_branch():
     texto = """Síntese
 Quando o índice de Gini for maior e igual a 0,5

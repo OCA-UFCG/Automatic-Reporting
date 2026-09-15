@@ -221,6 +221,16 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
             resultado.append(linha)
             continue
 
+        # "#!Fontes"/"#!Conteúdos relacionados" pertencem ao documento
+        # inteiro, não à última condicional avaliada; sem este reset, uma
+        # condicional órfã e falsa logo acima engoliria o marcador (PR #116).
+        if re.match(r"(?i)^#!", limpa):
+            bloco_ativo = True
+            aguardando_fim_de_bloco_simples = False
+            bloco_simples_teve_conteudo = False
+            resultado.append(linha)
+            continue
+
         if aguardando_fim_de_bloco_simples:
             if limpa:
                 bloco_simples_teve_conteudo = True
