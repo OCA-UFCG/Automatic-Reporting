@@ -29,7 +29,17 @@ _suprimir_proxima_legenda = False
 
 _LARGURA_MAXIMA_GRAFICO_PADRAO = "480px"
 _MARGEM_VERTICAL_GRAFICOS_PADRAO = "32px"
+# Base menor de propósito: a legenda da figura (`.figure-caption`) logo abaixo
+# já traz sua própria margin-top, então repetir a margem cheia aqui somava as
+# duas e deixava ~43px de respiro entre o gráfico e a legenda — demais.
+_MARGEM_INFERIOR_GRAFICOS = "8px"
 _CONFIG_GRAFICOS = {
+    # A rosca de esgotamento é desenhada num card mais largo (10") para os
+    # rótulos de % caberem sem se sobrepor; exibi-la nos 480px padrão
+    # encolheria o texto na mesma proporção, então ela ganha largura própria.
+    "grafico_domicilio_por_tipo_esgosto": {
+        "largura_maxima": "600px",
+    },
     "grafico_composicao_cor_raca": {
         "largura_maxima": "350px",
         "margem_vertical": "12px",
@@ -61,18 +71,27 @@ def reset_figura_contador() -> None:
     _suprimir_proxima_legenda = False
 
 
-_REFERENCIA_FIGURA_INLINE = re.compile(r"(?i)\bfigura\s+\[?[Xx&]\]?\b")
+# Sem `(?i)` de propósito: o flag global tornaria `[A-Zx]` insensível a
+# caixa e o padrão passaria a casar "figura a/e/o", corrompendo frases
+# como "a figura a seguir". A caixa de "figura" é tratada à parte.
+_REFERENCIA_FIGURA_INLINE = re.compile(r"\b[Ff]igura\s+\[?(?:[A-Zx]|&)\]?\b")
 
 
 def _substituir_referencia_figura_inline(linha: str) -> str:
     """Substitui menções inline como "(Figura X)" pelo número real da figura.
 
     O texto fonte referencia, no meio de um parágrafo, a figura que é
-    legendada logo em seguida usando um placeholder (``X``, ``&``, opcionalmente
+    legendada logo em seguida usando um placeholder (qualquer letra maiúscula
+    isolada — ``X``, ``Y``, ``Z``… —, o ``x`` minúsculo ou ``&``, opcionalmente
     entre colchetes) em vez do número final — que só é conhecido em tempo de
-    renderização. O regex é ancorado nesses placeholders (não em qualquer
-    palavra curta após "figura") para não casar frases comuns como "a figura
-    da variação" ou menções que já trazem o número final, como "Figura 2".
+    renderização. O regex exige um único caractere entre "figura" e o limite
+    de palavra (não qualquer palavra curta) para não casar frases comuns como
+    "a figura da variação". Aceita qualquer letra maiúscula isolada (o Doc usa
+    X, Y, Z... quando há mais de uma figura pendente no texto) e o ``x``
+    minúsculo (placeholder mais comum), mas não outras letras minúsculas: uma
+    conjunção ou artigo de uma letra só (“e”, “a”, “o”) logo depois de
+    "figura" formaria um falso positivo se qualquer minúscula fosse aceita.
+    Menções que já trazem o número final, como "Figura 2", também não casam.
 
     Quando um parágrafo menciona mais de uma figura (ex.: "(Figura X)... e
     (Figura X)..."), cada ocorrência é contada separadamente e aponta para a
@@ -159,6 +178,10 @@ _SECOES_TITULO_ESPECIAL = {
     "fontes", "referências", "referencias",
 }
 _SECOES_CAIXA_FONTES = {"fontes", "conteúdos relacionados", "conteudos relacionados"}
+# Títulos que também valem quando aparecem soltos no meio de um bloco (sem
+# "#!" e sem linha em branco antes). Fora os da caixa de fontes, que têm
+# tratamento próprio e não podem virar um <h2> solto no meio do texto.
+_TITULOS_SECAO_NA_LINHA = _SECOES_TITULO_ESPECIAL - _SECOES_CAIXA_FONTES
 
 # Ex.: "[Painel: Terceira Idade](https://...)" ou "[Boletim: X](https://...)".
 _BADGE_LINK = re.compile(
@@ -702,17 +725,21 @@ def texto_para_html(
 
             if figuras:
 
+                # `.get`: uma entrada de _CONFIG_GRAFICOS pode configurar só
+                # a largura e herdar a margem padrão — indexar direto quebrava
+                # a renderização inteira com KeyError nesse caso.
                 margem_vertical = next(
                     (
                         _CONFIG_GRAFICOS[tipo]["margem_vertical"]
                         for tipo in tipos
-                        if tipo in _CONFIG_GRAFICOS
+                        if _CONFIG_GRAFICOS.get(tipo, {}).get("margem_vertical")
                     ),
                     _MARGEM_VERTICAL_GRAFICOS_PADRAO,
                 )
                 html_lines.append(
                     '<div style="display:flex; gap:24px; justify-content:center; '
-                    f'align-items:flex-start; margin:{margem_vertical} 0; flex-wrap:wrap;">'
+                    "align-items:flex-start; "
+                    f"margin:{margem_vertical} 0 {_MARGEM_INFERIOR_GRAFICOS}; flex-wrap:wrap;\">"
                     + "".join(figuras)
                     + "</div>"
                 )
@@ -818,6 +845,21 @@ def texto_para_html(
                 f"</p>"
             )
 
+            proximo_paragrafo_destaque = False
+
+        elif linha_limpa.casefold() in _TITULOS_SECAO_NA_LINHA:
+            # Título de seção escrito no Doc sem o marcador "#!" e sem linha
+            # em branco antes — aí ele chega colado no parágrafo anterior e
+            # escapa da checagem por bloco em render_descricao_tema_html,
+            # saindo como texto corrido. Ex.: o "Síntese" do Doc de
+            # Infraestrutura e Saneamento, que precisa ficar verde como
+            # "Apresentação" e "Características Gerais".
+            _suprimir_proxima_legenda = False
+            html_lines.append(
+                f'<h2 class="theme-detail-heading">'
+                f"{html_module.escape(linha_limpa)}"
+                f"</h2>"
+            )
             proximo_paragrafo_destaque = False
 
         else:

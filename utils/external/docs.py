@@ -173,6 +173,24 @@ def extrair_resumo_tema(texto: str) -> tuple[str | None, str]:
 
 
 def extrair_descricao_tema(texto: str) -> tuple[str | None, str]:
+    # Alguns Docs não fecham `descricao_tema` com `@@`. Neles, `#!Fontes` é
+    # inequivocamente o começo do conteúdo posterior; usá-lo como fechamento
+    # implícito evita que Fontes e Conteúdos relacionados sejam engolidos pela
+    # descrição e renderizados como texto comum, fora da caixa própria.
+    cabecalho_fontes = re.search(r"(?im)^\s*#!\s*fontes\s*$", texto)
+    if cabecalho_fontes:
+        inicios_descricao = list(
+            re.finditer(r"(?i)descricao_tema\s*=", texto[:cabecalho_fontes.start()])
+        )
+        if inicios_descricao:
+            ultimo_inicio = inicios_descricao[-1].end()
+            if "@@" not in texto[ultimo_inicio:cabecalho_fontes.start()]:
+                texto = (
+                    texto[:cabecalho_fontes.start()].rstrip()
+                    + "@@\n"
+                    + texto[cabecalho_fontes.start():].lstrip("\r\n")
+                )
+
     blocos: list[str] = []
     texto_restante = texto
     while True:
