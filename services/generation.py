@@ -211,7 +211,7 @@ GRAFICOS_AUTO_MARCADOR = {
     ),
     "saneamento": (
         (
-            "grafico_dinamica_esgoto",
+            "grafico_domicilio",
             (
                 r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
                 r"Din[aâ]mica\s+do\s+percentual\s+de\s+domic[ií]lios\s+"
@@ -220,7 +220,7 @@ GRAFICOS_AUTO_MARCADOR = {
             ),
         ),
         (
-            "grafico_esgotamento_sanitario",
+            "grafico_domicilio_por_tipo_esgosto",
             (
                 r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
                 r"Domic[ií]lios\s+por\s+tipo\s+de\s+esgotamento\s+sanit[aá]rio[^\n]*)$"
@@ -795,7 +795,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
 
         if macrotema_slug == "saneamento":
             try:
-                graficos_por_placeholder["grafico_dinamica_esgoto"] = (
+                graficos_por_placeholder["grafico_domicilio"] = (
                     gerar_grafico_dinamica_esgoto(
                         cidade=linhas_macrotema[0],
                         OUTPUT_DIR=OUTPUT_DIR,
@@ -811,7 +811,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 )
 
             try:
-                graficos_por_placeholder["grafico_esgotamento_sanitario"] = (
+                graficos_por_placeholder["grafico_domicilio_por_tipo_esgosto"] = (
                     gerar_grafico_esgotamento_sanitario(
                         cidade=linhas_macrotema[0],
                         OUTPUT_DIR=OUTPUT_DIR,
@@ -945,9 +945,16 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         for nome_grafico, legenda_regex in GRAFICOS_AUTO_MARCADOR.get(macrotema_slug, ()):
             if re.search(rf"(?m)^\s*(?:%%|\*){nome_grafico}\s*$", docs_texto):
                 continue
+            # `legenda_regex` começa com `^\s*Figura`: como `\s` casa quebra de
+            # linha, o `^` pode ancorar numa linha em branco antes da legenda e
+            # engolir as quebras que a separam do parágrafo anterior. Sem a
+            # linha em branco própria do marcador, ele herda o `bloco_ativo`
+            # do bloco condicional anterior em `interpretar_blocos_condicionais`
+            # (que só reativa na primeira linha em branco) e some do relatório
+            # mesmo com a legenda logo abaixo sobrevivendo.
             docs_texto, n_substituicoes = re.subn(
                 legenda_regex,
-                f"*{nome_grafico}\n\n\\1",
+                f"\n\n*{nome_grafico}\n\n\\1",
                 docs_texto,
                 count=1,
             )

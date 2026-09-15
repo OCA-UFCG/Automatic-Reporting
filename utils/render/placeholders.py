@@ -210,6 +210,17 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
     for linha in texto.splitlines():
         limpa = linha.strip()
 
+        # Os marcadores de gráfico ficam depois das alternativas condicionais
+        # no Google Docs e pertencem à seção inteira, não à última alternativa.
+        # Sem uma linha vazia antes do marcador, a condição anterior ainda
+        # estaria ativa e poderia apagar o gráfico mesmo com o PNG gerado.
+        if re.fullmatch(r"(?:%%|\*)\w+(?:\+\w+)*", limpa):
+            bloco_ativo = True
+            aguardando_fim_de_bloco_simples = False
+            bloco_simples_teve_conteudo = False
+            resultado.append(linha)
+            continue
+
         if aguardando_fim_de_bloco_simples:
             if limpa:
                 bloco_simples_teve_conteudo = True

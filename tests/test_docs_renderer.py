@@ -949,12 +949,12 @@ def test_config_de_grafico_sem_margem_usa_a_padrao():
     # (como a da rosca de esgotamento) derrubava a renderização inteira com
     # KeyError, porque a margem era lida por indexação direta.
     reset_figura_contador()
-    texto = "%%grafico_esgotamento_sanitario\n\nFigura X- Legenda de teste."
+    texto = "%%grafico_domicilio_por_tipo_esgosto\n\nFigura X- Legenda de teste."
 
     html = texto_para_html(
         texto,
         {},
-        graficos_por_placeholder={"grafico_esgotamento_sanitario": "rosca.png"},
+        graficos_por_placeholder={"grafico_domicilio_por_tipo_esgosto": "rosca.png"},
     )
 
     assert "margin:32px 0 8px;" in html
@@ -1037,6 +1037,21 @@ def test_campo_texto_com_unidade_por_extenso_e_lido_como_numero():
 
     assert "HOUVE-VARIACAO" in variou and "SEM-VARIACAO" not in variou
     assert "SEM-VARIACAO" in parado and "HOUVE-VARIACAO" not in parado
+
+
+def test_marcador_de_grafico_apos_alternativa_falsa_nao_e_descartado():
+    texto = (
+        "Para quando infraestrutura.$var_coleta_pp for igual a 0 ponto "
+        "percentual, então:\nSEM-VARIACAO\n"
+        "*grafico_coleta_lixo\n"
+        "Figura Z – Evolução da coleta de lixo.\n"
+    )
+
+    resultado = interpretar_blocos_condicionais(texto, {"var_coleta_pp": 2.7})
+
+    assert "SEM-VARIACAO" not in resultado
+    assert "*grafico_coleta_lixo" in resultado
+    assert "Figura Z" in resultado
 
 
 def test_conjuncao_com_numero_literal_continua_no_caminho_numerico():

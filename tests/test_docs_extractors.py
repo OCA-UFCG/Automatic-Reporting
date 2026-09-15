@@ -19,6 +19,22 @@ def test_all_theme_description_blocks_are_joined_and_removed():
     assert restante == "Entre"
 
 
+def test_theme_description_without_closing_marker_stops_before_sources():
+    texto = """descricao_tema=Texto principal do tema.
+Mais um parágrafo.
+#!Fontes
+Painéis usados no relatório.
+#!Conteúdos relacionados
+Boletins do tema.
+"""
+
+    descricao, restante = extrair_descricao_tema(texto)
+
+    assert descricao == "Texto principal do tema.\nMais um parágrafo."
+    assert restante.startswith("#!Fontes")
+    assert "#!Conteúdos relacionados" in restante
+
+
 def test_global_report_summary_is_extracted_from_characteristics_document():
     texto = "#! Resumo\nresumo_relatorio=“Síntese de caract_mun.$nm_mun.”@@"
 

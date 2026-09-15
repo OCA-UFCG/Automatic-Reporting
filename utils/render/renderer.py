@@ -37,7 +37,7 @@ _CONFIG_GRAFICOS = {
     # A rosca de esgotamento é desenhada num card mais largo (10") para os
     # rótulos de % caberem sem se sobrepor; exibi-la nos 480px padrão
     # encolheria o texto na mesma proporção, então ela ganha largura própria.
-    "grafico_esgotamento_sanitario": {
+    "grafico_domicilio_por_tipo_esgosto": {
         "largura_maxima": "600px",
     },
     "grafico_composicao_cor_raca": {
