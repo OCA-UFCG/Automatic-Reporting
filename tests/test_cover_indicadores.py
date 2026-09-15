@@ -7,9 +7,9 @@ from utils.cover import (
 # Contexto sintético no formato do que `buscar_indicadores_municipio` devolve
 # (colunas de relatorios_auto.vw_indicadores). Nenhum teste aqui toca o banco.
 CONTEXTO = {
-    "idhm_2010": "0.770",
-    "renda_per_capita_2010": "630.03",
-    "indice_gini_2010": "0.58",
+    "valor_idhm": "0.770",
+    "valor_renda_capita": "630.03",
+    "valor_gini": "0.58",
     "nao_alfabetizados_15_mais": 26939,
     "reducao_nao_alfabetizados_2010_2022": 7351,
     "sem_instrucao_fund_incomp_per": "46.50",
@@ -35,6 +35,39 @@ def test_indicadores_usam_valores_do_contexto():
     )
 
     assert valores["IDHM"] == "0,77"
+    assert valores["Renda per capita"] == "R$ 630,03"
+    assert valores["Índice de Gini"] == "0,58"
+
+
+def test_desenvolvimento_social_mostra_os_subindices_do_idhm():
+    # `valor_idhm_educacao`, `valor_idhm_longevidade` e `valor_idhm_renda` são
+    # colunas novas em vw_indicadores; os cards de IDHM/renda/Gini também
+    # migraram de `idhm_2010`/`renda_per_capita_2010`/`indice_gini_2010`
+    # (colunas que não existem mais na view) para `valor_idhm`/
+    # `valor_renda_capita`/`valor_gini`.
+    contexto = {
+        **CONTEXTO,
+        "valor_idhm_educacao": "0.458",
+        "valor_idhm_longevidade": "0.843",
+        "valor_idhm_renda": "0.719",
+    }
+
+    valores = _por_nome(
+        montar_indicadores_macrotema("desenvolvimento-social", contexto)
+    )
+
+    assert valores["IDHM Educação"] == "0,458"
+    assert valores["IDHM Longevidade"] == "0,843"
+    assert valores["IDHM Renda"] == "0,719"
+
+
+def test_economia_renda_usa_colunas_atuais_da_view():
+    # `renda_per_capita_2010`/`indice_gini_2010` não existem mais em
+    # `vw_indicadores` (mesma migração de `desenvolvimento-social`, acima) —
+    # os cards de economia-renda tinham ficado pra trás, apontando pras
+    # colunas antigas, e saíam vazios em todo relatório.
+    valores = _por_nome(montar_indicadores_macrotema("economia-renda", CONTEXTO))
+
     assert valores["Renda per capita"] == "R$ 630,03"
     assert valores["Índice de Gini"] == "0,58"
 

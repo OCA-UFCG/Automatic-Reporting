@@ -25,6 +25,8 @@ def formatar_data_hora_extenso(data: datetime) -> str:
 # Campos: coluna (nome na view), nome (rótulo), fonte (linha pequena do card),
 # rodape (texto do rodapé), decimais (máximo, zeros à direita são cortados),
 # prefixo/sufixo (unidade) e icone (opcional; cai no ícone do macrotema).
+_FONTE_IPEA_FJP = "IPEA / Fundação João Pinheiro (2010)"
+
 INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
     "demografia": (
         {
@@ -151,45 +153,75 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
         },
     ),
     # `rendimento_medio_ocupados` é, na definição da view, o mesmo
-    # max(renda_per_capita) de `renda_per_capita_2010`. Exibir os dois repetiria
+    # max(renda_per_capita) de `valor_renda_capita`. Exibir os dois repetiria
     # o número no card ao lado, então só a renda per capita entra aqui.
+    # `renda_per_capita_2010`/`indice_gini_2010` não existem mais em
+    # `vw_indicadores` (mesma migração de `desenvolvimento-social`, ver comentário
+    # abaixo) — aponta pras colunas atuais.
     "economia-renda": (
         {
-            "coluna": "renda_per_capita_2010",
+            "coluna": "valor_renda_capita",
             "nome": "Renda per capita",
-            "fonte": "Atlas Brasil / PNUD, 2010",
+            "fonte": _FONTE_IPEA_FJP,
             "rodape": "Renda média mensal por habitante",
             "decimais": 2,
             "prefixo": "R$ ",
         },
         {
-            "coluna": "indice_gini_2010",
+            "coluna": "valor_gini",
             "nome": "Índice de Gini",
-            "fonte": "Atlas Brasil / PNUD, 2010",
+            "fonte": _FONTE_IPEA_FJP,
             "rodape": "Concentração de renda: 0 é igualdade total, 1 é desigualdade máxima",
             "decimais": 2,
         },
     ),
+    # `idhm_2010`, `renda_per_capita_2010` e `indice_gini_2010` não existem mais
+    # em `vw_indicadores` — a view foi migrada para `valor_idhm`/`valor_gini`/
+    # `valor_renda_capita` (mesmo padrão nm_/valor_/fonte_/unid_ do resto da
+    # view), então os três cards nunca tinham valor. `valor_idhm_educacao`,
+    # `valor_idhm_longevidade` e `valor_idhm_renda` são os três subíndices do
+    # IDHM, novos na view.
     "desenvolvimento-social": (
         {
-            "coluna": "idhm_2010",
+            "coluna": "valor_idhm",
             "nome": "IDHM",
-            "fonte": "Atlas Brasil / PNUD, 2010",
+            "fonte": _FONTE_IPEA_FJP,
             "rodape": "Índice de Desenvolvimento Humano Municipal",
             "decimais": 3,
         },
         {
-            "coluna": "renda_per_capita_2010",
+            "coluna": "valor_idhm_educacao",
+            "nome": "IDHM Educação",
+            "fonte": _FONTE_IPEA_FJP,
+            "rodape": "Dimensão educação do IDHM",
+            "decimais": 3,
+        },
+        {
+            "coluna": "valor_idhm_longevidade",
+            "nome": "IDHM Longevidade",
+            "fonte": _FONTE_IPEA_FJP,
+            "rodape": "Dimensão longevidade do IDHM",
+            "decimais": 3,
+        },
+        {
+            "coluna": "valor_idhm_renda",
+            "nome": "IDHM Renda",
+            "fonte": _FONTE_IPEA_FJP,
+            "rodape": "Dimensão renda do IDHM",
+            "decimais": 3,
+        },
+        {
+            "coluna": "valor_renda_capita",
             "nome": "Renda per capita",
-            "fonte": "Atlas Brasil / PNUD, 2010",
+            "fonte": _FONTE_IPEA_FJP,
             "rodape": "Renda média mensal por habitante",
             "decimais": 2,
             "prefixo": "R$ ",
         },
         {
-            "coluna": "indice_gini_2010",
+            "coluna": "valor_gini",
             "nome": "Índice de Gini",
-            "fonte": "Atlas Brasil / PNUD, 2010",
+            "fonte": _FONTE_IPEA_FJP,
             "rodape": "Concentração de renda: 0 é igualdade total, 1 é desigualdade máxima",
             "decimais": 2,
         },
