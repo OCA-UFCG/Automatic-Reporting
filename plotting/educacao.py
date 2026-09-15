@@ -4,6 +4,136 @@ import numpy as np
 
 from plotting import ESCALA_FONTE, iniciar_card_grafico, salvar_card_grafico
 from utils.formatting import coerce_para_float as _coerce_para_float
+from utils.formatting import formatar_numero_ptbr
+
+# (prefixo da coluna na view, cor) — ordem espelha a escala de instrução
+# (pri = fundamental incompleto ... quar = superior completo) e as cores do Doc.
+_NIVEIS_INSTRUCAO = (
+    ("pri_nivel", "#8B4A2B"),
+    ("seg_nivel", "#1D7A9C"),
+    ("ter_nivel", "#E8871E"),
+    ("quar_nivel", "#7ECBE0"),
+)
+
+
+def gerar_grafico_nivel_instrucao(
+    cidade,
+    OUTPUT_DIR: pathlib.Path,
+    safe_city: str,
+):
+    colunas_necessarias = [
+        f"{prefixo}_{sufixo}"
+        for prefixo, _cor in _NIVEIS_INSTRUCAO
+        for sufixo in ("classe", "per", "pop")
+    ]
+    colunas_faltantes = [
+        coluna for coluna in colunas_necessarias if coluna not in cidade
+    ]
+    if colunas_faltantes:
+        raise ValueError(
+            "Colunas necessárias ausentes para gerar o gráfico de nível de "
+            "instrução: " + ", ".join(sorted(colunas_faltantes))
+        )
+
+    rotulos = [cidade[f"{prefixo}_classe"] for prefixo, _cor in _NIVEIS_INSTRUCAO]
+    populacoes = [
+        _coerce_para_float(cidade[f"{prefixo}_pop"]) for prefixo, _cor in _NIVEIS_INSTRUCAO
+    ]
+    percentuais = [
+        _coerce_para_float(cidade[f"{prefixo}_per"]) for prefixo, _cor in _NIVEIS_INSTRUCAO
+    ]
+    cores = [cor for _prefixo, cor in _NIVEIS_INSTRUCAO]
+
+    if not any(populacoes):
+        raise ValueError(
+            "Dados de distribuição da população por nível de instrução não "
+            "disponíveis."
+        )
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    chart_file = OUTPUT_DIR / f"grafico_nivel_instrucao_{safe_city}.png"
+
+    fig, ax = iniciar_card_grafico(
+        (10, 9.2),
+        "Distribuição da população por nível de instrução",
+        margem_esquerda=0.06,
+        margem_direita=0.06,
+    )
+    # A rosca ocupa só a metade central do card: rótulos externos com linha
+    # de chamada (acima/abaixo) e a legenda embaixo precisam da folga nas
+    # bordas, senão vazam da moldura. `figsize` bem mais alto que largo (e não
+    # só a fração `folga_base`) é o que garante essa folga: com fonte de
+    # tamanho fixo em pontos, uma figura mais alta faz a legenda ocupar uma
+    # fatia menor da altura total, sem estourar por baixo do card.
+    posicao = ax.get_position()
+    folga_lateral = posicao.width * 0.22
+    folga_topo = posicao.height * 0.06
+    folga_base = posicao.height * 0.3
+    ax.set_position(
+        (
+            posicao.x0 + folga_lateral,
+            posicao.y0 + folga_base,
+            posicao.width - 2 * folga_lateral,
+            posicao.height - folga_topo - folga_base,
+        )
+    )
+
+    wedges, _textos = ax.pie(
+        populacoes,
+        colors=cores,
+        startangle=90,
+        counterclock=False,
+        wedgeprops={"width": 0.42, "edgecolor": "white", "linewidth": 1.5},
+    )
+
+    # Rótulos externos com linha de chamada — mesma técnica do exemplo
+    # "labeling a pie" do matplotlib: a linha sai da borda da fatia (no
+    # ângulo médio dela) até o texto, posicionado fora da rosca.
+    propriedades_seta = {
+        "arrowstyle": "-",
+        "color": "#8A8F98",
+        "linewidth": 1,
+    }
+    for wedge, populacao, percentual in zip(wedges, populacoes, percentuais):
+        angulo_medio = (wedge.theta1 + wedge.theta2) / 2
+        y = np.sin(np.deg2rad(angulo_medio))
+        x = np.cos(np.deg2rad(angulo_medio))
+        alinhamento_horizontal = "left" if x >= 0 else "right"
+        propriedades_seta["connectionstyle"] = f"angle,angleA=0,angleB={angulo_medio}"
+
+        texto = (
+            f"{formatar_numero_ptbr(populacao)} "
+            f"({formatar_numero_ptbr(percentual, decimais=2)}%)"
+        )
+        ax.annotate(
+            texto,
+            xy=(x * 0.79, y * 0.79),
+            xytext=(1.3 * x, 1.3 * y),
+            ha=alinhamento_horizontal,
+            va="center",
+            fontsize=11.5 * ESCALA_FONTE,
+            color="#4A4A4A",
+            arrowprops=dict(propriedades_seta),
+        )
+
+    ax.legend(
+        wedges,
+        rotulos,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.14),
+        bbox_transform=fig.transFigure,
+        ncol=2,
+        frameon=False,
+        fontsize=11 * ESCALA_FONTE,
+        handlelength=1.0,
+        labelspacing=0.6,
+        columnspacing=1.6,
+    )
+    ax.set_aspect("equal")
+
+    salvar_card_grafico(fig, chart_file)
+
+    return chart_file.name
 
 
 def gerar_grafico_cor_faixa_etaria(

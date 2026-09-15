@@ -27,9 +27,58 @@ _proxima_referencia_inline = 1
 # diferentes sempre que há linha em branco entre eles no Doc.
 _suprimir_proxima_legenda = False
 
+_PONTUACAO_FINAL_FRASE = re.compile(r"[.!?…]+(?=[\"'”’)]*(?:\s|$))")
+_TERMINA_EM_FRASE = re.compile(r"[.!?…]+[\"'”’)]*$")
+
+# Abreviações comuns cujo "." não fecha frase (ex.: "Conforme o art. 5º..."):
+# sem essa lista, um "." de abreviação no meio da linha conta como um fim de
+# frase a mais e _eh_frase_unica trata a linha como "mais de uma frase" —
+# desligando o merge em silêncio para uma redação que o editor não vê como
+# diferente de qualquer outra.
+_ABREVIACOES_COMUNS = frozenset({
+    "art", "arts", "etc", "sr", "sra", "srs", "dr", "dra", "drs",
+    "vs", "ex", "pag", "pág", "cf", "no",
+})
+_PALAVRA_ANTES_DO_PONTO = re.compile(r"(\w+)\.$")
+
+
+def _eh_abreviacao(texto_ate_o_ponto: str) -> bool:
+    match = _PALAVRA_ANTES_DO_PONTO.search(texto_ate_o_ponto)
+    return bool(match) and match.group(1).casefold() in _ABREVIACOES_COMUNS
+
+
+def _eh_frase_unica(texto: str) -> bool:
+    """Uma linha termina em UMA frase completa (não em ':' ou sem pontuação).
+
+    Sem essa exigência de terminar em pontuação de frase, uma linha de
+    condicionante mal reconhecida por interpretar_blocos_condicionais (ex.:
+    "Para quando ...:") também "passava" como frase única e era colada no
+    parágrafo anterior, misturando instrução editorial com texto visível.
+    """
+    texto = texto.strip()
+    if not _TERMINA_EM_FRASE.search(texto):
+        return False
+    terminacoes = [
+        match
+        for match in _PONTUACAO_FINAL_FRASE.finditer(texto)
+        if not (match.group() == "." and _eh_abreviacao(texto[: match.end()]))
+    ]
+    return len(terminacoes) == 1
+
+
 _LARGURA_MAXIMA_GRAFICO_PADRAO = "480px"
 _MARGEM_VERTICAL_GRAFICOS_PADRAO = "32px"
+# Base menor de propósito: a legenda da figura (`.figure-caption`) logo abaixo
+# já traz sua própria margin-top, então repetir a margem cheia aqui somava as
+# duas e deixava ~43px de respiro entre o gráfico e a legenda — demais.
+_MARGEM_INFERIOR_GRAFICOS = "8px"
 _CONFIG_GRAFICOS = {
+    # A rosca de esgotamento é desenhada num card mais largo (10") para os
+    # rótulos de % caberem sem se sobrepor; exibi-la nos 480px padrão
+    # encolheria o texto na mesma proporção, então ela ganha largura própria.
+    "grafico_domicilio_por_tipo_esgosto": {
+        "largura_maxima": "600px",
+    },
     "grafico_composicao_cor_raca": {
         "largura_maxima": "350px",
         "margem_vertical": "12px",
@@ -61,18 +110,27 @@ def reset_figura_contador() -> None:
     _suprimir_proxima_legenda = False
 
 
-_REFERENCIA_FIGURA_INLINE = re.compile(r"(?i)\bfigura\s+\[?[Xx&]\]?\b")
+# Sem `(?i)` de propósito: o flag global tornaria `[A-Zx]` insensível a
+# caixa e o padrão passaria a casar "figura a/e/o", corrompendo frases
+# como "a figura a seguir". A caixa de "figura" é tratada à parte.
+_REFERENCIA_FIGURA_INLINE = re.compile(r"\b[Ff]igura\s+\[?(?:[A-Zx]|&)\]?\b")
 
 
 def _substituir_referencia_figura_inline(linha: str) -> str:
     """Substitui menções inline como "(Figura X)" pelo número real da figura.
 
     O texto fonte referencia, no meio de um parágrafo, a figura que é
-    legendada logo em seguida usando um placeholder (``X``, ``&``, opcionalmente
+    legendada logo em seguida usando um placeholder (qualquer letra maiúscula
+    isolada — ``X``, ``Y``, ``Z``… —, o ``x`` minúsculo ou ``&``, opcionalmente
     entre colchetes) em vez do número final — que só é conhecido em tempo de
-    renderização. O regex é ancorado nesses placeholders (não em qualquer
-    palavra curta após "figura") para não casar frases comuns como "a figura
-    da variação" ou menções que já trazem o número final, como "Figura 2".
+    renderização. O regex exige um único caractere entre "figura" e o limite
+    de palavra (não qualquer palavra curta) para não casar frases comuns como
+    "a figura da variação". Aceita qualquer letra maiúscula isolada (o Doc usa
+    X, Y, Z... quando há mais de uma figura pendente no texto) e o ``x``
+    minúsculo (placeholder mais comum), mas não outras letras minúsculas: uma
+    conjunção ou artigo de uma letra só (“e”, “a”, “o”) logo depois de
+    "figura" formaria um falso positivo se qualquer minúscula fosse aceita.
+    Menções que já trazem o número final, como "Figura 2", também não casam.
 
     Quando um parágrafo menciona mais de uma figura (ex.: "(Figura X)... e
     (Figura X)..."), cada ocorrência é contada separadamente e aponta para a
@@ -159,6 +217,10 @@ _SECOES_TITULO_ESPECIAL = {
     "fontes", "referências", "referencias",
 }
 _SECOES_CAIXA_FONTES = {"fontes", "conteúdos relacionados", "conteudos relacionados"}
+# Títulos que também valem quando aparecem soltos no meio de um bloco (sem
+# "#!" e sem linha em branco antes). Fora os da caixa de fontes, que têm
+# tratamento próprio e não podem virar um <h2> solto no meio do texto.
+_TITULOS_SECAO_NA_LINHA = _SECOES_TITULO_ESPECIAL - _SECOES_CAIXA_FONTES
 
 # Ex.: "[Painel: Terceira Idade](https://...)" ou "[Boletim: X](https://...)".
 _BADGE_LINK = re.compile(
@@ -598,7 +660,17 @@ def texto_para_html(
     em_metadado_docs = False
     metadado_visivel: list[str] | None = None
 
-    proximo_paragrafo_destaque = False
+    # Uma quebra de linha "solta" (Shift+Enter no Doc, sem linha em branco
+    # antes) que deixa só uma frase na linha seguinte não deve virar um <p>
+    # próprio — fica visualmente como um parágrafo quebrado ao meio. Rastreia
+    # se o último <p> emitido foi um parágrafo comum (não título/lista/legenda
+    # de figura) e o texto-fonte que ele contém, os únicos casos em que faz
+    # sentido colar a frase nele. `ultimo_foi_paragrafo_plano` só é True logo
+    # após esse mesmo bloco rodar, então ela já garante que a linha anterior
+    # não era vazia nem pertencia a outro tipo de linha — sem precisar de uma
+    # flag extra pra isso.
+    ultimo_foi_paragrafo_plano = False
+    ultimo_texto_paragrafo_plano = ""
 
     global _suprimir_proxima_legenda
 
@@ -611,6 +683,9 @@ def texto_para_html(
         n_espacos = len(sem_tabs) - len(sem_espacos)
         nivel_indentacao = n_tabs + n_espacos // 4
         linha_limpa = linha_sem_bom.strip()
+
+        veio_de_paragrafo_plano = ultimo_foi_paragrafo_plano
+        ultimo_foi_paragrafo_plano = False
 
         if linha_limpa in caixas_por_marcador:
             if em_lista:
@@ -702,17 +777,21 @@ def texto_para_html(
 
             if figuras:
 
+                # `.get`: uma entrada de _CONFIG_GRAFICOS pode configurar só
+                # a largura e herdar a margem padrão — indexar direto quebrava
+                # a renderização inteira com KeyError nesse caso.
                 margem_vertical = next(
                     (
                         _CONFIG_GRAFICOS[tipo]["margem_vertical"]
                         for tipo in tipos
-                        if tipo in _CONFIG_GRAFICOS
+                        if _CONFIG_GRAFICOS.get(tipo, {}).get("margem_vertical")
                     ),
                     _MARGEM_VERTICAL_GRAFICOS_PADRAO,
                 )
                 html_lines.append(
                     '<div style="display:flex; gap:24px; justify-content:center; '
-                    f'align-items:flex-start; margin:{margem_vertical} 0; flex-wrap:wrap;">'
+                    "align-items:flex-start; "
+                    f"margin:{margem_vertical} 0 {_MARGEM_INFERIOR_GRAFICOS}; flex-wrap:wrap;\">"
                     + "".join(figuras)
                     + "</div>"
                 )
@@ -766,7 +845,6 @@ def texto_para_html(
         )
 
         if secao_macrotema:
-            proximo_paragrafo_destaque = False
             continue
 
         elif (
@@ -780,8 +858,6 @@ def texto_para_html(
                 f"<h2>{html_module.escape(linha_limpa)}</h2>"
             )
 
-            proximo_paragrafo_destaque = False
-
         elif re.match(
             r"^figura\s+(?:[&a-z]|\d+)\s*[–-]",
             linha_limpa,
@@ -794,7 +870,6 @@ def texto_para_html(
             # a legenda sem consumir número, para a numeração seguir contínua.
             if _suprimir_proxima_legenda:
                 _suprimir_proxima_legenda = False
-                proximo_paragrafo_destaque = False
                 continue
 
             _figura_contador += 1
@@ -818,7 +893,19 @@ def texto_para_html(
                 f"</p>"
             )
 
-            proximo_paragrafo_destaque = False
+        elif linha_limpa.casefold() in _TITULOS_SECAO_NA_LINHA:
+            # Título de seção escrito no Doc sem o marcador "#!" e sem linha
+            # em branco antes — aí ele chega colado no parágrafo anterior e
+            # escapa da checagem por bloco em render_descricao_tema_html,
+            # saindo como texto corrido. Ex.: o "Síntese" do Doc de
+            # Infraestrutura e Saneamento, que precisa ficar verde como
+            # "Apresentação" e "Características Gerais".
+            _suprimir_proxima_legenda = False
+            html_lines.append(
+                f'<h2 class="theme-detail-heading">'
+                f"{html_module.escape(linha_limpa)}"
+                f"</h2>"
+            )
 
         else:
 
@@ -831,26 +918,50 @@ def texto_para_html(
             )
             linha_limpa = _substituir_referencia_figura_inline(linha_limpa)
 
-            if classe_paragrafo:
-                classe = f' class="{classe_paragrafo}"'
-            elif proximo_paragrafo_destaque:
-                classe = ' class="lead"'
+            texto_html = convert_links_to_html(linha_limpa)
+
+            # Frase órfã: linha colada na anterior no Doc (sem linha em
+            # branco entre elas) e que sozinha não passa de uma frase. Em vez
+            # de virar um <p> isolado, ela continua o parágrafo anterior — mas
+            # só quando os dois lados realmente parecem prosa contínua: nem a
+            # linha de entrada nem o parágrafo que já estava lá podem ser um
+            # fragmento sem pontuação de frase (ex.: uma linha de condicionante
+            # "Para quando ...:" que escapou de interpretar_blocos_condicionais
+            # não deve ser colada em nada, nos dois sentidos), e uma indentação
+            # explícita na linha de entrada é sinal editorial (ver
+            # utils/external/docs.py:_remover_separador_apos_marcador), não
+            # continuação solta.
+            pode_mesclar = (
+                veio_de_paragrafo_plano
+                and nivel_indentacao == 0
+                and _eh_frase_unica(linha_limpa)
+                and _TERMINA_EM_FRASE.search(ultimo_texto_paragrafo_plano)
+            )
+
+            if pode_mesclar:
+                html_lines[-1] = (
+                    html_lines[-1][: -len("</p>")] + " " + texto_html + "</p>"
+                )
+                ultimo_texto_paragrafo_plano = (
+                    f"{ultimo_texto_paragrafo_plano} {linha_limpa}"
+                )
             else:
-                classe = ""
+                classe = f' class="{classe_paragrafo}"' if classe_paragrafo else ""
 
-            estilo = (
-                f' style="text-indent: {round(nivel_indentacao * 32, 2)}px;"'
-                if nivel_indentacao
-                else ""
-            )
+                estilo = (
+                    f' style="text-indent: {round(nivel_indentacao * 32, 2)}px;"'
+                    if nivel_indentacao
+                    else ""
+                )
 
-            html_lines.append(
-                f"<p{classe}{estilo}>"
-                f"{convert_links_to_html(linha_limpa)}"
-                f"</p>"
-            )
+                html_lines.append(
+                    f"<p{classe}{estilo}>"
+                    f"{texto_html}"
+                    f"</p>"
+                )
+                ultimo_texto_paragrafo_plano = linha_limpa
 
-            proximo_paragrafo_destaque = False
+            ultimo_foi_paragrafo_plano = True
 
     if em_lista:
         html_lines.append("</ul>")

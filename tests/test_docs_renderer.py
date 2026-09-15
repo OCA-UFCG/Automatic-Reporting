@@ -106,6 +106,96 @@ referencia= "IBGE, 2023."@@
     assert '<a href="https://example.com/relatorio">' in html
 
 
+def test_frase_orfa_sem_linha_em_branco_junta_no_paragrafo_anterior():
+    # Quebra de linha solta (Shift+Enter no Doc, sem linha em branco antes)
+    # deixando só uma frase na segunda linha: não deve virar <p> isolado.
+    texto = (
+        "Primeira frase do parágrafo, com bastante contexto.\n"
+        "Segunda frase, órfã."
+    )
+
+    html = texto_para_html(texto, {}, namespace="demografia")
+
+    assert html.count("<p>") == 1
+    assert (
+        "<p>Primeira frase do parágrafo, com bastante contexto. "
+        "Segunda frase, órfã.</p>" == html
+    )
+
+
+def test_frase_com_linha_em_branco_antes_nao_e_mesclada():
+    # Quando há linha em branco separando, é mesmo um novo parágrafo — não
+    # deve ser colado no anterior mesmo sendo uma frase só.
+    texto = (
+        "Primeira frase do parágrafo, com bastante contexto.\n"
+        "\n"
+        "Segunda frase, em parágrafo próprio."
+    )
+
+    html = texto_para_html(texto, {}, namespace="demografia")
+
+    assert html.count("<p>") == 2
+
+
+def test_linha_de_condicionante_nao_reconhecida_nao_e_mesclada_no_paragrafo_anterior():
+    # Se uma linha "Para quando ...:" escapa de interpretar_blocos_condicionais
+    # (ex.: por não conter um "$campo" reconhecido), ela termina em ":" — não
+    # deve ser tratada como frase única e colada no parágrafo visível acima.
+    texto = (
+        "Primeira frase do parágrafo, com bastante contexto.\n"
+        "Para quando alguma condição não reconhecida:"
+    )
+
+    html = texto_para_html(texto, {}, namespace="demografia")
+
+    assert html.count("<p>") == 2
+    assert "contexto. Para quando" not in html
+
+
+def test_linha_de_condicionante_nao_reconhecida_antes_do_paragrafo_nao_recebe_merge():
+    # Espelho do teste acima: a condicionante vindo ANTES (ela mesma termina
+    # em ":", nunca em pontuação de frase) também não pode "receber" a frase
+    # de baixo colada nela — regressão de um bug que a correção acima, sozinha,
+    # não fechava (só validava a linha que entra, não a que já estava lá).
+    texto = (
+        "Para efeito de análise:\n"
+        "O município registrou crescimento populacional."
+    )
+
+    html = texto_para_html(texto, {}, namespace="demografia")
+
+    assert html.count("<p>") == 2
+    assert "análise: O município" not in html
+
+
+def test_frase_indentada_nao_e_mesclada_e_mantem_o_recuo():
+    # utils/external/docs.py preserva indentação (tab/4+ espaços) como sinal
+    # editorial explícito — não é ruído de Shift+Enter, não deve ser colada.
+    texto = (
+        "Parágrafo normal com contexto suficiente.\n"
+        "\tFrase indentada única."
+    )
+
+    html = texto_para_html(texto, {}, namespace="demografia")
+
+    assert html.count("<p") == 2
+    assert '<p style="text-indent: 32px;">Frase indentada única.</p>' in html
+
+
+def test_abreviacao_comum_nao_desliga_o_merge():
+    # "art." não fecha frase de verdade — sem tratar isso, a linha seguinte
+    # parece ter "mais de uma frase" e o merge é desligado em silêncio.
+    texto = (
+        "Texto base com contexto suficiente para o teste.\n"
+        "Conforme o art. 5º, isso vale."
+    )
+
+    html = texto_para_html(texto, {}, namespace="demografia")
+
+    assert html.count("<p>") == 1
+    assert "Conforme o art. 5º, isso vale.</p>" in html
+
+
 def test_fontes_box_from_texto_para_html_includes_the_explore_intro_row():
     texto = "#!Fontes\n\n[Painel: Quilombola](teste)\n"
 
@@ -409,6 +499,28 @@ Com vários Centros POP."""
     assert "Para quando" not in resultado
 
 
+def test_dead_leading_condition_does_not_swallow_the_fontes_marker():
+    # A primeira condicional do cascateamento fica órfã depois que
+    # extrair_descricao_tema varre o "descricao_tema =" que a segue (ver
+    # utils/external/docs.py) — sobra só o "Para quando ...:" colado, com
+    # linhas em branco, direto em cima de "#!Fontes". Se essa condição for
+    # falsa para a cidade, "#!Fontes" era lido como o conteúdo guardado por
+    # ela e sumia (PR #116).
+    texto = (
+        "Para quando seg_hidrica.$total_2025 for igual a 0, então:\n"
+        "\n\n\n"
+        "#!Fontes\n"
+        "\n\n"
+        "[Painel de dados: Cisternas](https://example.com/cisternas)\n"
+    )
+    contexto = {"total_2025": 1101}
+
+    resultado = interpretar_blocos_condicionais(texto, contexto)
+
+    assert "#!Fontes" in resultado
+    assert "Para quando" not in resultado
+
+
 def test_social_development_gini_condition_renders_only_the_matching_branch():
     texto = """Síntese
 Quando o índice de Gini for maior e igual a 0,5
@@ -709,6 +821,67 @@ def test_inline_figure_reference_regex_does_not_match_unrelated_words():
     assert "Como visto na Figura 2, o IDHM cresceu." in html
 
 
+def test_container_do_grafico_usa_margem_inferior_reduzida():
+    # Regressão: com `margin:32px 0`, a margem cheia do contêiner somava à
+    # margin-top da própria legenda (.figure-caption) e sobravam ~43px entre
+    # o gráfico e o texto que o descreve.
+    reset_figura_contador()
+    texto = "%%grafico_teste\n\nFigura X- Legenda de teste."
+
+    html = texto_para_html(
+        texto, {}, graficos_por_placeholder={"grafico_teste": "grafico_teste.png"}
+    )
+
+    assert "margin:32px 0 8px;" in html
+
+
+def test_inline_figure_reference_nao_casa_artigo_de_uma_letra():
+    # Regressão: com `(?i)` no padrão, `[A-Zx]` casava minúsculas e frases como
+    # "a figura a seguir" viravam "Figura N seguir" no meio do parágrafo.
+    reset_figura_contador()
+    texto = (
+        "Como mostra a figura a seguir, e também a figura e o mapa ao lado, "
+        "na figura o padrão se mantém.\n"
+        "\n"
+        "Figura X- População por faixa etária e sexo."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "a figura a seguir" in html
+    assert "a figura e o mapa ao lado" in html
+    assert "na figura o padrão" in html
+    assert "Figura 2 – População" in html
+
+
+def test_inline_figure_reference_accepts_any_uppercase_letter_placeholder():
+    reset_figura_contador()
+    texto = (
+        "Primeiro trecho com um dado (Figura X).\n"
+        "\n"
+        "Figura X- Legenda da primeira figura.\n"
+        "\n"
+        "Segundo trecho com outro dado (Figura Y).\n"
+        "\n"
+        "Figura Y- Legenda da segunda figura.\n"
+        "\n"
+        "Terceiro trecho com mais um dado (Figura Z).\n"
+        "\n"
+        "Figura Z- Legenda da terceira figura."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "(Figura 2)" in html
+    assert "(Figura 3)" in html
+    assert "(Figura 4)" in html
+    assert "Figura 2 – Legenda da primeira" in html
+    assert "Figura 3 – Legenda da segunda" in html
+    assert "Figura 4 – Legenda da terceira" in html
+    assert "Figura Y" not in html
+    assert "Figura Z" not in html
+
+
 def test_single_asterisk_chart_placeholder_is_rendered():
     html = texto_para_html(
         "*grafico_faixa_etaria_e_sexo",
@@ -977,3 +1150,165 @@ Depois do bloco condicional."""
     )
     assert "TEXTO_DIFERENTE" in diferente
     assert "TEXTO_IGUAL" not in diferente
+
+
+def test_config_de_grafico_sem_margem_usa_a_padrao():
+    # Regressão: uma entrada de _CONFIG_GRAFICOS que configura só a largura
+    # (como a da rosca de esgotamento) derrubava a renderização inteira com
+    # KeyError, porque a margem era lida por indexação direta.
+    reset_figura_contador()
+    texto = "%%grafico_domicilio_por_tipo_esgosto\n\nFigura X- Legenda de teste."
+
+    html = texto_para_html(
+        texto,
+        {},
+        graficos_por_placeholder={"grafico_domicilio_por_tipo_esgosto": "rosca.png"},
+    )
+
+    assert "margin:32px 0 8px;" in html
+    assert "max-width:600px" in html
+
+
+def _sintese_condicional(sufixo_esgoto: str, sufixo_coleta: str) -> str:
+    # Formato real do Doc de saneamento: duas comparações campo-a-campo
+    # unidas por "e", cada uma com quatro marcadores no total.
+    return (
+        f"Para quando infraestrutura.$esgoto_rede_2000 for {sufixo_esgoto} "
+        f"infraestrutura.$esgoto_rede_2022 e infraestrutura.$coleta_2010 for "
+        f"{sufixo_coleta} infraestrutura.$coleta_2022, então:\n"
+    )
+
+
+def test_condicao_composta_campo_a_campo_escolhe_o_ramo_certo():
+    # Belém/AL: esgoto 4.4 -> 7.3 (mudou) e coleta 58.9 -> 71.1 (mudou). Antes
+    # da conjunção, as quatro versões do parágrafo de síntese eram avaliadas
+    # como falsas e o parágrafo sumia do relatório de todo município.
+    contexto = {
+        "esgoto_rede_2000": "4.4",
+        "esgoto_rede_2022": 7.3,
+        "coleta_2010": 58.9,
+        "coleta_2022": 71.1,
+    }
+    ramos = {
+        ("diferente de", "diferente de"): "MUDOU-MUDOU",
+        ("igual a", "diferente de"): "IGUAL-MUDOU",
+        ("diferente de", "igual a"): "MUDOU-IGUAL",
+        ("igual a", "igual a"): "IGUAL-IGUAL",
+    }
+    texto = "".join(
+        _sintese_condicional(*chave) + corpo + "\n\n" for chave, corpo in ramos.items()
+    )
+
+    resultado = interpretar_blocos_condicionais(texto, contexto)
+
+    assert "MUDOU-MUDOU" in resultado
+    for outro in ("IGUAL-MUDOU", "MUDOU-IGUAL", "IGUAL-IGUAL"):
+        assert outro not in resultado
+
+
+def test_condicao_composta_com_um_lado_igual():
+    # Município onde só a coleta ficou parada.
+    contexto = {
+        "esgoto_rede_2000": "44.2",
+        "esgoto_rede_2022": 72.0,
+        "coleta_2010": 83.6,
+        "coleta_2022": 83.6,
+    }
+    texto = (
+        _sintese_condicional("diferente de", "igual a") + "ESCOLHIDO\n\n"
+        + _sintese_condicional("diferente de", "diferente de") + "DESCARTADO\n"
+    )
+
+    resultado = interpretar_blocos_condicionais(texto, contexto)
+
+    assert "ESCOLHIDO" in resultado
+    assert "DESCARTADO" not in resultado
+
+
+def test_campo_texto_com_unidade_por_extenso_e_lido_como_numero():
+    # Regressão: `var_coleta_pp` guarda "12,2 pontos percentuais"; o sufixo
+    # derrubava o valor para 0 e o relatório afirmava "valor igual ao
+    # registrado em 2010" num município que variou 12,2 p.p.
+    texto = (
+        "Para quando infraestrutura.$var_coleta_pp for diferente de 0 ponto "
+        "percentual, então:\nHOUVE-VARIACAO\n\n"
+        "Para quando infraestrutura.$var_coleta_pp for igual a 0 ponto "
+        "percentual, então:\nSEM-VARIACAO\n"
+    )
+
+    variou = interpretar_blocos_condicionais(
+        texto, {"var_coleta_pp": "12,2 pontos percentuais"}
+    )
+    parado = interpretar_blocos_condicionais(
+        texto, {"var_coleta_pp": "0 ponto percentual"}
+    )
+
+    assert "HOUVE-VARIACAO" in variou and "SEM-VARIACAO" not in variou
+    assert "SEM-VARIACAO" in parado and "HOUVE-VARIACAO" not in parado
+
+
+def test_marcador_de_grafico_apos_alternativa_falsa_nao_e_descartado():
+    texto = (
+        "Para quando infraestrutura.$var_coleta_pp for igual a 0 ponto "
+        "percentual, então:\nSEM-VARIACAO\n"
+        "*grafico_coleta_lixo\n"
+        "Figura Z – Evolução da coleta de lixo.\n"
+    )
+
+    resultado = interpretar_blocos_condicionais(texto, {"var_coleta_pp": 2.7})
+
+    assert "SEM-VARIACAO" not in resultado
+    assert "*grafico_coleta_lixo" in resultado
+    assert "Figura Z" in resultado
+
+
+def test_conjuncao_com_numero_literal_continua_no_caminho_numerico():
+    # "campo A for X e campo B for Y" não é campo-a-campo: cada lado compara
+    # com um número literal e precisa seguir pelo caminho antigo.
+    texto = (
+        "Para quando demografia.$a for maior que 10 e demografia.$b for "
+        "menor que 5, então:\nATENDE\n"
+    )
+
+    assert "ATENDE" in interpretar_blocos_condicionais(texto, {"a": 20, "b": 2})
+    assert "ATENDE" not in interpretar_blocos_condicionais(texto, {"a": 20, "b": 9})
+
+
+def test_titulo_de_secao_solto_no_meio_do_bloco_vira_heading():
+    # "Síntese" é escrito no Doc sem "#!" e sem linha em branco antes, então
+    # chegava colado no parágrafo anterior e saía como texto corrido, e não
+    # verde como "Apresentação"/"Características Gerais".
+    reset_figura_contador()
+    texto = "Parágrafo anterior sem linha em branco depois.\nSíntese\nTexto da síntese."
+
+    html = texto_para_html(
+        texto, {}, graficos_por_placeholder={}, classe_paragrafo="theme-detail-text"
+    )
+
+    assert '<h2 class="theme-detail-heading">Síntese</h2>' in html
+    assert '<p class="theme-detail-text">Síntese</p>' not in html
+    assert "Texto da síntese." in html
+
+
+def test_decimal_em_coluna_de_texto_sai_no_padrao_ptbr():
+    # `esgoto_rede_2000` é coluna de texto e guarda "4.4"; sem formatação o
+    # relatório misturava "4.4%" e "7,3%" na mesma frase.
+    texto = "de infraestrutura.$esgoto_rede_2000% em 2000 para infraestrutura.$esgoto_rede_2022% em 2022"
+
+    resultado = substituir_placeholders(
+        texto, {"esgoto_rede_2000": "4.4", "esgoto_rede_2022": 7.3}, "saneamento"
+    )
+
+    assert resultado == "de 4,4% em 2000 para 7,3% em 2022"
+
+
+def test_texto_que_nao_e_decimal_puro_fica_intacto():
+    # Código de município (inteiro) não pode ganhar separador de milhar, e
+    # texto com unidade por extenso não é número.
+    contexto = {"cod_mun": "2801108", "var_coleta_pp": "12,2 pontos percentuais"}
+
+    resultado = substituir_placeholders(
+        "saneamento.$cod_mun / saneamento.$var_coleta_pp", contexto, "saneamento"
+    )
+
+    assert resultado == "2801108 / 12,2 pontos percentuais"

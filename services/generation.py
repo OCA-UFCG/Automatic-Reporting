@@ -25,10 +25,17 @@ from plotting.economia_renda import (
     gerar_grafico_pib,
     gerar_grafico_vab,
 )
-from plotting.educacao import gerar_grafico_cor_faixa_etaria
+from plotting.educacao import (
+    gerar_grafico_cor_faixa_etaria,
+    gerar_grafico_nivel_instrucao,
+)
 from plotting.hidraulica import gerar_grafico_tecnologias_acesso_agua
 from plotting.meio_ambiente import gerar_grafico_aridez
-from plotting.saneamento import gerar_grafico_esgotamento_sanitario
+from plotting.saneamento import (
+    gerar_grafico_coleta_lixo,
+    gerar_grafico_dinamica_esgoto,
+    gerar_grafico_esgotamento_sanitario,
+)
 from plotting.saude import (
     gerar_grafico_cobertura_vacinal,
     gerar_grafico_de_estabelecimento,
@@ -132,7 +139,14 @@ GRAFICOS_AUTO_MARCADOR = {
             "grafico_visao_historica",
             (
                 r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
-                r"Din[aâ]mica\s+populacional[^\n]*)$"
+                # Aceita tanto a legenda antiga do Doc ("Visão histórica da
+                # população...") quanto uma já alinhada ao título novo do
+                # card ("Dinâmica Populacional"): se alguém editar a legenda
+                # pra combinar com o título sem coordenar com o código, o
+                # gráfico não pode simplesmente sumir do relatório (regra de
+                # "no caption in the Doc → no chart", CLAUDE.md).
+                r"(?:Vis[aã]o\s+hist[oó]rica\s+da\s+popula[cç][aã]o|"
+                r"Din[aâ]mica\s+Populacional)[^\n]*)$"
             ),
         ),
     ),
@@ -192,12 +206,39 @@ GRAFICOS_AUTO_MARCADOR = {
             ),
         ),
     ),
+    "educacao": (
+        (
+            "grafico_nivel_instrucao",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Distribui[cç][aã]o\s+da\s+popula[cç][aã]o\s+por\s+n[ií]vel\s+"
+                r"de\s+instru[cç][aã]o[^\n]*)$"
+            ),
+        ),
+    ),
     "saneamento": (
         (
-            "grafico_esgotamento_sanitario",
+            "grafico_domicilio",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Din[aâ]mica\s+do\s+percentual\s+de\s+domic[ií]lios\s+"
+                r"conectados\s+[aà]\s+rede\s+geral\s+de\s+esgoto\s+ou\s+[aà]\s+"
+                r"rede\s+pluvial[^\n]*)$"
+            ),
+        ),
+        (
+            "grafico_domicilio_por_tipo_esgosto",
             (
                 r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
                 r"Domic[ií]lios\s+por\s+tipo\s+de\s+esgotamento\s+sanit[aá]rio[^\n]*)$"
+            ),
+        ),
+        (
+            "grafico_coleta_lixo",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"Evolu[cç][aã]o\s+do\s+percentual\s+de\s+domic[ií]lios\s+"
+                r"com\s+coleta\s+de\s+lixo[^\n]*)$"
             ),
         ),
     ),
@@ -689,6 +730,22 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                     err,
                 )
 
+            try:
+                graficos_por_placeholder["grafico_nivel_instrucao"] = (
+                    gerar_grafico_nivel_instrucao(
+                        cidade=linhas_macrotema[0],
+                        OUTPUT_DIR=OUTPUT_DIR,
+                        safe_city=safe_city or "relatorio",
+                    )
+                )
+            except ValueError as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de nível de instrução "
+                    "de educação para '%s': %s",
+                    safe_report,
+                    err,
+                )
+
         if macrotema_slug == "saude":
             for nome_grafico, gerar_grafico in (
                 ("grafico_publico_etario", gerar_grafico_publico_etario),
@@ -745,7 +802,23 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
 
         if macrotema_slug == "saneamento":
             try:
-                graficos_por_placeholder["grafico_esgotamento_sanitario"] = (
+                graficos_por_placeholder["grafico_domicilio"] = (
+                    gerar_grafico_dinamica_esgoto(
+                        cidade=linhas_macrotema[0],
+                        OUTPUT_DIR=OUTPUT_DIR,
+                        safe_city=safe_report or "relatorio",
+                    )
+                )
+            except (ValueError, KeyError) as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de dinâmica de "
+                    "esgotamento para '%s': %s",
+                    safe_report,
+                    err,
+                )
+
+            try:
+                graficos_por_placeholder["grafico_domicilio_por_tipo_esgosto"] = (
                     gerar_grafico_esgotamento_sanitario(
                         cidade=linhas_macrotema[0],
                         OUTPUT_DIR=OUTPUT_DIR,
@@ -755,6 +828,22 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             except (ValueError, KeyError) as err:
                 logger.warning(
                     "Não foi possível gerar o gráfico de esgotamento sanitário "
+                    "para '%s': %s",
+                    safe_report,
+                    err,
+                )
+
+            try:
+                graficos_por_placeholder["grafico_coleta_lixo"] = (
+                    gerar_grafico_coleta_lixo(
+                        cidade=linhas_macrotema[0],
+                        OUTPUT_DIR=OUTPUT_DIR,
+                        safe_city=safe_report or "relatorio",
+                    )
+                )
+            except (ValueError, KeyError) as err:
+                logger.warning(
+                    "Não foi possível gerar o gráfico de coleta de lixo "
                     "para '%s': %s",
                     safe_report,
                     err,
@@ -863,9 +952,16 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         for nome_grafico, legenda_regex in GRAFICOS_AUTO_MARCADOR.get(macrotema_slug, ()):
             if re.search(rf"(?m)^\s*(?:%%|\*){nome_grafico}\s*$", docs_texto):
                 continue
+            # `legenda_regex` começa com `^\s*Figura`: como `\s` casa quebra de
+            # linha, o `^` pode ancorar numa linha em branco antes da legenda e
+            # engolir as quebras que a separam do parágrafo anterior. Sem a
+            # linha em branco própria do marcador, ele herda o `bloco_ativo`
+            # do bloco condicional anterior em `interpretar_blocos_condicionais`
+            # (que só reativa na primeira linha em branco) e some do relatório
+            # mesmo com a legenda logo abaixo sobrevivendo.
             docs_texto, n_substituicoes = re.subn(
                 legenda_regex,
-                f"*{nome_grafico}\n\n\\1",
+                f"\n\n*{nome_grafico}\n\n\\1",
                 docs_texto,
                 count=1,
             )
