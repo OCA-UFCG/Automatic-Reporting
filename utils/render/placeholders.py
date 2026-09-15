@@ -457,6 +457,19 @@ def _resolver_campo_com_alias(contexto: dict, campo: str) -> object | None:
     if campo == "ano":
         return _resolver_caminho_em_contexto(contexto, "year")
 
+    if campo == "dif_etaria_09_60_abs":
+        # "dif_etaria_09_60" (idosos - crianças) mantém o sinal pra decidir
+        # qual condição do Doc bate (_avaliar_condicao_demografia); o texto
+        # que interpola a diferença como quantidade precisa do valor
+        # absoluto, senão o lado "positivo" (idosos - crianças negativo)
+        # imprimiria um número negativo numa frase que só espera magnitude.
+        diferenca = _resolver_caminho_em_contexto(contexto, "dif_etaria_09_60")
+        if diferenca is not None:
+            try:
+                return abs(float(diferenca))
+            except (TypeError, ValueError):
+                pass
+
     if campo == "cres_pop_analise":
         crescimento = _resolver_caminho_em_contexto(contexto, "cres_pop")
         if crescimento is not None:
