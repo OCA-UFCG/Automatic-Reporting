@@ -29,6 +29,10 @@ _OPERADORES_EDITORIAIS: list[tuple[re.Pattern, object]] = [
     (re.compile(r"menor\s+que\s+(\d+)"), lambda v, n: v < n),
     (re.compile(r"diferente\s+de\s+(\d+)"), lambda v, n: v != n),
     (re.compile(r"igual\s+a\s+(\d+)"), lambda v, n: v == n),
+    # Variante simbólica de "igual a N" (ex.: "for = 0"); não conflita com
+    # ">="/">" porque essas formas só aparecem nas condições de rua, tratadas
+    # à parte por _avaliar_condicao_demografia antes de chegar aqui.
+    (re.compile(r"(?<![<>!])=\s*(\d+)"), lambda v, n: v == n),
 ]
 
 # Variante "campo A for <operador> campo B": os operadores acima exigem um
