@@ -481,6 +481,35 @@ Com vários Centros POP."""
     assert "Com um Centro POP." in resultado_com_dados
 
 
+def test_demography_street_population_fallback_survives_guarded_conditions():
+    # O Doc novo (PR #112) passou a guardar cada parágrafo de "situação de
+    # rua" com sua própria condicional "Para quando ...:", em vez do
+    # parágrafo único "sem condição" de antes. Ver a mera presença dessas
+    # condicionais no Doc não pode desligar o fallback genérico pro resto do
+    # documento quando nenhuma delas de fato bate — antes bastava passar por
+    # UMA condicional de rua (batendo ou não) pra apagar o tópico inteiro.
+    texto = """Para quando demografia.$pop_rua_2022 e demografia.$pop_rua_2026 for 0:
+Outro grupo relevante para a caracterização da população municipal é o de pessoas em situação de rua. Não havia registros.
+
+Para quando demografia.$pop_rua_2022 for >=1 e demografia.$pop_rua_2026 for 0:
+Outro grupo relevante para a caracterização da população municipal é o de pessoas em situação de rua. Redução frente a 2022."""
+
+    # Município nunca pesquisado (nem 2022 nem 2026): nenhuma das duas
+    # condições bate — o fallback "não foram encontrados registros" precisa
+    # aparecer, não pode sumir o tópico inteiro.
+    resultado = interpretar_blocos_condicionais(texto, {"nm_mun": "Cidade Nova"})
+    assert "Não foram encontrados registros de pessoas em situação de rua" in resultado
+    assert "Cidade Nova" in resultado
+
+    # Uma das condições realmente bate: o parágrafo condicional real aparece,
+    # sem duplicar com o fallback.
+    resultado_bate = interpretar_blocos_condicionais(
+        texto, {"nm_mun": "Cidade X", "pop_rua_2022": 0, "pop_rua_2026": 0}
+    )
+    assert "Não havia registros." in resultado_bate
+    assert "Não foram encontrados registros de pessoas em situação de rua" not in resultado_bate
+
+
 def test_demography_street_population_2022_only_skips_2026_comparison():
     texto = """Sequência do texto, sem condição:
 Outro grupo relevante para a caracterização da população municipal é o de pessoas em situação de rua. Em 2026, demografia.$nm_mun registra demografia.$pop_rua_2026 pessoas nessa condição, frente a demografia.$pop_rua_2022 em 2022, evidenciando um demografia.$var_pop_rua_analise de demografia.$var_pop_rua_abs no período."""
