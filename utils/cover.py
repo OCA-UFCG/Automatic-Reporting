@@ -67,7 +67,9 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             # este alias o card some no caso mais comum (cidade só com 2022).
             "coluna_alias": "pop_rua_total",
             "nome": "População em situação de rua",
-            "fonte": "Censo demográfico 2022",
+            # Vem de dem_rua.vw_pop (colunas "*_cadunico"), não do Censo do
+            # IBGE — fonte é o Cadastro Único, gerido pelo MDS.
+            "fonte": "CadÚnico / MDS",
             "rodape": "Pessoas em situação de rua identificadas no município",
             "decimais": 0,
             "icone": "people",
