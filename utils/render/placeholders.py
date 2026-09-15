@@ -461,9 +461,13 @@ def _resolver_campo_com_alias(contexto: dict, campo: str) -> object | None:
         crescimento = _resolver_caminho_em_contexto(contexto, "cres_pop")
         if crescimento is not None:
             try:
-                return "crescimento" if float(crescimento) >= 0 else "redução"
+                crescimento_numero = float(crescimento)
             except (TypeError, ValueError):
-                pass
+                crescimento_numero = None
+            if crescimento_numero is not None:
+                if crescimento_numero == 0:
+                    return "estabilidade"
+                return "crescimento" if crescimento_numero > 0 else "redução"
 
     valor = _resolver_percentual_derivado(contexto, campo)
     if valor is not None:
