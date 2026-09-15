@@ -192,7 +192,8 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
         {
             "coluna": "primeira_agua_qtd",
             "nome": "Abastecimento humano (1ª água)",
-            "fonte": "SESAN / Data Nordeste, 2025",
+            "fonte": "SESAN / Data Nordeste",
+            "fonte_ano_coluna": "ano_referencia_finalidade",
             "rodape": "Tecnologias destinadas ao abastecimento humano",
             "decimais": 0,
             "icone": "water",
@@ -200,7 +201,8 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
         {
             "coluna": "segunda_agua_qtd",
             "nome": "Irrigação e dessedentação animal (2ª água)",
-            "fonte": "SESAN / Data Nordeste, 2025",
+            "fonte": "SESAN / Data Nordeste",
+            "fonte_ano_coluna": "ano_referencia_finalidade",
             "rodape": "Tecnologias destinadas à irrigação e à dessedentação de animais",
             "decimais": 0,
             "icone": "water",
@@ -314,10 +316,17 @@ def montar_indicadores_macrotema(
         if valor is None:
             continue
 
+        fonte = str(spec["fonte"])
+        ano_coluna = spec.get("fonte_ano_coluna")
+        if ano_coluna:
+            ano = contexto.get(str(ano_coluna))
+            if ano is not None and str(ano).strip():
+                fonte = f"{fonte}, {ano}"
+
         cards.append(
             {
                 "nome": str(spec["nome"]),
-                "fonte": str(spec["fonte"]),
+                "fonte": fonte,
                 "valor": valor,
                 "rodape": str(spec.get("rodape", "")),
                 "icone": str(spec.get("icone") or macrotema_icone),
