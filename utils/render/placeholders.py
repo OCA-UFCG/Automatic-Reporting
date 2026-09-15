@@ -582,15 +582,30 @@ def _resolver_campo_com_alias(contexto: dict, campo: str) -> object | None:
 _TEXTO_DECIMAL_COM_PONTO = re.compile(r"^-?\d+\.\d+$")
 
 
-# Rede de segurança pro IDHM/Gini/subíndices: por convenção sempre têm 3 casas
-# decimais, e o Doc de desenvolvimento social já perdeu o sufixo ``:3`` sem
-# querer numa edição (achado em revisão, antes de ir pro main), o que cairia
-# no padrão global de 1 casa (abaixo) e cortaria a precisão. O sufixo no Doc
-# ainda tem prioridade — isto só cobre a falta dele.
-_CAMPOS_TRES_CASAS = re.compile(r"(?i)^(?:idhm|gini|subindice\d*)(?:_|$)")
+# Rede de segurança pra campos que têm uma precisão editorial fixa por
+# convenção (IDHM/Gini/subíndices sempre 3 casas, renda per capita sempre 2):
+# o Doc de desenvolvimento social já perdeu os sufixos ``:3``/``:2`` sem
+# querer numa edição (achado em revisão, antes de ir pro main), o que caía no
+# padrão global de 1 casa (abaixo) e cortava a precisão. Escopado por
+# namespace pra não valer, sem querer, pra um campo de outro macrotema que só
+# por acaso comece com o mesmo prefixo. O sufixo no Doc ainda tem prioridade
+# — isto só cobre a falta dele.
+_PRECISAO_PADRAO_POR_NAMESPACE: dict[str, tuple[tuple[re.Pattern, int], ...]] = {
+    "desenvolvimento-social": (
+        (re.compile(r"(?i)^(?:idhm|gini|subindice\d*)(?:_|$)"), 3),
+        (re.compile(r"(?i)^renda_\d{4}$"), 2),
+    ),
+}
 
 
-def _formatar_valor(valor: object, decimais: int | None = None, campo: str | None = None) -> str:
+def _precisao_padrao_editorial(namespace: str, campo: str) -> int | None:
+    for padrao, decimais in _PRECISAO_PADRAO_POR_NAMESPACE.get(namespace.lower(), ()):
+        if padrao.match(campo):
+            return decimais
+    return None
+
+
+def _formatar_valor(valor: object, decimais: int | None = None) -> str:
     if isinstance(valor, bool):
         return str(valor)
     if isinstance(valor, str) and _TEXTO_DECIMAL_COM_PONTO.match(valor.strip()):
@@ -598,10 +613,7 @@ def _formatar_valor(valor: object, decimais: int | None = None, campo: str | Non
     if isinstance(valor, (int, float, Decimal)):
         numero = float(valor)
         if decimais is None:
-            if campo and numero != int(numero) and _CAMPOS_TRES_CASAS.match(campo):
-                decimais = 3
-            else:
-                decimais = 0 if numero == int(numero) else 1
+            decimais = 0 if numero == int(numero) else 1
         return formatar_numero_ptbr(numero, decimais=decimais)
     return str(valor)
 
@@ -654,11 +666,17 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
         "csv": contexto,
     }
 
+    def _precisao(campo: str) -> int | None:
+        explicita = precisoes.get(campo)
+        if explicita is not None:
+            return explicita
+        return _precisao_padrao_editorial(namespace, campo)
+
     def _resolver_ou_manter(match: re.Match) -> str:
         campo = match.group(1)
         valor = _resolver_campo_com_alias(contexto, campo)
         return (
-            _formatar_valor(valor, precisoes.get(campo), campo)
+            _formatar_valor(valor, _precisao(campo))
             if valor is not None
             else match.group(0)
         )
@@ -676,7 +694,7 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
         if isinstance(contexto_alvo, dict):
             valor = _resolver_campo_com_alias(contexto_alvo, campo)
             if valor is not None:
-                return _formatar_valor(valor, precisoes.get(campo), campo)
+                return _formatar_valor(valor, _precisao(campo))
         return match.group(0)
 
     alias_map = {

@@ -732,15 +732,40 @@ def test_precision_suffix_overrides_the_default_one_decimal_rounding():
 
 
 def test_precision_suffix_does_not_leak_into_other_fields():
-    # `renda_2010` fica fora da rede de segurança de 3 casas (não é
-    # idhm/gini/subindice), então continua no padrão de 1 casa — prova que o
-    # `:3` do campo vizinho não vazou pra ele.
-    contexto = {"idhm_2010": 0.561, "renda_2010": 630.03}
-    texto = "desen_social.$idhm_2010:3 e Renda desen_social.$renda_2010"
+    # `populacao_2010` fica fora de qualquer rede de segurança de precisão,
+    # então continua no padrão de 1 casa — prova que o `:3` do campo vizinho
+    # não vazou pra ele.
+    contexto = {"idhm_2010": 0.561, "populacao_2010": 630.03}
+    texto = "desen_social.$idhm_2010:3 e População desen_social.$populacao_2010"
 
     assert substituir_placeholders(
         texto, contexto, namespace="desenvolvimento-social"
-    ) == "0,561 e Renda 630,0"
+    ) == "0,561 e População 630,0"
+
+
+def test_renda_per_capita_usa_duas_casas_mesmo_sem_sufixo_no_doc():
+    # Mesma classe de bug do IDHM/Gini: o Doc perdeu o `:2` de `$renda_2010`
+    # (campo monetário) na mesma edição que perdeu o `:3` do IDHM/Gini.
+    contexto = {"renda_2010": 630.03}
+    texto = "R$desen_social.$renda_2010"
+
+    assert (
+        substituir_placeholders(texto, contexto, namespace="desenvolvimento-social")
+        == "R$630,03"
+    )
+
+
+def test_precisao_padrao_editorial_nao_vaza_pra_outro_macrotema():
+    # A rede de segurança é escopada por namespace: um campo `gini_urbano`
+    # hipotético em economia-renda não deve herdar as 3 casas do Gini de
+    # desenvolvimento social só por coincidência de prefixo.
+    contexto = {"gini_urbano": 0.542}
+    texto = "economia.$gini_urbano"
+
+    assert (
+        substituir_placeholders(texto, contexto, namespace="economia-renda")
+        == "0,5"
+    )
 
 
 def test_idhm_gini_e_subindices_usam_tres_casas_mesmo_sem_sufixo_no_doc():
