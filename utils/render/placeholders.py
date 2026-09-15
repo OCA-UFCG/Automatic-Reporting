@@ -43,6 +43,27 @@ _OPERADORES_CAMPO_A_CAMPO: list[tuple[re.Pattern, object]] = [
 ]
 
 
+# Campos de texto da view que carregam número + unidade por extenso, como
+# "12,2 pontos percentuais" ou "0 ponto percentual" (var_coleta_pp,
+# var_esgoto_pp). `coerce_para_float` só entende "12,2", então o sufixo
+# derrubava o valor para 0 e invertia condições do tipo "diferente de 0": o
+# relatório afirmava "valor igual ao registrado em 2010" num município que
+# variou 12,2 p.p. Extrai o número que abre a string; texto sem número algum
+# (ex.: "crescimento") continua caindo no default de quem chama.
+_NUMERO_NO_INICIO = re.compile(r"^\s*(-?\d+(?:[.,]\d+)?)")
+
+
+def _numero_do_campo(valor: object) -> float | None:
+    """Valor do campo como número, aceitando texto com unidade por extenso.
+    Devolve None quando não há número nenhum na string."""
+    if isinstance(valor, str):
+        match = _NUMERO_NO_INICIO.match(valor)
+        if not match:
+            return None
+        valor = match.group(1)
+    return coerce_para_float(valor, default=None)
+
+
 def _parse_operador_campo_a_campo(trecho: str):
     for padrao, atende in _OPERADORES_CAMPO_A_CAMPO:
         if padrao.search(trecho):
@@ -67,6 +88,35 @@ def _parse_operador_editorial(trecho: str):
     return None
 
 
+# Separador das condições compostas do Doc: "<comparação> e <comparação>".
+# Os textos das condicionais são curtos e não têm "e" em outro papel.
+_CONJUNCAO = re.compile(r"(?i)\s+e\s+")
+
+
+def _avaliar_comparacao_campo_a_campo(expressao: str, contexto: dict) -> bool | None:
+    """Avalia UMA comparação "campo A for igual a/diferente de campo B".
+    Devolve None quando o trecho não tem essa forma (dois campos e nada além
+    do operador entre eles), para quem chama cair no caminho numérico."""
+    matches = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(expressao))
+    if len(matches) != 2:
+        return None
+
+    trecho_entre = expressao[matches[0].end():matches[1].start()].casefold()
+    atende = _parse_operador_campo_a_campo(trecho_entre)
+    if atende is None:
+        return None
+    # Um operador com número literal depois do segundo campo indica o formato
+    # "campo A for X e campo B for Y", que é numérico, não campo-a-campo.
+    if _parse_operador_editorial(expressao[matches[1].end():].casefold()) is not None:
+        return None
+
+    def numero(match: re.Match) -> float:
+        valor = _numero_do_campo(_resolver_campo_com_alias(contexto, match.group(1)))
+        return 0.0 if valor is None else valor
+
+    return atende(numero(matches[0]), numero(matches[1]))
+
+
 def _avaliar_condicao_editorial(
     matches: list[re.Match], expressao: str, contexto: dict
 ) -> bool:
@@ -74,12 +124,24 @@ def _avaliar_condicao_editorial(
 
     def numero(campo: str) -> float:
         valor = _resolver_campo_com_alias(contexto, campo)
-        try:
-            return float(valor or 0)
-        except (TypeError, ValueError):
-            return 0.0
+        numero_do_campo = _numero_do_campo(valor)
+        return 0.0 if numero_do_campo is None else numero_do_campo
 
     valores = [numero(campo) for campo in campos]
+
+    # Condição composta: "campo A ... campo B e campo C ... campo D" (as
+    # quatro versões do parágrafo de síntese do Doc de saneamento). Cada
+    # comparação é avaliada por si e todas precisam passar. Só entra aqui se
+    # TODAS as partes forem campo-a-campo; do contrário segue o caminho
+    # numérico, que já cobre "campo A for X e campo B for Y".
+    if len(matches) > 2:
+        partes = _CONJUNCAO.split(expressao)
+        if len(partes) > 1:
+            avaliadas = [
+                _avaliar_comparacao_campo_a_campo(parte, contexto) for parte in partes
+            ]
+            if all(resultado is not None for resultado in avaliadas):
+                return all(avaliadas)
 
     # "campo A for igual a/diferente de campo B": dois marcadores e nada além
     # do operador entre eles — compara os dois valores resolvidos entre si,
@@ -147,6 +209,17 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
 
     for linha in texto.splitlines():
         limpa = linha.strip()
+
+        # Os marcadores de gráfico ficam depois das alternativas condicionais
+        # no Google Docs e pertencem à seção inteira, não à última alternativa.
+        # Sem uma linha vazia antes do marcador, a condição anterior ainda
+        # estaria ativa e poderia apagar o gráfico mesmo com o PNG gerado.
+        if re.fullmatch(r"(?:%%|\*)\w+(?:\+\w+)*", limpa):
+            bloco_ativo = True
+            aguardando_fim_de_bloco_simples = False
+            bloco_simples_teve_conteudo = False
+            resultado.append(linha)
+            continue
 
         if aguardando_fim_de_bloco_simples:
             if limpa:
@@ -350,9 +423,20 @@ def _resolver_campo_com_alias(contexto: dict, campo: str) -> object | None:
     return None
 
 
+# Decimal com ponto guardado em coluna de texto (ex.: esgoto_rede_2000 =
+# "4.4"). Sem isso o valor escapa da formatação pt-BR e o relatório mistura
+# "4.4%" com "7,3%" na mesma frase. Só casa o que é número decimal puro:
+# string inteira ("2801108", código de município) fica intacta, para não
+# ganhar separador de milhar, e texto com unidade ("12,2 pontos percentuais")
+# também não casa.
+_TEXTO_DECIMAL_COM_PONTO = re.compile(r"^-?\d+\.\d+$")
+
+
 def _formatar_valor(valor: object, decimais: int | None = None) -> str:
     if isinstance(valor, bool):
         return str(valor)
+    if isinstance(valor, str) and _TEXTO_DECIMAL_COM_PONTO.match(valor.strip()):
+        valor = float(valor)
     if isinstance(valor, (int, float, Decimal)):
         numero = float(valor)
         if decimais is None:
