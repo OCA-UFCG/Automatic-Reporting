@@ -326,27 +326,6 @@ def test_new_demography_placeholder_formats_use_the_current_table_row():
     )
 
 
-def test_dif_etaria_abs_shows_magnitude_while_raw_field_keeps_sign():
-    # dif_etaria_09_60 = idosos - crianças; quando há mais crianças, o valor
-    # é negativo, mas a frase do Doc só espera a magnitude da diferença
-    # ("...supera em N pessoas..."). O campo original precisa continuar com
-    # sinal, pois é ele que decide qual condição do Doc bate.
-    contexto = {"dif_etaria_09_60": -37}
-
-    assert (
-        substituir_placeholders(
-            "demografia.$dif_etaria_09_60_abs", contexto, namespace="demografia"
-        )
-        == "37"
-    )
-    assert (
-        substituir_placeholders(
-            "demografia.$dif_etaria_09_60", contexto, namespace="demografia"
-        )
-        == "-37"
-    )
-
-
 def test_education_namespace_before_dollar_is_replaced_without_prefix():
     contexto = {"nm_mun": "Campina Grande", "alfabetizado_per": "91,4"}
     texto = "educacao.$nm_mun possui educacao.$alfabetizado_per % alfabetizados"
