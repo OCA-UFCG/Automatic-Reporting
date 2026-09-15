@@ -258,6 +258,11 @@ def _avaliar_condicoes_de_rua(texto: str, contexto: dict) -> tuple[bool, bool]:
     ainda deve rodar (PR #112: antes, só ver a condicional já desligava o
     fallback, batendo ou não).
     """
+    # Guarda barata: evita varrer linha a linha o Doc inteiro de todo
+    # macrotema (só demografia usa isso) quando não há nem menção a rua.
+    if "pop_rua" not in texto and "pop_familias_rua" not in texto:
+        return False, False
+
     tem_condicoes = False
     alguma_bateu = False
     for linha in texto.splitlines():
@@ -358,21 +363,30 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                 campos = {match.group(1) for match in matches}
                 especial = _avaliar_condicao_demografia(expressao, contexto)
                 atende = especial if especial is not None else _avaliar_condicao_editorial(matches, expressao, contexto)
+                # Blocos persistentes (indígena/quilombola) guardam vários
+                # parágrafos além do primeiro; conteúdo inline nessa mesma
+                # linha não pode reativar bloco_ativo cedo demais e vazar os
+                # parágrafos seguintes de um bloco que deveria ficar False.
                 if campos & {"pop_ind_2022", "pop_qui"}:
                     bloco_populacoes_ativo = atende
                     bloco_ativo = atende
+                    bloco_e_persistente = True
                 elif "pop_ind_2010" in campos:
                     bloco_ativo = bloco_populacoes_ativo and atende
+                    bloco_e_persistente = True
                 elif len(campos) == 1 and campos <= _CAMPOS_NULL_SENSIVEIS:
                     (campo_unico,) = campos
                     bloco_ativo = (
                         _resolver_campo_com_alias(contexto, campo_unico) is not None
                         and atende
                     )
+                    bloco_e_persistente = False
                 else:
                     bloco_ativo = atende
                     aguardando_fim_de_bloco_simples = True
-                if condicao.group(2):
+                    bloco_simples_teve_conteudo = False
+                    bloco_e_persistente = False
+                if condicao.group(2) and not bloco_e_persistente:
                     if bloco_ativo:
                         resultado.append(condicao.group(2))
                     bloco_ativo = True

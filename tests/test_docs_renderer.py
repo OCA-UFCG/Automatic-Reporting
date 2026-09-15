@@ -74,6 +74,8 @@ Não há famílias.
     )
     assert "Todas recebem." not in resultado
     assert "Não há famílias." in resultado
+
+
 def test_references_render_as_html_and_related_content_gets_boxed():
     texto = """#! Referências
 
@@ -463,6 +465,23 @@ def test_database_column_names_support_editorial_document_placeholders():
     assert substituir_placeholders(texto, contexto, namespace="demografia") == (
         "593,0; 2; 1.042; 501; 541; 120; 60; 30; 30; 18"
     )
+
+
+def test_demography_persistent_gate_with_inline_content_does_not_leak_next_paragraph():
+    # Bloco persistente (indígena/quilombola) com texto colado na mesma
+    # linha do "Para quando ...:". O reset de bloco_ativo=True após o
+    # conteúdo inline não pode ignorar que o bloco é persistente — senão o
+    # parágrafo seguinte vaza mesmo com a condição falsa.
+    texto = (
+        "Para quando demografia.$pop_ind_2022 for 0 e demografia.$pop_qui for 0: "
+        "texto inline.\n"
+        "Parágrafo seguinte que só deveria aparecer se o bloco continuasse ativo."
+    )
+    contexto = {"pop_ind_2022": 0, "pop_qui": 5}
+
+    resultado = interpretar_blocos_condicionais(texto, contexto)
+
+    assert "Parágrafo seguinte" not in resultado
 
 
 def test_demography_editorial_conditions_render_only_the_matching_blocks():
