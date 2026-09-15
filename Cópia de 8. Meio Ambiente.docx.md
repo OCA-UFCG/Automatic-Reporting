@@ -1,20 +1,22 @@
-Para quando for 0 ambiente.$n\_uc, então:  
-descricao\_tema \= “As condições ambientais de um município podem indicar vulnerabilidades que demandam a atenção do poder público e influenciam o planejamento e as possibilidades de desenvolvimento local. Conhecê-las permite identificar áreas que demandam ações de conservação, proteção ou adaptação e considerar as características ambientais na elaboração de projetos e políticas públicas. Em ambiente.$nm\_mun (ambiente.$sigla\_uf) não há registro de Unidade de Conservação (UC). 
+descricao\_tema \= “As condições ambientais de um município podem indicar vulnerabilidades que demandam a atenção do poder público e influenciam o planejamento e as possibilidades de desenvolvimento local. Conhecê-las permite identificar áreas que demandam ações de conservação, proteção ou adaptação e considerar as características ambientais na elaboração de projetos e políticas públicas.
 
-Para quando for apenas 1 ambiente.$n\_uc, então:  
-descricao\_tema \= “As condições ambientais de um município podem indicar vulnerabilidades que demandam a atenção do poder público e influenciam o planejamento e as possibilidades de desenvolvimento local. Conhecê-las permite identificar áreas que demandam ações de conservação, proteção ou adaptação e considerar as características ambientais na elaboração de projetos e políticas públicas.  
+Para quando ambiente.$n\_uc for igual a 0:  
+Em ambiente.$nm\_mun (ambiente.$sigla\_uf) não há registro de Unidade de Conservação (UC). 
+
+Para quando ambiente.$n\_uc for igual a 1:
+
 Em ambiente.$nm\_mun (ambiente.$sigla\_uf) está registrada ambiente.$n\_uc Unidade de Conservação (UC), ambiente.$nome\_uc, com área de ambiente.$area\_total hectares, ambiente.$bioma. Criada em ambiente.$ano\_criacao\_uc1, a unidade pertence à esfera ambiente.$esfera\_1uc, está enquadrada na categoria ambiente.$categoria\_uc1 e integra o grupo de ambiente.$grupo\_uc1. 
 
-Para quando for de 2 a 4 ambiente.$n\_uc e apenas 1 ambiente.$n\_protecao\_pi, então:   
+Para quando ambiente.$n\_uc for de 2 a 4 e ambiente.$n\_protecao\_us for igual a 0:   
 Em ambiente.$nm\_mun (ambiente.$sigla\_uf), há ambiente.$n\_uc de Unidade de Conservação (UC), totalizando ambiente.$area hectares de área protegida, inserida no bioma ambiente.$bioma. As UCs presentes no município são: ambiente.$nome\_uc. Todas as unidades estão enquadradas no grupo de Proteção Integral. 
 
-Para quando for de 2 a 4 ambiente.$n\_uc e apenas 1 ambiente.$n\_protecao\_us, então:  
+Para quando ambiente.$n\_uc for de 2 a 4 e ambiente.$n\_protecao\_pi for igual a 0:  
 Em ambiente.$nm\_mun (ambiente.$sigla\_uf), há ambiente.$n\_uc de Unidade de Conservação (UC), totalizando ambiente.$area hectares de área protegida, ambiente.$bioma. As UCs presentes no município são: ambiente.$nome\_uc. Todas as unidades estão enquadradas no grupo de Uso sustentável. 
 
-Para quando for de 2 a 4 ambiente.$n\_uc e ambiente.$n\_protecao\_us e ambiente.$n\_protecao\_pi, então:  
+Para quando ambiente.$n\_uc for de 2 a 4 e ambiente.$n\_protecao\_pi for diferente de 0 e ambiente.$n\_protecao\_us for diferente de 0:  
 Em ambiente.$nm\_mun (ambiente.$sigla\_uf), há ambiente.$n\_uc de Unidade de Conservação (UC), totalizando ambiente.$area hectares de área protegida, ambiente.$bioma. As UCs presentes no município são: ambiente.$nome\_uc. Desse total, ambiente.$n\_protecao\_pi unidades estão enquadradas no grupo de Proteção Integral, enquanto ambiente.$n\_protecao\_us unidades pertencem ao grupo de Uso Sustentável. 
 
-Para quando for igual ou maior que 5 ambiente.$n\_uc, então:   
+Para quando ambiente.$n\_uc for maior ou igual a 5:   
 	Em ambiente.$nm\_mun (ambiente.$sigla\_uf), há ambiente.$n\_uc de Unidade de Conservação (UC), totalizando ambiente.$area hectares, ambiente.$bioma. Desse total, ambiente.$n\_protecao\_pi unidades estão enquadradas no grupo de Proteção Integral, enquanto ambiente.$n\_protecao\_us unidades pertencem ao grupo de Uso Sustentável. As UCs presentes no município são: ambiente.$nome\_uc.
 
 Entre 1991 e 2021, o clima de ambiente.$nm\_mun (ambiente.$sigla\_uf) apresentou mudanças na distribuição de suas classes de aridez. Em 1991, o território municipal, de  ambiente.$area\_mun km², distribuía-se em ambiente.$aridez\_texto\_condicao1991. Em 2021, a condição ambiente.$aridez\_texto\_condicao2021.. O avanço da condição de aridez sobre áreas anteriormente classificadas como mais úmidas indica um processo de aridização do território, tendência observada em diversos municípios do Semiárido brasileiro e associada ao aumento do risco de degradação da terra.   
