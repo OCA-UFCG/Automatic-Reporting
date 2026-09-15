@@ -17,7 +17,6 @@ CONTEXTO = {
     "medio_comp_superior_incomp_per": "27.06",
     "superior_completo_per": "12.70",
     "pop_quilombola_2022": 0,
-    "pop_quilombola_per_2022": "0.00",
     "indice_suscetibilidade_escassez_hidrica": "0.5",
     "qtd_usinas": 1,
     "potencia_renovavel": "0",
@@ -72,6 +71,33 @@ def test_saude_nao_tem_indicadores_na_view():
     # é renderizado em vez de exibir score fictício (era "4/5", "2/5"...).
     assert "saude" not in INDICADORES_POR_MACROTEMA
     assert montar_indicadores_macrotema("saude", CONTEXTO) == []
+
+
+def test_demografia_mostra_todos_os_bignumbers_da_view():
+    # `populacao_residente_2022`, `pop_masc_2022`, `pop_feminina_2022` e
+    # `pop_indigena_2022` chegaram na view depois e nunca tinham sido cadastrados
+    # como card; `pop_quilombola_per_2022` era um card cadastrado para uma coluna
+    # que não existe na view (sempre omitido) — corrigido para `pop_qui_per`,
+    # que chega no contexto mesclado via buscar_populacao_quilombola.
+    contexto = {
+        **CONTEXTO,
+        "populacao_residente_2022": 45210,
+        "pop_masc_2022": 22300,
+        "pop_feminina_2022": 22910,
+        "pop_indigena_2022": 812,
+        "pop_rua_2022": 15,
+        "pop_qui_per": "3.20",
+    }
+
+    valores = _por_nome(montar_indicadores_macrotema("demografia", contexto))
+
+    assert valores["População residente"] == "45.210"
+    assert valores["População masculina"] == "22.300"
+    assert valores["População feminina"] == "22.910"
+    assert valores["População indígena"] == "812"
+    assert valores["População em situação de rua"] == "15"
+    assert valores["População quilombola"] == "0"
+    assert valores["Participação da população quilombola"] == "3,2%"
 
 
 def test_indicadores_diferem_entre_macrotemas():

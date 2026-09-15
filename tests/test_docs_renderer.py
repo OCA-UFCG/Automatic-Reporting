@@ -7,6 +7,75 @@ from utils.render.renderer import (
 )
 
 
+def test_novas_condicoes_demografia_com_markdown_e_comparacoes():
+    texto = """**Para quando** demografia.$dif\\_etaria\\_09\\_60 **for positivo, então :**
+Mais crianças.
+
+**Para quando** demografia.$dif\\_etaria\\_09\\_60 **for negativo, então :**
+Mais idosos.
+
+**Para quando** demografia.$cres\\_pop\\_analise **for 0%, então:**
+População estável.
+
+**Para quando** demografia.$cres\\_pop\\_analise for maior ou menor que 0%**, então:**
+População mudou.
+
+**Para quando demografia.$pop\\_rua\\_2022 for 0 em 2022; demografia.$pop\\_rua\\_2026 for > 1 e demografia.$pop\\_familias\\_rua\\_2026 = demografia.$pop\\_rua\\_bolsaf\\_2026:**
+Todas as famílias recebem.
+
+**Para quando demografia.$pop\\_rua\\_2022 for 0 em 2022; demografia.$pop\\_rua\\_2026 for > 1 e demografia.$pop\\_familias\\_rua\\_2026 for 0:**
+Não há famílias.
+"""
+    contexto = {
+        "dif_etaria_09_60": -20,
+        "cres_pop": 0,
+        "pop_rua_2022": 0,
+        "pop_rua_2026": 3,
+        "familias_rua_total": 2,
+        "familias_rua_bf": 2,
+    }
+    resultado = interpretar_blocos_condicionais(texto, contexto)
+    assert "Mais crianças." in resultado
+    assert "Mais idosos." not in resultado
+    assert "População estável." in resultado
+    assert "População mudou." not in resultado
+    assert "Todas as famílias recebem." in resultado
+    assert "Não há famílias." not in resultado
+    assert "Para quando" not in resultado
+
+
+def test_novas_condicoes_rua_nao_tratam_dado_ausente_como_zero():
+    texto = """Para quando demografia.$pop_rua_2022 e demografia.$pop_rua_2026 for 0:
+Sem registros nos dois anos.
+
+Para quando demografia.$pop_rua_2022 for >=1 e demografia.$pop_rua_2026 for 0:
+Houve redução a zero.
+"""
+    assert "Sem registros" not in interpretar_blocos_condicionais(texto, {})
+    assert "Houve redução" not in interpretar_blocos_condicionais(texto, {})
+    assert "Sem registros" in interpretar_blocos_condicionais(
+        texto, {"pop_rua_2022": 0, "pop_rua_2026": 0}
+    )
+    assert "Houve redução" in interpretar_blocos_condicionais(
+        texto, {"pop_rua_2022": 2, "pop_rua_2026": 0}
+    )
+
+
+def test_condicao_todas_as_familias_nao_casa_com_zero_familias():
+    texto = """Para quando demografia.$pop_rua_2022 for 0; demografia.$pop_rua_2026 for > 1 e demografia.$pop_familias_rua_2026 = demografia.$pop_rua_bolsaf_2026:
+Todas recebem.
+
+Para quando demografia.$pop_rua_2022 for 0; demografia.$pop_rua_2026 for > 1 e demografia.$pop_familias_rua_2026 for 0:
+Não há famílias.
+"""
+    resultado = interpretar_blocos_condicionais(
+        texto,
+        {"pop_rua_2022": 0, "pop_rua_2026": 3, "familias_rua_total": 0, "familias_rua_bf": 0},
+    )
+    assert "Todas recebem." not in resultado
+    assert "Não há famílias." in resultado
+
+
 def test_references_render_as_html_and_related_content_gets_boxed():
     texto = """#! Referências
 
@@ -398,6 +467,23 @@ def test_database_column_names_support_editorial_document_placeholders():
     )
 
 
+def test_demography_persistent_gate_with_inline_content_does_not_leak_next_paragraph():
+    # Bloco persistente (indígena/quilombola) com texto colado na mesma
+    # linha do "Para quando ...:". O reset de bloco_ativo=True após o
+    # conteúdo inline não pode ignorar que o bloco é persistente — senão o
+    # parágrafo seguinte vaza mesmo com a condição falsa.
+    texto = (
+        "Para quando demografia.$pop_ind_2022 for 0 e demografia.$pop_qui for 0: "
+        "texto inline.\n"
+        "Parágrafo seguinte que só deveria aparecer se o bloco continuasse ativo."
+    )
+    contexto = {"pop_ind_2022": 0, "pop_qui": 5}
+
+    resultado = interpretar_blocos_condicionais(texto, contexto)
+
+    assert "Parágrafo seguinte" not in resultado
+
+
 def test_demography_editorial_conditions_render_only_the_matching_blocks():
     texto = """Para quando demografia.$pop_ind_2022 for diferente de 0 e demografia.$pop_qui for igual a 0:
 Tem indígenas, sem quilombolas.
@@ -524,6 +610,35 @@ Com vários Centros POP."""
     assert "demografia.$pop_rua_2026 pessoas" in resultado_com_dados
     assert "Não foram encontrados registros de pessoas em situação de rua" not in resultado_com_dados
     assert "Com um Centro POP." in resultado_com_dados
+
+
+def test_demography_street_population_fallback_survives_guarded_conditions():
+    # O Doc novo (PR #112) passou a guardar cada parágrafo de "situação de
+    # rua" com sua própria condicional "Para quando ...:", em vez do
+    # parágrafo único "sem condição" de antes. Ver a mera presença dessas
+    # condicionais no Doc não pode desligar o fallback genérico pro resto do
+    # documento quando nenhuma delas de fato bate — antes bastava passar por
+    # UMA condicional de rua (batendo ou não) pra apagar o tópico inteiro.
+    texto = """Para quando demografia.$pop_rua_2022 e demografia.$pop_rua_2026 for 0:
+Outro grupo relevante para a caracterização da população municipal é o de pessoas em situação de rua. Não havia registros.
+
+Para quando demografia.$pop_rua_2022 for >=1 e demografia.$pop_rua_2026 for 0:
+Outro grupo relevante para a caracterização da população municipal é o de pessoas em situação de rua. Redução frente a 2022."""
+
+    # Município nunca pesquisado (nem 2022 nem 2026): nenhuma das duas
+    # condições bate — o fallback "não foram encontrados registros" precisa
+    # aparecer, não pode sumir o tópico inteiro.
+    resultado = interpretar_blocos_condicionais(texto, {"nm_mun": "Cidade Nova"})
+    assert "Não foram encontrados registros de pessoas em situação de rua" in resultado
+    assert "Cidade Nova" in resultado
+
+    # Uma das condições realmente bate: o parágrafo condicional real aparece,
+    # sem duplicar com o fallback.
+    resultado_bate = interpretar_blocos_condicionais(
+        texto, {"nm_mun": "Cidade X", "pop_rua_2022": 0, "pop_rua_2026": 0}
+    )
+    assert "Não havia registros." in resultado_bate
+    assert "Não foram encontrados registros de pessoas em situação de rua" not in resultado_bate
 
 
 def test_demography_street_population_2022_only_skips_2026_comparison():

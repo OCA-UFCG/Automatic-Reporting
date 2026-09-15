@@ -29,14 +29,15 @@ _OPERADORES_EDITORIAIS: list[tuple[re.Pattern, object]] = [
     (re.compile(r"menor\s+que\s+(\d+)"), lambda v, n: v < n),
     (re.compile(r"diferente\s+de\s+(\d+)"), lambda v, n: v != n),
     (re.compile(r"igual\s+a\s+(\d+)"), lambda v, n: v == n),
+    # Variante simbólica de "igual a N" (ex.: "for = 0"); não conflita com
+    # ">="/">" porque essas formas só aparecem nas condições de rua, tratadas
+    # à parte por _avaliar_condicao_demografia antes de chegar aqui.
+    (re.compile(r"(?<![<>!])=\s*(\d+)"), lambda v, n: v == n),
 ]
 
-# Variante "campo A for <operador> campo B" (ex.: "educacao.$sem_instr_2000 for
-# igual a educacao.$sem_instr_2022"): os operadores acima exigem um número
-# literal (\d+) logo após a frase, então nunca casam quando o outro lado da
-# comparação também é um "$campo". Só cobre os dois únicos casos usados hoje
-# (igual/diferente); os operadores de faixa/ordem não têm uso campo-a-campo
-# no momento.
+# Variante "campo A for <operador> campo B": os operadores acima exigem um
+# número literal, então não casam quando o outro lado também é "$campo". Só
+# cobre igual/diferente, os únicos casos usados hoje.
 _OPERADORES_CAMPO_A_CAMPO: list[tuple[re.Pattern, object]] = [
     (re.compile(r"diferente\s+de\s*$"), lambda a, b: a != b),
     (re.compile(r"igual\s+a\s*$"), lambda a, b: a == b),
@@ -70,14 +71,85 @@ def _parse_operador_campo_a_campo(trecho: str):
             return atende
     return None
 
-# Campos onde `None` (sem dado no banco) não pode ser tratado como zero: a
-# ausência de dado é distinta de um valor zero de fato, e confundi-las
-# afirmaria algo que a fonte de dados não garante (ver o caso histórico de
-# `demografia.$centro_pop`). Lista explícita — e não automática pra qualquer
-# campo único — porque em outros campos (ex.: contagens auxiliares que vêm
-# NULL quando uma categoria simplesmente não se aplica) `None` equivaler a
-# zero é o comportamento correto.
+# Campos onde `None` (sem dado) não pode virar zero — confundir os dois
+# afirmaria algo que a fonte não garante (caso histórico de
+# `demografia.$centro_pop`). Lista explícita: em outros campos, None==zero
+# é o comportamento correto.
 _CAMPOS_NULL_SENSIVEIS = {"centro_pop", "n_uc"}
+
+
+def _normalizar_condicao_editorial(linha: str) -> str:
+    # A exportação Markdown do Docs intercala negrito e escapa operadores e
+    # underscores; o texto obtido diretamente da API já vem sem essas marcas.
+    linha = re.sub(r"\\([_=>])", r"\1", linha.strip())
+    return linha.replace("**", "").replace("\u00a0", " ").strip()
+
+
+def _avaliar_condicao_demografia(expressao: str, contexto: dict) -> bool | None:
+    """Condições novas do documento de demografia, inclusive comparações de campos."""
+    campos = _MARCADOR_CAMPO_CONDICIONAL.findall(expressao)
+    if not campos:
+        return None
+
+    def valor(campo: str) -> float | None:
+        if campo == "pop_rua_2022" and "pop_rua_2026" in contexto:
+            return coerce_para_float(contexto.get(campo), default=None)
+        bruto = _resolver_campo_com_alias(contexto, campo)
+        return coerce_para_float(bruto, default=None)
+
+    if "dif_etaria_09_60" in campos:
+        diferenca = valor("dif_etaria_09_60")
+        if diferenca is None:
+            return False
+        # A query calcula idosos - crianças; o texto chama de positivo o
+        # cenário inverso, em que há mais crianças.
+        return diferenca < 0 if "positivo" in expressao else diferenca > 0
+
+    if "cres_pop_analise" in campos:
+        crescimento = valor("cres_pop")
+        if crescimento is None:
+            return False
+        return crescimento != 0 if "maior ou menor" in expressao else crescimento == 0
+
+    if not any(campo.startswith("pop_rua_") or campo == "pop_familias_rua_2026" for campo in campos):
+        return None
+
+    # Ausência de levantamento não significa zero pessoas.
+    if any(valor(campo) is None for campo in campos):
+        return False
+
+    partes = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(expressao))
+    for indice, match in enumerate(partes):
+        campo = match.group(1)
+        fim = partes[indice + 1].start() if indice + 1 < len(partes) else len(expressao)
+        trecho = expressao[match.end():fim].casefold()
+        atual = valor(campo)
+        if indice + 1 < len(partes) and re.search(r"(?:for\s*)?=\s*$", trecho):
+            if campo == "pop_familias_rua_2026" and atual == 0:
+                return False
+            if atual != valor(partes[indice + 1].group(1)):
+                return False
+            continue
+        operador = re.search(r"(?:for\s*)?(>=|>|=|maior\s+que|igual\s+a)?\s*(\d+)", trecho)
+        if operador is None:
+            # "X e Y for 0" aplica o mesmo limiar aos dois campos.
+            trecho_final = expressao[partes[-1].end():].casefold()
+            operador = re.search(r"(?:for\s*)?(>=|>|=|maior\s+que|igual\s+a)?\s*(\d+)", trecho_final)
+        if operador is None:
+            continue
+        sinal, limite_texto = operador.groups()
+        limite = float(limite_texto)
+        if sinal in {">", "maior que"} and not atual > limite:
+            return False
+        if sinal == ">=" and not atual >= limite:
+            return False
+        if sinal not in {">", ">=", "maior que"} and atual != limite:
+            return False
+    # Uma condição diz "família recebe Bolsa Família = 0" sem marcador.
+    return not (
+        "família recebe bolsa família = 0" in expressao
+        and valor("pop_rua_bolsaf_2026") != 0
+    )
 
 
 def _parse_operador_editorial(trecho: str):
@@ -179,6 +251,45 @@ _CONDICAO_GINI = re.compile(
 )
 
 
+def _avaliar_condicoes_de_rua(texto: str, contexto: dict) -> tuple[bool, bool]:
+    """Pré-varre o Doc por condicionais "Para quando ...pop_rua...:" sem
+    alterar o parse principal. Devolve (o Doc tem condicionais próprias pra
+    isso, alguma bate pra este contexto) — decide se o fallback genérico
+    ainda deve rodar (PR #112: antes, só ver a condicional já desligava o
+    fallback, batendo ou não).
+    """
+    # Guarda barata: evita varrer linha a linha o Doc inteiro de todo
+    # macrotema (só demografia usa isso) quando não há nem menção a rua.
+    if "pop_rua" not in texto and "pop_familias_rua" not in texto:
+        return False, False
+
+    tem_condicoes = False
+    alguma_bateu = False
+    for linha in texto.splitlines():
+        limpa = _normalizar_condicao_editorial(linha)
+        condicao = re.match(r"(?i)^para(?:\s+quando)?\s+(.+?):\s*(.*)$", limpa)
+        if not condicao:
+            continue
+        expressao = condicao.group(1).casefold()
+        matches = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(expressao))
+        campos = {match.group(1) for match in matches}
+        if not any(
+            campo.startswith("pop_rua_") or campo == "pop_familias_rua_2026"
+            for campo in campos
+        ):
+            continue
+        tem_condicoes = True
+        especial = _avaliar_condicao_demografia(expressao, contexto)
+        atende = (
+            especial
+            if especial is not None
+            else _avaliar_condicao_editorial(matches, expressao, contexto)
+        )
+        if atende:
+            alguma_bateu = True
+    return tem_condicoes, alguma_bateu
+
+
 def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
     """Interpreta as instruções editoriais usadas nos documentos dos macrotemas.
 
@@ -192,23 +303,22 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
     bloco_ativo = True
     bloco_populacoes_ativo = True
     bloco_rua_ativo = True
-    # "Para quando X:"/"Para quando NÃO-X:" simples (fora dos casos especiais
-    # abaixo, que têm estado próprio e persistem de propósito) só devem gatear
-    # o parágrafo seguinte; sem isso, o conteúdo incondicional que vem depois
-    # herdaria o resultado da última condição avaliada e sumiria do relatório.
+    # Não mutado durante o parse (ver _avaliar_condicoes_de_rua).
+    bloco_rua_tem_condicoes, bloco_rua_condicional = _avaliar_condicoes_de_rua(
+        texto, contexto
+    )
+    bloco_rua_fallback_emitido = False
+    # "Para quando X:" simples só gateia o parágrafo seguinte; sem isso, o
+    # conteúdo incondicional depois herdaria a última condição e sumiria.
     aguardando_fim_de_bloco_simples = False
-    # No Doc exportado, a regra "Para quando ...:" e o parágrafo que ela guarda
-    # normalmente vêm em parágrafos separados (uma linha em branco entre os
-    # dois, como em qualquer texto do Google Docs) — essa linha em branco não
-    # pode ser tratada como "fim do bloco", senão o bloco reativa antes mesmo
-    # do parágrafo guardado ser lido, e as duas versões (ex.: igual/diferente)
-    # vazam juntas no relatório, não importa o dado. Só a primeira linha em
-    # branco *depois* de já termos visto conteúdo do parágrafo guardado conta
-    # como fim de bloco.
+    # A linha em branco entre "Para quando ...:" e seu parágrafo não conta
+    # como "fim do bloco" — senão ele reativa antes do parágrafo ser lido e
+    # as duas versões (igual/diferente) vazam juntas. Só a primeira linha em
+    # branco *depois* de já termos visto conteúdo do parágrafo conta.
     bloco_simples_teve_conteudo = False
 
     for linha in texto.splitlines():
-        limpa = linha.strip()
+        limpa = _normalizar_condicao_editorial(linha)
 
         # Os marcadores de gráfico ficam depois das alternativas condicionais
         # no Google Docs e pertencem à seção inteira, não à última alternativa.
@@ -245,28 +355,42 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
             aguardando_fim_de_bloco_simples = False
             continue
 
-        condicao = re.match(r"(?i)^para(?:\s+quando)?\s+(.+?):\s*$", limpa)
+        condicao = re.match(r"(?i)^para(?:\s+quando)?\s+(.+?):\s*(.*)$", limpa)
         if condicao:
-            expressao = condicao.group(1)
+            expressao = condicao.group(1).casefold()
             matches = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(expressao))
             if matches:
                 campos = {match.group(1) for match in matches}
-                atende = _avaliar_condicao_editorial(matches, expressao, contexto)
+                especial = _avaliar_condicao_demografia(expressao, contexto)
+                atende = especial if especial is not None else _avaliar_condicao_editorial(matches, expressao, contexto)
+                # Blocos persistentes (indígena/quilombola) guardam vários
+                # parágrafos além do primeiro; conteúdo inline nessa mesma
+                # linha não pode reativar bloco_ativo cedo demais e vazar os
+                # parágrafos seguintes de um bloco que deveria ficar False.
                 if campos & {"pop_ind_2022", "pop_qui"}:
                     bloco_populacoes_ativo = atende
                     bloco_ativo = atende
+                    bloco_e_persistente = True
                 elif "pop_ind_2010" in campos:
                     bloco_ativo = bloco_populacoes_ativo and atende
+                    bloco_e_persistente = True
                 elif len(campos) == 1 and campos <= _CAMPOS_NULL_SENSIVEIS:
                     (campo_unico,) = campos
                     bloco_ativo = (
                         _resolver_campo_com_alias(contexto, campo_unico) is not None
                         and atende
                     )
+                    bloco_e_persistente = False
                 else:
                     bloco_ativo = atende
                     aguardando_fim_de_bloco_simples = True
                     bloco_simples_teve_conteudo = False
+                    bloco_e_persistente = False
+                if condicao.group(2) and not bloco_e_persistente:
+                    if bloco_ativo:
+                        resultado.append(condicao.group(2))
+                    bloco_ativo = True
+                    aguardando_fim_de_bloco_simples = False
                 continue
             # Sem "$campo", não é uma instrução editorial de fato — é uma frase
             # comum do texto (ex.: "Para efeito de análise:") e deve ser mantida.
@@ -300,17 +424,22 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
         ):
             bloco_ativo = bloco_populacoes_ativo
 
-        # O parágrafo de situação de rua não tem guarda "Para quando ...:" no
-        # documento (é declarado como "sem condição"), mas depende de dados que
-        # podem não existir para o município. Sem eles, evitamos expor os
-        # placeholders crus e usamos um texto equivalente ao das outras seções
-        # quando não há registros.
-        if re.match(
-            r"(?i)^outro grupo relevante para a caracteriza[cç][aã]o da popula[cç][aã]o municipal",
-            limpa,
+        # Fallback pro parágrafo de situação de rua quando os dados faltam.
+        # Com condicionais próprias no Doc, bloco_ativo aqui só reflete a
+        # última condição (já False) — por isso bloco_ativo_fallback abaixo
+        # não depende só dele.
+        if (
+            not bloco_rua_condicional
+            and not bloco_rua_fallback_emitido
+            and re.match(
+                r"(?i)^outro grupo relevante para a caracteriza[cç][aã]o da "
+                r"popula[cç][aã]o municipal",
+                limpa,
+            )
         ):
+            bloco_ativo_fallback = bloco_ativo or bloco_rua_tem_condicoes
             bloco_rua_ativo = _resolver_campo_com_alias(contexto, "pop_rua_2022") is not None
-            if bloco_ativo and not bloco_rua_ativo:
+            if bloco_ativo_fallback and not bloco_rua_ativo:
                 nome_mun = _resolver_campo_com_alias(contexto, "nm_mun") or "o município"
                 resultado.append(
                     f"Não foram encontrados registros de pessoas em situação de rua "
@@ -319,14 +448,12 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                     "de dados utilizada, não sendo suficiente, por si só, para "
                     "afastar a presença dessa população no município."
                 )
+                bloco_rua_fallback_emitido = True
                 continue
 
-            # Município com levantamento de rua em 2022 mas ainda sem o de 2026:
-            # o parágrafo padrão compara os dois anos e vazaria placeholders
-            # crus (ex.: "$pop_rua_2026"). Texto provisório restrito a 2022,
-            # sem a comparação — PENDENTE de validação com o time de
-            # conteúdo/Doc antes de ir para produção.
-            if bloco_ativo and bloco_rua_ativo and (
+            # Só 2022, sem 2026 ainda: texto provisório restrito a 2022 —
+            # PENDENTE de validação com o time de conteúdo/Doc.
+            if bloco_ativo_fallback and bloco_rua_ativo and (
                 _resolver_campo_com_alias(contexto, "pop_rua_2026") is None
             ):
                 resultado.append(
@@ -346,6 +473,13 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                     "levantamento mais recente (2026) disponível na fonte "
                     "consultada para comparação."
                 )
+                bloco_rua_fallback_emitido = True
+                continue
+
+            # Dados completos, mas nenhuma condição do Doc cobre a
+            # combinação (lacuna editorial) — descarta em vez de vazar
+            # placeholder sem valor.
+            if bloco_rua_tem_condicoes:
                 continue
 
         if bloco_ativo:
@@ -393,6 +527,8 @@ def _resolver_campo_com_alias(contexto: dict, campo: str) -> object | None:
         "pop_ind_homem_2022": "homem_indigena",
         "pop_ind_mulher_2022": "mulher_indigena",
         "pop_rua_2022": "pop_rua_total",
+        "pop_familias_rua_2026": "familias_rua_total",
+        "pop_rua_bolsaf_2026": "familias_rua_bf",
         "pop_rua_pobreza": "pobreza_cadunico",
         "pop_rua_br": "baixa_renda_cadunico",
         "pop_rua_acima_br": "acima_meio_sm_cadunico",
@@ -422,9 +558,13 @@ def _resolver_campo_com_alias(contexto: dict, campo: str) -> object | None:
         crescimento = _resolver_caminho_em_contexto(contexto, "cres_pop")
         if crescimento is not None:
             try:
-                return "crescimento" if float(crescimento) >= 0 else "redução"
+                crescimento_numero = float(crescimento)
             except (TypeError, ValueError):
-                pass
+                crescimento_numero = None
+            if crescimento_numero is not None:
+                if crescimento_numero == 0:
+                    return "estabilidade"
+                return "crescimento" if crescimento_numero > 0 else "redução"
 
     valor = _resolver_percentual_derivado(contexto, campo)
     if valor is not None:
@@ -584,11 +724,9 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
     )
 
     # Namespace de outra view (ex.: "demografia.$nm_mun" num relatório de
-    # saneamento): o prefixo indica a view de origem, mas os campos de
-    # identidade e afins já vivem no contexto mesclado. Resolve o campo e
-    # consome o prefixo inteiro — do contrário o passe de "$campo" simples
-    # abaixo comeria só o "$campo" e deixaria o "demografia." órfão no texto.
-    # Se o campo não existir, mantém o placeholder intacto (não meia-resolve).
+    # saneamento): resolve contra o contexto mesclado e consome o prefixo
+    # inteiro — senão o passe de "$campo" simples abaixo deixaria o
+    # "demografia." órfão no texto.
     resultado = re.sub(
         r"(?i)(?<![\w])[A-Za-z_][\w-]*\.\$([A-Za-z_][\w]*)",
         _resolver_ou_manter,

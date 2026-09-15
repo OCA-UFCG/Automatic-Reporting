@@ -28,6 +28,53 @@ def formatar_data_hora_extenso(data: datetime) -> str:
 INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
     "demografia": (
         {
+            "coluna": "populacao_residente_2022",
+            "nome": "População residente",
+            "fonte": "Censo demográfico 2022",
+            "rodape": "Total de pessoas residentes no município",
+            "decimais": 0,
+            "icone": "people",
+        },
+        {
+            "coluna": "pop_masc_2022",
+            "nome": "População masculina",
+            "fonte": "Censo demográfico 2022",
+            "rodape": "Pessoas residentes do sexo masculino",
+            "decimais": 0,
+            "icone": "people",
+        },
+        {
+            "coluna": "pop_feminina_2022",
+            "nome": "População feminina",
+            "fonte": "Censo demográfico 2022",
+            "rodape": "Pessoas residentes do sexo feminino",
+            "decimais": 0,
+            "icone": "people",
+        },
+        {
+            "coluna": "pop_indigena_2022",
+            "nome": "População indígena",
+            "fonte": "Censo demográfico 2022",
+            "rodape": "Pessoas residentes que se autodeclaram indígenas",
+            "decimais": 0,
+            "icone": "people",
+        },
+        {
+            "coluna": "pop_rua_2022",
+            # buscar_populacao_rua só publica "pop_rua_2022" quando também há
+            # dado de 2026 (para permitir a comparação entre os dois anos);
+            # com só 2022 disponível, o número mora em "pop_rua_total" — sem
+            # este alias o card some no caso mais comum (cidade só com 2022).
+            "coluna_alias": "pop_rua_total",
+            "nome": "População em situação de rua",
+            # Vem de dem_rua.vw_pop (colunas "*_cadunico"), não do Censo do
+            # IBGE — fonte é o Cadastro Único, gerido pelo MDS.
+            "fonte": "CadÚnico / MDS",
+            "rodape": "Pessoas em situação de rua identificadas no município",
+            "decimais": 0,
+            "icone": "people",
+        },
+        {
             "coluna": "pop_quilombola_2022",
             "nome": "População quilombola",
             "fonte": "Censo demográfico 2022",
@@ -35,8 +82,12 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "decimais": 0,
             "icone": "people",
         },
+        # `pop_quilombola_per_2022` não existe em `vw_indicadores` (o card nunca
+        # tinha valor e era sempre omitido); `pop_qui_per` vem de
+        # `buscar_populacao_quilombola` (utils/queries/demografia.py) e já chega
+        # mesclado no contexto de demografia com o mesmo significado.
         {
-            "coluna": "pop_quilombola_per_2022",
+            "coluna": "pop_qui_per",
             "nome": "Participação da população quilombola",
             "fonte": "Censo demográfico 2022",
             "rodape": "Percentual sobre a população residente",
@@ -307,8 +358,11 @@ def montar_indicadores_macrotema(
     cards: list[dict[str, str]] = []
 
     for spec in INDICADORES_POR_MACROTEMA.get(macrotema_slug, ()):
+        valor_bruto = contexto.get(spec["coluna"])
+        if valor_bruto is None and spec.get("coluna_alias"):
+            valor_bruto = contexto.get(str(spec["coluna_alias"]))
         valor = _formatar_valor_indicador(
-            contexto.get(spec["coluna"]),
+            valor_bruto,
             decimais=int(spec.get("decimais", 0)),
             prefixo=str(spec.get("prefixo", "")),
             sufixo=str(spec.get("sufixo", "")),
