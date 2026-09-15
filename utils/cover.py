@@ -170,26 +170,53 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "decimais": 2,
         },
     ),
+    # `idhm_2010`, `renda_per_capita_2010` e `indice_gini_2010` não existem mais
+    # em `vw_indicadores` — a view foi migrada para `valor_idhm`/`valor_gini`/
+    # `valor_renda_capita` (mesmo padrão nm_/valor_/fonte_/unid_ do resto da
+    # view), então os três cards nunca tinham valor. `valor_idhm_educacao`,
+    # `valor_idhm_longevidade` e `valor_idhm_renda` são os três subíndices do
+    # IDHM, novos na view.
     "desenvolvimento-social": (
         {
-            "coluna": "idhm_2010",
+            "coluna": "valor_idhm",
             "nome": "IDHM",
-            "fonte": "Atlas Brasil / PNUD, 2010",
+            "fonte": "IBGE (2010)",
             "rodape": "Índice de Desenvolvimento Humano Municipal",
             "decimais": 3,
         },
         {
-            "coluna": "renda_per_capita_2010",
+            "coluna": "valor_idhm_educacao",
+            "nome": "IDHM Educação",
+            "fonte": "IBGE (2010)",
+            "rodape": "Dimensão educação do IDHM",
+            "decimais": 3,
+        },
+        {
+            "coluna": "valor_idhm_longevidade",
+            "nome": "IDHM Longevidade",
+            "fonte": "IBGE (2010)",
+            "rodape": "Dimensão longevidade do IDHM",
+            "decimais": 3,
+        },
+        {
+            "coluna": "valor_idhm_renda",
+            "nome": "IDHM Renda",
+            "fonte": "IBGE (2010)",
+            "rodape": "Dimensão renda do IDHM",
+            "decimais": 3,
+        },
+        {
+            "coluna": "valor_renda_capita",
             "nome": "Renda per capita",
-            "fonte": "Atlas Brasil / PNUD, 2010",
+            "fonte": "IBGE (2010)",
             "rodape": "Renda média mensal por habitante",
             "decimais": 2,
             "prefixo": "R$ ",
         },
         {
-            "coluna": "indice_gini_2010",
+            "coluna": "valor_gini",
             "nome": "Índice de Gini",
-            "fonte": "Atlas Brasil / PNUD, 2010",
+            "fonte": "IBGE (2010)",
             "rodape": "Concentração de renda: 0 é igualdade total, 1 é desigualdade máxima",
             "decimais": 2,
         },
