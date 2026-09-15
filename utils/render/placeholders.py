@@ -582,7 +582,14 @@ def _resolver_campo_com_alias(contexto: dict, campo: str) -> object | None:
 _TEXTO_DECIMAL_COM_PONTO = re.compile(r"^-?\d+\.\d+$")
 
 
-def _formatar_valor(valor: object, decimais: int | None = None) -> str:
+# Rede de segurança pro IDHM/Gini/subíndices: por convenção sempre têm 3 casas
+# decimais, e o padrão global de 1 casa (abaixo) já causou um caso real de Doc
+# editorial que perdeu o sufixo ``:3`` sem querer e saiu com precisão cortada
+# em produção. O sufixo no Doc ainda tem prioridade — isto só cobre a falta dele.
+_CAMPOS_TRES_CASAS = re.compile(r"(?i)^(?:idhm|gini|subindice\d*)(?:_|$)")
+
+
+def _formatar_valor(valor: object, decimais: int | None = None, campo: str | None = None) -> str:
     if isinstance(valor, bool):
         return str(valor)
     if isinstance(valor, str) and _TEXTO_DECIMAL_COM_PONTO.match(valor.strip()):
@@ -590,7 +597,10 @@ def _formatar_valor(valor: object, decimais: int | None = None) -> str:
     if isinstance(valor, (int, float, Decimal)):
         numero = float(valor)
         if decimais is None:
-            decimais = 0 if numero == int(numero) else 1
+            if campo and numero != int(numero) and _CAMPOS_TRES_CASAS.match(campo):
+                decimais = 3
+            else:
+                decimais = 0 if numero == int(numero) else 1
         return formatar_numero_ptbr(numero, decimais=decimais)
     return str(valor)
 
@@ -647,7 +657,7 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
         campo = match.group(1)
         valor = _resolver_campo_com_alias(contexto, campo)
         return (
-            _formatar_valor(valor, precisoes.get(campo))
+            _formatar_valor(valor, precisoes.get(campo), campo)
             if valor is not None
             else match.group(0)
         )
@@ -665,7 +675,7 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
         if isinstance(contexto_alvo, dict):
             valor = _resolver_campo_com_alias(contexto_alvo, campo)
             if valor is not None:
-                return _formatar_valor(valor, precisoes.get(campo))
+                return _formatar_valor(valor, precisoes.get(campo), campo)
         return match.group(0)
 
     alias_map = {
