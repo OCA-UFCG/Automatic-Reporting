@@ -1104,3 +1104,60 @@ def test_texto_que_nao_e_decimal_puro_fica_intacto():
     )
 
     assert resultado == "2801108 / 12,2 pontos percentuais"
+
+
+def test_rodape_meio_ambiente_independe_da_condicao_da_descricao():
+    from utils.external.docs import extrair_descricao_tema
+    from utils.render.renderer import _QR_DATA_NORDESTE_POR_MACROTEMA
+
+    # Estrutura do Doc: a condição fica fora do bloco extraído da descrição.
+    for titulo in ("Fontes", "Conteúdos relacionados"):
+        texto = (
+            'Para quando for 0 ambiente.$n_uc, então:\n\n'
+            'descricao_tema = “Descrição ambiental.” @@\n\n'
+            f'#!{titulo}\n\n'
+            'ambiente.“$nm_painel2” = '
+            'https://datanordeste.sudene.gov.br/data-panel/unidades_conservacao\n\n'
+            '#!Conteúdos relacionados\n\n'
+            'ambiente.“$nm_boletim1” = '
+            'https://datanordeste.sudene.gov.br/boletim/7tbxR9sivkEzXGk7b5t8vu'
+        )
+        _, restante = extrair_descricao_tema(texto)
+        for contexto in ({}, {"n_uc": 0}, {"n_uc": 1}, {"n_uc": 3}):
+            contexto.update(nm_painel2="Unidades de conservação", nm_boletim1="Desertificação")
+            html = texto_para_html(restante, contexto, namespace="meio-ambiente")
+            assert f'>{titulo}</h3>' in html
+            assert '>Conteúdos relacionados</h3>' in html
+            assert 'href="https://datanordeste.sudene.gov.br/data-panel/unidades_conservacao"' in html
+            assert 'href="https://datanordeste.sudene.gov.br/boletim/7tbxR9sivkEzXGk7b5t8vu"' in html
+            assert 'class="fontes-box-intro-qr"' in html
+            assert _QR_DATA_NORDESTE_POR_MACROTEMA["meio-ambiente"] in html
+            assert "Para quando" not in html
+
+
+def test_links_ambientais_usam_nomes_do_banco_sem_prefixo_nm():
+    texto = '''#!Fontes
+
+ambiente.“$nm_painel2” = https://datanordeste.sudene.gov.br/data-panel/unidades_conservacao
+
+ambiente.“$nm_painel1” = https://datanordeste.sudene.gov.br/data-panel/aridez
+
+#!Conteúdos relacionados
+
+ambiente.“$nm_boletim1” = https://datanordeste.sudene.gov.br/boletim/7tbxR9sivkEzXGk7b5t8vu
+'''
+    contexto = {
+        "painel1": "Índice de Aridez",
+        "painel2": "Unidades de Conservação",
+        "boletim1": "Desertificação",
+    }
+    html = texto_para_html(texto, contexto, namespace="meio-ambiente")
+    assert html.count('class="fonte-badge"') == 3
+    for nome in contexto.values():
+        assert f'</strong> {nome}</a>' in html
+    assert '$nm_' not in html
+
+    # O nome explícito do documento continua tendo precedência sobre o alias.
+    contexto["nm_painel1"] = "Nome editorial"
+    html = texto_para_html(texto, contexto, namespace="meio-ambiente")
+    assert '</strong> Nome editorial</a>' in html

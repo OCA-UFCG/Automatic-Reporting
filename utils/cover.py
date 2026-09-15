@@ -187,48 +187,47 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
     ),
     "meio-ambiente": (
         {
-            "coluna": "area_suscetivel_desertificacao",
+            "coluna": "valor_asd",
             "nome": "Área suscetível à desertificação",
-            "fonte": "Índice de aridez, 2021",
+            "fonte": "Xavier et al. (2019) e OCA",
             "rodape": "Área do município em classes de aridez suscetíveis",
             "decimais": 2,
             "sufixo": " km²",
         },
-        # Recorte estadual: na view esse avanço é calculado por sigla_uf, não por
-        # município. O rótulo precisa deixar isso explícito.
+        # A view atual calcula a diferença municipal entre 1991 e 2021.
         {
-            "coluna": "avanco_area_suscetivel_desertificacao_1991_2021",
-            "nome": "Avanço da área suscetível à desertificação no estado (1991–2021)",
-            "fonte": "Índice de aridez, 1991 e 2021",
-            "rodape": "Variação da área suscetível no estado, não no município",
+            "coluna": "valor_asd_avanço",
+            "nome": "Avanço da área suscetível à desertificação no município (1991–2021)",
+            "fonte": "Xavier et al. (2019) e OCA",
+            "rodape": "Variação da área suscetível no município entre 1991 e 2021",
             "decimais": 2,
             "sufixo": " km²",
         },
         {
-            "coluna": "qtd_unidades_conservacao",
+            "coluna": "valor_uc",
             "nome": "Unidades de conservação",
-            "fonte": "CNUC / MMA, 2024",
+            "fonte": "CNUC (2025)",
             "rodape": "Unidade(s) de conservação",
             "decimais": 0,
         },
         {
-            "coluna": "qtd_grupo_protecao_integral",
+            "coluna": "valor_uc_pi",
             "nome": "Grupo de proteção integral",
-            "fonte": "CNUC / MMA, 2024",
+            "fonte": "CNUC (2025)",
             "rodape": "unidade(s) de conservação",
             "decimais": 0,
         },
         {
-            "coluna": "qtd_grupo_uso_sustentavel",
+            "coluna": "valor_uc_uso",
             "nome": "Grupo de uso sustentável",
-            "fonte": "CNUC / MMA, 2024",
+            "fonte": "CNUC (2025)",
             "rodape": "unidade(s) de conservação",
             "decimais": 0,
         },
         {
-            "coluna": "area_unidades_conservacao_ha",
+            "coluna": "valor_uc_area",
             "nome": "Área em unidades de conservação",
-            "fonte": "CNUC / MMA, 2024",
+            "fonte": "CNUC (2025)",
             "rodape": "Área total protegida no município",
             "decimais": 2,
             "sufixo": " ha",
@@ -251,7 +250,7 @@ def _formatar_valor_indicador(
         return None
 
     texto_bruto = str(valor).strip()
-    if not texto_bruto:
+    if not texto_bruto or texto_bruto.casefold() == "não há dados":
         return None
 
     texto = formatar_numero_ptbr(valor, decimais=decimais)

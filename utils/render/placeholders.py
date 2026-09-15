@@ -210,6 +210,17 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
     for linha in texto.splitlines():
         limpa = linha.strip()
 
+        # O rodapé pertence ao tema inteiro. Uma condição que sobrou após
+        # extrair descricao_tema não pode ocultar fontes, links e QR code.
+        if re.fullmatch(r"#!\s*(?:fontes|conte[uú]dos relacionados)", limpa, re.IGNORECASE):
+            bloco_ativo = True
+            bloco_populacoes_ativo = True
+            bloco_rua_ativo = True
+            aguardando_fim_de_bloco_simples = False
+            bloco_simples_teve_conteudo = False
+            resultado.append(linha)
+            continue
+
         # Os marcadores de gráfico ficam depois das alternativas condicionais
         # no Google Docs e pertencem à seção inteira, não à última alternativa.
         # Sem uma linha vazia antes do marcador, a condição anterior ainda
@@ -375,6 +386,9 @@ def _resolver_campo_com_alias(contexto: dict, campo: str) -> object | None:
         return valor
 
     aliases_de_coluna = {
+        "nm_painel1": "painel1",
+        "nm_painel2": "painel2",
+        "nm_boletim1": "boletim1",
         "area": "area_territorial",
         "centro_pop": "centros_pop",
         "fundamental_com_per": "fundamental_comp_per",

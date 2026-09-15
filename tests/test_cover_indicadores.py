@@ -49,11 +49,10 @@ def test_percentuais_e_contagens_sao_formatados_em_ptbr():
 
 
 def test_indicador_sem_valor_no_banco_e_omitido():
-    # meio-ambiente é o macrotema com colunas incompletas na view
-    # (area_suscetivel_desertificacao cobre ~2/3 dos municípios).
+    # A ausência de dados não deve virar um card com unidade de medida.
     indicadores = montar_indicadores_macrotema(
         "meio-ambiente",
-        {"qtd_unidades_conservacao": 3, "area_suscetivel_desertificacao": None},
+        {"valor_uc": 3, "valor_asd": None},
     )
 
     nomes = {item["nome"] for item in indicadores}
@@ -117,3 +116,39 @@ def test_score_usa_fallback_quando_coluna_ausente():
 
     assert score["valor"] == "3,66"
     assert score["maximo"] == "5"
+
+
+def test_meio_ambiente_usa_colunas_atuais_da_view():
+    contexto = {
+        "valor_asd": "1234.50",
+        "valor_asd_avanço": "-12.25",
+        "valor_uc": "3",
+        "valor_uc_pi": "0",
+        "valor_uc_uso": "3",
+        "valor_uc_area": "2500.75",
+    }
+    cards = montar_indicadores_macrotema("meio-ambiente", contexto, "leaf")
+    assert _por_nome(cards) == {
+        "Área suscetível à desertificação": "1.234,5 km²",
+        "Avanço da área suscetível à desertificação no município (1991–2021)": "-12,25 km²",
+        "Unidades de conservação": "3",
+        "Grupo de proteção integral": "0",
+        "Grupo de uso sustentável": "3",
+        "Área em unidades de conservação": "2.500,75 ha",
+    }
+    assert all(card["icone"] == "leaf" for card in cards)
+    assert all(card["fonte"] == "CNUC (2025)" for card in cards[2:])
+
+
+def test_meio_ambiente_omite_marcador_de_ausencia_da_view():
+    contexto = {
+        "valor_asd": "Não há dados",
+        "valor_asd_avanço": " Não há dados ",
+        "valor_uc": "0",
+        "valor_uc_pi": None,
+        "valor_uc_uso": "",
+        "valor_uc_area": "Não há dados",
+    }
+    assert _por_nome(montar_indicadores_macrotema("meio-ambiente", contexto)) == {
+        "Unidades de conservação": "0",
+    }
