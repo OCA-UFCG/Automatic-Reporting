@@ -3,7 +3,12 @@ import pathlib
 import numpy as np
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 
-from plotting import ESCALA_FONTE, iniciar_card_grafico, salvar_card_grafico
+from plotting import (
+    ESCALA_FONTE,
+    ajustar_margem_esquerda_para_rotulos,
+    iniciar_card_grafico,
+    salvar_card_grafico,
+)
 from utils.formatting import formatar_numero_ptbr
 from utils.queries.base import escalar_valor
 
@@ -176,7 +181,7 @@ def gerar_grafico_visao_historica_populacao(
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_visao_historica_populacao_{safe_city}.png"
 
-    fig, ax = iniciar_card_grafico((8, 4.4), "Visão histórica da população total")
+    fig, ax = iniciar_card_grafico((8, 4.4), "Dinâmica Populacional")
     _reservar_espaco_rotulo_x(fig, ax)
     x = np.arange(len(anos))
     barras = ax.bar(x, valores_escalados, width=0.6, color="#D97AAA", zorder=3)
@@ -198,6 +203,7 @@ def gerar_grafico_visao_historica_populacao(
     ax.set_xticks(x)
     ax.set_xticklabels(anos, fontsize=11*ESCALA_FONTE, fontweight=600)
     ax.set_xlabel("Ano", fontsize=12*ESCALA_FONTE, color="#514C50")
+    ax.set_ylabel("População", fontsize=12*ESCALA_FONTE, color="#514C50")
     ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _: _rotulo(valor)))
     ax.yaxis.set_major_locator(MaxNLocator(4))
     ax.tick_params(axis="both", length=0, colors="#514C50", labelsize=11*ESCALA_FONTE)
@@ -206,5 +212,11 @@ def gerar_grafico_visao_historica_populacao(
         ax.spines[lado].set_visible(False)
     ax.spines["bottom"].set_color("#514C50")
     ax.margins(x=0.18)
+    # Rótulos do eixo Y (população formatada) variam de largura com o porte
+    # do município — a margem esquerda fixa do card não dá conta dos mais
+    # largos e o "População" sai cortado da moldura. Precisa rodar depois do
+    # `set_ylabel`/formatter acima, veja o comentário em
+    # plotting.saude.gerar_grafico_cobertura_vacinal.
+    ajustar_margem_esquerda_para_rotulos(fig, ax)
     salvar_card_grafico(fig, chart_file)
     return chart_file.name
