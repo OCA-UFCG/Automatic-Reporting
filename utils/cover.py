@@ -151,21 +151,24 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
         },
     ),
     # `rendimento_medio_ocupados` é, na definição da view, o mesmo
-    # max(renda_per_capita) de `renda_per_capita_2010`. Exibir os dois repetiria
+    # max(renda_per_capita) de `valor_renda_capita`. Exibir os dois repetiria
     # o número no card ao lado, então só a renda per capita entra aqui.
+    # `renda_per_capita_2010`/`indice_gini_2010` não existem mais em
+    # `vw_indicadores` (mesma migração de `desenvolvimento-social`, ver comentário
+    # abaixo) — aponta pras colunas atuais.
     "economia-renda": (
         {
-            "coluna": "renda_per_capita_2010",
+            "coluna": "valor_renda_capita",
             "nome": "Renda per capita",
-            "fonte": "Atlas Brasil / PNUD, 2010",
+            "fonte": "IPEA / Fundação João Pinheiro (2010)",
             "rodape": "Renda média mensal por habitante",
             "decimais": 2,
             "prefixo": "R$ ",
         },
         {
-            "coluna": "indice_gini_2010",
+            "coluna": "valor_gini",
             "nome": "Índice de Gini",
-            "fonte": "Atlas Brasil / PNUD, 2010",
+            "fonte": "IPEA / Fundação João Pinheiro (2010)",
             "rodape": "Concentração de renda: 0 é igualdade total, 1 é desigualdade máxima",
             "decimais": 2,
         },

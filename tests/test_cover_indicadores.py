@@ -61,6 +61,17 @@ def test_desenvolvimento_social_mostra_os_subindices_do_idhm():
     assert valores["IDHM Renda"] == "0,719"
 
 
+def test_economia_renda_usa_colunas_atuais_da_view():
+    # `renda_per_capita_2010`/`indice_gini_2010` não existem mais em
+    # `vw_indicadores` (mesma migração de `desenvolvimento-social`, acima) —
+    # os cards de economia-renda tinham ficado pra trás, apontando pras
+    # colunas antigas, e saíam vazios em todo relatório.
+    valores = _por_nome(montar_indicadores_macrotema("economia-renda", CONTEXTO))
+
+    assert valores["Renda per capita"] == "R$ 630,03"
+    assert valores["Índice de Gini"] == "0,58"
+
+
 def test_percentuais_e_contagens_sao_formatados_em_ptbr():
     valores = _por_nome(montar_indicadores_macrotema("educacao", CONTEXTO))
 
