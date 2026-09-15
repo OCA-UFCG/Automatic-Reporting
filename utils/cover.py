@@ -25,6 +25,8 @@ def formatar_data_hora_extenso(data: datetime) -> str:
 # Campos: coluna (nome na view), nome (rótulo), fonte (linha pequena do card),
 # rodape (texto do rodapé), decimais (máximo, zeros à direita são cortados),
 # prefixo/sufixo (unidade) e icone (opcional; cai no ícone do macrotema).
+_FONTE_IPEA_FJP = "IPEA / Fundação João Pinheiro (2010)"
+
 INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
     "demografia": (
         {
@@ -160,7 +162,7 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
         {
             "coluna": "valor_renda_capita",
             "nome": "Renda per capita",
-            "fonte": "IPEA / Fundação João Pinheiro (2010)",
+            "fonte": _FONTE_IPEA_FJP,
             "rodape": "Renda média mensal por habitante",
             "decimais": 2,
             "prefixo": "R$ ",
@@ -168,7 +170,7 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
         {
             "coluna": "valor_gini",
             "nome": "Índice de Gini",
-            "fonte": "IPEA / Fundação João Pinheiro (2010)",
+            "fonte": _FONTE_IPEA_FJP,
             "rodape": "Concentração de renda: 0 é igualdade total, 1 é desigualdade máxima",
             "decimais": 2,
         },
@@ -183,35 +185,35 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
         {
             "coluna": "valor_idhm",
             "nome": "IDHM",
-            "fonte": "IPEA / Fundação João Pinheiro (2010)",
+            "fonte": _FONTE_IPEA_FJP,
             "rodape": "Índice de Desenvolvimento Humano Municipal",
             "decimais": 3,
         },
         {
             "coluna": "valor_idhm_educacao",
             "nome": "IDHM Educação",
-            "fonte": "IPEA / Fundação João Pinheiro (2010)",
+            "fonte": _FONTE_IPEA_FJP,
             "rodape": "Dimensão educação do IDHM",
             "decimais": 3,
         },
         {
             "coluna": "valor_idhm_longevidade",
             "nome": "IDHM Longevidade",
-            "fonte": "IPEA / Fundação João Pinheiro (2010)",
+            "fonte": _FONTE_IPEA_FJP,
             "rodape": "Dimensão longevidade do IDHM",
             "decimais": 3,
         },
         {
             "coluna": "valor_idhm_renda",
             "nome": "IDHM Renda",
-            "fonte": "IPEA / Fundação João Pinheiro (2010)",
+            "fonte": _FONTE_IPEA_FJP,
             "rodape": "Dimensão renda do IDHM",
             "decimais": 3,
         },
         {
             "coluna": "valor_renda_capita",
             "nome": "Renda per capita",
-            "fonte": "IPEA / Fundação João Pinheiro (2010)",
+            "fonte": _FONTE_IPEA_FJP,
             "rodape": "Renda média mensal por habitante",
             "decimais": 2,
             "prefixo": "R$ ",
@@ -219,7 +221,7 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
         {
             "coluna": "valor_gini",
             "nome": "Índice de Gini",
-            "fonte": "IPEA / Fundação João Pinheiro (2010)",
+            "fonte": _FONTE_IPEA_FJP,
             "rodape": "Concentração de renda: 0 é igualdade total, 1 é desigualdade máxima",
             "decimais": 2,
         },

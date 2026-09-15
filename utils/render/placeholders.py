@@ -583,9 +583,10 @@ _TEXTO_DECIMAL_COM_PONTO = re.compile(r"^-?\d+\.\d+$")
 
 
 # Rede de segurança pro IDHM/Gini/subíndices: por convenção sempre têm 3 casas
-# decimais, e o padrão global de 1 casa (abaixo) já causou um caso real de Doc
-# editorial que perdeu o sufixo ``:3`` sem querer e saiu com precisão cortada
-# em produção. O sufixo no Doc ainda tem prioridade — isto só cobre a falta dele.
+# decimais, e o Doc de desenvolvimento social já perdeu o sufixo ``:3`` sem
+# querer numa edição (achado em revisão, antes de ir pro main), o que cairia
+# no padrão global de 1 casa (abaixo) e cortaria a precisão. O sufixo no Doc
+# ainda tem prioridade — isto só cobre a falta dele.
 _CAMPOS_TRES_CASAS = re.compile(r"(?i)^(?:idhm|gini|subindice\d*)(?:_|$)")
 
 
