@@ -132,7 +132,7 @@ GRAFICOS_AUTO_MARCADOR = {
             "grafico_visao_historica",
             (
                 r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
-                r"Vis[aã]o\s+hist[oó]rica\s+da\s+popula[cç][aã]o[^\n]*)$"
+                r"Din[aâ]mica\s+populacional[^\n]*)$"
             ),
         ),
     ),
