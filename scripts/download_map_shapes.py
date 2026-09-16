@@ -82,6 +82,27 @@ def extract_zip(zip_path: Path, output_dir: Path) -> None:
     with zipfile.ZipFile(zip_path) as archive:
         archive.extractall(output_dir)
 
+    _achatar_diretorio_raiz(output_dir)
+
+
+def _achatar_diretorio_raiz(output_dir: Path) -> None:
+    """Sobe o conteudo quando o zip vem embrulhado num unico diretorio raiz.
+
+    O export do Drive empacota os PNGs como "Mapas_png/*.png"; o volume ja e
+    montado em /app/mapas/Mapas_png, entao manter o diretorio duplicaria o nivel
+    e o indice de mapas estaticos (utils/maps.py) ficaria vazio -> todo relatorio
+    caia no mapa gerado em runtime. O zip das malhas tem duas raizes e nao entra
+    aqui.
+    """
+    entradas = list(output_dir.iterdir())
+    if len(entradas) != 1 or not entradas[0].is_dir():
+        return
+
+    raiz = entradas[0]
+    for item in list(raiz.iterdir()):
+        shutil.move(str(item), str(output_dir / item.name))
+    raiz.rmdir()
+
 
 def validate(output_dir: Path) -> None:
     missing = [path for path in REQUIRED_FILES if not (output_dir / path).exists()]
