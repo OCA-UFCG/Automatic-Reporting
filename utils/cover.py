@@ -158,22 +158,10 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
     # `renda_per_capita_2010`/`indice_gini_2010` não existem mais em
     # `vw_indicadores` (mesma migração de `desenvolvimento-social`, ver comentário
     # abaixo) — aponta pras colunas atuais.
+    # O Doc de economia pede só estes 6 (PIB, PIB per capita, Carga tributária,
+    # Exportação, Importação, Balança comercial); Renda per capita e Índice de
+    # Gini não entram aqui — ver `desenvolvimento-social` pra esses dois.
     "economia-renda": (
-        {
-            "coluna": "valor_renda_capita",
-            "nome": "Renda per capita",
-            "fonte": _FONTE_IPEA_FJP,
-            "rodape": "Renda média mensal por habitante",
-            "decimais": 2,
-            "prefixo": "R$ ",
-        },
-        {
-            "coluna": "valor_gini",
-            "nome": "Índice de Gini",
-            "fonte": _FONTE_IPEA_FJP,
-            "rodape": "Concentração de renda: 0 é igualdade total, 1 é desigualdade máxima",
-            "decimais": 2,
-        },
         {
             "coluna": "valor_pib",
             "nome": "PIB",
@@ -187,6 +175,14 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "nome": "PIB per capita",
             "fonte": "IBGE (2023)",
             "rodape": "PIB dividido pela população residente",
+            "decimais": 2,
+            "prefixo": "R$ ",
+        },
+        {
+            "coluna": "valor_carga_tributaria",
+            "nome": "Receita tributária municipal",
+            "fonte": "STN/FINBRA/SICONFI (2023)",
+            "rodape": "Receita tributária arrecadada pelo município",
             "decimais": 2,
             "prefixo": "R$ ",
         },
@@ -218,14 +214,6 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "rodape": "Saldo entre exportações e importações no mês",
             "decimais": 2,
             "prefixo": "US$ ",
-        },
-        {
-            "coluna": "valor_carga_tributaria",
-            "nome": "Receita tributária municipal",
-            "fonte": "STN/FINBRA/SICONFI (2023)",
-            "rodape": "Receita tributária arrecadada pelo município",
-            "decimais": 2,
-            "prefixo": "R$ ",
         },
     ),
     # `idhm_2010`, `renda_per_capita_2010` e `indice_gini_2010` não existem mais
