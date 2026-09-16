@@ -43,6 +43,30 @@ _CONDICAO_POR_BASE = {
     "alfabetizada_indigena": "valor_pop_indigena",
 }
 
+# Ícone dedicado por base, quando o indicador tem um mais específico do que o
+# ícone genérico do macrotema. Recuperado do commit 15a9691 ("feat: new svgs
+# for indicators"): aquele commit ainda usava os nomes de coluna completos da
+# migração anterior (ex. "sem_instrucao_fund_incomp_per", "qtd_unidades_
+# conservacao") e o merge com a reescrita da view (PR #91-like, base curta)
+# descartou essas linhas por conflito de estrutura — os SVGs chegaram ao
+# Brand.jsx, mas nada aqui os referenciava. Bases não listadas aqui caem no
+# ícone do macrotema.
+_ICONE_POR_BASE = {
+    "pop_indigena": "indigena_alfabetizada",
+    "pop_quilombola": "quilombola_alfabetizada",
+    "pop_rua": "situacao_rua",
+    "fundamental_incom": "fundamental_incompleto",
+    "fundamental_com": "fundamental_completo",
+    "medio_com": "medio_completo",
+    "esgotamento": "esgoto",
+    "asd": "desertificacao",
+    "asd_avanço": "desertificacao",
+    "uc": "unidades_conservacao",
+    "uc_pi": "protecao_integral",
+    "uc_uso": "uso_sustentavel",
+    "uc_area": "area_conservacao",
+}
+
 INDICADORES_POR_MACROTEMA: dict[str, tuple[str, ...]] = {
     "demografia": (
         "pop_residente",
@@ -188,7 +212,7 @@ def _card_da_view(
         "fonte": str(contexto.get(f"fonte_{base}") or "").strip(),
         "valor": valor,
         "rodape": str(contexto.get(f"unid_{base}") or "").strip(),
-        "icone": macrotema_icone,
+        "icone": _ICONE_POR_BASE.get(base, macrotema_icone),
     }
 
 

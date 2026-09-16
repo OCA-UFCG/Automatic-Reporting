@@ -219,12 +219,32 @@ def test_indicadores_diferem_entre_macrotemas():
 
 
 def test_icone_do_macrotema_e_usado_quando_o_indicador_nao_define_um():
+    # "Cisternas..." não tem ícone próprio no catálogo, então cai no ícone do
+    # macrotema recebido.
+    indicadores = montar_indicadores_macrotema(
+        "hidraulica", CONTEXTO, macrotema_icone="wrench"
+    )
+
+    por_nome = {item["nome"]: item for item in indicadores}
+    assert (
+        por_nome["Cisternas e tecnologias sociais de acesso à água"]["icone"]
+        == "wrench"
+    )
+
+
+def test_indicador_com_icone_proprio_nao_usa_o_icone_do_macrotema():
+    # "Domicílios ligados à rede geral ou pluvial" (base "esgotamento") tem
+    # ícone dedicado no catálogo (ver _ICONE_POR_BASE) e não deve cair no
+    # ícone genérico do macrotema, mesmo quando este é passado explicitamente.
     indicadores = montar_indicadores_macrotema(
         "saneamento", CONTEXTO, macrotema_icone="wrench"
     )
 
-    assert indicadores
-    assert all(item["icone"] == "wrench" for item in indicadores)
+    por_nome = {item["nome"]: item for item in indicadores}
+    assert (
+        por_nome["Domicílios ligados à rede geral ou pluvial"]["icone"]
+        == "esgoto"
+    )
 
 
 def test_catalogo_e_so_a_ordem_das_bases_da_view():
