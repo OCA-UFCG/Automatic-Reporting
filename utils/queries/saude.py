@@ -167,7 +167,7 @@ PERFIL_SAUDE_MUNICIPAL = """
         grupo_estabel_maior2,
         n_estabel_maior2,
         ubs_10mil
-    FROM relatorios_auto.vw_perfil_saude_municipal
+    FROM relatorios_auto.mv_perfil_saude_municipal
     WHERE nm_mun = %s
       AND sigla_uf = %s
 """
