@@ -52,6 +52,12 @@ DB_PORT = get_config_value("DB_PORT")
 # 30s em produção). Sem isso a conexão fica sem statement_timeout e uma view lenta
 # pendura o worker único do uvicorn. 0 desabilita o cap (semântica do Postgres).
 DB_STATEMENT_TIMEOUT_MS = int(get_config_value("DB_STATEMENT_TIMEOUT_MS") or "15000")
+# Cache em memória de resultados de query (utils/queries/base.py) — evita re-executar
+# as mesmas vw_perfil_* pesadas a cada relatório da mesma cidade/macrotema. TTL em
+# segundos (default 6h) e nº máximo de entradas (LRU), espelhando o cache de SSR em
+# utils/ssr.py.
+QUERY_CACHE_TTL_S = int(get_config_value("QUERY_CACHE_TTL_S") or "21600")
+QUERY_CACHE_MAX = int(get_config_value("QUERY_CACHE_MAX") or "256")
 
 MACROTEMAS = {
     "demografia": {
