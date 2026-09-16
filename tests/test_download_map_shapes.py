@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from download_map_shapes import extract_zip  # noqa: E402
+from download_map_shapes import extract_zip
 
 
 def _zip_com(tmp_path: Path, nome: str, membros: list[str]) -> Path:
