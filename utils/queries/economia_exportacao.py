@@ -10,8 +10,8 @@ _MESES_BALANCA = ("jan", "fev", "mar", "abr", "mai", "jun")
 _NOMES_MESES_BALANCA = ("Jan", "Fev", "Mar", "Abr", "Mai", "Jun")
 
 _CAMPOS_MERGE_DIRETOS = (
-    "fob_exportado",
-    "fob_exportado_unid",
+    "fob_exportado_ultimo",
+    "fob_exportado_ultimo_unid",
     "kg_exportado",
     "kg_exportado_unid",
     "secao_exportacao1",
@@ -33,13 +33,6 @@ _ALIASES_BALANCA_CEDILHA = {
     "valor_balanca6mesesunid": "valor_balança6mesesunid",
 }
 
-# doc referencia "fob_exportado_ultimo" (síntese) para o mesmo valor
-_ALIASES_FOB_EXPORTADO_ULTIMO = {
-    "fob_exportado": "fob_exportado_ultimo",
-    "fob_exportado_unid": "fob_exportado_ultimo_unid",
-}
-
-
 def _valor_absoluto(valor: object, unidade: object) -> float | None:
     if valor is None:
         return None
@@ -60,10 +53,6 @@ def buscar_comercio_exterior_economia(
     for campo_banco, campo_doc in _ALIASES_BALANCA_CEDILHA.items():
         if linha.get(campo_banco) is not None:
             dados[campo_doc] = linha[campo_banco]
-
-    for campo_base, alias in _ALIASES_FOB_EXPORTADO_ULTIMO.items():
-        if linha.get(campo_base) is not None:
-            dados[alias] = linha[campo_base]
 
     # doc usa "balanca"/"balanca2" (bare) na síntese final
     if linha.get("analise_balanca1") is not None:
