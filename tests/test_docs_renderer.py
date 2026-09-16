@@ -1366,6 +1366,29 @@ def test_condicoes_de_vacina_comparam_texto_em_vez_de_numero():
     assert "MISTA" not in todas
 
 
+def test_condicoes_de_vacina_sem_dado_nao_vazam_bloco_misto():
+    # None virava "" e "" é diferente de "todas"/"nenhuma", então o bloco
+    # MISTA batia para uma cidade sem levantamento de vacinação nenhum.
+    texto = (
+        "Para quando saude.$vacina_meta for diferente de todas e "
+        "saude.$vacina_nao_meta for diferente de nenhuma, então:\nMISTA\n\n"
+        "Para quando saude.$vacina_meta for todas, então:\nTODAS BATERAM\n\n"
+        "Para quando saude.$vacina_nao_meta for nenhuma, então:\nNENHUMA FICOU DE FORA\n"
+    )
+
+    sem_dado = interpretar_blocos_condicionais(
+        texto, {"vacina_meta": None, "vacina_nao_meta": None}
+    )
+    assert "MISTA" not in sem_dado
+    assert "TODAS BATERAM" not in sem_dado
+    assert "NENHUMA FICOU DE FORA" not in sem_dado
+
+    parcial = interpretar_blocos_condicionais(
+        texto, {"vacina_meta": None, "vacina_nao_meta": "Rotavírus"}
+    )
+    assert "MISTA" not in parcial
+
+
 def test_titulo_de_secao_solto_no_meio_do_bloco_vira_heading():
     # "Síntese" é escrito no Doc sem "#!" e sem linha em branco antes, então
     # chegava colado no parágrafo anterior e saía como texto corrido, e não

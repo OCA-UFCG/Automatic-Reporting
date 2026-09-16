@@ -191,7 +191,12 @@ def _avaliar_condicao_vacina(expressao: str, contexto: dict) -> bool | None:
         if literal not in trecho:
             return None
         valor = _resolver_campo_com_alias(contexto, campo)
-        valor_texto = str(valor).strip().casefold() if valor is not None else ""
+        # Sem levantamento, o campo não é "igual" nem "diferente" do literal —
+        # tratar None como "" faria "diferente de todas/nenhuma" bater sem
+        # dado nenhum (relatório afirmaria situação mista sem evidência).
+        if valor is None:
+            return False
+        valor_texto = str(valor).strip().casefold()
         igual = valor_texto == literal
         if "diferente" in trecho:
             if igual:
