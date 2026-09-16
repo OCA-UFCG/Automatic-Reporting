@@ -164,6 +164,42 @@ def _parse_operador_editorial(trecho: str):
 # Os textos das condicionais são curtos e não têm "e" em outro papel.
 _CONJUNCAO = re.compile(r"(?i)\s+e\s+")
 
+# vacina_meta/vacina_nao_meta trazem uma lista de nomes de vacina (ou o
+# literal "todas"/"nenhuma" quando a lista é total/vazia) — texto, não
+# número. O caminho numérico de _avaliar_condicao_editorial forçaria esses
+# valores para 0.0 e "for todas"/"for nenhuma" nunca bateriam.
+_LITERAL_VAZIO_VACINA = {"vacina_meta": "todas", "vacina_nao_meta": "nenhuma"}
+
+
+def _avaliar_condicao_vacina(expressao: str, contexto: dict) -> bool | None:
+    """Condições do Doc de saúde: "vacina_meta for todas" / "vacina_nao_meta
+    for nenhuma", isoladas ou combinadas com "e". Devolve None quando a
+    expressão não é sobre esses dois campos, para cair no caminho numérico."""
+    campos = set(_MARCADOR_CAMPO_CONDICIONAL.findall(expressao))
+    if not campos or not campos <= set(_LITERAL_VAZIO_VACINA):
+        return None
+
+    for parte in _CONJUNCAO.split(expressao):
+        matches = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(parte))
+        if len(matches) != 1:
+            return None
+        campo = matches[0].group(1)
+        literal = _LITERAL_VAZIO_VACINA.get(campo)
+        if literal is None:
+            return None
+        trecho = parte[matches[0].end():].casefold()
+        if literal not in trecho:
+            return None
+        valor = _resolver_campo_com_alias(contexto, campo)
+        valor_texto = str(valor).strip().casefold() if valor is not None else ""
+        igual = valor_texto == literal
+        if "diferente" in trecho:
+            if igual:
+                return False
+        elif not igual:
+            return False
+    return True
+
 
 def _avaliar_comparacao_campo_a_campo(expressao: str, contexto: dict) -> bool | None:
     """Avalia UMA comparação "campo A for igual a/diferente de campo B".
@@ -362,6 +398,8 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
             if matches:
                 campos = {match.group(1) for match in matches}
                 especial = _avaliar_condicao_demografia(expressao, contexto)
+                if especial is None:
+                    especial = _avaliar_condicao_vacina(expressao, contexto)
                 atende = especial if especial is not None else _avaliar_condicao_editorial(matches, expressao, contexto)
                 # Blocos persistentes (indígena/quilombola) guardam vários
                 # parágrafos além do primeiro; conteúdo inline nessa mesma

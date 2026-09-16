@@ -1340,6 +1340,32 @@ def test_conjuncao_com_numero_literal_continua_no_caminho_numerico():
     assert "ATENDE" not in interpretar_blocos_condicionais(texto, {"a": 20, "b": 9})
 
 
+def test_condicoes_de_vacina_comparam_texto_em_vez_de_numero():
+    # vacina_meta/vacina_nao_meta guardam uma lista de nomes (ou o literal
+    # "todas"/"nenhuma"); o caminho numérico forçava esses valores para 0.0 e
+    # "for todas"/"for nenhuma" nunca batiam (Doc de saúde, Síntese).
+    texto = (
+        "Para quando saude.$vacina_meta for diferente de todas e "
+        "saude.$vacina_nao_meta for diferente de nenhuma, então:\nMISTA\n\n"
+        "Para quando saude.$vacina_meta for todas, então:\nTODAS BATERAM\n\n"
+        "Para quando saude.$vacina_nao_meta for nenhuma, então:\nNENHUMA FICOU DE FORA\n"
+    )
+
+    mista = interpretar_blocos_condicionais(
+        texto, {"vacina_meta": "BCG, Hepatite B", "vacina_nao_meta": "Rotavírus"}
+    )
+    assert "MISTA" in mista
+    assert "TODAS BATERAM" not in mista
+    assert "NENHUMA FICOU DE FORA" not in mista
+
+    todas = interpretar_blocos_condicionais(
+        texto, {"vacina_meta": "Todas", "vacina_nao_meta": "Nenhuma"}
+    )
+    assert "TODAS BATERAM" in todas
+    assert "NENHUMA FICOU DE FORA" in todas
+    assert "MISTA" not in todas
+
+
 def test_titulo_de_secao_solto_no_meio_do_bloco_vira_heading():
     # "Síntese" é escrito no Doc sem "#!" e sem linha em branco antes, então
     # chegava colado no parágrafo anterior e saía como texto corrido, e não
