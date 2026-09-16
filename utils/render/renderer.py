@@ -66,7 +66,12 @@ def _eh_frase_unica(texto: str) -> bool:
     return len(terminacoes) == 1
 
 
-_LARGURA_MAXIMA_GRAFICO_PADRAO = "480px"
+# 100%: o card do gráfico (moldura cinza desenhada no PNG) usa a largura
+# útil da página. Os PNGs são gerados a 180 dpi com 6"+ de largura, bem
+# acima dos ~630px da mancha, então esticar não pixeliza. Gráficos que
+# precisam ficar menores (ex.: a rosca de cor/raça) têm largura própria
+# em _CONFIG_GRAFICOS.
+_LARGURA_MAXIMA_GRAFICO_PADRAO = "100%"
 _MARGEM_VERTICAL_GRAFICOS_PADRAO = "32px"
 # Base menor de propósito: a legenda da figura (`.figure-caption`) logo abaixo
 # já traz sua própria margin-top, então repetir a margem cheia aqui somava as
