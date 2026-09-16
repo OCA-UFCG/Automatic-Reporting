@@ -2,9 +2,13 @@ from utils.queries.base import executar_query_dict
 
 VIEW_POR_MACROTEMA = {
     "demografia": "vw_perfil_populacional_municipal",
-    "educacao": "vw_perfil_educacional_municipal",
-    "saude": "vw_perfil_saude_municipal",
-    "economia-renda": "vw_perfil_economia",
+    # Views pesadas materializadas (relatorios_auto.mv_perfil_*): a leitura da view
+    # crua chega a >30s (economia) e é recalculada a cada relatório. A matview é um
+    # snapshot rápido (~ms), atualizado por scripts/refresh_matviews.sh (cron diário
+    # 04:00 UTC). Ver docs/matviews-perfil.md.
+    "educacao": "mv_perfil_educacional_municipal",
+    "saude": "mv_perfil_saude_municipal",
+    "economia-renda": "mv_perfil_economia",
     "saneamento": "vw_perfil_infraestrutura_municipal",
     "hidraulica": "vw_seguranca_hidrica",
     "meio-ambiente": "ambiente",
