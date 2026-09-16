@@ -151,8 +151,11 @@ def test_icone_do_macrotema_e_usado_quando_o_indicador_nao_define_um():
         "saneamento", CONTEXTO, macrotema_icone="wrench"
     )
 
-    assert indicadores
-    assert all(item["icone"] == "wrench" for item in indicadores)
+    por_nome = {item["nome"]: item for item in indicadores}
+    # "Usinas de geração de energia" é o único card de saneamento sem ícone
+    # próprio no catálogo; os demais (esgoto, potência) ganharam ícone
+    # dedicado e não devem mais cair no ícone do macrotema.
+    assert por_nome["Usinas de geração de energia"]["icone"] == "wrench"
 
 
 def test_todas_as_colunas_do_catalogo_tem_rotulo_e_fonte():

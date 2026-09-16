@@ -59,7 +59,7 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "fonte": "Censo demográfico 2022",
             "rodape": "Pessoas residentes que se autodeclaram indígenas",
             "decimais": 0,
-            "icone": "people",
+            "icone": "indigena_alfabetizada",
         },
         {
             "coluna": "pop_rua_2022",
@@ -74,7 +74,7 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "fonte": "CadÚnico / MDS",
             "rodape": "Pessoas em situação de rua identificadas no município",
             "decimais": 0,
-            "icone": "people",
+            "icone": "situacao_rua",
         },
         {
             "coluna": "pop_quilombola_2022",
@@ -95,7 +95,7 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "rodape": "Percentual sobre a população residente",
             "decimais": 2,
             "sufixo": "%",
-            "icone": "people",
+            "icone": "quilombola_alfabetizada",
         },
     ),
     "educacao": (
@@ -113,7 +113,7 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "fonte": "Censo demográfico 2010 e 2022",
             "rodape": "Diferença de não alfabetizados entre os dois censos",
             "decimais": 0,
-            "icone": "book",
+            "icone": "reducao_alfabetizados",
         },
         {
             "coluna": "sem_instrucao_fund_incomp_per",
@@ -122,7 +122,7 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "rodape": "Participação no total por grau de instrução",
             "decimais": 2,
             "sufixo": "%",
-            "icone": "book",
+            "icone": "fundamental_incompleto",
         },
         {
             "coluna": "fund_comp_medio_incomp_per",
@@ -131,7 +131,7 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "rodape": "Participação no total por grau de instrução",
             "decimais": 2,
             "sufixo": "%",
-            "icone": "book",
+            "icone": "fundamental_completo",
         },
         {
             "coluna": "medio_comp_superior_incomp_per",
@@ -140,7 +140,7 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "rodape": "Participação no total por grau de instrução",
             "decimais": 2,
             "sufixo": "%",
-            "icone": "book",
+            "icone": "medio_completo",
         },
         {
             "coluna": "superior_completo_per",
@@ -233,6 +233,7 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "fonte": "Censo demográfico 2010 e 2022",
             "rodape": "Domicílios ligados à rede geral ou pluvial",
             "decimais": 0,
+            "icone": "esgoto",
         },
         {
             "coluna": "qtd_usinas",
@@ -248,6 +249,7 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "rodape": "Solar, eólica, biomassa e hídrica",
             "decimais": 0,
             "sufixo": " kW",
+            "icone": "potencia_renovavel",
         },
         {
             "coluna": "potencia_nao_renovavel",
@@ -256,6 +258,7 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "rodape": "Fontes fósseis",
             "decimais": 0,
             "sufixo": " kW",
+            "icone": "potencia_nao_renovavel",
         },
     ),
     # `total_2025`, `primeira_agua_qtd` e `segunda_agua_qtd` não vêm de
@@ -307,6 +310,7 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "rodape": "Área do município em classes de aridez suscetíveis",
             "decimais": 2,
             "sufixo": " km²",
+            "icone": "desertificacao",
         },
         # Recorte estadual: na view esse avanço é calculado por sigla_uf, não por
         # município. O rótulo precisa deixar isso explícito.
@@ -317,6 +321,7 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "rodape": "Variação da área suscetível no estado, não no município",
             "decimais": 2,
             "sufixo": " km²",
+            "icone": "desertificacao",
         },
         {
             "coluna": "qtd_unidades_conservacao",
@@ -324,6 +329,7 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "fonte": "CNUC / MMA",
             "rodape": "Unidades de conservação no município",
             "decimais": 0,
+            "icone": "unidades_conservacao",
         },
         {
             "coluna": "qtd_grupo_protecao_integral",
@@ -331,6 +337,7 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "fonte": "CNUC / MMA",
             "rodape": "Grupo de manejo de proteção integral",
             "decimais": 0,
+            "icone": "protecao_integral",
         },
         {
             "coluna": "qtd_grupo_uso_sustentavel",
@@ -338,6 +345,7 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "fonte": "CNUC / MMA",
             "rodape": "Grupo de manejo de uso sustentável",
             "decimais": 0,
+            "icone": "uso_sustentavel",
         },
         {
             "coluna": "area_unidades_conservacao_ha",
@@ -346,6 +354,7 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "rodape": "Área total protegida no município",
             "decimais": 2,
             "sufixo": " ha",
+            "icone": "area_conservacao",
         },
     ),
 }
