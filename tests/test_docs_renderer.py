@@ -1340,6 +1340,75 @@ def test_conjuncao_com_numero_literal_continua_no_caminho_numerico():
     assert "ATENDE" not in interpretar_blocos_condicionais(texto, {"a": 20, "b": 9})
 
 
+def test_condicoes_de_vacina_comparam_texto_em_vez_de_numero():
+    # vacina_meta/vacina_nao_meta guardam uma lista de nomes (ou o literal
+    # "todas"/"nenhuma"); o caminho numérico forçava esses valores para 0.0 e
+    # "for todas"/"for nenhuma" nunca batiam (Doc de saúde, Síntese).
+    texto = (
+        "Para quando saude.$vacina_meta for diferente de todas e "
+        "saude.$vacina_nao_meta for diferente de nenhuma, então:\nMISTA\n\n"
+        "Para quando saude.$vacina_meta for todas, então:\nTODAS BATERAM\n\n"
+        "Para quando saude.$vacina_nao_meta for nenhuma, então:\nNENHUMA FICOU DE FORA\n"
+    )
+
+    mista = interpretar_blocos_condicionais(
+        texto, {"vacina_meta": "BCG, Hepatite B", "vacina_nao_meta": "Rotavírus"}
+    )
+    assert "MISTA" in mista
+    assert "TODAS BATERAM" not in mista
+    assert "NENHUMA FICOU DE FORA" not in mista
+
+    todas = interpretar_blocos_condicionais(
+        texto, {"vacina_meta": "Todas", "vacina_nao_meta": "Nenhuma"}
+    )
+    assert "TODAS BATERAM" in todas
+    assert "NENHUMA FICOU DE FORA" in todas
+    assert "MISTA" not in todas
+
+
+def test_condicoes_de_vacina_sem_dado_nao_vazam_bloco_misto():
+    # None virava "" e "" é diferente de "todas"/"nenhuma", então o bloco
+    # MISTA batia para uma cidade sem levantamento de vacinação nenhum.
+    texto = (
+        "Para quando saude.$vacina_meta for diferente de todas e "
+        "saude.$vacina_nao_meta for diferente de nenhuma, então:\nMISTA\n\n"
+        "Para quando saude.$vacina_meta for todas, então:\nTODAS BATERAM\n\n"
+        "Para quando saude.$vacina_nao_meta for nenhuma, então:\nNENHUMA FICOU DE FORA\n"
+    )
+
+    sem_dado = interpretar_blocos_condicionais(
+        texto, {"vacina_meta": None, "vacina_nao_meta": None}
+    )
+    assert "MISTA" not in sem_dado
+    assert "TODAS BATERAM" not in sem_dado
+    assert "NENHUMA FICOU DE FORA" not in sem_dado
+
+    parcial = interpretar_blocos_condicionais(
+        texto, {"vacina_meta": None, "vacina_nao_meta": "Rotavírus"}
+    )
+    assert "MISTA" not in parcial
+
+
+def test_condicao_de_vacina_combinada_com_campo_numerico():
+    # Antes, misturar vacina_meta/vacina_nao_meta com outro campo caía
+    # inteiro no caminho numérico, que força texto para 0.0 e nunca bate —
+    # o parágrafo sumia em silêncio mesmo quando os dois lados batiam.
+    texto = (
+        "Para quando saude.$vacina_meta for todas e saude.$obitos for maior "
+        "que 5, então:\nMISTO_OK\n"
+    )
+
+    assert "MISTO_OK" in interpretar_blocos_condicionais(
+        texto, {"vacina_meta": "Todas", "obitos": 10}
+    )
+    assert "MISTO_OK" not in interpretar_blocos_condicionais(
+        texto, {"vacina_meta": "Todas", "obitos": 2}
+    )
+    assert "MISTO_OK" not in interpretar_blocos_condicionais(
+        texto, {"vacina_meta": "BCG", "obitos": 10}
+    )
+
+
 def test_titulo_de_secao_solto_no_meio_do_bloco_vira_heading():
     # "Síntese" é escrito no Doc sem "#!" e sem linha em branco antes, então
     # chegava colado no parágrafo anterior e saía como texto corrido, e não
