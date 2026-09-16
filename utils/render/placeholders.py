@@ -654,7 +654,12 @@ def _precisao_padrao_editorial(namespace: str, campo: str) -> int | None:
     return None
 
 
-def _formatar_valor(valor: object, decimais: int | None = None) -> str:
+# Campos de ano não devem levar separador de milhar ("2.023"): não são
+# quantidade, são um rótulo de período.
+_CAMPOS_ANO = {"ano", "year"}
+
+
+def _formatar_valor(valor: object, decimais: int | None = None, campo: str = "") -> str:
     if isinstance(valor, bool):
         return str(valor)
     if isinstance(valor, str) and _TEXTO_DECIMAL_COM_PONTO.match(valor.strip()):
@@ -663,6 +668,8 @@ def _formatar_valor(valor: object, decimais: int | None = None) -> str:
         numero = float(valor)
         if decimais is None:
             decimais = 0 if numero == int(numero) else 1
+        if campo.lower() in _CAMPOS_ANO and decimais == 0:
+            return str(int(numero))
         return formatar_numero_ptbr(numero, decimais=decimais)
     return str(valor)
 
@@ -725,7 +732,7 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
         campo = match.group(1)
         valor = _resolver_campo_com_alias(contexto, campo)
         return (
-            _formatar_valor(valor, _precisao(campo))
+            _formatar_valor(valor, _precisao(campo), campo)
             if valor is not None
             else match.group(0)
         )
@@ -743,7 +750,7 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
         if isinstance(contexto_alvo, dict):
             valor = _resolver_campo_com_alias(contexto_alvo, campo)
             if valor is not None:
-                return _formatar_valor(valor, _precisao(campo))
+                return _formatar_valor(valor, _precisao(campo), campo)
         return match.group(0)
 
     alias_map = {

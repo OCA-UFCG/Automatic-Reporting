@@ -1447,3 +1447,14 @@ def test_texto_que_nao_e_decimal_puro_fica_intacto():
     )
 
     assert resultado == "2801108 / 12,2 pontos percentuais"
+
+
+def test_campo_ano_nao_ganha_separador_de_milhar():
+    # $ano é rótulo de período, não quantidade: "2.023" seria um bug visível.
+    contexto = {"ano": 2023}
+
+    resultado = substituir_placeholders(
+        "dados de economia.$ano", contexto, "economia-renda"
+    )
+
+    assert resultado == "dados de 2023"
