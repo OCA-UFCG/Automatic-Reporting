@@ -72,6 +72,46 @@ def test_economia_renda_usa_colunas_atuais_da_view():
     assert valores["Índice de Gini"] == "0,58"
 
 
+def test_economia_renda_mostra_os_6_indicadores_novos_da_view():
+    contexto = {
+        **CONTEXTO,
+        "valor_pib": "12908743000",
+        "valor_pib_capita": "30780.61",
+        "valor_exportacao": "3560041.00",
+        "valor_importacao": "10865532.00",
+        "valor_balanca": "-7305491.00",
+        "valor_carga_tributaria": "277942183.71",
+        "fonte_exportacao": "SECEX (julho de 2026)",
+        "fonte_importacao": "SECEX (julho de 2026)",
+        "fonte_balanca": "SECEX (julho de 2026)",
+    }
+    valores = _por_nome(montar_indicadores_macrotema("economia-renda", contexto))
+
+    assert valores["PIB"] == "R$ 12.908.743.000"
+    assert valores["PIB per capita"] == "R$ 30.780,61"
+    assert valores["Exportações"] == "US$ 3.560.041"
+    assert valores["Importações"] == "US$ 10.865.532"
+    assert valores["Balança comercial"] == "US$ -7.305.491"
+    assert valores["Receita tributária municipal"] == "R$ 277.942.183,71"
+
+
+def test_fonte_coluna_le_o_mes_de_referencia_direto_da_view():
+    # O mês de referência do SECEX muda a cada carga; a fonte desses 3 cards
+    # vem de "fonte_<coluna>" na view em vez de um texto fixo que ficaria
+    # desatualizado no relatório do mês seguinte.
+    contexto = {**CONTEXTO, "valor_exportacao": "1", "fonte_exportacao": "SECEX (março de 2027)"}
+    fontes = {item["nome"]: item["fonte"] for item in montar_indicadores_macrotema("economia-renda", contexto)}
+
+    assert fontes["Exportações"] == "SECEX (março de 2027)"
+
+
+def test_fonte_coluna_cai_no_texto_fixo_quando_a_view_nao_traz_o_mes():
+    contexto = {**CONTEXTO, "valor_exportacao": "1"}
+    fontes = {item["nome"]: item["fonte"] for item in montar_indicadores_macrotema("economia-renda", contexto)}
+
+    assert fontes["Exportações"] == "SECEX"
+
+
 def test_percentuais_e_contagens_sao_formatados_em_ptbr():
     valores = _por_nome(montar_indicadores_macrotema("educacao", CONTEXTO))
 

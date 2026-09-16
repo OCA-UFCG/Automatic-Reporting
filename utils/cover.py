@@ -174,6 +174,59 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
             "rodape": "Concentração de renda: 0 é igualdade total, 1 é desigualdade máxima",
             "decimais": 2,
         },
+        {
+            "coluna": "valor_pib",
+            "nome": "PIB",
+            "fonte": "IBGE (2023)",
+            "rodape": "Produto Interno Bruto municipal",
+            "decimais": 2,
+            "prefixo": "R$ ",
+        },
+        {
+            "coluna": "valor_pib_capita",
+            "nome": "PIB per capita",
+            "fonte": "IBGE (2023)",
+            "rodape": "PIB dividido pela população residente",
+            "decimais": 2,
+            "prefixo": "R$ ",
+        },
+        {
+            "coluna": "valor_exportacao",
+            "nome": "Exportações",
+            # o mês de referência do SECEX muda a cada carga; lê "fonte_exportacao"
+            # da própria view em vez de fixar um mês que ficaria desatualizado.
+            "fonte": "SECEX",
+            "fonte_coluna": "fonte_exportacao",
+            "rodape": "Valor líquido FOB exportado por empresas do município",
+            "decimais": 2,
+            "prefixo": "US$ ",
+        },
+        {
+            "coluna": "valor_importacao",
+            "nome": "Importações",
+            "fonte": "SECEX",
+            "fonte_coluna": "fonte_importacao",
+            "rodape": "Valor líquido FOB importado por empresas do município",
+            "decimais": 2,
+            "prefixo": "US$ ",
+        },
+        {
+            "coluna": "valor_balanca",
+            "nome": "Balança comercial",
+            "fonte": "SECEX",
+            "fonte_coluna": "fonte_balanca",
+            "rodape": "Saldo entre exportações e importações no mês",
+            "decimais": 2,
+            "prefixo": "US$ ",
+        },
+        {
+            "coluna": "valor_carga_tributaria",
+            "nome": "Receita tributária municipal",
+            "fonte": "STN/FINBRA/SICONFI (2023)",
+            "rodape": "Receita tributária arrecadada pelo município",
+            "decimais": 2,
+            "prefixo": "R$ ",
+        },
     ),
     # `idhm_2010`, `renda_per_capita_2010` e `indice_gini_2010` não existem mais
     # em `vw_indicadores` — a view foi migrada para `valor_idhm`/`valor_gini`/
@@ -403,6 +456,11 @@ def montar_indicadores_macrotema(
             continue
 
         fonte = str(spec["fonte"])
+        fonte_coluna = spec.get("fonte_coluna")
+        if fonte_coluna:
+            fonte_dinamica = contexto.get(str(fonte_coluna))
+            if fonte_dinamica is not None and str(fonte_dinamica).strip():
+                fonte = str(fonte_dinamica)
         ano_coluna = spec.get("fonte_ano_coluna")
         if ano_coluna:
             ano = contexto.get(str(ano_coluna))
