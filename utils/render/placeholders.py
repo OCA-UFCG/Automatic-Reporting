@@ -173,10 +173,14 @@ _LITERAL_VAZIO_VACINA = {"vacina_meta": "todas", "vacina_nao_meta": "nenhuma"}
 
 def _avaliar_condicao_vacina(expressao: str, contexto: dict) -> bool | None:
     """Condições do Doc de saúde: "vacina_meta for todas" / "vacina_nao_meta
-    for nenhuma", isoladas ou combinadas com "e". Devolve None quando a
-    expressão não é sobre esses dois campos, para cair no caminho numérico."""
+    for nenhuma", isoladas, combinadas entre si ou com outro campo via "e".
+    Devolve None quando a expressão não menciona nenhum dos dois campos, para
+    cair no caminho numérico. Uma parte sobre outro campo (não vacina_*) é
+    delegada a esse mesmo caminho numérico, avaliada só para aquela parte —
+    sem isso, a mistura caía inteira no numérico e forçava vacina_meta/
+    vacina_nao_meta (texto) para 0.0, sempre reprovando em silêncio."""
     campos = set(_MARCADOR_CAMPO_CONDICIONAL.findall(expressao))
-    if not campos or not campos <= set(_LITERAL_VAZIO_VACINA):
+    if not campos & set(_LITERAL_VAZIO_VACINA):
         return None
 
     for parte in _CONJUNCAO.split(expressao):
@@ -186,7 +190,9 @@ def _avaliar_condicao_vacina(expressao: str, contexto: dict) -> bool | None:
         campo = matches[0].group(1)
         literal = _LITERAL_VAZIO_VACINA.get(campo)
         if literal is None:
-            return None
+            if not _avaliar_condicao_editorial(matches, parte, contexto):
+                return False
+            continue
         trecho = parte[matches[0].end():].casefold()
         if literal not in trecho:
             return None

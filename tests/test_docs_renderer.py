@@ -1389,6 +1389,26 @@ def test_condicoes_de_vacina_sem_dado_nao_vazam_bloco_misto():
     assert "MISTA" not in parcial
 
 
+def test_condicao_de_vacina_combinada_com_campo_numerico():
+    # Antes, misturar vacina_meta/vacina_nao_meta com outro campo caía
+    # inteiro no caminho numérico, que força texto para 0.0 e nunca bate —
+    # o parágrafo sumia em silêncio mesmo quando os dois lados batiam.
+    texto = (
+        "Para quando saude.$vacina_meta for todas e saude.$obitos for maior "
+        "que 5, então:\nMISTO_OK\n"
+    )
+
+    assert "MISTO_OK" in interpretar_blocos_condicionais(
+        texto, {"vacina_meta": "Todas", "obitos": 10}
+    )
+    assert "MISTO_OK" not in interpretar_blocos_condicionais(
+        texto, {"vacina_meta": "Todas", "obitos": 2}
+    )
+    assert "MISTO_OK" not in interpretar_blocos_condicionais(
+        texto, {"vacina_meta": "BCG", "obitos": 10}
+    )
+
+
 def test_titulo_de_secao_solto_no_meio_do_bloco_vira_heading():
     # "Síntese" é escrito no Doc sem "#!" e sem linha em branco antes, então
     # chegava colado no parágrafo anterior e saía como texto corrido, e não
