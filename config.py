@@ -48,6 +48,10 @@ DB_DATABASE = get_config_value("DB_DATABASE")
 DB_USER = get_config_value("DB_USER")
 DB_PASSWORD = get_config_value("DB_PASSWORD")
 DB_PORT = get_config_value("DB_PORT")
+# Cap por query nas views vw_perfil_* (agregações pesadas; vw_perfil_economia passa de
+# 30s em produção). Sem isso a conexão fica sem statement_timeout e uma view lenta
+# pendura o worker único do uvicorn. 0 desabilita o cap (semântica do Postgres).
+DB_STATEMENT_TIMEOUT_MS = int(get_config_value("DB_STATEMENT_TIMEOUT_MS") or "15000")
 
 MACROTEMAS = {
     "demografia": {
