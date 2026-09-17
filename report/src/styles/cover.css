@@ -544,6 +544,12 @@
 .indicator-score-card-footer {
   display: block;
   box-sizing: border-box;
+  /* Cards da linha esticam até a altura dela, o rodapé não: sem um piso, um
+     rodapé de 1 linha ao lado de um de 2 deixa faixa branca. 34.67px = 26pt
+     x 4/3 (design em pt, WeasyPrint em px CSS) = 2 linhas de 9pt + 8pt de
+     padding, que entra na conta pelo border-box.
+     Não cobre cabeçalhos de alturas diferentes (nome de 3 linhas). */
+  min-height: 34.67px;
   padding: 5.33px 10.67px;
   background: #EFEFEF;
   color: #292829;

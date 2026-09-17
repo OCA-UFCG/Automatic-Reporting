@@ -9,6 +9,13 @@ import logging
 import pathlib
 from pathlib import Path
 
+import matplotlib
+
+# Antes do primeiro import do pyplot: numa máquina com DISPLAY o matplotlib
+# escolheria TkAgg, e os gráficos são gerados numa thread do FastAPI — figura
+# Tk fora da main thread trava o processo no teardown.
+matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
 from matplotlib import font_manager, rcParams
 from matplotlib.figure import Figure
@@ -28,7 +35,9 @@ _ARQUIVOS_INTER = (
 # Multiplicador aplicado a todos os tamanhos de fonte dos gráficos (fontsize/
 # labelsize). Preserva as proporções entre os textos; ajuste este único número
 # para deixar os rótulos/números maiores ou menores de forma uniforme.
-ESCALA_FONTE = 1.35
+ESCALA_FONTE = 1.0
+
+_CARD_PAD_POLEGADAS = 0.3
 
 
 def _registrar_inter() -> None:
@@ -70,7 +79,7 @@ def iniciar_card_grafico(
     titulo: str,
     altura_header: float = 0.14,
     margem_esquerda: float = 0.16,
-    margem_direita: float = 0.045,
+    margem_direita: float | None = None,
     tamanho_titulo: float = 11.5,
 ) -> tuple[Figure, "plt.Axes"]:
     # `margem_esquerda` default (0.16) reserva espaço pra rótulos de
@@ -122,10 +131,14 @@ def iniciar_card_grafico(
         zorder=3,
     )
 
+    largura_pol, altura_pol = figsize
+    pad_x = _CARD_PAD_POLEGADAS / largura_pol
+    pad_y = _CARD_PAD_POLEGADAS / altura_pol
+
     corpo_esq = margem + margem_esquerda
-    corpo_dir = 1 - margem - margem_direita
-    corpo_topo = 1 - margem - altura_header - 0.03
-    corpo_base = margem + 0.06
+    corpo_dir = 1 - margem - (pad_x if margem_direita is None else margem_direita)
+    corpo_topo = 1 - margem - altura_header - pad_y
+    corpo_base = margem + pad_y
     ax = fig.add_axes(
         (corpo_esq, corpo_base, corpo_dir - corpo_esq, corpo_topo - corpo_base)
     )
@@ -134,14 +147,23 @@ def iniciar_card_grafico(
 
 
 def ajustar_margem_esquerda_para_rotulos(
-    fig: Figure, ax: "plt.Axes", pad_polegadas: float = 0.08
+    fig: Figure, ax: "plt.Axes", pad_polegadas: float = _CARD_PAD_POLEGADAS
 ) -> None:
     # `margem_esquerda` de `iniciar_card_grafico` é um valor fixo, pensado
     # pro caso comum; rótulos de categoria mais longos que o previsto (ex.:
     # nomes de vacina) estouram essa margem e saem cortados pra fora do card.
-    # Mede a largura real já desenhada dos `yticklabels` (e do `ylabel`, se
+    # Mede a posição real já desenhada dos `yticklabels` (e a do `ylabel`, se
     # houver) e reconstrói o layout à esquerda do zero: [borda do card] ->
     # [ylabel, se houver] -> [yticklabels] -> [eixo].
+    if not ax.axison:
+        # `ax.axis("off")` (ex.: o treemap do VAB) não remove os
+        # yticklabels default do matplotlib ("0.0", "0.2"...) nem some com o
+        # bbox deles — só deixa de desenhá-los. Medir esses rótulos
+        # "fantasma" aqui deslocaria e encolheria um eixo que já foi
+        # posicionado (e cujo conteúdo já foi dimensionado) de propósito sem
+        # essa margem.
+        return
+
     fig.canvas.draw()
     renderer = fig.canvas.get_renderer()
     rotulos_tick = ax.get_yticklabels()
@@ -152,29 +174,31 @@ def ajustar_margem_esquerda_para_rotulos(
     largura_fig_px = largura_fig_pol * fig.dpi
     pad_px = pad_polegadas * fig.dpi
     borda_card_px = _CARD_MARGEM * largura_fig_px
-    largura_ticks_px = max(
-        r.get_window_extent(renderer=renderer).width for r in rotulos_tick
+    # Mede o x0 real (borda esquerda desenhada) do rótulo mais à esquerda, e
+    # não a largura dele: assim o cálculo já inclui o afastamento do
+    # `tick_params(pad=...)`, que fica fora da largura do texto.
+    inicio_ticks_px = min(
+        r.get_window_extent(renderer=renderer).x0 for r in rotulos_tick
     )
 
     rotulo_eixo = ax.yaxis.get_label()
     tem_ylabel = bool(rotulo_eixo.get_text())
     largura_ylabel_px = 0.0
     if tem_ylabel:
-        # A largura de um texto rotacionado 90° é a ALTURA da sua bbox, não a
-        # largura (que, rotacionado, vira ~0).
-        largura_ylabel_px = rotulo_eixo.get_window_extent(renderer=renderer).height
+        # A bbox já vem rotacionada: a faixa que o rótulo em pé ocupa é a
+        # `.width`; a `.height` é o comprimento do texto.
+        largura_ylabel_px = rotulo_eixo.get_window_extent(renderer=renderer).width
 
     bloco_ylabel_px = (largura_ylabel_px + pad_px) if tem_ylabel else 0
-    corpo_esq_necessario_px = (
-        borda_card_px + pad_px + bloco_ylabel_px + largura_ticks_px
-    )
+    inicio_ticks_desejado_px = borda_card_px + pad_px + bloco_ylabel_px
 
     posicao = ax.get_position()
-    corpo_esq_necessario = corpo_esq_necessario_px / largura_fig_px
-    if corpo_esq_necessario <= posicao.x0:
+    deslocamento_px = inicio_ticks_desejado_px - inicio_ticks_px
+    if deslocamento_px <= 0:
         return
 
-    deslocamento = corpo_esq_necessario - posicao.x0
+    deslocamento = deslocamento_px / largura_fig_px
+    corpo_esq_necessario = posicao.x0 + deslocamento
     ax.set_position(
         (
             corpo_esq_necessario,
@@ -188,14 +212,33 @@ def ajustar_margem_esquerda_para_rotulos(
         # Não confia no reflow automático do `ylabel` pra acompanhar esse
         # `set_position` manual: pina a posição direto, centralizada no
         # bloco reservado pra ele logo depois da borda do card.
+        transformacao = blended_transform_factory(fig.transFigure, ax.transAxes)
+        x_desejado_px = borda_card_px + pad_px
         ax.yaxis.set_label_coords(
-            (borda_card_px + pad_px + largura_ylabel_px / 2) / largura_fig_px,
+            (x_desejado_px + largura_ylabel_px / 2) / largura_fig_px,
             0.5,
-            transform=blended_transform_factory(fig.transFigure, ax.transAxes),
+            transform=transformacao,
         )
+        fig.canvas.draw()
+        desvio_px = (
+            x_desejado_px
+            - rotulo_eixo.get_window_extent(renderer=fig.canvas.get_renderer()).x0
+        )
+        if abs(desvio_px) > 0.5:
+            ax.yaxis.set_label_coords(
+                (x_desejado_px + largura_ylabel_px / 2 + desvio_px) / largura_fig_px,
+                0.5,
+                transform=transformacao,
+            )
 
 
 def salvar_card_grafico(fig: Figure, chart_file: pathlib.Path, dpi: int = 180) -> None:
+    # Rótulos de categoria mais longos que a `margem_esquerda` default estouram
+    # a borda esquerda do card. Roda aqui, no caminho por onde todo card passa,
+    # em vez de depender de cada `gerar_grafico_*` lembrar de chamar: é no-op
+    # quando não há yticklabels ou quando eles já cabem na margem.
+    if fig.axes:
+        ajustar_margem_esquerda_para_rotulos(fig, fig.axes[0])
     # Sem bbox_inches="tight": a moldura já foi posicionada em coordenadas de
     # figura pensando no figsize exato, e um recorte automático cortaria as
     # bordas/cantos arredondados do card.
