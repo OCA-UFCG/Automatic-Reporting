@@ -35,6 +35,14 @@ def formatar_data_hora_extenso(data: datetime) -> str:
 # cortados, então 0,770 vira "0,77" e 0,467 continua "0,467".
 _DECIMAIS_VIEW = 3
 
+# A view é consistente no padrão nm_/valor_/fonte_/unid_ com uma exceção: o
+# rótulo da população feminina é `nm_pop_feminina`, enquanto valor_, fonte_ e
+# unid_ usam `pop_feminino` (compare com `pop_masculina`, regular nas quatro).
+# Sem este de/para o card sai da capa em silêncio — o rótulo existe e está
+# preenchido, só não no nome que o resto do quarteto anuncia. Remover quando a
+# coluna for renomeada no banco.
+_ROTULO_IRREGULAR = {"pop_feminino": "nm_pop_feminina"}
+
 # Indicador que só faz sentido quando o grupo existe no município: com
 # população zero, "0%" lê como ausência de alfabetização em vez de ausência do
 # grupo. Chave = base na view; valor = coluna de população que precisa existir.
@@ -199,11 +207,10 @@ def _card_da_view(
     if valor is None:
         return None
 
-    # Sem rótulo não há card: o texto vem da view ou não existe. Hoje
-    # `nm_pop_feminino` chega NULL (o valor existe), então o card de população
-    # feminina só volta quando a coluna for preenchida no banco. Preencher
-    # daqui esconderia o buraco em vez de corrigi-lo.
-    nome = str(contexto.get(f"nm_{base}") or "").strip()
+    # Sem rótulo não há card: o texto vem da view ou não existe. Preencher
+    # daqui esconderia um buraco no banco em vez de corrigi-lo — a ausência do
+    # card na capa é o sinal de que falta dado.
+    nome = str(contexto.get(_ROTULO_IRREGULAR.get(base, f"nm_{base}")) or "").strip()
     if not nome:
         return None
 

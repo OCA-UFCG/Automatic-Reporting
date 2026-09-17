@@ -18,6 +18,12 @@ CONTEXTO = {
     "valor_pop_masculina": "198413",
     "fonte_pop_masculina": "Censo demográfico 2022 (IBGE, 2023)",
     "unid_pop_masculina": "Pessoas",
+    # Irregular de propósito: no banco o rótulo é `nm_pop_feminina`, mas
+    # valor_/fonte_/unid_ usam `pop_feminino`. Copiado da view, não inventado.
+    "nm_pop_feminina": "População feminina",
+    "valor_pop_feminino": "220966",
+    "fonte_pop_feminino": "Censo demográfico 2022 (IBGE, 2023)",
+    "unid_pop_feminino": "Pessoas",
     "valor_pop_quilombola": "0",
     "nm_pop_quilombola": "População quilombola",
     "fonte_pop_quilombola": "Censo demográfico 2022 (IBGE, 2023)",
@@ -153,17 +159,28 @@ def test_alfabetizacao_some_quando_o_grupo_nao_existe_no_municipio():
     assert com_grupo["População quilombola alfabetizada"] == "79,84%"
 
 
+def test_populacao_feminina_aparece_apesar_do_nome_irregular_na_view():
+    # Regressão: a base é `pop_feminino` (valor_/fonte_/unid_), mas o rótulo na
+    # view é `nm_pop_feminina`. Procurar `nm_pop_feminino` devolve None e o card
+    # sumia da capa em silêncio — com o valor presente e o rótulo preenchido.
+    # Não é dado faltando no banco; é nome de coluna divergente (ver
+    # _ROTULO_IRREGULAR em utils/cover.py).
+    valores = _por_nome(montar_indicadores_macrotema("demografia", CONTEXTO))
+
+    assert valores["População feminina"] == "220.966"
+
+
 def test_base_sem_rotulo_na_view_nao_vira_card():
     # Nenhum texto de card mora no código: sem `nm_<base>` o card não existe,
-    # mesmo havendo valor. É o caso de `pop_feminino` hoje (nm_ NULL na view),
-    # e a ausência na capa é o sinal de que falta preencher a coluna no banco.
+    # mesmo havendo valor. A ausência na capa é o sinal de que falta preencher
+    # a coluna no banco — preencher daqui esconderia o buraco.
     valores = _por_nome(
         montar_indicadores_macrotema(
-            "demografia", {**CONTEXTO, "valor_pop_feminino": "220966"}
+            "demografia", {**CONTEXTO, "nm_pop_indigena": None}
         )
     )
 
-    assert "População feminina" not in valores
+    assert "População indígena" not in valores
 
 
 def test_indicador_sem_valor_no_banco_e_omitido():
