@@ -1450,11 +1450,31 @@ def test_texto_que_nao_e_decimal_puro_fica_intacto():
 
 
 def test_campo_ano_nao_ganha_separador_de_milhar():
-    # $ano é rótulo de período, não quantidade: "2.023" seria um bug visível.
-    contexto = {"ano": 2023}
+    # Rótulo de período, não quantidade: "2.023" seria um bug visível. Os nomes
+    # abaixo saíram do schema e dos Docs, não foram inventados: `ultimo_junho`
+    # é usado no Doc de economia e `ano_menor_mortalidade` no de saúde, e
+    # nenhum dos dois casaria com uma regra baseada no nome ter "ano".
+    for campo in (
+        "ano",
+        "ultimo_junho",
+        "ultimo_jun",
+        "ano_menor_mortalidade",
+        "ano_referencia_finalidade",
+    ):
+        resultado = substituir_placeholders(
+            f"dados de economia.${campo}", {campo: 2023}, "economia-renda"
+        )
 
+        assert resultado == "dados de 2023", campo
+
+
+def test_contagem_com_ano_no_nome_mantem_separador_de_milhar():
+    # Contraexemplo que impede "consertar" o teste acima com startswith/
+    # endswith: `dose_etario_1_ano` termina em "_ano" e é contagem de doses
+    # (32.211 na saúde de Campina Grande), não um ano. Mesma armadilha em
+    # `meta_etario_1_ano`, `libano_export` e `fonte_abastecimento_humano`.
     resultado = substituir_placeholders(
-        "dados de economia.$ano", contexto, "economia-renda"
+        "foram saude.$dose_etario_1_ano doses", {"dose_etario_1_ano": 32211}, "saude"
     )
 
-    assert resultado == "dados de 2023"
+    assert resultado == "foram 32.211 doses"
