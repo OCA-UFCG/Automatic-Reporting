@@ -130,8 +130,10 @@ def buscar_tecnologias_acesso_agua(
     dados.update(
         _calcular_indicadores_finalidade(total_ultimo_ano, i_agua_total, ii_agua)
     )
-    # Guardado à parte para a capa poder rotular a fonte com o ano real dos
-    # dados de 1ª/2ª água, que nem sempre é o mais recente da série (ver
-    # `primeira_agua_qtd`/`segunda_agua_qtd` em utils/cover.py).
+    # Ano real dos dados de 1ª/2ª água, que nem sempre é o mais recente da
+    # série. A capa usava isso para rotular a fonte dos cards de acesso à
+    # água; hoje ela lê `fonte_abastecimento_humano`/`fonte_irrigacao` direto
+    # de vw_indicadores. Fica exposto no contexto como placeholder para os
+    # Docs, que são editados fora do repositório.
     dados["ano_referencia_finalidade"] = ultimo_ano
     return dados

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from utils.formatting import formatar_numero_ptbr
+from utils.formatting import coerce_para_float, formatar_numero_ptbr
 from utils.geografia import separar_cidade_uf
 
 
@@ -17,378 +17,130 @@ def formatar_data_hora_extenso(data: datetime) -> str:
 
 
 # Catálogo dos cards do bloco "Panorama de indicadores" da capa de cada
-# macrotema. Cada entrada aponta para uma coluna de
-# `relatorios_auto.vw_indicadores` (ver utils/queries/indicadores.py), lida do
-# contexto já mesclado em services/generation.py. Antes disso os cards traziam
-# score fixo no código ("4/5") ou "N/D"; a fonte agora é sempre o banco.
+# macrotema, lido do contexto já mesclado em services/generation.py.
 #
-# Campos: coluna (nome na view), nome (rótulo), fonte (linha pequena do card),
-# rodape (texto do rodapé), decimais (máximo, zeros à direita são cortados),
-# prefixo/sufixo (unidade) e icone (opcional; cai no ícone do macrotema).
-_FONTE_IPEA_FJP = "IPEA / Fundação João Pinheiro (2010)"
+# `relatorios_auto.vw_indicadores` guarda cada indicador como um quarteto de
+# colunas com uma base comum — nm_<base> (rótulo), valor_<base>, fonte_<base>
+# e unid_<base>. Rótulo, fonte e unidade vêm de lá, não daqui: antes eram
+# repetidos em Python e a cópia já tinha divergido (o card de desertificação
+# dizia "Índice de aridez, 2021"; a view diz "Xavier et al. (2019) e OCA").
+# Quem edita a view não tem como saber que precisa editar Python também.
+#
+# Então este catálogo é só quais indicadores entram em cada macrotema e em que
+# ordem — uma lista de bases, seguindo o catálogo de big numbers mantido pela
+# equipe editorial. O conteúdo do card é todo do banco.
 
-INDICADORES_POR_MACROTEMA: dict[str, tuple[dict[str, object], ...]] = {
+# Teto de casas decimais para os valores lidos da view, que chegam como string
+# ("0.467", "419379", "-7305491.00"). É teto, não piso: zeros à direita são
+# cortados, então 0,770 vira "0,77" e 0,467 continua "0,467".
+_DECIMAIS_VIEW = 3
+
+# A view é consistente no padrão nm_/valor_/fonte_/unid_ com uma exceção: o
+# rótulo da população feminina é `nm_pop_feminina`, enquanto valor_, fonte_ e
+# unid_ usam `pop_feminino` (compare com `pop_masculina`, regular nas quatro).
+# Sem este de/para o card sai da capa em silêncio — o rótulo existe e está
+# preenchido, só não no nome que o resto do quarteto anuncia. Remover quando a
+# coluna for renomeada no banco.
+_ROTULO_IRREGULAR = {"pop_feminino": "nm_pop_feminina"}
+
+# Indicador que só faz sentido quando o grupo existe no município: com
+# população zero, "0%" lê como ausência de alfabetização em vez de ausência do
+# grupo. Chave = base na view; valor = coluna de população que precisa existir.
+_CONDICAO_POR_BASE = {
+    "alfabetizada_quilombola": "valor_pop_quilombola",
+    "alfabetizada_indigena": "valor_pop_indigena",
+}
+
+# Ícone dedicado por base, quando o indicador tem um mais específico do que o
+# ícone genérico do macrotema. Recuperado do commit 15a9691 ("feat: new svgs
+# for indicators"): aquele commit ainda usava os nomes de coluna completos da
+# migração anterior (ex. "sem_instrucao_fund_incomp_per", "qtd_unidades_
+# conservacao") e o merge com a reescrita da view (PR #91-like, base curta)
+# descartou essas linhas por conflito de estrutura — os SVGs chegaram ao
+# Brand.jsx, mas nada aqui os referenciava. Bases não listadas aqui caem no
+# ícone do macrotema.
+_ICONE_POR_BASE = {
+    "pop_indigena": "indigena_alfabetizada",
+    "pop_quilombola": "quilombola_alfabetizada",
+    "pop_rua": "situacao_rua",
+    "fundamental_incom": "fundamental_incompleto",
+    "fundamental_com": "fundamental_completo",
+    "medio_com": "medio_completo",
+    "esgotamento": "esgoto",
+    "asd": "desertificacao",
+    "asd_avanço": "desertificacao",
+    "uc": "unidades_conservacao",
+    "uc_pi": "protecao_integral",
+    "uc_uso": "uso_sustentavel",
+    "uc_area": "area_conservacao",
+}
+
+INDICADORES_POR_MACROTEMA: dict[str, tuple[str, ...]] = {
     "demografia": (
-        {
-            "coluna": "populacao_residente_2022",
-            "nome": "População residente",
-            "fonte": "Censo demográfico 2022",
-            "rodape": "Total de pessoas residentes no município",
-            "decimais": 0,
-            "icone": "people",
-        },
-        {
-            "coluna": "pop_masc_2022",
-            "nome": "População masculina",
-            "fonte": "Censo demográfico 2022",
-            "rodape": "Pessoas residentes do sexo masculino",
-            "decimais": 0,
-            "icone": "people",
-        },
-        {
-            "coluna": "pop_feminina_2022",
-            "nome": "População feminina",
-            "fonte": "Censo demográfico 2022",
-            "rodape": "Pessoas residentes do sexo feminino",
-            "decimais": 0,
-            "icone": "people",
-        },
-        {
-            "coluna": "pop_indigena_2022",
-            "nome": "População indígena",
-            "fonte": "Censo demográfico 2022",
-            "rodape": "Pessoas residentes que se autodeclaram indígenas",
-            "decimais": 0,
-            "icone": "people",
-        },
-        {
-            "coluna": "pop_rua_2022",
-            # buscar_populacao_rua só publica "pop_rua_2022" quando também há
-            # dado de 2026 (para permitir a comparação entre os dois anos);
-            # com só 2022 disponível, o número mora em "pop_rua_total" — sem
-            # este alias o card some no caso mais comum (cidade só com 2022).
-            "coluna_alias": "pop_rua_total",
-            "nome": "População em situação de rua",
-            # Vem de dem_rua.vw_pop (colunas "*_cadunico"), não do Censo do
-            # IBGE — fonte é o Cadastro Único, gerido pelo MDS.
-            "fonte": "CadÚnico / MDS",
-            "rodape": "Pessoas em situação de rua identificadas no município",
-            "decimais": 0,
-            "icone": "people",
-        },
-        {
-            "coluna": "pop_quilombola_2022",
-            "nome": "População quilombola",
-            "fonte": "Censo demográfico 2022",
-            "rodape": "Pessoas residentes em domicílios quilombolas",
-            "decimais": 0,
-            "icone": "people",
-        },
-        # `pop_quilombola_per_2022` não existe em `vw_indicadores` (o card nunca
-        # tinha valor e era sempre omitido); `pop_qui_per` vem de
-        # `buscar_populacao_quilombola` (utils/queries/demografia.py) e já chega
-        # mesclado no contexto de demografia com o mesmo significado.
-        {
-            "coluna": "pop_qui_per",
-            "nome": "Participação da população quilombola",
-            "fonte": "Censo demográfico 2022",
-            "rodape": "Percentual sobre a população residente",
-            "decimais": 2,
-            "sufixo": "%",
-            "icone": "people",
-        },
+        "pop_residente",
+        "pop_masculina",
+        "pop_feminino",
+        "pop_indigena",
+        "pop_quilombola",
+        "pop_rua",
     ),
+    # Educação guarda o valor em `per_<base>` em vez de `valor_<base>`; nm_,
+    # fonte_ e unid_ seguem o mesmo padrão dos demais, então rótulo e fonte
+    # também vêm da view.
     "educacao": (
-        {
-            "coluna": "nao_alfabetizados_15_mais",
-            "nome": "Pessoas não alfabetizadas (15 anos ou mais)",
-            "fonte": "Censo demográfico 2022",
-            "rodape": "População de 15 anos ou mais não alfabetizada",
-            "decimais": 0,
-            "icone": "book",
-        },
-        {
-            "coluna": "reducao_nao_alfabetizados_2010_2022",
-            "nome": "Redução de não alfabetizados (2010–2022)",
-            "fonte": "Censo demográfico 2010 e 2022",
-            "rodape": "Diferença de não alfabetizados entre os dois censos",
-            "decimais": 0,
-            "icone": "book",
-        },
-        {
-            "coluna": "sem_instrucao_fund_incomp_per",
-            "nome": "Sem instrução ou fundamental incompleto",
-            "fonte": "Censo demográfico 2010",
-            "rodape": "Participação no total por grau de instrução",
-            "decimais": 2,
-            "sufixo": "%",
-            "icone": "book",
-        },
-        {
-            "coluna": "fund_comp_medio_incomp_per",
-            "nome": "Fundamental completo ou médio incompleto",
-            "fonte": "Censo demográfico 2010",
-            "rodape": "Participação no total por grau de instrução",
-            "decimais": 2,
-            "sufixo": "%",
-            "icone": "book",
-        },
-        {
-            "coluna": "medio_comp_superior_incomp_per",
-            "nome": "Médio completo ou superior incompleto",
-            "fonte": "Censo demográfico 2010",
-            "rodape": "Participação no total por grau de instrução",
-            "decimais": 2,
-            "sufixo": "%",
-            "icone": "book",
-        },
-        {
-            "coluna": "superior_completo_per",
-            "nome": "Superior completo",
-            "fonte": "Censo demográfico 2010",
-            "rodape": "Participação no total por grau de instrução",
-            "decimais": 2,
-            "sufixo": "%",
-            "icone": "book",
-        },
+        "fundamental_incom",
+        "fundamental_com",
+        "medio_com",
+        "superior_com",
+        "alfabetizada_quilombola",
+        "alfabetizada_indigena",
     ),
-    # `rendimento_medio_ocupados` é, na definição da view, o mesmo
-    # max(renda_per_capita) de `valor_renda_capita`. Exibir os dois repetiria
-    # o número no card ao lado, então só a renda per capita entra aqui.
-    # `renda_per_capita_2010`/`indice_gini_2010` não existem mais em
-    # `vw_indicadores` (mesma migração de `desenvolvimento-social`, ver comentário
-    # abaixo) — aponta pras colunas atuais.
-    # O Doc de economia pede só estes 6 (PIB, PIB per capita, Carga tributária,
-    # Exportação, Importação, Balança comercial); Renda per capita e Índice de
-    # Gini não entram aqui — ver `desenvolvimento-social` pra esses dois.
+    "saude": (
+        "nascidos",
+        "mortalidade_infantil",
+        "doses",
+        "estabelecimento",
+        "unidade_basica",
+        "posto_saude",
+    ),
+    # Os 6 que o Doc de economia pede (PR #126). Renda per capita e Gini saíram
+    # daqui e ficam só em `desenvolvimento-social`, para não repetir o mesmo
+    # número em dois macrotemas.
+    #
+    # A divergência de `carga_tributaria` que estava pendente aqui se resolve
+    # sozinha ao ler o rótulo da view: ela diz "Receita tributária municipal",
+    # que é o que o número realmente é (valor arrecadado em R$, não a razão
+    # sobre o PIB que "carga tributária" sugere). O nome da base continua
+    # enganoso; o card, não.
     "economia-renda": (
-        {
-            "coluna": "valor_pib",
-            "nome": "PIB",
-            "fonte": "IBGE (2023)",
-            "rodape": "Produto Interno Bruto municipal",
-            "decimais": 2,
-            "prefixo": "R$ ",
-        },
-        {
-            "coluna": "valor_pib_capita",
-            "nome": "PIB per capita",
-            "fonte": "IBGE (2023)",
-            "rodape": "PIB dividido pela população residente",
-            "decimais": 2,
-            "prefixo": "R$ ",
-        },
-        {
-            "coluna": "valor_carga_tributaria",
-            "nome": "Receita tributária municipal",
-            "fonte": "STN/FINBRA/SICONFI (2023)",
-            "rodape": "Receita tributária arrecadada pelo município",
-            "decimais": 2,
-            "prefixo": "R$ ",
-        },
-        {
-            "coluna": "valor_exportacao",
-            "nome": "Exportações",
-            # o mês de referência do SECEX muda a cada carga; lê "fonte_exportacao"
-            # da própria view em vez de fixar um mês que ficaria desatualizado.
-            "fonte": "SECEX",
-            "fonte_coluna": "fonte_exportacao",
-            "rodape": "Valor líquido FOB exportado por empresas do município",
-            "decimais": 2,
-            "prefixo": "US$ ",
-        },
-        {
-            "coluna": "valor_importacao",
-            "nome": "Importações",
-            "fonte": "SECEX",
-            "fonte_coluna": "fonte_importacao",
-            "rodape": "Valor líquido FOB importado por empresas do município",
-            "decimais": 2,
-            "prefixo": "US$ ",
-        },
-        {
-            "coluna": "valor_balanca",
-            "nome": "Balança comercial",
-            "fonte": "SECEX",
-            "fonte_coluna": "fonte_balanca",
-            "rodape": "Saldo entre exportações e importações no mês",
-            "decimais": 2,
-            "prefixo": "US$ ",
-        },
+        "pib",
+        "pib_capita",
+        "carga_tributaria",
+        "exportacao",
+        "importacao",
+        "balanca",
     ),
-    # `idhm_2010`, `renda_per_capita_2010` e `indice_gini_2010` não existem mais
-    # em `vw_indicadores` — a view foi migrada para `valor_idhm`/`valor_gini`/
-    # `valor_renda_capita` (mesmo padrão nm_/valor_/fonte_/unid_ do resto da
-    # view), então os três cards nunca tinham valor. `valor_idhm_educacao`,
-    # `valor_idhm_longevidade` e `valor_idhm_renda` são os três subíndices do
-    # IDHM, novos na view.
     "desenvolvimento-social": (
-        {
-            "coluna": "valor_idhm",
-            "nome": "IDHM",
-            "fonte": _FONTE_IPEA_FJP,
-            "rodape": "Índice de Desenvolvimento Humano Municipal",
-            "decimais": 3,
-        },
-        {
-            "coluna": "valor_idhm_educacao",
-            "nome": "IDHM Educação",
-            "fonte": _FONTE_IPEA_FJP,
-            "rodape": "Dimensão educação do IDHM",
-            "decimais": 3,
-        },
-        {
-            "coluna": "valor_idhm_longevidade",
-            "nome": "IDHM Longevidade",
-            "fonte": _FONTE_IPEA_FJP,
-            "rodape": "Dimensão longevidade do IDHM",
-            "decimais": 3,
-        },
-        {
-            "coluna": "valor_idhm_renda",
-            "nome": "IDHM Renda",
-            "fonte": _FONTE_IPEA_FJP,
-            "rodape": "Dimensão renda do IDHM",
-            "decimais": 3,
-        },
-        {
-            "coluna": "valor_renda_capita",
-            "nome": "Renda per capita",
-            "fonte": _FONTE_IPEA_FJP,
-            "rodape": "Renda média mensal por habitante",
-            "decimais": 2,
-            "prefixo": "R$ ",
-        },
-        {
-            "coluna": "valor_gini",
-            "nome": "Índice de Gini",
-            "fonte": _FONTE_IPEA_FJP,
-            "rodape": "Concentração de renda: 0 é igualdade total, 1 é desigualdade máxima",
-            "decimais": 2,
-        },
+        "idhm",
+        "idhm_educacao",
+        "idhm_longevidade",
+        "idhm_renda",
+        "renda_capita",
+        "gini",
     ),
-    "saneamento": (
-        {
-            "coluna": "aumento_domicilios_rede_esgoto_2010_2022",
-            "nome": "Aumento de domicílios com rede de esgoto (2010–2022)",
-            "fonte": "Censo demográfico 2010 e 2022",
-            "rodape": "Domicílios ligados à rede geral ou pluvial",
-            "decimais": 0,
-        },
-        {
-            "coluna": "qtd_usinas",
-            "nome": "Usinas de geração de energia",
-            "fonte": "ANEEL / SIGA",
-            "rodape": "Usinas em operação no município",
-            "decimais": 0,
-        },
-        {
-            "coluna": "potencia_renovavel",
-            "nome": "Potência instalada renovável",
-            "fonte": "ANEEL / SIGA",
-            "rodape": "Solar, eólica, biomassa e hídrica",
-            "decimais": 0,
-            "sufixo": " kW",
-        },
-        {
-            "coluna": "potencia_nao_renovavel",
-            "nome": "Potência instalada não renovável",
-            "fonte": "ANEEL / SIGA",
-            "rodape": "Fontes fósseis",
-            "decimais": 0,
-            "sufixo": " kW",
-        },
-    ),
-    # `total_2025`, `primeira_agua_qtd` e `segunda_agua_qtd` não vêm de
-    # `vw_indicadores` — chegam ao contexto mesclado via
-    # `buscar_tecnologias_acesso_agua` (utils/queries/hidraulica.py), a mesma
-    # fonte usada pelas condicionais e pelo gráfico do Doc de segurança
-    # hídrica.
-    "hidraulica": (
-        {
-            "coluna": "total_2025",
-            "nome": "Cisternas e outras tecnologias sociais",
-            "fonte": "SESAN / Data Nordeste, 2025",
-            "rodape": "Tecnologias sociais de acesso à água entregues até 2025",
-            "decimais": 0,
-            "icone": "water",
-        },
-        {
-            "coluna": "primeira_agua_qtd",
-            "nome": "Abastecimento humano (1ª água)",
-            "fonte": "SESAN / Data Nordeste",
-            "fonte_ano_coluna": "ano_referencia_finalidade",
-            "rodape": "Tecnologias destinadas ao abastecimento humano",
-            "decimais": 0,
-            "icone": "water",
-        },
-        {
-            "coluna": "segunda_agua_qtd",
-            "nome": "Irrigação e dessedentação animal (2ª água)",
-            "fonte": "SESAN / Data Nordeste",
-            "fonte_ano_coluna": "ano_referencia_finalidade",
-            "rodape": "Tecnologias destinadas à irrigação e à dessedentação de animais",
-            "decimais": 0,
-            "icone": "water",
-        },
-        {
-            "coluna": "indice_suscetibilidade_escassez_hidrica",
-            "nome": "Índice de suscetibilidade à escassez hídrica",
-            "fonte": "Ameaça de escassez hídrica, 2020",
-            "rodape": "Quanto maior o índice, maior a suscetibilidade",
-            "decimais": 2,
-            "icone": "water",
-        },
-    ),
-    "meio-ambiente": (
-        {
-            "coluna": "area_suscetivel_desertificacao",
-            "nome": "Área suscetível à desertificação",
-            "fonte": "Índice de aridez, 2021",
-            "rodape": "Área do município em classes de aridez suscetíveis",
-            "decimais": 2,
-            "sufixo": " km²",
-        },
-        # Recorte estadual: na view esse avanço é calculado por sigla_uf, não por
-        # município. O rótulo precisa deixar isso explícito.
-        {
-            "coluna": "avanco_area_suscetivel_desertificacao_1991_2021",
-            "nome": "Avanço da área suscetível à desertificação no estado (1991–2021)",
-            "fonte": "Índice de aridez, 1991 e 2021",
-            "rodape": "Variação da área suscetível no estado, não no município",
-            "decimais": 2,
-            "sufixo": " km²",
-        },
-        {
-            "coluna": "qtd_unidades_conservacao",
-            "nome": "Unidades de conservação",
-            "fonte": "CNUC / MMA",
-            "rodape": "Unidades de conservação no município",
-            "decimais": 0,
-        },
-        {
-            "coluna": "qtd_grupo_protecao_integral",
-            "nome": "Unidades de proteção integral",
-            "fonte": "CNUC / MMA",
-            "rodape": "Grupo de manejo de proteção integral",
-            "decimais": 0,
-        },
-        {
-            "coluna": "qtd_grupo_uso_sustentavel",
-            "nome": "Unidades de uso sustentável",
-            "fonte": "CNUC / MMA",
-            "rodape": "Grupo de manejo de uso sustentável",
-            "decimais": 0,
-        },
-        {
-            "coluna": "area_unidades_conservacao_ha",
-            "nome": "Área em unidades de conservação",
-            "fonte": "CNUC / MMA",
-            "rodape": "Área total protegida no município",
-            "decimais": 2,
-            "sufixo": " ha",
-        },
-    ),
+    # Os cards de energia (qtd_usinas, potencia_renovavel,
+    # potencia_nao_renovavel) saíram: não existe coluna correspondente em
+    # vw_indicadores, então nunca tiveram valor desde a migração dela.
+    "saneamento": ("esgotamento", "banheiro", "coleta_lixo"),
+    # `cisternas`/`abastecimento_humano`/`irrigacao` substituem os antigos
+    # `total_2025`/`primeira_agua_qtd`/`segunda_agua_qtd`, que vinham de
+    # buscar_tecnologias_acesso_agua. Além de a view já trazer fonte e ano,
+    # isso mata o bug do ano fixo: `total_2025` só existia quando o município
+    # tinha dado exatamente de 2025 (ver _DECADAS_SERIE_HISTORICA em
+    # utils/queries/hidraulica.py). O card de suscetibilidade à escassez saiu
+    # junto: não há coluna para ele na view.
+    "hidraulica": ("cisternas", "abastecimento_humano", "irrigacao"),
+    "meio-ambiente": ("asd", "asd_avanço", "uc", "uc_area", "uc_pi", "uc_uso"),
 }
 
 
@@ -416,6 +168,71 @@ def _formatar_valor_indicador(
     return f"{prefixo}{texto}{sufixo}"
 
 
+def _afixos_da_unidade(unidade: str) -> tuple[str, str]:
+    """Deriva prefixo/sufixo do card a partir de `unid_<base>` da view.
+
+    A coluna é texto livre e mistura unidade ("km²", "R$") com descrição
+    ("Pessoas residentes", "Óbitos infantis por mil nascidos vivos"). Só as
+    formas monetárias e de área/percentual viram marca no número; o resto fica
+    apenas no rodapé. Sem isso, "0,05" (domicílios sem banheiro) e "630,03"
+    (renda per capita) sairiam sem % e sem R$ — números que enganam.
+
+    ponytail: casamento por texto livre. Se a view ganhar uma coluna de
+    unidade padronizada (código em vez de rótulo), trocar por um de/para.
+    """
+    unidade = unidade.strip()
+    if "(%)" in unidade or unidade == "%":
+        return "", "%"
+    if unidade.startswith("R$"):
+        return "R$ ", ""
+    if unidade.startswith("US$"):
+        return "US$ ", ""
+    if unidade.endswith("km²"):
+        return "", " km²"
+    if "(ha)" in unidade:
+        return "", " ha"
+    return "", ""
+
+
+def _card_da_view(
+    base: str, contexto: dict, macrotema_icone: str
+) -> dict[str, str] | None:
+    """Monta um card a partir do quarteto nm_/valor_/fonte_/unid_ da view."""
+    condicao = _CONDICAO_POR_BASE.get(base)
+    if condicao and not coerce_para_float(contexto.get(condicao), default=0.0):
+        return None
+
+    prefixo, sufixo = _afixos_da_unidade(str(contexto.get(f"unid_{base}") or ""))
+    # Os indicadores de educação guardam o valor em `per_<base>` em vez de
+    # `valor_<base>`; o resto do quarteto (nm_/fonte_/unid_) é idêntico.
+    valor_bruto = contexto.get(f"valor_{base}")
+    if valor_bruto is None:
+        valor_bruto = contexto.get(f"per_{base}")
+    valor = _formatar_valor_indicador(
+        valor_bruto,
+        decimais=_DECIMAIS_VIEW,
+        prefixo=prefixo,
+        sufixo=sufixo,
+    )
+    if valor is None:
+        return None
+
+    # Sem rótulo não há card: o texto vem da view ou não existe. Preencher
+    # daqui esconderia um buraco no banco em vez de corrigi-lo — a ausência do
+    # card na capa é o sinal de que falta dado.
+    nome = str(contexto.get(_ROTULO_IRREGULAR.get(base, f"nm_{base}")) or "").strip()
+    if not nome:
+        return None
+
+    return {
+        "nome": nome,
+        "fonte": str(contexto.get(f"fonte_{base}") or "").strip(),
+        "valor": valor,
+        "rodape": str(contexto.get(f"unid_{base}") or "").strip(),
+        "icone": _ICONE_POR_BASE.get(base, macrotema_icone),
+    }
+
+
 def montar_indicadores_macrotema(
     macrotema_slug: str,
     linha: dict | None = None,
@@ -430,40 +247,10 @@ def montar_indicadores_macrotema(
     contexto = linha or {}
     cards: list[dict[str, str]] = []
 
-    for spec in INDICADORES_POR_MACROTEMA.get(macrotema_slug, ()):
-        valor_bruto = contexto.get(spec["coluna"])
-        if valor_bruto is None and spec.get("coluna_alias"):
-            valor_bruto = contexto.get(str(spec["coluna_alias"]))
-        valor = _formatar_valor_indicador(
-            valor_bruto,
-            decimais=int(spec.get("decimais", 0)),
-            prefixo=str(spec.get("prefixo", "")),
-            sufixo=str(spec.get("sufixo", "")),
-        )
-        if valor is None:
-            continue
-
-        fonte = str(spec["fonte"])
-        fonte_coluna = spec.get("fonte_coluna")
-        if fonte_coluna:
-            fonte_dinamica = contexto.get(str(fonte_coluna))
-            if fonte_dinamica is not None and str(fonte_dinamica).strip():
-                fonte = str(fonte_dinamica)
-        ano_coluna = spec.get("fonte_ano_coluna")
-        if ano_coluna:
-            ano = contexto.get(str(ano_coluna))
-            if ano is not None and str(ano).strip():
-                fonte = f"{fonte}, {ano}"
-
-        cards.append(
-            {
-                "nome": str(spec["nome"]),
-                "fonte": fonte,
-                "valor": valor,
-                "rodape": str(spec.get("rodape", "")),
-                "icone": str(spec.get("icone") or macrotema_icone),
-            }
-        )
+    for base in INDICADORES_POR_MACROTEMA.get(macrotema_slug, ()):
+        card = _card_da_view(base, contexto, macrotema_icone)
+        if card is not None:
+            cards.append(card)
 
     return cards
 
