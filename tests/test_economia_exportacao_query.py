@@ -1,3 +1,5 @@
+import logging
+
 from utils.queries import economia_exportacao
 
 
@@ -74,3 +76,84 @@ def test_buscar_comercio_exterior_economia_aplica_aliases_balanca_e_paises(monke
         ("Jan", -6203881.0),
         ("Jun", -7305491.0),
     ]
+
+
+def test_municipio_sem_comercio_exterior_devolve_lista_vazia(monkeypatch):
+    # Batalha/AL: a view traz as colunas de unidade como '' e nome/valor NULL,
+    # porque o município não comercia — é resultado válido, não falta de dado.
+    # A chave precisa existir mesmo vazia, como `importacao_paises` faz, senão
+    # os dois módulos irmãos respondem a mesma pergunta de formas diferentes.
+    linha_perfil = {
+        "valor_pais_exportacaounid1": "",
+        "valor_pais_exportacaounid2": "",
+        "valor_pais_exportacaounid3": "",
+        "valor_pais_exportacaounid4": "",
+    }
+    monkeypatch.setattr(
+        economia_exportacao, "buscar_perfil_municipal", lambda *a, **k: linha_perfil
+    )
+
+    dados = economia_exportacao.buscar_comercio_exterior_economia("Batalha", "AL")
+
+    assert dados["exportacao_paises"] == []
+    assert "exportacao1" not in dados
+
+
+def test_pais_sem_valor_nao_entra_pela_metade_no_contexto(monkeypatch):
+    # O Doc escreve "$exportacao1 ... US$ $valor_pais_exportacao1" na mesma
+    # frase. Publicar só o nome deixaria "$valor_pais_exportacao1" literal no
+    # PDF — o bug visível que o CLAUDE.md descreve.
+    linha_perfil = {
+        "pais_exportacao1": "Filipinas",
+        "valor_pais_exportacao1": 824.3,
+        "valor_pais_exportacaounid1": "mil",
+        "pais_exportacao2": "Austrália",  # sem valor_pais_exportacao2
+        "valor_pais_exportacaounid2": "mil",
+    }
+    monkeypatch.setattr(
+        economia_exportacao, "buscar_perfil_municipal", lambda *a, **k: linha_perfil
+    )
+
+    dados = economia_exportacao.buscar_comercio_exterior_economia("Campina Grande", "PB")
+
+    assert dados["exportacao1"] == "Filipinas"
+    assert "pais_exportacao2" not in dados
+    assert "exportacao2" not in dados
+    assert dados["exportacao_paises"] == [("Filipinas", 824_300.0)]
+
+
+def test_unidade_desconhecida_nao_multiplica_e_avisa(monkeypatch, caplog):
+    # Unidade fora do mapa cairia no multiplicador 1 em silêncio, encolhendo o
+    # valor 1.000x no gráfico. Mantém o valor cru, mas registra o aviso.
+    linha_perfil = {
+        "pais_exportacao1": "Filipinas",
+        "valor_pais_exportacao1": 824.3,
+        "valor_pais_exportacaounid1": "milhoes",  # sem cedilha: não é o do mapa
+    }
+    monkeypatch.setattr(
+        economia_exportacao, "buscar_perfil_municipal", lambda *a, **k: linha_perfil
+    )
+
+    with caplog.at_level(logging.WARNING):
+        dados = economia_exportacao.buscar_comercio_exterior_economia("X", "PB")
+
+    assert dados["exportacao_paises"] == [("Filipinas", 824.3)]
+    assert "milhoes" in caplog.text
+
+
+def test_unidade_vazia_nao_gera_aviso(monkeypatch, caplog):
+    # '' é o normal em município sem comércio; avisar aí seria ruído em todo
+    # relatório de cidade pequena.
+    linha_perfil = {
+        "pais_exportacao1": "Filipinas",
+        "valor_pais_exportacao1": 824.3,
+        "valor_pais_exportacaounid1": "",
+    }
+    monkeypatch.setattr(
+        economia_exportacao, "buscar_perfil_municipal", lambda *a, **k: linha_perfil
+    )
+
+    with caplog.at_level(logging.WARNING):
+        economia_exportacao.buscar_comercio_exterior_economia("X", "PB")
+
+    assert caplog.text == ""
