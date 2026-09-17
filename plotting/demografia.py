@@ -3,8 +3,14 @@ import pathlib
 import numpy as np
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 
-from plotting import ESCALA_FONTE, iniciar_card_grafico, salvar_card_grafico
+from plotting import (
+    ESCALA_FONTE,
+    ajustar_margem_esquerda_para_rotulos,
+    iniciar_card_grafico,
+    salvar_card_grafico,
+)
 from utils.formatting import formatar_numero_ptbr
+from utils.geografia import resolver_nome_uf
 from utils.queries.base import escalar_valor
 
 
@@ -55,12 +61,12 @@ def gerar_grafico_faixa_etaria_e_sexo(
         rotulo_mulheres = f"{valor_mulheres:,.0f}".replace(",", ".")
         rotulo_homens = f"{valor_homens:,.0f}".replace(",", ".")
         ax.text(-valor_mulheres - margem_rotulo, indice, rotulo_mulheres,
-                ha="right", va="center", fontsize=9*ESCALA_FONTE, color="#292829")
+                ha="right", va="center", fontsize=11*ESCALA_FONTE, color="#292829")
         ax.text(valor_homens + margem_rotulo, indice, rotulo_homens,
-                ha="left", va="center", fontsize=9*ESCALA_FONTE, color="#292829")
+                ha="left", va="center", fontsize=11*ESCALA_FONTE, color="#292829")
 
     ax.set_yticks(y)
-    ax.set_yticklabels(labels, fontsize=9*ESCALA_FONTE)
+    ax.set_yticklabels(labels, fontsize=11*ESCALA_FONTE)
     ax.axvline(0, color="#FFFFFF", linewidth=1.5)
     ax.set_xlim(-limite * 1.38, limite * 1.38)
     ax.set_xticks([])
@@ -68,7 +74,7 @@ def gerar_grafico_faixa_etaria_e_sexo(
     for borda in ax.spines.values():
         borda.set_visible(False)
     ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.05), ncol=2,
-              frameon=False, fontsize=9*ESCALA_FONTE)
+              frameon=False, fontsize=11*ESCALA_FONTE)
     salvar_card_grafico(fig, chart_file)
     return chart_file.name
 
@@ -176,8 +182,18 @@ def gerar_grafico_visao_historica_populacao(
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_visao_historica_populacao_{safe_city}.png"
 
-    fig, ax = iniciar_card_grafico((8, 4.4), "Visão histórica da população total")
-    _reservar_espaco_rotulo_x(fig, ax)
+    # nm_mun já chega canonicalizado como "Cidade (UF)" (ver
+    # services/generation.py); separar_cidade_uf evita duplicar a UF que
+    # um simples cidade.get("sigla_uf") colado no fim causaria.
+    nome_municipio, sigla_uf = resolver_nome_uf(cidade)
+    titulo = "Dinâmica populacional"
+    if nome_municipio:
+        titulo += f" de {nome_municipio}"
+        if sigla_uf:
+            titulo += f" ({sigla_uf})"
+    titulo += "."
+    fig, ax = iniciar_card_grafico((8, 4.4), titulo, margem_esquerda=0.20)
+    _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas=0.5)
     x = np.arange(len(anos))
     barras = ax.bar(x, valores_escalados, width=0.6, color="#D97AAA", zorder=3)
     limite = max(valores_escalados) * 1.26 if valores_escalados else 1
@@ -198,6 +214,7 @@ def gerar_grafico_visao_historica_populacao(
     ax.set_xticks(x)
     ax.set_xticklabels(anos, fontsize=11*ESCALA_FONTE, fontweight=600)
     ax.set_xlabel("Ano", fontsize=12*ESCALA_FONTE, color="#514C50")
+    ax.set_ylabel("População", fontsize=12*ESCALA_FONTE, color="#514C50")
     ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _: _rotulo(valor)))
     ax.yaxis.set_major_locator(MaxNLocator(4))
     ax.tick_params(axis="both", length=0, colors="#514C50", labelsize=11*ESCALA_FONTE)
@@ -206,5 +223,11 @@ def gerar_grafico_visao_historica_populacao(
         ax.spines[lado].set_visible(False)
     ax.spines["bottom"].set_color("#514C50")
     ax.margins(x=0.18)
+    # Rótulos do eixo Y (população formatada) variam de largura com o porte
+    # do município — a margem esquerda fixa do card não dá conta dos mais
+    # largos e o "População" sai cortado da moldura. Precisa rodar depois do
+    # `set_ylabel`/formatter acima, veja o comentário em
+    # plotting.saude.gerar_grafico_cobertura_vacinal.
+    ajustar_margem_esquerda_para_rotulos(fig, ax)
     salvar_card_grafico(fig, chart_file)
     return chart_file.name

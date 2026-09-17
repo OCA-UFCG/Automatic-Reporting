@@ -51,6 +51,12 @@ def _variacao_pib(pib_2010: object, pib_2023: object) -> tuple[object, object]:
     return variacao_nominal, variacao_percentual
 
 
+def _analise_variacao(variacao_nominal: object) -> str | None:
+    if variacao_nominal is None:
+        return None
+    return "aumento" if variacao_nominal >= 0 else "redução"
+
+
 def _setores_maiores_vab(linha: dict, top: int = 3) -> list[tuple[str, float]]:
     vabs = {
         nome: float(linha[coluna])
@@ -108,14 +114,19 @@ def processar_indicadores_economia(linhas: list[dict]) -> dict[str, object] | No
     if all(valor is None for valor in dados.values()):
         return None
 
-    analise1_pib, analise1_pib_per = _variacao_pib(dados["pib_2010"], dados["pib_2023"])
+    diferenca_pib_2010_2023, pib_per_2010_2023 = _variacao_pib(
+        dados["pib_2010"], dados["pib_2023"]
+    )
+    analise1_pib = _analise_variacao(diferenca_pib_2010_2023)
     setores2021 = _setores_maiores_vab(dados)
 
     pib_2010, pib_unid_2010 = _escalar_valor(dados["pib_2010"])
     pib_2023, pib_unid_2023 = _escalar_valor(dados["pib_2023"])
     pibcapita_2023, pibcapita_unid_2023 = _escalar_valor(dados["pibcapita_2023"])
     imposto, imposto_unid = _escalar_valor(dados["imposto"])
-    analise1_pib, analise1_pib_unid = _escalar_valor(analise1_pib)
+    diferenca_pib_2010_2023, diferenca_pib_2010_2023unid = _escalar_valor(
+        diferenca_pib_2010_2023
+    )
 
     resultado = {
         "pib_2010": pib_2010,
@@ -125,9 +136,11 @@ def processar_indicadores_economia(linhas: list[dict]) -> dict[str, object] | No
         "pibcapita_2023": pibcapita_2023,
         "pibcapita2023": pibcapita_2023,  # alias: doc usa sem "_" nesta seção
         "pibcapita_unid_2023": pibcapita_unid_2023,
+        # doc usa "$analise1_pib" como palavra (aumento/redução) em duas frases
         "analise1_pib": analise1_pib,
-        "analise1_pib_unid": analise1_pib_unid,
-        "analise1_pib_per": analise1_pib_per,
+        "diferenca_pib_2010_2023": diferenca_pib_2010_2023,
+        "diferenca_pib_2010_2023unid": diferenca_pib_2010_2023unid,
+        "pib_per_2010_2023": pib_per_2010_2023,
         "imposto": imposto,
         "imposto_unid": imposto_unid,
     }
@@ -142,11 +155,8 @@ def processar_indicadores_economia(linhas: list[dict]) -> dict[str, object] | No
     for posicao, (nome_setor, valor_vab) in enumerate(setores2021, start=1):
         valor_escalado, unidade = _escalar_valor(valor_vab)
         resultado[f"setor2021_maior{posicao}"] = nome_setor
-        resultado[f"setor2021_valor{posicao}"] = valor_escalado
-        resultado[f"setor2021_unid{posicao}"] = unidade
-        # alias: doc usa "maior1_unid" mas "maior2unid"/"maior3unid" (sem "_")
-        sufixo_unid = f"maior{posicao}_unid" if posicao == 1 else f"maior{posicao}unid"
-        resultado[f"setor2021_{sufixo_unid}"] = unidade
+        resultado[f"setor2021_maior{posicao}_vab"] = valor_escalado
+        resultado[f"setor2021_maior{posicao}unid"] = unidade
 
     atividade_maior_vab = linha_2021.get("atividade_maior_vab")
     vab_setor_maior = linha_2021.get("vab_setor_maior")

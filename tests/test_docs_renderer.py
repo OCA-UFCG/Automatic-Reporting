@@ -7,6 +7,75 @@ from utils.render.renderer import (
 )
 
 
+def test_novas_condicoes_demografia_com_markdown_e_comparacoes():
+    texto = """**Para quando** demografia.$dif\\_etaria\\_09\\_60 **for positivo, então :**
+Mais crianças.
+
+**Para quando** demografia.$dif\\_etaria\\_09\\_60 **for negativo, então :**
+Mais idosos.
+
+**Para quando** demografia.$cres\\_pop\\_analise **for 0%, então:**
+População estável.
+
+**Para quando** demografia.$cres\\_pop\\_analise for maior ou menor que 0%**, então:**
+População mudou.
+
+**Para quando demografia.$pop\\_rua\\_2022 for 0 em 2022; demografia.$pop\\_rua\\_2026 for > 1 e demografia.$pop\\_familias\\_rua\\_2026 = demografia.$pop\\_rua\\_bolsaf\\_2026:**
+Todas as famílias recebem.
+
+**Para quando demografia.$pop\\_rua\\_2022 for 0 em 2022; demografia.$pop\\_rua\\_2026 for > 1 e demografia.$pop\\_familias\\_rua\\_2026 for 0:**
+Não há famílias.
+"""
+    contexto = {
+        "dif_etaria_09_60": -20,
+        "cres_pop": 0,
+        "pop_rua_2022": 0,
+        "pop_rua_2026": 3,
+        "familias_rua_total": 2,
+        "familias_rua_bf": 2,
+    }
+    resultado = interpretar_blocos_condicionais(texto, contexto)
+    assert "Mais crianças." in resultado
+    assert "Mais idosos." not in resultado
+    assert "População estável." in resultado
+    assert "População mudou." not in resultado
+    assert "Todas as famílias recebem." in resultado
+    assert "Não há famílias." not in resultado
+    assert "Para quando" not in resultado
+
+
+def test_novas_condicoes_rua_nao_tratam_dado_ausente_como_zero():
+    texto = """Para quando demografia.$pop_rua_2022 e demografia.$pop_rua_2026 for 0:
+Sem registros nos dois anos.
+
+Para quando demografia.$pop_rua_2022 for >=1 e demografia.$pop_rua_2026 for 0:
+Houve redução a zero.
+"""
+    assert "Sem registros" not in interpretar_blocos_condicionais(texto, {})
+    assert "Houve redução" not in interpretar_blocos_condicionais(texto, {})
+    assert "Sem registros" in interpretar_blocos_condicionais(
+        texto, {"pop_rua_2022": 0, "pop_rua_2026": 0}
+    )
+    assert "Houve redução" in interpretar_blocos_condicionais(
+        texto, {"pop_rua_2022": 2, "pop_rua_2026": 0}
+    )
+
+
+def test_condicao_todas_as_familias_nao_casa_com_zero_familias():
+    texto = """Para quando demografia.$pop_rua_2022 for 0; demografia.$pop_rua_2026 for > 1 e demografia.$pop_familias_rua_2026 = demografia.$pop_rua_bolsaf_2026:
+Todas recebem.
+
+Para quando demografia.$pop_rua_2022 for 0; demografia.$pop_rua_2026 for > 1 e demografia.$pop_familias_rua_2026 for 0:
+Não há famílias.
+"""
+    resultado = interpretar_blocos_condicionais(
+        texto,
+        {"pop_rua_2022": 0, "pop_rua_2026": 3, "familias_rua_total": 0, "familias_rua_bf": 0},
+    )
+    assert "Todas recebem." not in resultado
+    assert "Não há famílias." in resultado
+
+
 def test_references_render_as_html_and_related_content_gets_boxed():
     texto = """#! Referências
 
@@ -37,6 +106,96 @@ referencia= "IBGE, 2023."@@
     assert "<ul>" in html
     assert "https://example.com/relatorio" in html
     assert '<a href="https://example.com/relatorio">' in html
+
+
+def test_frase_orfa_sem_linha_em_branco_junta_no_paragrafo_anterior():
+    # Quebra de linha solta (Shift+Enter no Doc, sem linha em branco antes)
+    # deixando só uma frase na segunda linha: não deve virar <p> isolado.
+    texto = (
+        "Primeira frase do parágrafo, com bastante contexto.\n"
+        "Segunda frase, órfã."
+    )
+
+    html = texto_para_html(texto, {}, namespace="demografia")
+
+    assert html.count("<p>") == 1
+    assert (
+        "<p>Primeira frase do parágrafo, com bastante contexto. "
+        "Segunda frase, órfã.</p>" == html
+    )
+
+
+def test_frase_com_linha_em_branco_antes_nao_e_mesclada():
+    # Quando há linha em branco separando, é mesmo um novo parágrafo — não
+    # deve ser colado no anterior mesmo sendo uma frase só.
+    texto = (
+        "Primeira frase do parágrafo, com bastante contexto.\n"
+        "\n"
+        "Segunda frase, em parágrafo próprio."
+    )
+
+    html = texto_para_html(texto, {}, namespace="demografia")
+
+    assert html.count("<p>") == 2
+
+
+def test_linha_de_condicionante_nao_reconhecida_nao_e_mesclada_no_paragrafo_anterior():
+    # Se uma linha "Para quando ...:" escapa de interpretar_blocos_condicionais
+    # (ex.: por não conter um "$campo" reconhecido), ela termina em ":" — não
+    # deve ser tratada como frase única e colada no parágrafo visível acima.
+    texto = (
+        "Primeira frase do parágrafo, com bastante contexto.\n"
+        "Para quando alguma condição não reconhecida:"
+    )
+
+    html = texto_para_html(texto, {}, namespace="demografia")
+
+    assert html.count("<p>") == 2
+    assert "contexto. Para quando" not in html
+
+
+def test_linha_de_condicionante_nao_reconhecida_antes_do_paragrafo_nao_recebe_merge():
+    # Espelho do teste acima: a condicionante vindo ANTES (ela mesma termina
+    # em ":", nunca em pontuação de frase) também não pode "receber" a frase
+    # de baixo colada nela — regressão de um bug que a correção acima, sozinha,
+    # não fechava (só validava a linha que entra, não a que já estava lá).
+    texto = (
+        "Para efeito de análise:\n"
+        "O município registrou crescimento populacional."
+    )
+
+    html = texto_para_html(texto, {}, namespace="demografia")
+
+    assert html.count("<p>") == 2
+    assert "análise: O município" not in html
+
+
+def test_frase_indentada_nao_e_mesclada_e_mantem_o_recuo():
+    # utils/external/docs.py preserva indentação (tab/4+ espaços) como sinal
+    # editorial explícito — não é ruído de Shift+Enter, não deve ser colada.
+    texto = (
+        "Parágrafo normal com contexto suficiente.\n"
+        "\tFrase indentada única."
+    )
+
+    html = texto_para_html(texto, {}, namespace="demografia")
+
+    assert html.count("<p") == 2
+    assert '<p style="text-indent: 32px;">Frase indentada única.</p>' in html
+
+
+def test_abreviacao_comum_nao_desliga_o_merge():
+    # "art." não fecha frase de verdade — sem tratar isso, a linha seguinte
+    # parece ter "mais de uma frase" e o merge é desligado em silêncio.
+    texto = (
+        "Texto base com contexto suficiente para o teste.\n"
+        "Conforme o art. 5º, isso vale."
+    )
+
+    html = texto_para_html(texto, {}, namespace="demografia")
+
+    assert html.count("<p>") == 1
+    assert "Conforme o art. 5º, isso vale.</p>" in html
 
 
 def test_fontes_box_from_texto_para_html_includes_the_explore_intro_row():
@@ -308,6 +467,23 @@ def test_database_column_names_support_editorial_document_placeholders():
     )
 
 
+def test_demography_persistent_gate_with_inline_content_does_not_leak_next_paragraph():
+    # Bloco persistente (indígena/quilombola) com texto colado na mesma
+    # linha do "Para quando ...:". O reset de bloco_ativo=True após o
+    # conteúdo inline não pode ignorar que o bloco é persistente — senão o
+    # parágrafo seguinte vaza mesmo com a condição falsa.
+    texto = (
+        "Para quando demografia.$pop_ind_2022 for 0 e demografia.$pop_qui for 0: "
+        "texto inline.\n"
+        "Parágrafo seguinte que só deveria aparecer se o bloco continuasse ativo."
+    )
+    contexto = {"pop_ind_2022": 0, "pop_qui": 5}
+
+    resultado = interpretar_blocos_condicionais(texto, contexto)
+
+    assert "Parágrafo seguinte" not in resultado
+
+
 def test_demography_editorial_conditions_render_only_the_matching_blocks():
     texto = """Para quando demografia.$pop_ind_2022 for diferente de 0 e demografia.$pop_qui for igual a 0:
 Tem indígenas, sem quilombolas.
@@ -339,6 +515,28 @@ Com vários Centros POP."""
     assert "Com um Centro POP." in resultado
     assert "Sem Centro POP." not in resultado
     assert "Com vários Centros POP." not in resultado
+    assert "Para quando" not in resultado
+
+
+def test_dead_leading_condition_does_not_swallow_the_fontes_marker():
+    # A primeira condicional do cascateamento fica órfã depois que
+    # extrair_descricao_tema varre o "descricao_tema =" que a segue (ver
+    # utils/external/docs.py) — sobra só o "Para quando ...:" colado, com
+    # linhas em branco, direto em cima de "#!Fontes". Se essa condição for
+    # falsa para a cidade, "#!Fontes" era lido como o conteúdo guardado por
+    # ela e sumia (PR #116).
+    texto = (
+        "Para quando seg_hidrica.$total_2025 for igual a 0, então:\n"
+        "\n\n\n"
+        "#!Fontes\n"
+        "\n\n"
+        "[Painel de dados: Cisternas](https://example.com/cisternas)\n"
+    )
+    contexto = {"total_2025": 1101}
+
+    resultado = interpretar_blocos_condicionais(texto, contexto)
+
+    assert "#!Fontes" in resultado
     assert "Para quando" not in resultado
 
 
@@ -379,7 +577,7 @@ def test_social_development_namespace_alias_before_dollar_is_replaced_without_pr
 
     assert substituir_placeholders(
         texto, contexto, namespace="desenvolvimento-social"
-    ) == "Canapi alcançou IDHM de 0,6"
+    ) == "Canapi alcançou IDHM de 0,561"
 
 
 def test_hydraulics_namespace_alias_before_dollar_is_replaced_without_prefix():
@@ -412,6 +610,35 @@ Com vários Centros POP."""
     assert "demografia.$pop_rua_2026 pessoas" in resultado_com_dados
     assert "Não foram encontrados registros de pessoas em situação de rua" not in resultado_com_dados
     assert "Com um Centro POP." in resultado_com_dados
+
+
+def test_demography_street_population_fallback_survives_guarded_conditions():
+    # O Doc novo (PR #112) passou a guardar cada parágrafo de "situação de
+    # rua" com sua própria condicional "Para quando ...:", em vez do
+    # parágrafo único "sem condição" de antes. Ver a mera presença dessas
+    # condicionais no Doc não pode desligar o fallback genérico pro resto do
+    # documento quando nenhuma delas de fato bate — antes bastava passar por
+    # UMA condicional de rua (batendo ou não) pra apagar o tópico inteiro.
+    texto = """Para quando demografia.$pop_rua_2022 e demografia.$pop_rua_2026 for 0:
+Outro grupo relevante para a caracterização da população municipal é o de pessoas em situação de rua. Não havia registros.
+
+Para quando demografia.$pop_rua_2022 for >=1 e demografia.$pop_rua_2026 for 0:
+Outro grupo relevante para a caracterização da população municipal é o de pessoas em situação de rua. Redução frente a 2022."""
+
+    # Município nunca pesquisado (nem 2022 nem 2026): nenhuma das duas
+    # condições bate — o fallback "não foram encontrados registros" precisa
+    # aparecer, não pode sumir o tópico inteiro.
+    resultado = interpretar_blocos_condicionais(texto, {"nm_mun": "Cidade Nova"})
+    assert "Não foram encontrados registros de pessoas em situação de rua" in resultado
+    assert "Cidade Nova" in resultado
+
+    # Uma das condições realmente bate: o parágrafo condicional real aparece,
+    # sem duplicar com o fallback.
+    resultado_bate = interpretar_blocos_condicionais(
+        texto, {"nm_mun": "Cidade X", "pop_rua_2022": 0, "pop_rua_2026": 0}
+    )
+    assert "Não havia registros." in resultado_bate
+    assert "Não foram encontrados registros de pessoas em situação de rua" not in resultado_bate
 
 
 def test_demography_street_population_2022_only_skips_2026_comparison():
@@ -505,12 +732,59 @@ def test_precision_suffix_overrides_the_default_one_decimal_rounding():
 
 
 def test_precision_suffix_does_not_leak_into_other_fields():
-    contexto = {"idhm_2010": 0.561, "gini_2010": 0.542}
-    texto = "desen_social.$idhm_2010:3 e Gini desen_social.$gini_2010"
+    # `populacao_2010` fica fora de qualquer rede de segurança de precisão,
+    # então continua no padrão de 1 casa — prova que o `:3` do campo vizinho
+    # não vazou pra ele.
+    contexto = {"idhm_2010": 0.561, "populacao_2010": 630.03}
+    texto = "desen_social.$idhm_2010:3 e População desen_social.$populacao_2010"
 
     assert substituir_placeholders(
         texto, contexto, namespace="desenvolvimento-social"
-    ) == "0,561 e Gini 0,5"
+    ) == "0,561 e População 630,0"
+
+
+def test_renda_per_capita_usa_duas_casas_mesmo_sem_sufixo_no_doc():
+    # Mesma classe de bug do IDHM/Gini: o Doc perdeu o `:2` de `$renda_2010`
+    # (campo monetário) na mesma edição que perdeu o `:3` do IDHM/Gini.
+    contexto = {"renda_2010": 630.03}
+    texto = "R$desen_social.$renda_2010"
+
+    assert (
+        substituir_placeholders(texto, contexto, namespace="desenvolvimento-social")
+        == "R$630,03"
+    )
+
+
+def test_precisao_padrao_editorial_nao_vaza_pra_outro_macrotema():
+    # A rede de segurança é escopada por namespace: um campo `gini_urbano`
+    # hipotético em economia-renda não deve herdar as 3 casas do Gini de
+    # desenvolvimento social só por coincidência de prefixo.
+    contexto = {"gini_urbano": 0.542}
+    texto = "economia.$gini_urbano"
+
+    assert (
+        substituir_placeholders(texto, contexto, namespace="economia-renda")
+        == "0,5"
+    )
+
+
+def test_idhm_gini_e_subindices_usam_tres_casas_mesmo_sem_sufixo_no_doc():
+    # Rede de segurança: se o `:3` sumir do Doc (como já aconteceu na prática),
+    # esses campos não caem pro padrão de 1 casa que corta a precisão do IDHM/
+    # Gini e arrisca confundir o leitor perto de um limiar de Síntese.
+    contexto = {
+        "idhm_2010": 0.770,
+        "gini_2010": 0.502,
+        "subindice1_2010": 0.843,
+    }
+    texto = (
+        "desen_social.$idhm_2010, desen_social.$gini_2010, "
+        "desen_social.$subindice1_2010"
+    )
+
+    assert substituir_placeholders(
+        texto, contexto, namespace="desenvolvimento-social"
+    ) == "0,770, 0,502, 0,843"
 
 
 def test_social_development_gini_condition_accepts_para_prefix_and_ou_wording():
@@ -1066,6 +1340,75 @@ def test_conjuncao_com_numero_literal_continua_no_caminho_numerico():
     assert "ATENDE" not in interpretar_blocos_condicionais(texto, {"a": 20, "b": 9})
 
 
+def test_condicoes_de_vacina_comparam_texto_em_vez_de_numero():
+    # vacina_meta/vacina_nao_meta guardam uma lista de nomes (ou o literal
+    # "todas"/"nenhuma"); o caminho numérico forçava esses valores para 0.0 e
+    # "for todas"/"for nenhuma" nunca batiam (Doc de saúde, Síntese).
+    texto = (
+        "Para quando saude.$vacina_meta for diferente de todas e "
+        "saude.$vacina_nao_meta for diferente de nenhuma, então:\nMISTA\n\n"
+        "Para quando saude.$vacina_meta for todas, então:\nTODAS BATERAM\n\n"
+        "Para quando saude.$vacina_nao_meta for nenhuma, então:\nNENHUMA FICOU DE FORA\n"
+    )
+
+    mista = interpretar_blocos_condicionais(
+        texto, {"vacina_meta": "BCG, Hepatite B", "vacina_nao_meta": "Rotavírus"}
+    )
+    assert "MISTA" in mista
+    assert "TODAS BATERAM" not in mista
+    assert "NENHUMA FICOU DE FORA" not in mista
+
+    todas = interpretar_blocos_condicionais(
+        texto, {"vacina_meta": "Todas", "vacina_nao_meta": "Nenhuma"}
+    )
+    assert "TODAS BATERAM" in todas
+    assert "NENHUMA FICOU DE FORA" in todas
+    assert "MISTA" not in todas
+
+
+def test_condicoes_de_vacina_sem_dado_nao_vazam_bloco_misto():
+    # None virava "" e "" é diferente de "todas"/"nenhuma", então o bloco
+    # MISTA batia para uma cidade sem levantamento de vacinação nenhum.
+    texto = (
+        "Para quando saude.$vacina_meta for diferente de todas e "
+        "saude.$vacina_nao_meta for diferente de nenhuma, então:\nMISTA\n\n"
+        "Para quando saude.$vacina_meta for todas, então:\nTODAS BATERAM\n\n"
+        "Para quando saude.$vacina_nao_meta for nenhuma, então:\nNENHUMA FICOU DE FORA\n"
+    )
+
+    sem_dado = interpretar_blocos_condicionais(
+        texto, {"vacina_meta": None, "vacina_nao_meta": None}
+    )
+    assert "MISTA" not in sem_dado
+    assert "TODAS BATERAM" not in sem_dado
+    assert "NENHUMA FICOU DE FORA" not in sem_dado
+
+    parcial = interpretar_blocos_condicionais(
+        texto, {"vacina_meta": None, "vacina_nao_meta": "Rotavírus"}
+    )
+    assert "MISTA" not in parcial
+
+
+def test_condicao_de_vacina_combinada_com_campo_numerico():
+    # Antes, misturar vacina_meta/vacina_nao_meta com outro campo caía
+    # inteiro no caminho numérico, que força texto para 0.0 e nunca bate —
+    # o parágrafo sumia em silêncio mesmo quando os dois lados batiam.
+    texto = (
+        "Para quando saude.$vacina_meta for todas e saude.$obitos for maior "
+        "que 5, então:\nMISTO_OK\n"
+    )
+
+    assert "MISTO_OK" in interpretar_blocos_condicionais(
+        texto, {"vacina_meta": "Todas", "obitos": 10}
+    )
+    assert "MISTO_OK" not in interpretar_blocos_condicionais(
+        texto, {"vacina_meta": "Todas", "obitos": 2}
+    )
+    assert "MISTO_OK" not in interpretar_blocos_condicionais(
+        texto, {"vacina_meta": "BCG", "obitos": 10}
+    )
+
+
 def test_titulo_de_secao_solto_no_meio_do_bloco_vira_heading():
     # "Síntese" é escrito no Doc sem "#!" e sem linha em branco antes, então
     # chegava colado no parágrafo anterior e saía como texto corrido, e não
@@ -1161,3 +1504,27 @@ ambiente.“$nm_boletim1” = https://datanordeste.sudene.gov.br/boletim/7tbxR9s
     contexto["nm_painel1"] = "Nome editorial"
     html = texto_para_html(texto, contexto, namespace="meio-ambiente")
     assert '</strong> Nome editorial</a>' in html
+def test_campo_ano_nao_ganha_separador_de_milhar():
+    # Nomes tirados do schema e dos Docs de economia e saúde, não inventados.
+    for campo in (
+        "ano",
+        "ultimo_junho",
+        "ultimo_jun",
+        "ano_menor_mortalidade",
+        "ano_referencia_finalidade",
+    ):
+        resultado = substituir_placeholders(
+            f"dados de economia.${campo}", {campo: 2023}, "economia-renda"
+        )
+
+        assert resultado == "dados de 2023", campo
+
+
+def test_contagem_com_ano_no_nome_mantem_separador_de_milhar():
+    # Contraexemplo: termina em "_ano" e é contagem, não ano. Trava quem
+    # tentar trocar _CAMPOS_ANO por um startswith/endswith.
+    resultado = substituir_placeholders(
+        "foram saude.$dose_etario_1_ano doses", {"dose_etario_1_ano": 32211}, "saude"
+    )
+
+    assert resultado == "foram 32.211 doses"

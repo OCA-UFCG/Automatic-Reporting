@@ -4,30 +4,148 @@ from utils.cover import (
     montar_score_macrotema,
 )
 
-# Contexto sintético no formato do que `buscar_indicadores_municipio` devolve
-# (colunas de relatorios_auto.vw_indicadores). Nenhum teste aqui toca o banco.
+# Contexto sintético no formato do que `buscar_indicadores_municipio` devolve.
+# `relatorios_auto.vw_indicadores` guarda cada indicador num quarteto
+# nm_/valor_/fonte_/unid_ com uma base comum, e os valores chegam como string.
+# Educação é a exceção: seis colunas `per_*` soltas, sem rótulo nem fonte na
+# view. Nenhum teste aqui toca o banco.
 CONTEXTO = {
-    "idhm_2010": "0.770",
-    "renda_per_capita_2010": "630.03",
-    "indice_gini_2010": "0.58",
-    "nao_alfabetizados_15_mais": 26939,
-    "reducao_nao_alfabetizados_2010_2022": 7351,
-    "sem_instrucao_fund_incomp_per": "46.50",
-    "fund_comp_medio_incomp_per": "13.73",
-    "medio_comp_superior_incomp_per": "27.06",
-    "superior_completo_per": "12.70",
-    "pop_quilombola_2022": 0,
-    "pop_quilombola_per_2022": "0.00",
-    "indice_suscetibilidade_escassez_hidrica": "0.5",
-    "qtd_usinas": 1,
-    "potencia_renovavel": "0",
-    "potencia_nao_renovavel": "169080.00",
-    "aumento_domicilios_rede_esgoto_2010_2022": 38621,
+    "nm_pop_residente": "População residente",
+    "valor_pop_residente": "419379",
+    "fonte_pop_residente": "Censo demográfico 2022 (IBGE, 2023)",
+    "unid_pop_residente": "Pessoas residentes",
+    "nm_pop_masculina": "População masculina",
+    "valor_pop_masculina": "198413",
+    "fonte_pop_masculina": "Censo demográfico 2022 (IBGE, 2023)",
+    "unid_pop_masculina": "Pessoas",
+    # Irregular de propósito: no banco o rótulo é `nm_pop_feminina`, mas
+    # valor_/fonte_/unid_ usam `pop_feminino`. Copiado da view, não inventado.
+    "nm_pop_feminina": "População feminina",
+    "valor_pop_feminino": "220966",
+    "fonte_pop_feminino": "Censo demográfico 2022 (IBGE, 2023)",
+    "unid_pop_feminino": "Pessoas",
+    "valor_pop_quilombola": "0",
+    "nm_pop_quilombola": "População quilombola",
+    "fonte_pop_quilombola": "Censo demográfico 2022 (IBGE, 2023)",
+    "unid_pop_quilombola": "Pessoas quilombolas",
+    "nm_pop_indigena": "População indígena",
+    "valor_pop_indigena": "470",
+    "fonte_pop_indigena": "Censo demográfico 2022 (IBGE, 2023)",
+    "unid_pop_indigena": "Pessoas indígenas",
+    "nm_idhm": "IDHM",
+    "valor_idhm": "0.770",
+    "fonte_idhm": "IBGE (2010)",
+    "unid_idhm": "Índice",
+    "nm_renda_capita": "Renda per capita",
+    "valor_renda_capita": "630.03",
+    "fonte_renda_capita": "IBGE (2010)",
+    "unid_renda_capita": "R$ por habitante",
+    "nm_gini": "Índice de Gini",
+    "valor_gini": "0.58",
+    "fonte_gini": "IBGE (2010)",
+    "unid_gini": "Índice de Gini",
+    # Os 6 de economia (PR #126), quarteto copiado da linha real de Campina
+    # Grande: `unid_` é o que faz o card sair em R$ ou US$.
+    "nm_pib": "PIB",
+    "valor_pib": "12908743000",
+    "fonte_pib": "IBGE (2023)",
+    "unid_pib": "R$",
+    "nm_pib_capita": "PIB per capita",
+    "valor_pib_capita": "30780.61",
+    "fonte_pib_capita": "IBGE (2023)",
+    "unid_pib_capita": "R$ por habitante",
+    "nm_carga_tributaria": "Receita tributária municipal",
+    "valor_carga_tributaria": "277942183.71",
+    "fonte_carga_tributaria": "STN/FINBRA/SICONFI (2023)",
+    "unid_carga_tributaria": "R$",
+    "nm_exportacao": "Exportações",
+    "valor_exportacao": "3560041.00",
+    "fonte_exportacao": "SECEX (junho de 2026)",
+    "unid_exportacao": "US$ FOB",
+    "nm_importacao": "Importações",
+    "valor_importacao": "10865532.00",
+    "fonte_importacao": "SECEX (junho de 2026)",
+    "unid_importacao": "US$ FOB",
+    "nm_balanca": "Balança comercial",
+    "valor_balanca": "-7305491.00",
+    "fonte_balanca": "SECEX (junho de 2026)",
+    "unid_balanca": "US$ FOB",
+    "nm_asd": "Área suscetível à desertificação",
+    "valor_asd": "590.55",
+    "fonte_asd": "Xavier et al. (2019) e OCA",
+    "unid_asd": "km²",
+    "nm_asd_avanço": (
+        "Avanço da área suscetível à desertificação no município (1991–2021)"
+    ),
+    "valor_asd_avanço": "-12.25",
+    "fonte_asd_avanço": "Xavier et al. (2019) e OCA",
+    "unid_asd_avanço": "km²",
+    # Unidades de conservação: as quatro bases da branch de big numbers de UC.
+    # Rótulo, fonte e unidade vêm da view — conferir contra vw_indicadores
+    # antes de tratar estes textos como contrato.
+    "nm_uc": "Unidades de conservação",
+    "valor_uc": "3",
+    "fonte_uc": "CNUC (2025)",
+    "unid_uc": "Unidade(s) de conservação",
+    "nm_uc_area": "Área em unidades de conservação",
+    "valor_uc_area": "2500.75",
+    "fonte_uc_area": "CNUC (2025)",
+    "unid_uc_area": "Área protegida no município (ha)",
+    "nm_uc_pi": "Grupo de proteção integral",
+    "valor_uc_pi": "0",
+    "fonte_uc_pi": "CNUC (2025)",
+    "unid_uc_pi": "Unidade(s) de conservação",
+    "nm_uc_uso": "Grupo de uso sustentável",
+    "valor_uc_uso": "3",
+    "fonte_uc_uso": "CNUC (2025)",
+    "unid_uc_uso": "Unidade(s) de conservação",
+    "nm_esgotamento": "Domicílios ligados à rede geral ou pluvial",
+    "valor_esgotamento": "86.62",
+    "fonte_esgotamento": "IBGE (2022)",
+    "unid_esgotamento": "Percentual de domicílios (%)",
+    "nm_cisternas": "Cisternas e tecnologias sociais de acesso à água",
+    "valor_cisternas": "2038",
+    "fonte_cisternas": "SESAN (2025)",
+    "unid_cisternas": "Tecnologias sociais",
+    # Educação segue o mesmo quarteto, só que o valor mora em `per_<base>`.
+    "nm_fundamental_incom": "Fundamental incompleto ou sem instrução",
+    "per_fundamental_incom": "32.62",
+    "fonte_fundamental_incom": "IBGE (2022)",
+    "unid_fundamental_incom": "Percentual da população (%)",
+    "nm_superior_com": "Superior completo",
+    "per_superior_com": "20.85",
+    "fonte_superior_com": "IBGE (2022)",
+    "unid_superior_com": "Percentual da população (%)",
+    "nm_alfabetizada_indigena": "População indígena alfabetizada",
+    "per_alfabetizada_indigena": "90.80",
+    "fonte_alfabetizada_indigena": "IBGE (2022)",
+    "unid_alfabetizada_indigena": (
+        "Percentual da população indígena de 15 anos ou mais (%)"
+    ),
+    "nm_alfabetizada_quilombola": "População quilombola alfabetizada",
+    "per_alfabetizada_quilombola": "0",
+    "fonte_alfabetizada_quilombola": "IBGE (2022)",
+    "unid_alfabetizada_quilombola": (
+        "Percentual da população quilombola de 15 anos ou mais (%)"
+    ),
 }
 
 
 def _por_nome(indicadores: list[dict]) -> dict[str, str]:
     return {item["nome"]: item["valor"] for item in indicadores}
+
+
+def test_rotulo_fonte_e_rodape_vem_da_view_nao_do_codigo():
+    # O ponto da migração: o card não repete em Python o que a view já diz.
+    (card,) = [
+        item
+        for item in montar_indicadores_macrotema("demografia", CONTEXTO)
+        if item["nome"] == "População residente"
+    ]
+
+    assert card["valor"] == "419.379"
+    assert card["fonte"] == "Censo demográfico 2022 (IBGE, 2023)"
+    assert card["rodape"] == "Pessoas residentes"
 
 
 def test_indicadores_usam_valores_do_contexto():
@@ -40,23 +158,89 @@ def test_indicadores_usam_valores_do_contexto():
     assert valores["Índice de Gini"] == "0,58"
 
 
-def test_percentuais_e_contagens_sao_formatados_em_ptbr():
-    valores = _por_nome(montar_indicadores_macrotema("educacao", CONTEXTO))
+def test_afixo_monetario_percentual_e_de_area_vem_da_unidade():
+    # `unid_` é texto livre: só as formas monetária, percentual e de área
+    # viram marca no número (ver _afixos_da_unidade). Sem isso a renda per
+    # capita sairia "630,03" e o esgotamento "86,62", números que enganam.
+    assert _por_nome(
+        montar_indicadores_macrotema("desenvolvimento-social", CONTEXTO)
+    )["Renda per capita"] == "R$ 630,03"
+    assert _por_nome(montar_indicadores_macrotema("saneamento", CONTEXTO))[
+        "Domicílios ligados à rede geral ou pluvial"
+    ] == "86,62%"
+    assert _por_nome(montar_indicadores_macrotema("meio-ambiente", CONTEXTO))[
+        "Área suscetível à desertificação"
+    ] == "590,55 km²"
 
-    assert valores["Pessoas não alfabetizadas (15 anos ou mais)"] == "26.939"
-    assert valores["Sem instrução ou fundamental incompleto"] == "46,5%"
-    assert valores["Superior completo"] == "12,7%"
+
+def test_educacao_le_o_valor_em_per_e_o_resto_do_quarteto_normalmente():
+    # Regressão da quebra que motivou esta branch: os cards de educação
+    # apontavam para `sem_instrucao_fund_incomp_per` & cia., nomes que a view
+    # não tem desde a migração — os seis saíam vazios e o bloco inteiro sumia
+    # da capa. Educação é a única base cujo valor está em `per_<base>` e não
+    # em `valor_<base>`; rótulo e fonte vêm da view como em todo o resto.
+    cards = {item["nome"]: item for item in montar_indicadores_macrotema(
+        "educacao", CONTEXTO
+    )}
+
+    assert cards["Fundamental incompleto ou sem instrução"]["valor"] == "32,62%"
+    assert cards["Superior completo"]["valor"] == "20,85%"
+    assert cards["População indígena alfabetizada"]["valor"] == "90,8%"
+    # A fonte é a da view, não uma string montada no código.
+    assert cards["Superior completo"]["fonte"] == "IBGE (2022)"
+
+
+def test_alfabetizacao_some_quando_o_grupo_nao_existe_no_municipio():
+    # per_alfabetizada_quilombola = 0 com pop_quilombola = 0 significa "não há
+    # quilombolas aqui", não "nenhum é alfabetizado". Exibir "0%" seria uma
+    # afirmação errada sobre o município.
+    valores = _por_nome(montar_indicadores_macrotema("educacao", CONTEXTO))
+    assert "População quilombola alfabetizada" not in valores
+
+    com_grupo = _por_nome(
+        montar_indicadores_macrotema(
+            "educacao",
+            {
+                **CONTEXTO,
+                "valor_pop_quilombola": "3008",
+                "per_alfabetizada_quilombola": "79.84",
+            },
+        )
+    )
+    assert com_grupo["População quilombola alfabetizada"] == "79,84%"
+
+
+def test_populacao_feminina_aparece_apesar_do_nome_irregular_na_view():
+    # Regressão: a base é `pop_feminino` (valor_/fonte_/unid_), mas o rótulo na
+    # view é `nm_pop_feminina`. Procurar `nm_pop_feminino` devolve None e o card
+    # sumia da capa em silêncio — com o valor presente e o rótulo preenchido.
+    # Não é dado faltando no banco; é nome de coluna divergente (ver
+    # _ROTULO_IRREGULAR em utils/cover.py).
+    valores = _por_nome(montar_indicadores_macrotema("demografia", CONTEXTO))
+
+    assert valores["População feminina"] == "220.966"
+
+
+def test_base_sem_rotulo_na_view_nao_vira_card():
+    # Nenhum texto de card mora no código: sem `nm_<base>` o card não existe,
+    # mesmo havendo valor. A ausência na capa é o sinal de que falta preencher
+    # a coluna no banco — preencher daqui esconderia o buraco.
+    valores = _por_nome(
+        montar_indicadores_macrotema(
+            "demografia", {**CONTEXTO, "nm_pop_indigena": None}
+        )
+    )
+
+    assert "População indígena" not in valores
 
 
 def test_indicador_sem_valor_no_banco_e_omitido():
     # A ausência de dados não deve virar um card com unidade de medida.
     indicadores = montar_indicadores_macrotema(
-        "meio-ambiente",
-        {"valor_uc": 3, "valor_asd": None},
+        "meio-ambiente", {**CONTEXTO, "valor_asd": None}
     )
 
     nomes = {item["nome"] for item in indicadores}
-    assert "Unidades de conservação" in nomes
     assert "Área suscetível à desertificação" not in nomes
     assert all(item["valor"] for item in indicadores)
 
@@ -66,11 +250,79 @@ def test_sem_contexto_nao_inventa_indicador():
     assert montar_indicadores_macrotema("saneamento", {}) == []
 
 
-def test_saude_nao_tem_indicadores_na_view():
-    # vw_indicadores não traz nenhuma coluna de saúde; o bloco simplesmente não
-    # é renderizado em vez de exibir score fictício (era "4/5", "2/5"...).
-    assert "saude" not in INDICADORES_POR_MACROTEMA
-    assert montar_indicadores_macrotema("saude", CONTEXTO) == []
+def test_saude_le_os_seis_indicadores_da_view():
+    # Saúde ficou sem nenhum card desde a migração da view; as seis colunas
+    # existem e são as do catálogo de big numbers.
+    contexto = {
+        **CONTEXTO,
+        "nm_nascidos": "Nascidos vivos",
+        "valor_nascidos": "5693",
+        "fonte_nascidos": "DATASUS (2025)",
+        "unid_nascidos": "Nascidos vivos",
+        "nm_mortalidade_infantil": "Mortalidade infantil",
+        "valor_mortalidade_infantil": "10.36",
+        "fonte_mortalidade_infantil": "DATASUS (2025)",
+        "unid_mortalidade_infantil": "Óbitos infantis por mil nascidos vivos",
+    }
+
+    cards = {item["nome"]: item for item in montar_indicadores_macrotema(
+        "saude", contexto
+    )}
+
+    assert cards["Nascidos vivos"]["valor"] == "5.693"
+    assert cards["Mortalidade infantil"]["valor"] == "10,36"
+    assert cards["Mortalidade infantil"]["fonte"] == "DATASUS (2025)"
+
+
+def test_economia_renda_nao_mostra_renda_capita_nem_gini():
+    # O Doc de economia pede só 6 indicadores (PIB, PIB per capita, Receita
+    # tributária, Exportação, Importação, Balança comercial); Renda per capita
+    # e Índice de Gini pertencem a desenvolvimento-social, não aqui — senão o
+    # mesmo número aparece em dois macrotemas.
+    valores = _por_nome(montar_indicadores_macrotema("economia-renda", CONTEXTO))
+
+    assert "Renda per capita" not in valores
+    assert "Índice de Gini" not in valores
+
+
+def test_economia_renda_mostra_os_6_indicadores_da_view():
+    valores = _por_nome(montar_indicadores_macrotema("economia-renda", CONTEXTO))
+
+    assert valores["PIB"] == "R$ 12.908.743.000"
+    assert valores["PIB per capita"] == "R$ 30.780,61"
+    assert valores["Receita tributária municipal"] == "R$ 277.942.183,71"
+    assert valores["Exportações"] == "US$ 3.560.041"
+    assert valores["Importações"] == "US$ 10.865.532"
+    assert valores["Balança comercial"] == "US$ -7.305.491"
+
+
+def test_economia_le_o_mes_de_referencia_do_secex_direto_da_view():
+    # O mês do SECEX muda a cada carga. Fixar "SECEX" no código deixaria o
+    # relatório do mês seguinte desatualizado — era o que `fonte_coluna` (#126)
+    # resolvia caso a caso e que ler `fonte_<base>` da view agora faz por
+    # padrão, para todos os cards.
+    contexto = {**CONTEXTO, "fonte_exportacao": "SECEX (março de 2027)"}
+    fontes = {
+        item["nome"]: item["fonte"]
+        for item in montar_indicadores_macrotema("economia-renda", contexto)
+    }
+
+    assert fontes["Exportações"] == "SECEX (março de 2027)"
+    assert fontes["PIB"] == "IBGE (2023)"
+
+
+def test_economia_sem_fonte_na_view_nao_inventa_texto_fixo():
+    # Mudança de comportamento em relação à #126: não existe mais fallback
+    # para um "SECEX" fixo no código. Sem `fonte_<base>`, o card sai com fonte
+    # vazia — a lacuna fica visível na capa em vez de ser mascarada por um
+    # texto que o banco não confirmou.
+    contexto = {**CONTEXTO, "fonte_exportacao": None}
+    fontes = {
+        item["nome"]: item["fonte"]
+        for item in montar_indicadores_macrotema("economia-renda", contexto)
+    }
+
+    assert fontes["Exportações"] == ""
 
 
 def test_indicadores_diferem_entre_macrotemas():
@@ -87,20 +339,41 @@ def test_indicadores_diferem_entre_macrotemas():
 
 
 def test_icone_do_macrotema_e_usado_quando_o_indicador_nao_define_um():
+    # "Cisternas..." não tem ícone próprio no catálogo, então cai no ícone do
+    # macrotema recebido.
+    indicadores = montar_indicadores_macrotema(
+        "hidraulica", CONTEXTO, macrotema_icone="wrench"
+    )
+
+    por_nome = {item["nome"]: item for item in indicadores}
+    assert (
+        por_nome["Cisternas e tecnologias sociais de acesso à água"]["icone"]
+        == "wrench"
+    )
+
+
+def test_indicador_com_icone_proprio_nao_usa_o_icone_do_macrotema():
+    # "Domicílios ligados à rede geral ou pluvial" (base "esgotamento") tem
+    # ícone dedicado no catálogo (ver _ICONE_POR_BASE) e não deve cair no
+    # ícone genérico do macrotema, mesmo quando este é passado explicitamente.
     indicadores = montar_indicadores_macrotema(
         "saneamento", CONTEXTO, macrotema_icone="wrench"
     )
 
-    assert indicadores
-    assert all(item["icone"] == "wrench" for item in indicadores)
+    por_nome = {item["nome"]: item for item in indicadores}
+    assert (
+        por_nome["Domicílios ligados à rede geral ou pluvial"]["icone"]
+        == "esgoto"
+    )
 
 
-def test_todas_as_colunas_do_catalogo_tem_rotulo_e_fonte():
+def test_catalogo_e_so_a_ordem_das_bases_da_view():
+    # Nenhum rótulo, fonte ou unidade mora mais no código: o catálogo só diz
+    # quais indicadores entram em cada macrotema e em que ordem.
     for specs in INDICADORES_POR_MACROTEMA.values():
-        for spec in specs:
-            assert spec["coluna"]
-            assert spec["nome"]
-            assert spec["fonte"]
+        assert specs
+        for base in specs:
+            assert isinstance(base, str) and base
 
 
 def test_score_usa_a_linha_do_tema_correspondente():
@@ -119,36 +392,44 @@ def test_score_usa_fallback_quando_coluna_ausente():
 
 
 def test_meio_ambiente_usa_colunas_atuais_da_view():
-    contexto = {
-        "valor_asd": "1234.50",
-        "valor_asd_avanço": "-12.25",
-        "valor_uc": "3",
-        "valor_uc_pi": "0",
-        "valor_uc_uso": "3",
-        "valor_uc_area": "2500.75",
-    }
-    cards = montar_indicadores_macrotema("meio-ambiente", contexto, "leaf")
+    # Os seis cards de meio-ambiente (ASD + as quatro bases de UC) saem da
+    # view com rótulo, fonte e unidade próprios; o ícone é o dedicado da base,
+    # não o do macrotema.
+    cards = montar_indicadores_macrotema("meio-ambiente", CONTEXTO, "leaf")
+
     assert _por_nome(cards) == {
-        "Área suscetível à desertificação": "1.234,5 km²",
-        "Avanço da área suscetível à desertificação no município (1991–2021)": "-12,25 km²",
+        "Área suscetível à desertificação": "590,55 km²",
+        "Avanço da área suscetível à desertificação no município "
+        "(1991–2021)": "-12,25 km²",
         "Unidades de conservação": "3",
+        "Área em unidades de conservação": "2.500,75 ha",
         "Grupo de proteção integral": "0",
         "Grupo de uso sustentável": "3",
-        "Área em unidades de conservação": "2.500,75 ha",
     }
-    assert all(card["icone"] == "leaf" for card in cards)
+    assert [card["icone"] for card in cards] == [
+        "desertificacao",
+        "desertificacao",
+        "unidades_conservacao",
+        "area_conservacao",
+        "protecao_integral",
+        "uso_sustentavel",
+    ]
     assert all(card["fonte"] == "CNUC (2025)" for card in cards[2:])
 
 
 def test_meio_ambiente_omite_marcador_de_ausencia_da_view():
+    # A view escreve "Não há dados" em vez de NULL quando o município não tem
+    # o indicador. Sem este filtro o card sairia com o texto no lugar do
+    # número — e, pior, com a unidade colada nele.
     contexto = {
+        **CONTEXTO,
         "valor_asd": "Não há dados",
         "valor_asd_avanço": " Não há dados ",
-        "valor_uc": "0",
         "valor_uc_pi": None,
         "valor_uc_uso": "",
         "valor_uc_area": "Não há dados",
     }
+
     assert _por_nome(montar_indicadores_macrotema("meio-ambiente", contexto)) == {
-        "Unidades de conservação": "0",
+        "Unidades de conservação": "3",
     }

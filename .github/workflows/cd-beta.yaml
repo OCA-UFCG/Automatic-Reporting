@@ -137,7 +137,36 @@ jobs:
             -v "${{ vars.MAP_SHAPE_VOLUME_NAME }}:/app/map_shape:ro" \
             alpine test -f /app/map_shape/BR_Municipios_2025/BR_Municipios_2025.shp
 
+      # O volume de PNGs ja persiste entre deploys (runner self-hosted); so vale
+      # baixar/copiar de novo quando o asset da release realmente mudou. O marker
+      # fica fora do checkout (rm -rf/actions/checkout nao alcanca $HOME/.cache).
+      - name: Check if map PNGs release changed
+        id: mapas_check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          MARKER_FILE="$HOME/.cache/automatic-reporting/mapas-asset-id"
+          mkdir -p "$(dirname "$MARKER_FILE")"
+
+          CURRENT_ID=$(curl -sf \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/mapas-png-2025" \
+            | python3 -c "import json, sys; print(json.load(sys.stdin)['assets'][0]['id'])")
+          PREVIOUS_ID=$(cat "$MARKER_FILE" 2>/dev/null || true)
+
+          echo "Asset id atual: $CURRENT_ID / salvo: ${PREVIOUS_ID:-<nenhum>}"
+
+          if [ "$CURRENT_ID" = "$PREVIOUS_ID" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "current_id=$CURRENT_ID" >> "$GITHUB_OUTPUT"
+
       - name: Download map PNGs
+        if: steps.mapas_check.outputs.changed == 'true'
         shell: bash
         run: |
           rm -rf ./mapas_png
@@ -147,6 +176,7 @@ jobs:
             --output-dir ./mapas_png
 
       - name: Copy map PNGs into Docker volume
+        if: steps.mapas_check.outputs.changed == 'true'
         shell: bash
         run: |
           sudo docker run --rm \
@@ -154,13 +184,24 @@ jobs:
             -v "${{ github.workspace }}/mapas_png:/source:ro" \
             alpine sh -c "rm -rf /target/* && cp -a /source/. /target/"
 
+          mkdir -p "$HOME/.cache/automatic-reporting"
+          echo "${{ steps.mapas_check.outputs.current_id }}" > "$HOME/.cache/automatic-reporting/mapas-asset-id"
+
+      # `ls *.png | wc -l` retornava o exit code do wc (sempre 0), entao um zip
+      # com diretorio raiz extra passava verde com zero PNG no nivel esperado.
       - name: Validate map PNG volume
         shell: bash
         run: |
-          echo "Total de PNGs no volume:"
-          sudo docker run --rm \
+          TOTAL=$(sudo docker run --rm \
             -v "${{ vars.MAPAS_VOLUME_NAME }}:/app/mapas/Mapas_png:ro" \
-            alpine sh -c 'ls /app/mapas/Mapas_png/*.png | wc -l'
+            alpine sh -c 'find /app/mapas/Mapas_png -maxdepth 1 -name "*.png" | wc -l')
+
+          echo "Total de PNGs no volume: $TOTAL"
+
+          if [ "$TOTAL" -lt 1000 ]; then
+            echo "Esperado >= 1000 PNGs no primeiro nivel do volume; os relatorios cairiam no mapa gerado em runtime."
+            exit 1
+          fi
 
       - name: Pull the latest beta image
         run: sudo docker pull ${{ vars.DOCKER_IMAGE_BETA }}:latest
