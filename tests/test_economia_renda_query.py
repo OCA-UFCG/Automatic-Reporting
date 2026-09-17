@@ -26,24 +26,44 @@ def test_processar_indicadores_economia_calcula_variacao_e_setores_maiores(monke
 
     variacao_nominal_esperada = 12_945_093_200.0 - 1_000_000_000.0
     variacao_percentual_esperada = variacao_nominal_esperada / 1_000_000_000.0 * 100
-    assert dados["analise1_pib_unid"] == "bilhões"
-    assert round(dados["analise1_pib"], 2) == round(variacao_nominal_esperada / 1e9, 2)
-    assert round(dados["analise1_pib_per"], 2) == round(variacao_percentual_esperada, 2)
+    assert dados["analise1_pib"] == "aumento"
+    assert dados["diferenca_pib_2010_2023unid"] == "bilhões"
+    assert round(dados["diferenca_pib_2010_2023"], 2) == round(variacao_nominal_esperada / 1e9, 2)
+    assert round(dados["pib_per_2010_2023"], 2) == round(variacao_percentual_esperada, 2)
 
     assert dados["setor2021_maior1"] == "Serviços"
-    assert dados["setor2021_unid1"] == "milhões"
-    assert round(dados["setor2021_valor1"], 2) == round(9_500_000.0 / 1e6, 2)
+    assert dados["setor2021_maior1unid"] == "milhões"
+    assert round(dados["setor2021_maior1_vab"], 2) == round(9_500_000.0 / 1e6, 2)
 
     assert dados["setor2021_maior2"] == "Indústria"
-    assert dados["setor2021_unid2"] == "milhões"
-    assert round(dados["setor2021_valor2"], 2) == round(3_000_000.0 / 1e6, 2)
+    assert dados["setor2021_maior2unid"] == "milhões"
+    assert round(dados["setor2021_maior2_vab"], 2) == round(3_000_000.0 / 1e6, 2)
 
     assert dados["setor2021_maior3"] == "Administração Pública"
-    assert dados["setor2021_unid3"] == "milhões"
-    assert round(dados["setor2021_valor3"], 2) == round(2_000_000.0 / 1e6, 2)
+    assert dados["setor2021_maior3unid"] == "milhões"
+    assert round(dados["setor2021_maior3_vab"], 2) == round(2_000_000.0 / 1e6, 2)
 
     assert dados["imposto_unid"] == "milhões"
     assert round(dados["imposto"], 2) == round(850_000_000.0 / 1e6, 2)
+
+
+def test_processar_indicadores_economia_usa_reducao_quando_pib_cai(monkeypatch):
+    linhas_banco = [
+        (2010, 2_000_000_000.0, None, None, None, None, None, None),
+        (2023, 1_500_000_000.0, None, None, None, None, None, None),
+    ]
+    monkeypatch.setattr(
+        economia_renda, "executar_query", lambda *args, **kwargs: linhas_banco
+    )
+
+    linhas = economia_renda.buscar_linhas_pib_municipal("Cidade em Queda", "PB")
+    dados = economia_renda.processar_indicadores_economia(linhas)
+
+    assert dados["analise1_pib"] == "redução"
+    # escalar_valor só escala magnitudes positivas; negativo chega bruto (sem unidade)
+    assert dados["diferenca_pib_2010_2023unid"] == ""
+    assert round(dados["diferenca_pib_2010_2023"], 2) == -500_000_000.0
+    assert round(dados["pib_per_2010_2023"], 2) == round(-500_000_000.0 / 2_000_000_000.0 * 100, 2)
 
 
 def test_processar_indicadores_economia_calcula_atividade_maior_participacao(monkeypatch):
