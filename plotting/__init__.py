@@ -9,6 +9,13 @@ import logging
 import pathlib
 from pathlib import Path
 
+import matplotlib
+
+# Antes do primeiro import do pyplot: numa máquina com DISPLAY o matplotlib
+# escolheria TkAgg, e os gráficos são gerados numa thread do FastAPI — figura
+# Tk fora da main thread trava o processo no teardown.
+matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
 from matplotlib import font_manager, rcParams
 from matplotlib.figure import Figure
