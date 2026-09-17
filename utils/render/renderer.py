@@ -773,7 +773,15 @@ def texto_para_html(
                 )
 
                 figuras.append(
-                    '<figure style="text-align:center; margin:0; flex:1; min-width:280px;">'
+                    # `flex:0 1 auto` (não `flex:1`): o card sozinho numa
+                    # linha não pode esticar além do seu próprio
+                    # `largura_maxima` — com `flex:1` ele ocupava a largura
+                    # cheia da linha e deixava uma faixa em branco enorme ao
+                    # redor de gráficos com largura fixa menor (ex.: a rosca
+                    # de cor/raça, 350px). `auto` ainda deixa o card encolher
+                    # (`flex-shrink:1`) pra caber quando há mais de um lado a
+                    # lado.
+                    '<figure style="text-align:center; margin:0; flex:0 1 auto; min-width:280px;">'
                     f'<img src="/output/{html_module.escape(chart_file)}" '
                     f'alt="{html_module.escape(tipo)}" '
                     f'style="width:100%; max-width:{largura_maxima}; object-fit:contain;">'
