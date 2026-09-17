@@ -5,7 +5,6 @@ from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 from plotting import (
     ESCALA_FONTE,
-    ajustar_margem_esquerda_para_rotulos,
     iniciar_card_grafico,
     salvar_card_grafico,
 )
@@ -223,11 +222,5 @@ def gerar_grafico_visao_historica_populacao(
         ax.spines[lado].set_visible(False)
     ax.spines["bottom"].set_color("#514C50")
     ax.margins(x=0.18)
-    # Rótulos do eixo Y (população formatada) variam de largura com o porte
-    # do município — a margem esquerda fixa do card não dá conta dos mais
-    # largos e o "População" sai cortado da moldura. Precisa rodar depois do
-    # `set_ylabel`/formatter acima, veja o comentário em
-    # plotting.saude.gerar_grafico_cobertura_vacinal.
-    ajustar_margem_esquerda_para_rotulos(fig, ax)
     salvar_card_grafico(fig, chart_file)
     return chart_file.name

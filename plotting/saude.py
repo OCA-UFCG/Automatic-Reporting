@@ -5,7 +5,6 @@ from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 from plotting import (
     ESCALA_FONTE,
-    ajustar_margem_esquerda_para_rotulos,
     iniciar_card_grafico,
     salvar_card_grafico,
 )
@@ -227,14 +226,6 @@ def gerar_grafico_cobertura_vacinal(
     ax.invert_yaxis()
 
     ax.set_ylabel("Vacina", fontsize=12*ESCALA_FONTE)
-    # Nomes de vacina variam muito de tamanho (de "BCG" a "Pentavalente
-    # (DTP/Hib/HepB)"); a margem esquerda fixa do card não dá conta dos mais
-    # longos e eles saem cortados pra fora da moldura — mede o rótulo mais
-    # largo já desenhado e expande a margem até caber. Precisa rodar depois do
-    # `set_ylabel` acima: a função só reserva espaço e fixa a posição do rótulo
-    # se ele já existir, senão o posicionamento automático do matplotlib some
-    # com o texto (fica fora do canvas) quando o `set_ylabel` roda depois.
-    ajustar_margem_esquerda_para_rotulos(fig, ax)
 
     limite_superior = max(110.0, max(coberturas) * 1.08)
     ax.set_xlim(0, limite_superior)

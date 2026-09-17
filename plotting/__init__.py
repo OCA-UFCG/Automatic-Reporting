@@ -142,6 +142,15 @@ def ajustar_margem_esquerda_para_rotulos(
     # Mede a posição real já desenhada dos `yticklabels` (e a do `ylabel`, se
     # houver) e reconstrói o layout à esquerda do zero: [borda do card] ->
     # [ylabel, se houver] -> [yticklabels] -> [eixo].
+    if not ax.axison:
+        # `ax.axis("off")` (ex.: o treemap do VAB) não remove os
+        # yticklabels default do matplotlib ("0.0", "0.2"...) nem some com o
+        # bbox deles — só deixa de desenhá-los. Medir esses rótulos
+        # "fantasma" aqui deslocaria e encolheria um eixo que já foi
+        # posicionado (e cujo conteúdo já foi dimensionado) de propósito sem
+        # essa margem.
+        return
+
     fig.canvas.draw()
     renderer = fig.canvas.get_renderer()
     rotulos_tick = ax.get_yticklabels()
