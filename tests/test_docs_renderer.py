@@ -1528,3 +1528,68 @@ def test_contagem_com_ano_no_nome_mantem_separador_de_milhar():
     )
 
     assert resultado == "foram 32.211 doses"
+
+
+def test_condicao_falsa_de_campo_unico_nao_engole_o_resto_da_secao():
+    """Regressão: a regra falsa apagava tudo até "Síntese" — aridez,
+    desertificação e a legenda "Figura X" (e, sem legenda, o gráfico)."""
+    texto = """Para quando ambiente.$n_uc for maior ou igual a 5:
+Parágrafo só para municípios com muitas UCs.
+
+Entre 1991 e 2021, o clima do município apresentou mudanças.
+
+Figura X - Classificação das condições de aridez no município.
+"""
+
+    resultado = interpretar_blocos_condicionais(texto, {"n_uc": 3})
+
+    assert "Parágrafo só para municípios" not in resultado
+    assert "Entre 1991 e 2021" in resultado
+    assert "Figura X" in resultado
+
+
+def test_condicao_composta_nao_trata_campo_sem_dado_como_zero():
+    """Campo ausente tratado como 0 fazia duas alternativas contraditórias
+    ficarem verdadeiras ao mesmo tempo."""
+    texto = """Para quando ambiente.$n_uc for de 2 a 4 e ambiente.$n_protecao_us for igual a 0:
+Todas são Proteção Integral.
+
+Para quando ambiente.$n_uc for de 2 a 4 e ambiente.$n_protecao_pi for igual a 0:
+Todas são Uso Sustentável.
+"""
+
+    for contexto in (
+        {"n_uc": 3},
+        {"n_uc": 3, "n_protecao_pi": None, "n_protecao_us": None},
+    ):
+        resultado = interpretar_blocos_condicionais(texto, contexto)
+
+        assert "Proteção Integral" not in resultado, contexto
+        assert "Uso Sustentável" not in resultado, contexto
+
+    com_dado = interpretar_blocos_condicionais(
+        texto, {"n_uc": 3, "n_protecao_pi": 3, "n_protecao_us": 0}
+    )
+    assert "Todas são Proteção Integral." in com_dado
+    assert "Todas são Uso Sustentável." not in com_dado
+
+
+def test_marcador_de_rodape_reativa_blocos_persistentes():
+    """O handler de "#!" reativa também os blocos persistentes de população,
+    não só `bloco_ativo`."""
+    texto = """Para quando demografia.$pop_ind_2022 for maior que 0:
+Parágrafo indígena de 2022.
+
+#!Fontes
+
+Para quando demografia.$pop_ind_2010 for maior que 0:
+Parágrafo indígena de 2010.
+"""
+
+    resultado = interpretar_blocos_condicionais(
+        texto, {"pop_ind_2022": 0, "pop_ind_2010": 5}
+    )
+
+    assert "Parágrafo indígena de 2022." not in resultado
+    assert "#!Fontes" in resultado
+    assert "Parágrafo indígena de 2010." in resultado
