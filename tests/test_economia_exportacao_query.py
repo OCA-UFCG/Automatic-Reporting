@@ -79,10 +79,8 @@ def test_buscar_comercio_exterior_economia_aplica_aliases_balanca_e_paises(monke
 
 
 def test_municipio_sem_comercio_exterior_devolve_lista_vazia(monkeypatch):
-    # Batalha/AL: a view traz as colunas de unidade como '' e nome/valor NULL,
-    # porque o município não comercia — é resultado válido, não falta de dado.
-    # A chave precisa existir mesmo vazia, como `importacao_paises` faz, senão
-    # os dois módulos irmãos respondem a mesma pergunta de formas diferentes.
+    # Batalha/AL: unidade '' e nome/valor NULL porque o município não
+    # comercia. A chave existe mesmo vazia, como `importacao_paises`.
     linha_perfil = {
         "valor_pais_exportacaounid1": "",
         "valor_pais_exportacaounid2": "",
@@ -100,9 +98,7 @@ def test_municipio_sem_comercio_exterior_devolve_lista_vazia(monkeypatch):
 
 
 def test_pais_sem_valor_nao_entra_pela_metade_no_contexto(monkeypatch):
-    # O Doc escreve "$exportacao1 ... US$ $valor_pais_exportacao1" na mesma
-    # frase. Publicar só o nome deixaria "$valor_pais_exportacao1" literal no
-    # PDF — o bug visível que o CLAUDE.md descreve.
+    # Publicar só o nome deixaria "$valor_pais_exportacao1" literal no PDF.
     linha_perfil = {
         "pais_exportacao1": "Filipinas",
         "valor_pais_exportacao1": 824.3,
@@ -123,8 +119,7 @@ def test_pais_sem_valor_nao_entra_pela_metade_no_contexto(monkeypatch):
 
 
 def test_unidade_desconhecida_nao_multiplica_e_avisa(monkeypatch, caplog):
-    # Unidade fora do mapa cairia no multiplicador 1 em silêncio, encolhendo o
-    # valor 1.000x no gráfico. Mantém o valor cru, mas registra o aviso.
+    # Fora do mapa: mantém o valor cru e avisa, em vez de encolher 1.000x.
     linha_perfil = {
         "pais_exportacao1": "Filipinas",
         "valor_pais_exportacao1": 824.3,
@@ -142,8 +137,7 @@ def test_unidade_desconhecida_nao_multiplica_e_avisa(monkeypatch, caplog):
 
 
 def test_unidade_vazia_nao_gera_aviso(monkeypatch, caplog):
-    # '' é o normal em município sem comércio; avisar aí seria ruído em todo
-    # relatório de cidade pequena.
+    # '' é o normal sem comércio; avisar seria ruído em toda cidade pequena.
     linha_perfil = {
         "pais_exportacao1": "Filipinas",
         "valor_pais_exportacao1": 824.3,

@@ -654,28 +654,18 @@ def _precisao_padrao_editorial(namespace: str, campo: str) -> int | None:
     return None
 
 
-# Campos de ano não devem levar separador de milhar ("2.023"): não são
-# quantidade, são um rótulo de período.
-#
-# Lista explícita, e não um casamento por padrão de nome, porque os dois lados
-# do padrão têm contraexemplo no schema:
-#   - nome de ano sem "ano" dentro: `ultimo_junho` (mv_perfil_economia) = 2026;
-#   - nome com "ano" que é quantidade: `dose_etario_1_ano` = 32211 (doses, e
-#     precisa do separador), `meta_etario_1_ano` = 95.00, além de
-#     `libano_export` e `fonte_abastecimento_humano`, onde "ano" é só um
-#     pedaço da palavra.
-# Um `startswith`/`endswith` quebraria a contagem de doses da saúde.
-#
-# Campo novo de ano no banco entra aqui à mão. Os nomes abaixo foram
-# levantados do schema relatorios_auto e dos dicts montados em utils/queries.
+# Campos de ano não devem levar separador de milhar ("2.023"): são rótulo de
+# período, não quantidade. Lista explícita porque nenhum padrão de nome serve:
+# `ultimo_junho` é ano e não tem "ano" no nome, e `dose_etario_1_ano` termina
+# em "_ano" mas é contagem de doses (32.211).
 _CAMPOS_ANO = {
     "ano",
     "year",
-    "ano_menor_mortalidade",  # vw/mv_perfil_saude_municipal
-    "ano_criacao_uc1",  # ambiente (hoje vem como texto, aqui por garantia)
-    "ultimo_junho",  # mv_perfil_economia
-    "ultimo_jun",  # utils/queries/economia_importacao.py
-    "ano_referencia_finalidade",  # utils/queries/hidraulica.py
+    "ano_menor_mortalidade",
+    "ano_criacao_uc1",
+    "ultimo_junho",
+    "ultimo_jun",
+    "ano_referencia_finalidade",
 }
 
 

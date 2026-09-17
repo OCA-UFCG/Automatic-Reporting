@@ -42,9 +42,8 @@ def _valor_absoluto(valor: object, unidade: object) -> float | None:
     if valor is None:
         return None
     if unidade not in _UNIDADE_MULTIPLICADOR:
-        # Cair no multiplicador 1 por engano encolhe o valor 1.000x no gráfico,
-        # sem erro nenhum. A coluna é texto livre ('' quando não há comércio),
-        # então só avisa quando veio algo que não é vazio nem conhecido.
+        # Multiplicador 1 por engano encolhe o valor 1.000x no gráfico, sem
+        # erro. '' é o normal em município sem comércio, por isso não avisa.
         if unidade is not None and str(unidade).strip():
             logger.warning(
                 "Unidade de valor desconhecida em exportação: %r "
@@ -83,9 +82,8 @@ def buscar_comercio_exterior_economia(
         valor_pais = linha.get(f"valor_pais_exportacao{posicao}")
         unidade_pais = linha.get(f"valor_pais_exportacaounid{posicao}")
 
-        # Nome e valor vão para o contexto em par: o Doc escreve "$exportacao1
-        # ... US$ $valor_pais_exportacao1" numa frase só, então publicar só
-        # metade deixa o outro placeholder literal no PDF.
+        # O Doc usa nome e valor na mesma frase; publicar só metade deixa o
+        # outro placeholder literal no PDF.
         if nome_pais is None or valor_pais is None:
             continue
 
@@ -103,10 +101,8 @@ def buscar_comercio_exterior_economia(
         if f"pais_exportacao{posicao}" in dados:
             dados[f"exportacao{posicao}"] = dados[f"pais_exportacao{posicao}"]
 
-    # Sempre presente, mesmo vazia, igual a `importacao_paises` em
-    # economia_importacao.py: município sem comércio exterior (ex.: Batalha/AL)
-    # é resultado válido, não ausência de dado, e os dois módulos irmãos
-    # precisam responder a mesma pergunta do mesmo jeito.
+    # Sempre presente, mesmo vazia, como `importacao_paises`: município sem
+    # comércio exterior é resultado válido, não ausência de dado.
     dados["exportacao_paises"] = paises_exportacao
 
     balanca_mensal = [
