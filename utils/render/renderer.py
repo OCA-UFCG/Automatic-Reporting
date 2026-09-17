@@ -66,11 +66,8 @@ def _eh_frase_unica(texto: str) -> bool:
     return len(terminacoes) == 1
 
 
-# 100%: o card do gráfico (moldura cinza desenhada no PNG) usa a largura
-# útil da página. Os PNGs são gerados a 180 dpi com 6"+ de largura, bem
-# acima dos ~630px da mancha, então esticar não pixeliza. Gráficos que
-# precisam ficar menores (ex.: a rosca de cor/raça) têm largura própria
-# em _CONFIG_GRAFICOS.
+# 100%: o card ocupa a mancha (~666px no A4 do relatório). Os PNGs saem a 180
+# dpi com 1080px+ de largura, então esticar não pixeliza.
 _LARGURA_MAXIMA_GRAFICO_PADRAO = "100%"
 _MARGEM_VERTICAL_GRAFICOS_PADRAO = "32px"
 # Base menor de propósito: a legenda da figura (`.figure-caption`) logo abaixo
@@ -78,9 +75,8 @@ _MARGEM_VERTICAL_GRAFICOS_PADRAO = "32px"
 # duas e deixava ~43px de respiro entre o gráfico e a legenda — demais.
 _MARGEM_INFERIOR_GRAFICOS = "8px"
 _CONFIG_GRAFICOS = {
-    # A rosca de esgotamento é desenhada num card mais largo (10") para os
-    # rótulos de % caberem sem se sobrepor; exibi-la nos 480px padrão
-    # encolheria o texto na mesma proporção, então ela ganha largura própria.
+    # Card mais largo (10") pros rótulos de % não se sobreporem; na mancha
+    # inteira o desenho ficaria exagerado, então tem teto próprio.
     "grafico_domicilio_por_tipo_esgosto": {
         "largura_maxima": "600px",
     },
@@ -105,6 +101,20 @@ _CONFIG_GRAFICOS = {
         "margem_vertical": "12px",
     },
 }
+
+
+def _html_figura_grafico(
+    tipo: str, chart_file: str, largura_maxima: str, estilo_flex: str
+) -> str:
+    """Monta o ``<figure>`` de um gráfico; ``estilo_flex`` é vazio quando a
+    figura é a única da linha (ver ``texto_para_html``)."""
+    return (
+        f'<figure style="text-align:center; margin:0;{estilo_flex}">'
+        f'<img src="/output/{html_module.escape(chart_file)}" '
+        f'alt="{html_module.escape(tipo)}" '
+        f'style="width:100%; max-width:{largura_maxima}; object-fit:contain;">'
+        "</figure>"
+    )
 
 
 def reset_figura_contador() -> None:
@@ -759,34 +769,26 @@ def texto_para_html(
                 for tipo in marcador_grafico.group(1).split("+")
             ]
 
-            figuras = []
-
-            for tipo in tipos:
-
-                chart_file = graficos_por_placeholder.get(tipo)
-
-                if not chart_file:
-                    continue
-
-                largura_maxima = _CONFIG_GRAFICOS.get(tipo, {}).get(
-                    "largura_maxima", _LARGURA_MAXIMA_GRAFICO_PADRAO
+            desenhaveis = [
+                (
+                    tipo,
+                    graficos_por_placeholder[tipo],
+                    _CONFIG_GRAFICOS.get(tipo, {}).get(
+                        "largura_maxima", _LARGURA_MAXIMA_GRAFICO_PADRAO
+                    ),
                 )
+                for tipo in tipos
+                if graficos_por_placeholder.get(tipo)
+            ]
 
-                figuras.append(
-                    # `flex:0 1 auto` (não `flex:1`): o card sozinho numa
-                    # linha não pode esticar além do seu próprio
-                    # `largura_maxima` — com `flex:1` ele ocupava a largura
-                    # cheia da linha e deixava uma faixa em branco enorme ao
-                    # redor de gráficos com largura fixa menor (ex.: a rosca
-                    # de cor/raça, 350px). `auto` ainda deixa o card encolher
-                    # (`flex-shrink:1`) pra caber quando há mais de um lado a
-                    # lado.
-                    '<figure style="text-align:center; margin:0; flex:0 1 auto; min-width:280px;">'
-                    f'<img src="/output/{html_module.escape(chart_file)}" '
-                    f'alt="{html_module.escape(tipo)}" '
-                    f'style="width:100%; max-width:{largura_maxima}; object-fit:contain;">'
-                    "</figure>"
-                )
+            # Gráfico sozinho não vira item flex (PR #128): o WeasyPrint não
+            # resolve `width:100%` sob `flex-basis:auto` e a imagem colapsa no
+            # `min-width` no PDF. Com duas ou mais, `flex:1` (base 0) funciona.
+            estilo_flex = "" if len(desenhaveis) == 1 else " flex:1; min-width:280px;"
+            figuras = [
+                _html_figura_grafico(tipo, chart_file, largura_maxima, estilo_flex)
+                for tipo, chart_file, largura_maxima in desenhaveis
+            ]
 
             if figuras:
 
@@ -801,13 +803,21 @@ def texto_para_html(
                     ),
                     _MARGEM_VERTICAL_GRAFICOS_PADRAO,
                 )
-                html_lines.append(
-                    '<div style="display:flex; gap:24px; justify-content:center; '
-                    "align-items:flex-start; "
-                    f"margin:{margem_vertical} 0 {_MARGEM_INFERIOR_GRAFICOS}; flex-wrap:wrap;\">"
-                    + "".join(figuras)
-                    + "</div>"
-                )
+                if len(figuras) == 1:
+                    # Sem `display:flex`: dentro dele o `<figure>` voltaria a
+                    # ser item flex e a imagem colapsaria de novo.
+                    envoltorio = (
+                        '<div style="text-align:center; '
+                        f"margin:{margem_vertical} 0 {_MARGEM_INFERIOR_GRAFICOS};\">"
+                    )
+                else:
+                    envoltorio = (
+                        '<div style="display:flex; gap:24px; justify-content:center; '
+                        "align-items:flex-start; "
+                        f"margin:{margem_vertical} 0 {_MARGEM_INFERIOR_GRAFICOS}; "
+                        'flex-wrap:wrap;">'
+                    )
+                html_lines.append(envoltorio + "".join(figuras) + "</div>")
 
             _suprimir_proxima_legenda = not figuras
 

@@ -544,13 +544,11 @@
 .indicator-score-card-footer {
   display: block;
   box-sizing: border-box;
-  /* Os cards de uma linha são table-cells e esticam até a altura da linha, mas
-     o rodapé fica com a altura do texto: um rodapé de 1 linha ao lado de um de
-     2 deixa uma faixa branca no fundo do card. Reserva 2 linhas (8px x 150%),
-     mesmo truque de min-height usado em .indicator-name; o box-sizing é
-     border-box, então o valor inclui os 5.33px de padding de cima e de baixo.
-     ponytail: quebra de novo se algum rodapé passar a ocupar 3 linhas; aí o
-     fix sem teto é tabela aninhada (header + rodapé com height:100%). */
+  /* Cards da linha esticam até a altura dela, o rodapé não: sem um piso, um
+     rodapé de 1 linha ao lado de um de 2 deixa faixa branca. 34.67px = 26pt
+     x 4/3 (design em pt, WeasyPrint em px CSS) = 2 linhas de 9pt + 8pt de
+     padding, que entra na conta pelo border-box.
+     Não cobre cabeçalhos de alturas diferentes (nome de 3 linhas). */
   min-height: 34.67px;
   padding: 5.33px 10.67px;
   background: #EFEFEF;
