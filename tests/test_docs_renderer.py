@@ -1447,3 +1447,29 @@ def test_texto_que_nao_e_decimal_puro_fica_intacto():
     )
 
     assert resultado == "2801108 / 12,2 pontos percentuais"
+
+
+def test_campo_ano_nao_ganha_separador_de_milhar():
+    # Nomes tirados do schema e dos Docs de economia e saúde, não inventados.
+    for campo in (
+        "ano",
+        "ultimo_junho",
+        "ultimo_jun",
+        "ano_menor_mortalidade",
+        "ano_referencia_finalidade",
+    ):
+        resultado = substituir_placeholders(
+            f"dados de economia.${campo}", {campo: 2023}, "economia-renda"
+        )
+
+        assert resultado == "dados de 2023", campo
+
+
+def test_contagem_com_ano_no_nome_mantem_separador_de_milhar():
+    # Contraexemplo: termina em "_ano" e é contagem, não ano. Trava quem
+    # tentar trocar _CAMPOS_ANO por um startswith/endswith.
+    resultado = substituir_placeholders(
+        "foram saude.$dose_etario_1_ano doses", {"dose_etario_1_ano": 32211}, "saude"
+    )
+
+    assert resultado == "foram 32.211 doses"

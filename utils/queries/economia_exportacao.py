@@ -1,4 +1,8 @@
+import logging
+
 from utils.queries.perfil_municipal import buscar_perfil_municipal
+
+logger = logging.getLogger(__name__)
 
 _UNIDADE_MULTIPLICADOR = {
     "bilhões": 1_000_000_000,
@@ -10,8 +14,8 @@ _MESES_BALANCA = ("jan", "fev", "mar", "abr", "mai", "jun")
 _NOMES_MESES_BALANCA = ("Jan", "Fev", "Mar", "Abr", "Mai", "Jun")
 
 _CAMPOS_MERGE_DIRETOS = (
-    "fob_exportado",
-    "fob_exportado_unid",
+    "fob_exportado_ultimo",
+    "fob_exportado_ultimo_unid",
     "kg_exportado",
     "kg_exportado_unid",
     "secao_exportacao1",
@@ -33,17 +37,22 @@ _ALIASES_BALANCA_CEDILHA = {
     "valor_balanca6mesesunid": "valor_balança6mesesunid",
 }
 
-# doc referencia "fob_exportado_ultimo" (síntese) para o mesmo valor
-_ALIASES_FOB_EXPORTADO_ULTIMO = {
-    "fob_exportado": "fob_exportado_ultimo",
-    "fob_exportado_unid": "fob_exportado_ultimo_unid",
-}
-
 
 def _valor_absoluto(valor: object, unidade: object) -> float | None:
     if valor is None:
         return None
-    return float(valor) * _UNIDADE_MULTIPLICADOR.get(unidade, 1)
+    if unidade not in _UNIDADE_MULTIPLICADOR:
+        # Multiplicador 1 por engano encolhe o valor 1.000x no gráfico, sem
+        # erro. '' é o normal em município sem comércio, por isso não avisa.
+        if unidade is not None and str(unidade).strip():
+            logger.warning(
+                "Unidade de valor desconhecida em exportação: %r "
+                "(esperado um de %s); valor usado sem multiplicador.",
+                unidade,
+                sorted(_UNIDADE_MULTIPLICADOR),
+            )
+        return float(valor)
+    return float(valor) * _UNIDADE_MULTIPLICADOR[unidade]
 
 
 def buscar_comercio_exterior_economia(
@@ -61,10 +70,6 @@ def buscar_comercio_exterior_economia(
         if linha.get(campo_banco) is not None:
             dados[campo_doc] = linha[campo_banco]
 
-    for campo_base, alias in _ALIASES_FOB_EXPORTADO_ULTIMO.items():
-        if linha.get(campo_base) is not None:
-            dados[alias] = linha[campo_base]
-
     # doc usa "balanca"/"balanca2" (bare) na síntese final
     if linha.get("analise_balanca1") is not None:
         dados["balanca"] = linha["analise_balanca1"]
@@ -77,25 +82,28 @@ def buscar_comercio_exterior_economia(
         valor_pais = linha.get(f"valor_pais_exportacao{posicao}")
         unidade_pais = linha.get(f"valor_pais_exportacaounid{posicao}")
 
-        if nome_pais is not None:
-            dados[f"pais_exportacao{posicao}"] = nome_pais
-        if valor_pais is not None:
-            dados[f"valor_pais_exportacao{posicao}"] = valor_pais
+        # O Doc usa nome e valor na mesma frase; publicar só metade deixa o
+        # outro placeholder literal no PDF.
+        if nome_pais is None or valor_pais is None:
+            continue
+
+        dados[f"pais_exportacao{posicao}"] = nome_pais
+        dados[f"valor_pais_exportacao{posicao}"] = valor_pais
         if unidade_pais is not None:
             dados[f"valor_pais_exportacaounid{posicao}"] = unidade_pais
 
-        if nome_pais is not None and valor_pais is not None:
-            paises_exportacao.append(
-                (nome_pais, _valor_absoluto(valor_pais, unidade_pais))
-            )
+        paises_exportacao.append(
+            (nome_pais, _valor_absoluto(valor_pais, unidade_pais))
+        )
 
     # doc usa "exportacao1/2/3" (sem "pais_") pro nome do país nesta seção
     for posicao in (1, 2, 3):
         if f"pais_exportacao{posicao}" in dados:
             dados[f"exportacao{posicao}"] = dados[f"pais_exportacao{posicao}"]
 
-    if paises_exportacao:
-        dados["exportacao_paises"] = paises_exportacao
+    # Sempre presente, mesmo vazia, como `importacao_paises`: município sem
+    # comércio exterior é resultado válido, não ausência de dado.
+    dados["exportacao_paises"] = paises_exportacao
 
     balanca_mensal = [
         (nome_mes, float(linha[f"valor_balanca_{mes}"]))

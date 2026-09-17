@@ -103,13 +103,23 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[str, ...]] = {
         "unidade_basica",
         "posto_saude",
     ),
-    # Fora do alinhamento com o catálogo de big numbers, por ora. O catálogo
-    # pede PIB, PIB per capita, carga tributária, exportação, importação e
-    # balança (todos existem na view), mas `carga_tributaria` é rotulada lá
-    # como "Receita tributária municipal", em R$ — valor arrecadado, não a
-    # razão sobre o PIB que o nome sugere. Resolver essa divergência com a
-    # equipe de dados antes de trocar os cards.
-    "economia-renda": ("renda_capita", "gini"),
+    # Os 6 que o Doc de economia pede (PR #126). Renda per capita e Gini saíram
+    # daqui e ficam só em `desenvolvimento-social`, para não repetir o mesmo
+    # número em dois macrotemas.
+    #
+    # A divergência de `carga_tributaria` que estava pendente aqui se resolve
+    # sozinha ao ler o rótulo da view: ela diz "Receita tributária municipal",
+    # que é o que o número realmente é (valor arrecadado em R$, não a razão
+    # sobre o PIB que "carga tributária" sugere). O nome da base continua
+    # enganoso; o card, não.
+    "economia-renda": (
+        "pib",
+        "pib_capita",
+        "carga_tributaria",
+        "exportacao",
+        "importacao",
+        "balanca",
+    ),
     "desenvolvimento-social": (
         "idhm",
         "idhm_educacao",

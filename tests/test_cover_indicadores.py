@@ -44,6 +44,32 @@ CONTEXTO = {
     "valor_gini": "0.58",
     "fonte_gini": "IBGE (2010)",
     "unid_gini": "Índice de Gini",
+    # Os 6 de economia (PR #126), quarteto copiado da linha real de Campina
+    # Grande: `unid_` é o que faz o card sair em R$ ou US$.
+    "nm_pib": "PIB",
+    "valor_pib": "12908743000",
+    "fonte_pib": "IBGE (2023)",
+    "unid_pib": "R$",
+    "nm_pib_capita": "PIB per capita",
+    "valor_pib_capita": "30780.61",
+    "fonte_pib_capita": "IBGE (2023)",
+    "unid_pib_capita": "R$ por habitante",
+    "nm_carga_tributaria": "Receita tributária municipal",
+    "valor_carga_tributaria": "277942183.71",
+    "fonte_carga_tributaria": "STN/FINBRA/SICONFI (2023)",
+    "unid_carga_tributaria": "R$",
+    "nm_exportacao": "Exportações",
+    "valor_exportacao": "3560041.00",
+    "fonte_exportacao": "SECEX (junho de 2026)",
+    "unid_exportacao": "US$ FOB",
+    "nm_importacao": "Importações",
+    "valor_importacao": "10865532.00",
+    "fonte_importacao": "SECEX (junho de 2026)",
+    "unid_importacao": "US$ FOB",
+    "nm_balanca": "Balança comercial",
+    "valor_balanca": "-7305491.00",
+    "fonte_balanca": "SECEX (junho de 2026)",
+    "unid_balanca": "US$ FOB",
     "nm_asd": "Área suscetível à desertificação",
     "valor_asd": "590.55",
     "fonte_asd": "Xavier et al. (2019) e OCA",
@@ -220,6 +246,57 @@ def test_saude_le_os_seis_indicadores_da_view():
     assert cards["Nascidos vivos"]["valor"] == "5.693"
     assert cards["Mortalidade infantil"]["valor"] == "10,36"
     assert cards["Mortalidade infantil"]["fonte"] == "DATASUS (2025)"
+
+
+def test_economia_renda_nao_mostra_renda_capita_nem_gini():
+    # O Doc de economia pede só 6 indicadores (PIB, PIB per capita, Receita
+    # tributária, Exportação, Importação, Balança comercial); Renda per capita
+    # e Índice de Gini pertencem a desenvolvimento-social, não aqui — senão o
+    # mesmo número aparece em dois macrotemas.
+    valores = _por_nome(montar_indicadores_macrotema("economia-renda", CONTEXTO))
+
+    assert "Renda per capita" not in valores
+    assert "Índice de Gini" not in valores
+
+
+def test_economia_renda_mostra_os_6_indicadores_da_view():
+    valores = _por_nome(montar_indicadores_macrotema("economia-renda", CONTEXTO))
+
+    assert valores["PIB"] == "R$ 12.908.743.000"
+    assert valores["PIB per capita"] == "R$ 30.780,61"
+    assert valores["Receita tributária municipal"] == "R$ 277.942.183,71"
+    assert valores["Exportações"] == "US$ 3.560.041"
+    assert valores["Importações"] == "US$ 10.865.532"
+    assert valores["Balança comercial"] == "US$ -7.305.491"
+
+
+def test_economia_le_o_mes_de_referencia_do_secex_direto_da_view():
+    # O mês do SECEX muda a cada carga. Fixar "SECEX" no código deixaria o
+    # relatório do mês seguinte desatualizado — era o que `fonte_coluna` (#126)
+    # resolvia caso a caso e que ler `fonte_<base>` da view agora faz por
+    # padrão, para todos os cards.
+    contexto = {**CONTEXTO, "fonte_exportacao": "SECEX (março de 2027)"}
+    fontes = {
+        item["nome"]: item["fonte"]
+        for item in montar_indicadores_macrotema("economia-renda", contexto)
+    }
+
+    assert fontes["Exportações"] == "SECEX (março de 2027)"
+    assert fontes["PIB"] == "IBGE (2023)"
+
+
+def test_economia_sem_fonte_na_view_nao_inventa_texto_fixo():
+    # Mudança de comportamento em relação à #126: não existe mais fallback
+    # para um "SECEX" fixo no código. Sem `fonte_<base>`, o card sai com fonte
+    # vazia — a lacuna fica visível na capa em vez de ser mascarada por um
+    # texto que o banco não confirmou.
+    contexto = {**CONTEXTO, "fonte_exportacao": None}
+    fontes = {
+        item["nome"]: item["fonte"]
+        for item in montar_indicadores_macrotema("economia-renda", contexto)
+    }
+
+    assert fontes["Exportações"] == ""
 
 
 def test_indicadores_diferem_entre_macrotemas():
