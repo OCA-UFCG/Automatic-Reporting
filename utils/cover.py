@@ -1,6 +1,10 @@
 from datetime import datetime
 
-from utils.formatting import coerce_para_float, formatar_numero_ptbr
+from utils.formatting import (
+    coerce_para_float,
+    formatar_numero_ptbr,
+    valor_sem_sentinela,
+)
 from utils.geografia import separar_cidade_uf
 
 
@@ -157,8 +161,13 @@ def _formatar_valor_indicador(
     if valor is None:
         return None
 
+    # O fallback CSV não passa pela normalização de utils/queries/base.py.
+    valor = valor_sem_sentinela(valor)
+    if valor is None:
+        return None
+
     texto_bruto = str(valor).strip()
-    if not texto_bruto or texto_bruto.casefold() == "não há dados":
+    if not texto_bruto:
         return None
 
     texto = formatar_numero_ptbr(valor, decimais=decimais)
