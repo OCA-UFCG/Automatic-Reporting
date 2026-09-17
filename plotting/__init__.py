@@ -35,7 +35,11 @@ _ARQUIVOS_INTER = (
 # Multiplicador aplicado a todos os tamanhos de fonte dos gráficos (fontsize/
 # labelsize). Preserva as proporções entre os textos; ajuste este único número
 # para deixar os rótulos/números maiores ou menores de forma uniforme.
-ESCALA_FONTE = 1.35
+ESCALA_FONTE = 1.0
+
+# Respiro entre o conteúdo e a moldura do card, em POLEGADAS: em fração do
+# figsize o mesmo valor virava um gap diferente em cada gráfico.
+_CARD_PAD_POL = 0.3
 
 
 def _registrar_inter() -> None:
@@ -77,7 +81,7 @@ def iniciar_card_grafico(
     titulo: str,
     altura_header: float = 0.14,
     margem_esquerda: float = 0.16,
-    margem_direita: float = 0.045,
+    margem_direita: float | None = None,
     tamanho_titulo: float = 11.5,
 ) -> tuple[Figure, "plt.Axes"]:
     # `margem_esquerda` default (0.16) reserva espaço pra rótulos de
@@ -129,10 +133,14 @@ def iniciar_card_grafico(
         zorder=3,
     )
 
+    largura_pol, altura_pol = figsize
+    pad_x = _CARD_PAD_POL / largura_pol
+    pad_y = _CARD_PAD_POL / altura_pol
+
     corpo_esq = margem + margem_esquerda
-    corpo_dir = 1 - margem - margem_direita
-    corpo_topo = 1 - margem - altura_header - 0.03
-    corpo_base = margem + 0.06
+    corpo_dir = 1 - margem - (pad_x if margem_direita is None else margem_direita)
+    corpo_topo = 1 - margem - altura_header - pad_y
+    corpo_base = margem + pad_y
     ax = fig.add_axes(
         (corpo_esq, corpo_base, corpo_dir - corpo_esq, corpo_topo - corpo_base)
     )
@@ -141,7 +149,7 @@ def iniciar_card_grafico(
 
 
 def ajustar_margem_esquerda_para_rotulos(
-    fig: Figure, ax: "plt.Axes", pad_polegadas: float = 0.08
+    fig: Figure, ax: "plt.Axes", pad_polegadas: float = _CARD_PAD_POL
 ) -> None:
     # `margem_esquerda` de `iniciar_card_grafico` é um valor fixo, pensado
     # pro caso comum; rótulos de categoria mais longos que o previsto (ex.:
