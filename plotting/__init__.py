@@ -37,9 +37,7 @@ _ARQUIVOS_INTER = (
 # para deixar os rótulos/números maiores ou menores de forma uniforme.
 ESCALA_FONTE = 1.0
 
-# Respiro entre o conteúdo e a moldura do card, em POLEGADAS: em fração do
-# figsize o mesmo valor virava um gap diferente em cada gráfico.
-_CARD_PAD_POL = 0.3
+_CARD_PAD_POLEGADAS = 0.3
 
 
 def _registrar_inter() -> None:
@@ -134,8 +132,8 @@ def iniciar_card_grafico(
     )
 
     largura_pol, altura_pol = figsize
-    pad_x = _CARD_PAD_POL / largura_pol
-    pad_y = _CARD_PAD_POL / altura_pol
+    pad_x = _CARD_PAD_POLEGADAS / largura_pol
+    pad_y = _CARD_PAD_POLEGADAS / altura_pol
 
     corpo_esq = margem + margem_esquerda
     corpo_dir = 1 - margem - (pad_x if margem_direita is None else margem_direita)
@@ -149,7 +147,7 @@ def iniciar_card_grafico(
 
 
 def ajustar_margem_esquerda_para_rotulos(
-    fig: Figure, ax: "plt.Axes", pad_polegadas: float = _CARD_PAD_POL
+    fig: Figure, ax: "plt.Axes", pad_polegadas: float = _CARD_PAD_POLEGADAS
 ) -> None:
     # `margem_esquerda` de `iniciar_card_grafico` é um valor fixo, pensado
     # pro caso comum; rótulos de categoria mais longos que o previsto (ex.:
@@ -221,8 +219,6 @@ def ajustar_margem_esquerda_para_rotulos(
             0.5,
             transform=transformacao,
         )
-        # A âncora de um texto rotacionado não é o centro visual da bbox
-        # (o `va` vira horizontal): mede o resultado e corrige.
         fig.canvas.draw()
         desvio_px = (
             x_desejado_px
@@ -241,7 +237,6 @@ def salvar_card_grafico(fig: Figure, chart_file: pathlib.Path, dpi: int = 180) -
     # a borda esquerda do card. Roda aqui, no caminho por onde todo card passa,
     # em vez de depender de cada `gerar_grafico_*` lembrar de chamar: é no-op
     # quando não há yticklabels ou quando eles já cabem na margem.
-    # `fig.axes[0]`: `iniciar_card_grafico` faz o único `add_axes` da figura.
     if fig.axes:
         ajustar_margem_esquerda_para_rotulos(fig, fig.axes[0])
     # Sem bbox_inches="tight": a moldura já foi posicionada em coordenadas de

@@ -106,8 +106,6 @@ _CONFIG_GRAFICOS = {
 def _html_figura_grafico(
     tipo: str, chart_file: str, largura_maxima: str, estilo_flex: str
 ) -> str:
-    """Monta o ``<figure>`` de um gráfico; ``estilo_flex`` é vazio quando a
-    figura é a única da linha (ver ``texto_para_html``)."""
     return (
         f'<figure style="text-align:center; margin:0;{estilo_flex}">'
         f'<img src="/output/{html_module.escape(chart_file)}" '
@@ -804,8 +802,6 @@ def texto_para_html(
                     _MARGEM_VERTICAL_GRAFICOS_PADRAO,
                 )
                 if len(figuras) == 1:
-                    # Sem `display:flex`: dentro dele o `<figure>` voltaria a
-                    # ser item flex e a imagem colapsaria de novo.
                     envoltorio = (
                         '<div style="text-align:center; '
                         f"margin:{margem_vertical} 0 {_MARGEM_INFERIOR_GRAFICOS};\">"
