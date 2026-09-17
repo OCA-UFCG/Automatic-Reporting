@@ -179,9 +179,9 @@ def ajustar_margem_esquerda_para_rotulos(
     tem_ylabel = bool(rotulo_eixo.get_text())
     largura_ylabel_px = 0.0
     if tem_ylabel:
-        # A largura de um texto rotacionado 90° é a ALTURA da sua bbox, não a
-        # largura (que, rotacionado, vira ~0).
-        largura_ylabel_px = rotulo_eixo.get_window_extent(renderer=renderer).height
+        # A bbox já vem rotacionada: a faixa que o rótulo em pé ocupa é a
+        # `.width`; a `.height` é o comprimento do texto.
+        largura_ylabel_px = rotulo_eixo.get_window_extent(renderer=renderer).width
 
     bloco_ylabel_px = (largura_ylabel_px + pad_px) if tem_ylabel else 0
     inicio_ticks_desejado_px = borda_card_px + pad_px + bloco_ylabel_px
@@ -206,11 +206,26 @@ def ajustar_margem_esquerda_para_rotulos(
         # Não confia no reflow automático do `ylabel` pra acompanhar esse
         # `set_position` manual: pina a posição direto, centralizada no
         # bloco reservado pra ele logo depois da borda do card.
+        transformacao = blended_transform_factory(fig.transFigure, ax.transAxes)
+        x_desejado_px = borda_card_px + pad_px
         ax.yaxis.set_label_coords(
-            (borda_card_px + pad_px + largura_ylabel_px / 2) / largura_fig_px,
+            (x_desejado_px + largura_ylabel_px / 2) / largura_fig_px,
             0.5,
-            transform=blended_transform_factory(fig.transFigure, ax.transAxes),
+            transform=transformacao,
         )
+        # A âncora de um texto rotacionado não é o centro visual da bbox
+        # (o `va` vira horizontal): mede o resultado e corrige.
+        fig.canvas.draw()
+        desvio_px = (
+            x_desejado_px
+            - rotulo_eixo.get_window_extent(renderer=fig.canvas.get_renderer()).x0
+        )
+        if abs(desvio_px) > 0.5:
+            ax.yaxis.set_label_coords(
+                (x_desejado_px + largura_ylabel_px / 2 + desvio_px) / largura_fig_px,
+                0.5,
+                transform=transformacao,
+            )
 
 
 def salvar_card_grafico(fig: Figure, chart_file: pathlib.Path, dpi: int = 180) -> None:
@@ -218,6 +233,7 @@ def salvar_card_grafico(fig: Figure, chart_file: pathlib.Path, dpi: int = 180) -
     # a borda esquerda do card. Roda aqui, no caminho por onde todo card passa,
     # em vez de depender de cada `gerar_grafico_*` lembrar de chamar: é no-op
     # quando não há yticklabels ou quando eles já cabem na margem.
+    # `fig.axes[0]`: `iniciar_card_grafico` faz o único `add_axes` da figura.
     if fig.axes:
         ajustar_margem_esquerda_para_rotulos(fig, fig.axes[0])
     # Sem bbox_inches="tight": a moldura já foi posicionada em coordenadas de
