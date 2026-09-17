@@ -54,14 +54,64 @@ Além disso, o texto pode ter **trechos que só aparecem em algumas cidades** �
 - **Faltava o dois-pontos** em várias regras (UC de 2 a 4, UC 5 ou mais, condições de aridez) — por isso, mesmo sem querer, todos esses parágrafos apareciam juntos, pra qualquer cidade. → Corrigido, e cada regra agora só ativa o parágrafo certo.
 - **"Unidade" no singular** onde deveria ser "Unidades" (quando são 2, 3 ou mais). → Corrigido para o plural.
 - **Um dos painéis do rodapé (Fontes) não tinha link nenhum**, só o nome escrito. → Adicionado o campo do link.
-- **Operador antes do campo** (`Para quando for 0 ambiente.$n_uc:`) e uso de `"apenas 1"` em vez de um operador reconhecido — nenhuma das seis regras de UC era avaliada, e como as regras de `$n_uc` sozinho (0/1/5+) não religam sozinhas no fim do parágrafo, isso também apagava o parágrafo de aridez logo depois, até a próxima palavra "Síntese". → Reescrito com o campo antes do operador (regra 3 acima).
-- **Campo errado nos parágrafos de UC** (`$area_total` no parágrafo de 1 UC, `$area` nos parágrafos de 2+ UC) — o campo correto, confirmado direto na view (`relatorios_auto.ambiente`), é `$area_total_uc` em todos eles. → Corrigido.
+- **Bloco condicional falso engolia o resto da seção.** As regras de `$n_uc`
+  sozinho (0, 1, 5+) não "religavam" o texto no fim do parágrafo. Como
+  `Para quando ... for maior ou igual a 5` é a última regra de UC, todo município
+  com menos de 5 UCs perdia os parágrafos de aridez e desertificação **e** a
+  legenda `Figura X` — e sem legenda o gráfico também não entra. → Corrigido
+  no código (`utils/render/placeholders.py`), não no Doc.
+- **"Sem dado" virava "zero".** Nas regras compostas, um `$n_protecao_pi` /
+  `$n_protecao_us` ausente na view era tratado como `0`, e o relatório
+  afirmava "todas são Proteção Integral" num município onde a classificação
+  apenas não foi informada. → Corrigido no código: regra que depende de campo
+  sem dado não se aplica.
+
+## Pendências no Doc (ainda NÃO aplicadas)
+
+Estas dependem de edição no Google Docs.
+
+1. **Regra malformada, parágrafo morto.** O Doc tem hoje:
+   `Para quando for de 2 a 4 ambiente.$n_uc e apenas 1 ambiente.$n_protecao_us, então:`
+   Isso viola a regra de ouro 3 (operador antes do campo) e usa `"apenas 1"`,
+   que não é um operador reconhecido. Verificado: essa regra **nunca** ativa,
+   para nenhum município — o parágrafo de "Uso Sustentável" está morto.
+2. **Campo de área errado — o mais perigoso da lista.** O Doc usa
+   `$area_total` (parágrafo de 1 UC) e `$area` (parágrafos de 2+ UC). O
+   correto é `$area_total_uc` nos dois casos.
+   - `$area_total` não existe e fica literal no relatório: bug feio, mas
+     visível.
+   - `$area` **existe** — resolve por alias para `area_territorial`, a área
+     **do município inteiro, em km²**. O texto então imprime "totalizando
+     594,2 hectares de área protegida" para um município de 594,2 km²: número
+     plausível, quantidade errada e unidade errada. Ninguém percebe lendo.
+     Verificado com `substituir_placeholders`.
+3. **Falta a alternativa "grupo não informado"** (quando `$n_protecao_pi` e
+   `$n_protecao_us` são ambos 0). Sem ela, duas regras ficam verdadeiras ao
+   mesmo tempo e o texto se contradiz.
+4. **`de Unidade` no singular.** `há ambiente.$n_uc de Unidade de Conservação`
+   sai como "há 3 de Unidade de Conservação". Deve ser
+   `há ambiente.$n_uc Unidades de Conservação`.
+5. **Bioma duplicado.** Um dos parágrafos escreve
+   `inserida no bioma ambiente.$bioma`, e `$bioma` já vem com essa frase
+   pronta (regra de ouro 6) — sai "inserida no bioma inserida no bioma X".
+6. **Ano da legenda.** A legenda diz "para o ano de 2020"; os dados de aridez
+   são de 2021 (colunas `area_*2021_per`) e o parágrafo acima dela diz 2021.
+7. **Síntese com o mesmo campo duas vezes.**
+   `de ambiente.$area_semiarida1991_per % para ambiente.$area_semiarida1991_per %`
+   imprime o mesmo número dos dois lados do "de X para Y" — sempre uma frase
+   do tipo "avanço de 49,4% para 49,4%". O segundo deve ser
+   `$area_semiarida2021_per`, nome confirmado em `plotting/meio_ambiente.py`,
+   que lê essa coluna do mesmo contexto para montar o gráfico de aridez.
+   Na mesma frase: "à registrada em **1990**" onde o resto do texto diz 1991,
+   `$n_uc Unidade de Conservação registrada` no singular fixo (vira "3 Unidade
+   ... registrada") e `$asd_per_2021` sem o `%` que o parágrafo equivalente do
+   corpo do texto tem.
 
 ## Sobre a Síntese e municípios sem alguns dados
 
 Alguns municípios têm menos dados do que outros (por exemplo, Fernando de Noronha não tem informação de clima/aridez, provavelmente por ser uma ilha). Pra esses casos, o texto tem uma versão alternativa da Síntese e do parágrafo de aridez, que aparece só quando o dado não existe. Se você for editar essas partes, mantenha as duas versões (com dado / sem dado) — não apague nenhuma, mesmo que pareça repetitivo.
 
-## Texto de referência (já revisado e testado)
+## Texto de referência (alvo: com TODAS as pendências acima aplicadas)
 
 ```
 descricao_tema = "As condições ambientais de um município podem indicar vulnerabilidades que demandam a atenção do poder público e influenciam o planejamento e as possibilidades de desenvolvimento local. Conhecê-las permite identificar áreas que demandam ações de conservação, proteção ou adaptação e considerar as características ambientais na elaboração de projetos e políticas públicas.
@@ -74,30 +124,34 @@ Para quando ambiente.$n_uc for igual a 1:
 
 Em ambiente.$nm_mun (ambiente.$sigla_uf) está registrada ambiente.$n_uc Unidade de Conservação (UC), ambiente.$nome_uc, com área de ambiente.$area_total_uc hectares, ambiente.$bioma. Criada em ambiente.$ano_criacao_uc1, a unidade pertence à esfera ambiente.$esfera_1uc, está enquadrada na categoria ambiente.$categoria_uc1 e integra o grupo de ambiente.$grupo_uc1.
 
-Para quando ambiente.$n_uc for de 2 a 4 e ambiente.$n_protecao_us for igual a 0:
+Para quando ambiente.$n_uc for de 2 a 4 e ambiente.$n_protecao_pi for diferente de 0 e ambiente.$n_protecao_us for igual a 0:
 
-Em ambiente.$nm_mun (ambiente.$sigla_uf), há ambiente.$n_uc de Unidade de Conservação (UC), totalizando ambiente.$area_total_uc hectares de área protegida, inserida no bioma ambiente.$bioma. As UCs presentes no município são: ambiente.$nome_uc. Todas as unidades estão enquadradas no grupo de Proteção Integral.
+Em ambiente.$nm_mun (ambiente.$sigla_uf), há ambiente.$n_uc Unidades de Conservação (UC), totalizando ambiente.$area_total_uc hectares de área protegida, ambiente.$bioma. As UCs presentes no município são: ambiente.$nome_uc. Todas as unidades estão enquadradas no grupo de Proteção Integral.
 
-Para quando ambiente.$n_uc for de 2 a 4 e ambiente.$n_protecao_pi for igual a 0:
+Para quando ambiente.$n_uc for de 2 a 4 e ambiente.$n_protecao_pi for igual a 0 e ambiente.$n_protecao_us for diferente de 0:
 
-Em ambiente.$nm_mun (ambiente.$sigla_uf), há ambiente.$n_uc de Unidade de Conservação (UC), totalizando ambiente.$area_total_uc hectares de área protegida, ambiente.$bioma. As UCs presentes no município são: ambiente.$nome_uc. Todas as unidades estão enquadradas no grupo de Uso sustentável.
+Em ambiente.$nm_mun (ambiente.$sigla_uf), há ambiente.$n_uc Unidades de Conservação (UC), totalizando ambiente.$area_total_uc hectares de área protegida, ambiente.$bioma. As UCs presentes no município são: ambiente.$nome_uc. Todas as unidades estão enquadradas no grupo de Uso sustentável.
+
+Para quando ambiente.$n_uc for de 2 a 4 e ambiente.$n_protecao_pi for igual a 0 e ambiente.$n_protecao_us for igual a 0:
+
+Em ambiente.$nm_mun (ambiente.$sigla_uf), há ambiente.$n_uc Unidades de Conservação (UC), totalizando ambiente.$area_total_uc hectares de área protegida, ambiente.$bioma. As UCs presentes no município são: ambiente.$nome_uc. O grupo de manejo dessas unidades não está informado na fonte consultada.
 
 Para quando ambiente.$n_uc for de 2 a 4 e ambiente.$n_protecao_pi for diferente de 0 e ambiente.$n_protecao_us for diferente de 0:
 
-Em ambiente.$nm_mun (ambiente.$sigla_uf), há ambiente.$n_uc de Unidade de Conservação (UC), totalizando ambiente.$area_total_uc hectares de área protegida, ambiente.$bioma. As UCs presentes no município são: ambiente.$nome_uc. Desse total, ambiente.$n_protecao_pi unidades estão enquadradas no grupo de Proteção Integral, enquanto ambiente.$n_protecao_us unidades pertencem ao grupo de Uso Sustentável.
+Em ambiente.$nm_mun (ambiente.$sigla_uf), há ambiente.$n_uc Unidades de Conservação (UC), totalizando ambiente.$area_total_uc hectares de área protegida, ambiente.$bioma. As UCs presentes no município são: ambiente.$nome_uc. Desse total, ambiente.$n_protecao_pi unidades estão enquadradas no grupo de Proteção Integral, enquanto ambiente.$n_protecao_us unidades pertencem ao grupo de Uso Sustentável.
 
 Para quando ambiente.$n_uc for maior ou igual a 5:
 
-Em ambiente.$nm_mun (ambiente.$sigla_uf), há ambiente.$n_uc de Unidade de Conservação (UC), totalizando ambiente.$area_total_uc hectares, ambiente.$bioma. Desse total, ambiente.$n_protecao_pi unidades estão enquadradas no grupo de Proteção Integral, enquanto ambiente.$n_protecao_us unidades pertencem ao grupo de Uso Sustentável. As UCs presentes no município são: ambiente.$nome_uc.
+Em ambiente.$nm_mun (ambiente.$sigla_uf), há ambiente.$n_uc Unidades de Conservação (UC), totalizando ambiente.$area_total_uc hectares, ambiente.$bioma. Desse total, ambiente.$n_protecao_pi unidades estão enquadradas no grupo de Proteção Integral, enquanto ambiente.$n_protecao_us unidades pertencem ao grupo de Uso Sustentável. As UCs presentes no município são: ambiente.$nome_uc.
 
 Entre 1991 e 2021, o clima de ambiente.$nm_mun (ambiente.$sigla_uf) apresentou mudanças na distribuição de suas classes de aridez. Em 1991, o território municipal, de ambiente.$area_mun km², distribuía-se em ambiente.$aridez_texto_condicao1991. Em 2021, a condição ambiente.$aridez_texto_condicao2021. O avanço da condição de aridez sobre áreas anteriormente classificadas como mais úmidas indica um processo de aridização do território, tendência observada em diversos municípios do Semiárido brasileiro e associada ao aumento do risco de degradação da terra.
 Em 2021, ambiente.$asd_per_2021 % do território municipal (ambiente.$asd_2021 km²) permanecia inserido em área suscetível à desertificação, extensão ambiente.$analise_asd_per1991_2021 à registrada em 1991. O avanço ou a permanência da totalidade do território nessa condição ao longo de três décadas evidencia que a suscetibilidade à desertificação é uma característica estrutural do município, que deve ser considerada no planejamento territorial, na gestão dos recursos hídricos e nas ações de prevenção da degradação da terra.
 
-Figura X - Classificação das condições de aridez em ambiente.$nm_mun (ambiente.$sigla_uf) para o ano de 2020.
+Figura X - Classificação das condições de aridez em ambiente.$nm_mun (ambiente.$sigla_uf) para o ano de 2021.
 
 Síntese
 
-Os dados ambientais de ambiente.$nm_mun (ambiente.$sigla_uf) indicam elementos relevantes para o planejamento local. O município conta com ambiente.$n_uc Unidade de Conservação registrada e, em 2021, tinha ambiente.$asd_per_2021 do seu território inserido em área suscetível à desertificação, extensão ambiente.$analise_asd_per1991_2021 à registrada em 1990. No mesmo período, as condições de aridez ambiente.$analise_aridez, com avanço da condição semiárida de ambiente.$area_semiarida1991_per % para ambiente.$area_semiarida1991_per % da área municipal."@@
+Os dados ambientais de ambiente.$nm_mun (ambiente.$sigla_uf) indicam elementos relevantes para o planejamento local. O município conta com ambiente.$n_uc Unidade(s) de Conservação registrada(s) e, em 2021, tinha ambiente.$asd_per_2021 % do seu território inserido em área suscetível à desertificação, extensão ambiente.$analise_asd_per1991_2021 à registrada em 1991. No mesmo período, as condições de aridez ambiente.$analise_aridez, com avanço da condição semiárida de ambiente.$area_semiarida1991_per % para ambiente.$area_semiarida2021_per % da área municipal."@@
 
 #!Fontes
 
