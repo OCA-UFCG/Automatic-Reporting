@@ -103,6 +103,26 @@ def evict_cache_if_needed(protegido: str | None = None) -> list[str]:
     return removidos
 
 
+def limpar_tmp_orfaos() -> list[str]:
+    """Apaga os .tmp deixados por um render morto no meio. Roda só no startup:
+    nenhum .tmp está em uso antes de a app aceitar request.
+
+    Existem porque a escrita atômica passou a usar mkstemp (nome único por
+    escritor, pra dois writers concorrentes não intercalarem bytes no mesmo
+    arquivo). Com o nome fixo de antes, o render seguinte sobrescrevia o resíduo;
+    com nome aleatório, ele fica — e não casa nenhum dos globs de eviction
+    (`relatorio_*.pdf`, `grafico_*.png`), então era a única categoria de artefato
+    sem teto de disco."""
+    removidos: list[str] = []
+    for tmp in OUTPUT_DIR.glob("*.tmp"):
+        try:
+            tmp.unlink()
+            removidos.append(tmp.name)
+        except FileNotFoundError:
+            pass
+    return removidos
+
+
 def evict_graficos_if_needed() -> list[str]:
     """Apaga gráficos mais antigos até o pool caber no teto. FIFO por mtime, igual
     ao evict_cache_if_needed acima (nunca toca mtime no acesso, mesmo motivo de

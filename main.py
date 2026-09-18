@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from fastapi import FastAPI, HTTPException
@@ -11,6 +12,7 @@ from services import (
     gerar_relatorio_handler,
     listar_relatorios_handler,
 )
+from services.cache import limpar_tmp_orfaos
 from utils.data.cities import carregar_cidades
 from utils.data.macrotemas import (
     MACROTEMAS,
@@ -23,11 +25,9 @@ from utils.ssr import stop_server as stop_ssr_server
 logger = logging.getLogger(__name__)
 
 
-def _avisar_se_mv_indicadores_faltar() -> None:
-    """Aviso não-fatal no startup: os indicadores leem relatorios_auto.mv_indicadores,
-    criada por uma DDL manual e gated. Se a app subir antes da DDL, os indicadores
-    degradam silenciosamente — melhor um warning claro no log. Nunca levanta, nunca
-    bloqueia o startup e tolera o banco inacessível (tunnel fora do ar)."""
+def _checar_mv_indicadores() -> None:
+    """Corpo síncrono da checagem (psycopg2 bloqueia): connect + query + close.
+    Roda numa thread, ver _avisar_se_mv_indicadores_faltar abaixo."""
     try:
         from utils.database import get_connection
 
@@ -59,8 +59,33 @@ def _avisar_se_mv_indicadores_faltar() -> None:
         )
 
 
+async def _avisar_se_mv_indicadores_faltar() -> None:
+    """Aviso não-fatal no startup: os indicadores leem relatorios_auto.mv_indicadores,
+    criada por uma DDL manual e gated. Se a app subir antes da DDL, os indicadores
+    degradam silenciosamente — melhor um warning claro no log. Nunca levanta, nunca
+    bloqueia o startup e tolera o banco inacessível (tunnel fora do ar).
+
+    async + to_thread porque o Starlette roda handler de on_startup síncrono direto
+    no event loop: com o túnel fora do ar, o connect_timeout=5 de utils/database.py
+    prenderia o loop por 5s antes de a app aceitar a primeira conexão.
+    """
+    await asyncio.to_thread(_checar_mv_indicadores)
+
+
+def _limpar_tmp_orfaos_do_startup() -> None:
+    """Varre os .tmp de renders mortos (ver services.cache.limpar_tmp_orfaos).
+    Síncrono e barato: é um glob num diretório local, não bloqueia como o psycopg2."""
+    removidos = limpar_tmp_orfaos()
+    if removidos:
+        logger.info("Removidos %d .tmp órfãos de render interrompido.", len(removidos))
+
+
 app = FastAPI(
-    on_startup=[start_ssr_server, _avisar_se_mv_indicadores_faltar],
+    on_startup=[
+        start_ssr_server,
+        _limpar_tmp_orfaos_do_startup,
+        _avisar_se_mv_indicadores_faltar,
+    ],
     on_shutdown=[stop_ssr_server],
 )
 

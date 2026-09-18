@@ -157,3 +157,20 @@ def test_sem_ttl_o_marcador_manda_sozinho(output_tmp):
     png.write_bytes(b"png")
     os.utime(png, (time.time() - 86400, time.time() - 86400))  # 1 dia
     assert cache.artefato_fresco(png) is True
+
+
+def test_limpa_tmp_orfaos_sem_tocar_nos_artefatos(output_tmp):
+    # .tmp de render morto no meio: nome aleatório do mkstemp, não casa nenhum glob
+    # de eviction — era a única categoria sem teto de disco. Varrido no startup.
+    orfao = output_tmp / "relatorio_demografia__x.pdf.a1b2c3.tmp"
+    orfao.write_bytes(b"pdf parcial")
+    pdf = output_tmp / "relatorio_demografia__x.pdf"
+    pdf.write_bytes(b"pdf")
+    grafico = output_tmp / "grafico_pib_x.png"
+    grafico.write_bytes(b"png")
+
+    removidos = cache.limpar_tmp_orfaos()
+
+    assert removidos == [orfao.name]
+    assert not orfao.exists()
+    assert pdf.exists() and grafico.exists()
