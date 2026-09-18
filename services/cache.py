@@ -7,10 +7,12 @@ Se o marcador não existe, nada foi invalidado ainda -> tudo é fresco.
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
 from config import OUTPUT_DIR, REPORT_CACHE_MAX_BYTES
 from services.handlers import _artefatos_do_relatorio
+from utils.queries.base import limpar_cache_queries
 
 DATA_VERSION_FILE = OUTPUT_DIR / ".data_version"
 
@@ -69,3 +71,24 @@ def evict_cache_if_needed(protegido: str | None = None) -> list[str]:
                 pass
         removidos.append(pdf.name)
     return removidos
+
+
+# Query cache in-process (utils/queries/base.py) tem TTL de 6h: sem isto, um relatório
+# regenerado logo após o refresh das materialized views serviria número pré-refresh
+# por até 6h. _ultimo_data_version guarda o mtime já visto; lock porque o handler roda
+# concorrente entre requests.
+_ultimo_data_version: float = 0.0
+_dv_lock = threading.Lock()
+
+
+def invalidar_query_cache_se_dados_mudaram() -> bool:
+    """Se o .data_version avançou desde a última checagem, esvazia o cache de query
+    in-process. Retorna True se limpou, False se não havia mudança."""
+    global _ultimo_data_version
+    atual = _data_version_mtime()
+    with _dv_lock:
+        if atual > _ultimo_data_version:
+            _ultimo_data_version = atual
+            limpar_cache_queries()
+            return True
+    return False

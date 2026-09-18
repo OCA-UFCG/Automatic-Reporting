@@ -42,7 +42,11 @@ from plotting.saude import (
     gerar_grafico_publico_etario,
     gerar_grafico_taxa_mortalidade,
 )
-from services.cache import artefato_fresco, evict_cache_if_needed
+from services.cache import (
+    artefato_fresco,
+    evict_cache_if_needed,
+    invalidar_query_cache_se_dados_mudaram,
+)
 from services.csv_loader import (
     carregar_csv,
     get_csv_config_for_macrotema,
@@ -279,6 +283,10 @@ def montar_safe_report(
 
 
 async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
+    # Antes de qualquer coisa (inclusive o gate de frescor abaixo): se o dado mudou
+    # desde a última checagem, esvazia o query cache in-process (TTL 6h) pra não
+    # servir número pré-refresh num relatório que está sendo regenerado agora.
+    invalidar_query_cache_se_dados_mudaram()
     reset_figura_contador()
     try:
         macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)

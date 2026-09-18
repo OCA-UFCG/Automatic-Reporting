@@ -71,3 +71,14 @@ def test_eviction_nunca_remove_protegido(output_tmp, monkeypatch):
     removidos = cache.evict_cache_if_needed(protegido="demografia__novo")
     assert removidos == []
     assert p.exists()
+
+
+def test_invalida_query_cache_quando_data_version_avanca(output_tmp, monkeypatch):
+    chamadas = []
+    monkeypatch.setattr(cache, "limpar_cache_queries", lambda: chamadas.append(1))
+    monkeypatch.setattr(cache, "_ultimo_data_version", 0.0, raising=False)
+
+    (output_tmp / ".data_version").write_bytes(b"")
+    assert cache.invalidar_query_cache_se_dados_mudaram() is True   # avançou
+    assert cache.invalidar_query_cache_se_dados_mudaram() is False  # sem mudança
+    assert len(chamadas) == 1
