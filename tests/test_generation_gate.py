@@ -130,3 +130,29 @@ def test_lista_de_cidades_vazia_nao_bloqueia(tmp_path, monkeypatch):
 
     with pytest.raises(AssertionError, match="sem lista de cidades"):
         asyncio.run(gerar_relatorio_handler("Cidade Qualquer (XX)", "demografia"))
+
+
+def test_hit_identifica_o_artefato_no_header(tmp_path, monkeypatch):
+    # O portal precisa saber QUAL arquivo esta resposta representa. Sem isso ele
+    # adivinha por nome+mtime (substring do arquivo_pdf + gerado_apos) e, num HIT,
+    # o mtime não se move — o relatório fica "carregando" até o timeout do polling.
+    # Ver data-nordeste-frontend/src/features/reports/reportGateway.ts.
+    monkeypatch.setattr(generation, "OUTPUT_DIR", tmp_path)
+    monkeypatch.setattr(cache, "DATA_VERSION_FILE", tmp_path / ".data_version")
+
+    _, safe = _safe("Recife (PE)", "demografia")
+    (tmp_path / f"relatorio_{safe}.pdf").write_bytes(b"%PDF-cache")
+    (tmp_path / f"relatorio_{safe}.html").write_text("<html>CACHED</html>", "utf-8")
+
+    resp = asyncio.run(gerar_relatorio_handler("Recife (PE)", "demografia"))
+
+    assert resp.headers["X-Relatorio-Arquivo"] == f"relatorio_{safe}.pdf"
+
+
+def test_resposta_do_relatorio_carrega_html_e_artefato():
+    # Construtor único das duas saídas do handler (HIT e fim do pipeline), pra o
+    # header não existir só num dos caminhos.
+    resp = generation._resposta_do_relatorio("<html>X</html>", "demografia__recife_pe_")
+
+    assert resp.body.decode("utf-8") == "<html>X</html>"
+    assert resp.headers["X-Relatorio-Arquivo"] == "relatorio_demografia__recife_pe_.pdf"
