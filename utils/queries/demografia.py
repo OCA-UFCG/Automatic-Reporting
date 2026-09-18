@@ -25,7 +25,7 @@ MEDIA_CRESCIMENTO_MESMO_PORTE = """
         JOIN carac_mun.caracteristicas_municipais c ON c.cd_mun = p.cd_mun::text
         WHERE c.nm_mun = %s AND c.sigla_uf = %s
     )
-    SELECT AVG((p.pop_2022 - p.pop_2010) / NULLIF(p.pop_2010, 0) * 100.0)
+    SELECT AVG((p.pop_2022 - p.pop_2010)::numeric / NULLIF(p.pop_2010, 0) * 100.0)
     FROM populacoes p CROSS JOIN alvo a
     WHERE CASE
         WHEN a.pop_2022 <= 50000 THEN p.pop_2022 <= 50000
@@ -133,14 +133,6 @@ DEMOGRAFIA_SEXO_POR_FAIXA = """
 """
 
 
-FAIXAS_ETARIAS_LABELS = {
-    "0_14": "0 a 14",
-    "15_29": "15 a 29",
-    "30_59": "30 a 59",
-    "60_mais": "60 ou mais",
-}
-
-
 def buscar_demografia_sexo_faixa_etaria(
     nome_municipio: str, sigla_uf: str
 ) -> dict[str, object] | None:
@@ -176,19 +168,6 @@ def buscar_demografia_sexo_faixa_etaria(
         "pop_indigena": pop_indigena,
     }
 
-    faixas = {
-        "0_14": pop_etaria_0_14,
-        "15_29": pop_etaria_15_29,
-        "30_59": pop_etaria_30_59,
-        "60_mais": pop_etaria_60_mais,
-    }
-    faixa_maior = max(faixas, key=faixas.get)
-    dados["cat_etaria_maior"] = FAIXAS_ETARIAS_LABELS[faixa_maior]
-    dados["etaria_maior"] = faixas[faixa_maior]
-
-    faixa_menor = min(faixas, key=faixas.get)
-    dados["cat_etaria_menor"] = FAIXAS_ETARIAS_LABELS[faixa_menor]
-    dados["etaria_menor"] = faixas[faixa_menor]
     dados["pop_etaria_per_0_9"] = round(float(pop_etaria_0_9) / float(pop_total) * 100, 1)
     dados["pop_etaria_per_60_mais"] = round(float(pop_etaria_60_mais) / float(pop_total) * 100, 1)
     dados["dif_etaria_09_60"] = pop_etaria_60_mais - pop_etaria_0_9
@@ -223,6 +202,23 @@ def buscar_demografia_sexo_faixa_etaria(
         for faixa, mulheres, homens, _ordem in linhas_faixa_sexo
         if faixa is not None
     ]
+
+    # cat_etaria_maior/menor usam as mesmas faixas por década do gráfico da
+    # pirâmide etária (Figura 2), pra não citar no texto uma faixa ("0 a 14")
+    # que não existe na legenda do gráfico ao lado.
+    totais_por_faixa = {
+        faixa: (mulheres or 0) + (homens or 0)
+        for faixa, mulheres, homens, _ordem in linhas_faixa_sexo
+        if faixa is not None
+    }
+    if totais_por_faixa:
+        faixa_maior = max(totais_por_faixa, key=totais_por_faixa.get)
+        dados["cat_etaria_maior"] = faixa_maior
+        dados["etaria_maior"] = totais_por_faixa[faixa_maior]
+
+        faixa_menor = min(totais_por_faixa, key=totais_por_faixa.get)
+        dados["cat_etaria_menor"] = faixa_menor
+        dados["etaria_menor"] = totais_por_faixa[faixa_menor]
 
     return {campo: valor for campo, valor in dados.items() if valor is not None}
 
