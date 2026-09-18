@@ -103,7 +103,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          MARKER_FILE="$HOME/.cache/automatic-reporting/map-shapes-asset-id"
+          MARKER_FILE="$HOME/.cache/automatic-reporting/map-shapes-asset-id-beta"
           mkdir -p "$(dirname "$MARKER_FILE")"
 
           CURRENT_ID=$(curl -sf \
@@ -157,7 +157,7 @@ jobs:
             alpine sh -c "rm -rf /target/* && cp -a /source/. /target/"
 
           mkdir -p "$HOME/.cache/automatic-reporting"
-          echo "${{ steps.shapes_check.outputs.current_id }}" > "$HOME/.cache/automatic-reporting/map-shapes-asset-id"
+          echo "${{ steps.shapes_check.outputs.current_id }}" > "$HOME/.cache/automatic-reporting/map-shapes-asset-id-beta"
 
       - name: Validate map shape volume
         shell: bash

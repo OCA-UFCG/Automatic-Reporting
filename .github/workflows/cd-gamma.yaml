@@ -92,7 +92,42 @@ jobs:
             echo "Network already exists: $DOCKER_NETWORK_NAME"
           fi
 
+      # Mesma guarda do cd-beta, com marker proprio: MAP_SHAPE_VOLUME_NAME e
+      # variavel de repositorio (nenhum job declara environment), entao beta e
+      # gamma resolvem para a mesma string e so nao colidem por rodarem em
+      # maquinas diferentes — o sufixo no marker tira essa dependencia.
+      #
+      # Aqui os shapefiles NAO sao fallback: o gamma nao monta Mapas_png, entao
+      # buscar_mapa_estatico nunca acha nada e gerar_mapa_regiao e o unico caminho
+      # de mapa. Por isso o "Validate map shape volume" abaixo fica sem guarda:
+      # volume vazio com marker presente tem que derrubar o deploy, nao passar.
+      - name: Check if map shapes release changed
+        id: shapes_check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          MARKER_FILE="$HOME/.cache/automatic-reporting/map-shapes-asset-id-gamma"
+          mkdir -p "$(dirname "$MARKER_FILE")"
+
+          CURRENT_ID=$(curl -sf \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/map-shapes-2025" \
+            | python3 -c "import json, sys; print(json.load(sys.stdin)['assets'][0]['id'])")
+          PREVIOUS_ID=$(cat "$MARKER_FILE" 2>/dev/null || true)
+
+          echo "Asset id atual: $CURRENT_ID / salvo: ${PREVIOUS_ID:-<nenhum>}"
+
+          if [ "$CURRENT_ID" = "$PREVIOUS_ID" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "current_id=$CURRENT_ID" >> "$GITHUB_OUTPUT"
+
       - name: Download map shapes
+        if: steps.shapes_check.outputs.changed == 'true'
         shell: bash
         run: |
           rm -rf ./map_shape
@@ -104,6 +139,7 @@ jobs:
             --url "${{ secrets.MAP_SHAPE_ZIP_URL }}"
 
       - name: Debug downloaded map shape files on runner
+        if: steps.shapes_check.outputs.changed == 'true'
         shell: bash
         run: |
           echo "Current directory:"
@@ -116,12 +152,16 @@ jobs:
           find ./map_shape -maxdepth 5 -type f | grep -E '\.shp|\.shx|\.dbf|\.prj' || true
 
       - name: Copy map shapes into Docker volume
+        if: steps.shapes_check.outputs.changed == 'true'
         shell: bash
         run: |
           sudo docker run --rm \
             -v "${{ vars.MAP_SHAPE_VOLUME_NAME }}:/target" \
             -v "${{ github.workspace }}/map_shape:/source:ro" \
             alpine sh -c "rm -rf /target/* && cp -a /source/. /target/"
+
+          mkdir -p "$HOME/.cache/automatic-reporting"
+          echo "${{ steps.shapes_check.outputs.current_id }}" > "$HOME/.cache/automatic-reporting/map-shapes-asset-id-gamma"
 
       - name: Validate map shape volume
         shell: bash
