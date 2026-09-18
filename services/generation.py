@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import tempfile
 import unicodedata
 from datetime import datetime
 from pathlib import Path
@@ -1215,9 +1216,15 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             detail="Falha ao gerar o PDF do relatório.",
         )
 
-    # HTML atômico e por último: escreve em .tmp e os.replace no destino, depois do
-    # PDF já existir, pra o gate nunca ler um HTML meio-escrito.
-    tmp_html = output_file.with_name(output_file.name + ".tmp")
+    # HTML atômico e por último: escreve num .tmp e os.replace no destino, depois do
+    # PDF já existir, pra o gate nunca ler um HTML meio-escrito. O nome do .tmp é
+    # único por escritor (mkstemp): os.replace é atômico pro leitor, mas não impede
+    # dois writers concorrentes de intercalar bytes num .tmp de nome fixo.
+    fd, tmp_nome = tempfile.mkstemp(
+        dir=output_file.parent, prefix=output_file.name + ".", suffix=".tmp"
+    )
+    os.close(fd)
+    tmp_html = Path(tmp_nome)
     tmp_html.write_text(html_content, encoding="utf-8")
     os.replace(tmp_html, output_file)
 

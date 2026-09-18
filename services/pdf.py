@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import tempfile
 from pathlib import Path
 
 from weasyprint import HTML
@@ -28,7 +29,16 @@ def _gerar_pdf_sync(html_content: str, pdf_file: Path) -> bool:
     # Escrita atômica: renderiza num .tmp e só então os.replace no destino, pra o
     # gate de cache nunca ler um PDF meio-escrito (o handler async cede em cada
     # await, então requests da mesma chave se intercalam mesmo sob 1 worker).
-    tmp_file = pdf_file.with_name(pdf_file.name + ".tmp")
+    # O nome vem do mkstemp, não de um sufixo fixo: os.replace garante atomicidade
+    # pro LEITOR, mas não exclusão mútua entre ESCRITORES — e _gerar_pdf roda em
+    # asyncio.to_thread, então duas gerações simultâneas da mesma chave (as duas
+    # MISS, já que o par é apagado antes de regerar) intercalariam bytes no mesmo
+    # arquivo e publicariam um PDF corrompido com mtime novo, logo "fresco".
+    fd, tmp_nome = tempfile.mkstemp(
+        dir=pdf_file.parent, prefix=pdf_file.name + ".", suffix=".tmp"
+    )
+    os.close(fd)
+    tmp_file = Path(tmp_nome)
     try:
         pdf_html = _reescrever_srcs(html_content)
         HTML(string=pdf_html, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(tmp_file))
