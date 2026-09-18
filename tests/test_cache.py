@@ -174,3 +174,26 @@ def test_limpa_tmp_orfaos_sem_tocar_nos_artefatos(output_tmp):
     assert removidos == [orfao.name]
     assert not orfao.exists()
     assert pdf.exists() and grafico.exists()
+
+
+def test_invalidar_artefatos_em_disco_torna_o_png_de_grafico_stale(output_tmp):
+    # Regressão do deploy invisível: reusar_grafico não tem TTL, então um PNG
+    # desenhado por código antigo seguiria "fresco" até o refresh noturno. O
+    # startup move a marca d'água e força o redesenho no próximo acesso.
+    png = output_tmp / "grafico_pib_x.png"
+    png.write_bytes(b"png de codigo antigo")
+    assert cache.artefato_fresco(png) is True  # antes: reusado
+
+    time.sleep(0.01)
+    cache.invalidar_artefatos_em_disco()
+
+    assert cache.artefato_fresco(png) is False  # depois: redesenha
+    assert png.exists()  # invalidar != apagar
+
+
+def test_invalidar_artefatos_em_disco_cria_o_marcador_ausente(output_tmp):
+    # Primeiro boot num volume novo: o marcador não existe e o touch tem que
+    # criá-lo, não estourar.
+    assert not (output_tmp / ".data_version").exists()
+    cache.invalidar_artefatos_em_disco()
+    assert (output_tmp / ".data_version").exists()

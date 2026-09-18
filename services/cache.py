@@ -1,7 +1,8 @@
 """Cache em disco de relatórios prontos: frescor e limite de tamanho.
 
-Frescor = "gerado depois da última mudança de dado". A mudança é sinalizada
-por output/.data_version, tocado pelo refresh noturno das materialized views.
+Frescor = "gerado depois da última mudança". A mudança é sinalizada por
+output/.data_version, tocado pelo refresh noturno das materialized views (dado
+novo) e pelo startup da app (código novo — ver invalidar_artefatos_em_disco).
 Se o marcador não existe, nada foi invalidado ainda -> tudo é fresco.
 """
 
@@ -44,6 +45,21 @@ def artefato_fresco(caminho: Path, ttl_s: float | None = None) -> bool:
     if mtime <= _data_version_mtime():
         return False
     return ttl_s is None or (time.time() - mtime) < ttl_s
+
+
+def invalidar_artefatos_em_disco() -> None:
+    """Move a marca d'água para agora: tudo que está em disco passa a ser mais
+    velho que ela e regenera sob demanda. Não apaga nada.
+
+    Chamado no startup (main.py) porque o container só é recriado em deploy ou
+    reboot, e código novo invalida artefato tanto quanto dado novo: o PNG de
+    gráfico é função de (dados, código que desenha), e o marcador — tocado só
+    pelo refresh noturno das matviews — enxerga apenas a primeira metade. Sem
+    isto, um fix em plotting/ ficaria invisível atrás do reuso de
+    plotting.reusar_grafico até o próximo refresh (PR #130).
+    """
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    DATA_VERSION_FILE.touch()
 
 
 def _relatorios_por_idade() -> list[Path]:
