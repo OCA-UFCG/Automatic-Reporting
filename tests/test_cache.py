@@ -135,3 +135,25 @@ def test_invalida_query_cache_quando_data_version_avanca(output_tmp, monkeypatch
     assert cache.invalidar_query_cache_se_dados_mudaram() is True   # avançou
     assert cache.invalidar_query_cache_se_dados_mudaram() is False  # sem mudança
     assert len(chamadas) == 1
+
+
+def test_ttl_expira_artefato_que_o_marcador_nao_invalidaria(output_tmp):
+    # O marcador só enxerga mudança de banco. Um relatório velho continua "fresco"
+    # por ele mesmo depois de a editora corrigir o Google Doc — o TTL é o que fecha
+    # essa janela (config.REPORT_CACHE_TTL_S).
+    pdf = output_tmp / "relatorio_demografia__x.pdf"
+    pdf.write_bytes(b"pdf")
+    os.utime(pdf, (time.time() - 600, time.time() - 600))  # 10 min de idade
+
+    assert cache.artefato_fresco(pdf) is True             # marcador: fresco
+    assert cache.artefato_fresco(pdf, ttl_s=300) is False  # TTL de 5 min: expirou
+    assert cache.artefato_fresco(pdf, ttl_s=900) is True   # TTL de 15 min: ainda vale
+
+
+def test_sem_ttl_o_marcador_manda_sozinho(output_tmp):
+    # Caminho dos gráficos (plotting.reusar_grafico): dados vêm todos do banco, já
+    # cobertos pelo marcador — não devem expirar por tempo e regerar matplotlib à toa.
+    png = output_tmp / "grafico_pib_x.png"
+    png.write_bytes(b"png")
+    os.utime(png, (time.time() - 86400, time.time() - 86400))  # 1 dia
+    assert cache.artefato_fresco(png) is True

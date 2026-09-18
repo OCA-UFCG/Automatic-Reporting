@@ -8,6 +8,7 @@ Se o marcador não existe, nada foi invalidado ainda -> tudo é fresco.
 from __future__ import annotations
 
 import threading
+import time
 from pathlib import Path
 
 from config import GRAFICO_CACHE_MAX_BYTES, OUTPUT_DIR, REPORT_CACHE_MAX_BYTES
@@ -23,12 +24,26 @@ def _data_version_mtime() -> float:
         return 0.0  # sem marcador = dado nunca invalidado
 
 
-def artefato_fresco(caminho: Path) -> bool:
-    """True se o arquivo existe e foi gerado depois da última mudança de dado."""
+def artefato_fresco(caminho: Path, ttl_s: float | None = None) -> bool:
+    """True se o arquivo existe e foi gerado depois da última mudança de dado.
+
+    Com `ttl_s`, exige também que o arquivo tenha menos que esse tempo de vida.
+    O marcador é invalidação por evento: precisa, mas só enxerga o que alguém
+    lembrou de instrumentar (hoje, só o refresh das matviews). O TTL é
+    invalidação por tempo: imprecisa, mas cobre toda entrada que o marcador não
+    observa — o Doc editorial, os shapefiles, um PNG trocado à mão. Um é rede de
+    segurança do outro, não substituto: as duas condições valem juntas.
+
+    Sem `ttl_s` (default) só o marcador conta — é o caso dos gráficos, cujos
+    dados vêm todos do banco e portanto já estão cobertos por ele.
+    """
     try:
-        return caminho.stat().st_mtime > _data_version_mtime()
+        mtime = caminho.stat().st_mtime
     except FileNotFoundError:
         return False
+    if mtime <= _data_version_mtime():
+        return False
+    return ttl_s is None or (time.time() - mtime) < ttl_s
 
 
 def _relatorios_por_idade() -> list[Path]:

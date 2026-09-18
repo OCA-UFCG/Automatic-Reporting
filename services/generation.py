@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse
 from config import (
     CARACTERISTICAS_DOCS_URL,
     OUTPUT_DIR,
+    REPORT_CACHE_TTL_S,
     require_config_value,
     resolve_csv_source,
 )
@@ -66,7 +67,7 @@ from utils.cover import (
     montar_indicadores_macrotema,
     montar_score_macrotema,
 )
-from utils.data.cities import filtrar_linhas_por_cidade
+from utils.data.cities import carregar_cidades, filtrar_linhas_por_cidade
 from utils.data.macrotemas import TODOS_MACROTEMAS_SLUG
 from utils.external.docs import (
     carregar_texto_do_docs,
@@ -304,10 +305,33 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err))
+    # Valida a cidade ANTES do gate. O safe_city que vira chave de cache sai de um
+    # re.sub que colapsa toda pontuação num "_", então ele é lossy: "Recife (PE)" e
+    # "Recife (PE)!!!" produzem a mesma chave. Com o gate na frente da validação, a
+    # segunda daria HIT e devolveria 200 com o relatório de Recife em vez do 404 que
+    # o pipeline levantaria — o erro deixaria de ser reportado. A comparação é por
+    # casefold (tolerante a caixa, como o resto do fluxo) e não pela chave, que é
+    # justamente a forma que perde a informação. Lista vazia = cities.json ausente:
+    # segue sem validar, pra não transformar arquivo faltando em 404 em tudo.
+    cidades_conhecidas = carregar_cidades()
+    if cidades_conhecidas and cidade.strip().casefold() not in {
+        c.casefold() for c in cidades_conhecidas
+    }:
+        raise HTTPException(status_code=404, detail=f"Cidade '{cidade}' não encontrada.")
+
+    # Ordem canônica das seções: o combo chega do frontend na ordem em que o
+    # usuário clicou nos checkboxes (frontend/src/App.jsx:105), que é ruído de
+    # interação, não escolha. Fixá-la aqui é o que torna verdadeira a chave
+    # normalizada de montar_safe_report — sem isso, dois cliques em ordens
+    # diferentes produzem documentos distintos disputando a mesma entrada de cache.
+    macrotema_slugs = sorted(macrotema_slugs, key=TODOS_MACROTEMAS_ORDEM.index)
     safe_city, safe_report = montar_safe_report(cidade, macrotema, macrotema_slugs)
     pdf_cache, html_cache = _caminhos_relatorio(safe_report)
-    # HIT: os dois artefatos existem e são mais novos que a última mudança de dado.
-    if artefato_fresco(pdf_cache) and artefato_fresco(html_cache):
+    # HIT: os dois artefatos existem, são mais novos que a última mudança de dado
+    # e estão dentro do TTL (ver config.REPORT_CACHE_TTL_S para o porquê do teto).
+    if artefato_fresco(pdf_cache, REPORT_CACHE_TTL_S) and artefato_fresco(
+        html_cache, REPORT_CACHE_TTL_S
+    ):
         return HTMLResponse(content=html_cache.read_text(encoding="utf-8"))
     gerado_em = datetime.now().astimezone()
 
