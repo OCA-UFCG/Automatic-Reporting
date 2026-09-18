@@ -47,6 +47,7 @@ from plotting.saude import (
 from services.cache import (
     artefato_fresco,
     evict_cache_if_needed,
+    evict_graficos_if_needed,
     invalidar_query_cache_se_dados_mudaram,
 )
 from services.csv_loader import (
@@ -1197,5 +1198,6 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     os.replace(tmp_html, output_file)
 
     evict_cache_if_needed(protegido=safe_report)
+    evict_graficos_if_needed()
 
     return HTMLResponse(content=html_content)

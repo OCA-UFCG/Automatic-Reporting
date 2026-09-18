@@ -10,7 +10,7 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
-from config import OUTPUT_DIR, REPORT_CACHE_MAX_BYTES
+from config import GRAFICO_CACHE_MAX_BYTES, OUTPUT_DIR, REPORT_CACHE_MAX_BYTES
 from utils.queries.base import limpar_cache_queries
 
 DATA_VERSION_FILE = OUTPUT_DIR / ".data_version"
@@ -85,6 +85,41 @@ def evict_cache_if_needed(protegido: str | None = None) -> list[str]:
             except FileNotFoundError:
                 pass
         removidos.append(pdf.name)
+    return removidos
+
+
+def evict_graficos_if_needed() -> list[str]:
+    """Apaga gráficos mais antigos até o pool caber no teto. FIFO por mtime, igual
+    ao evict_cache_if_needed acima (nunca toca mtime no acesso, mesmo motivo de
+    frescor). Sem dono único (compartilhados por cidade), então não dá pra
+    proteger um "protegido" específico como no eviction de relatório.
+
+    ponytail: FIFO, não referência-contada. Os gráficos mais antigos tendem a
+    pertencer aos relatórios mais antigos (já evictados antes deste). Um gráfico
+    ainda referenciado por um relatório fresco pode, em tese, ser apagado aqui —
+    mas o PDF já embute suas imagens (não é afetado) e o entregável principal é o
+    PDF baixado, não o HTML servido depois; reconstituir o PNG sob demanda no
+    próximo combo é aceitável. Sem contagem de referência por ora."""
+    graficos = sorted(
+        (p for p in OUTPUT_DIR.glob("grafico_*.png") if p.is_file()),
+        key=lambda p: p.stat().st_mtime,
+    )
+    total = 0
+    for g in graficos:
+        try:
+            total += g.stat().st_size
+        except FileNotFoundError:
+            pass
+    removidos: list[str] = []
+    for g in graficos:
+        if total <= GRAFICO_CACHE_MAX_BYTES:
+            break
+        try:
+            total -= g.stat().st_size
+            g.unlink()
+        except FileNotFoundError:
+            pass
+        removidos.append(g.name)
     return removidos
 
 

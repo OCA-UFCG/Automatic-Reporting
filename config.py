@@ -61,6 +61,10 @@ QUERY_CACHE_MAX = int(get_config_value("QUERY_CACHE_MAX") or "256")
 # Teto do cache de relatórios em disco. Ao ultrapassar, os relatórios mais
 # antigos são apagados (eviction FIFO por mtime). Ajustável por env.
 REPORT_CACHE_MAX_BYTES = int(get_config_value("REPORT_CACHE_MAX_BYTES") or str(1024 ** 3))  # 1 GiB
+# Teto do pool de gráficos (grafico_*.png), compartilhados entre cidades e fora do
+# teto acima (ver services/cache.py). Sem isso o pool cresce sem limite. Ajustável
+# por env.
+GRAFICO_CACHE_MAX_BYTES = int(get_config_value("GRAFICO_CACHE_MAX_BYTES") or str(512 * 1024 ** 2))  # 512 MiB
 
 MACROTEMAS = {
     "demografia": {

@@ -88,6 +88,44 @@ def test_eviction_nao_apaga_graficos_compartilhados_por_cidade(output_tmp, monke
     assert grafico.exists()  # gráfico compartilhado sobrevive
 
 
+def test_evict_graficos_remove_mais_antigos_ate_caber(output_tmp, monkeypatch):
+    # Pool de gráficos compartilhados por cidade (D6): sem dono único, precisa do
+    # próprio teto FIFO por mtime, igual ao dos relatórios.
+    monkeypatch.setattr(cache, "GRAFICO_CACHE_MAX_BYTES", 2500)
+    nomes = ["x", "y", "z"]
+    for i, n in enumerate(nomes):
+        p = output_tmp / f"grafico_{n}.png"
+        p.write_bytes(b"x" * 1000)
+        os.utime(p, (1000 + i, 1000 + i))  # x mais velho, z mais novo
+
+    removidos = cache.evict_graficos_if_needed()
+
+    # ~3000 bytes > 2500: precisa apagar o mais antigo (x)
+    assert "grafico_x.png" in removidos
+    assert not (output_tmp / "grafico_x.png").exists()
+    assert (output_tmp / "grafico_z.png").exists()
+    restantes = sum(
+        p.stat().st_size for p in output_tmp.glob("grafico_*.png")
+    )
+    assert restantes <= 2500
+
+
+def test_evict_graficos_nao_toca_relatorios(output_tmp, monkeypatch):
+    # Escopo da eviction de gráficos é só grafico_*.png; relatorio_*.pdf é do
+    # outro pool (evict_cache_if_needed) e não pode ser tocado aqui.
+    monkeypatch.setattr(cache, "GRAFICO_CACHE_MAX_BYTES", 100)
+    pdf = output_tmp / "relatorio_demografia__x.pdf"
+    pdf.write_bytes(b"x" * 1000)
+    os.utime(pdf, (1000, 1000))
+    grafico = output_tmp / "grafico_x.png"
+    grafico.write_bytes(b"x" * 1000)
+    os.utime(grafico, (1001, 1001))
+
+    cache.evict_graficos_if_needed()
+
+    assert pdf.exists()
+
+
 def test_invalida_query_cache_quando_data_version_avanca(output_tmp, monkeypatch):
     chamadas = []
     monkeypatch.setattr(cache, "limpar_cache_queries", lambda: chamadas.append(1))
