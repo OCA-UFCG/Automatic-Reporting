@@ -2,7 +2,12 @@ import pathlib
 
 import numpy as np
 
-from plotting import ESCALA_FONTE, iniciar_card_grafico, salvar_card_grafico
+from plotting import (
+    ESCALA_FONTE,
+    iniciar_card_grafico,
+    reusar_grafico,
+    salvar_card_grafico,
+)
 from utils.formatting import coerce_para_float as _coerce_para_float
 from utils.formatting import formatar_numero_ptbr
 
@@ -52,6 +57,9 @@ def gerar_grafico_nivel_instrucao(
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_nivel_instrucao_{safe_city}.png"
+    reuso = reusar_grafico(chart_file)
+    if reuso is not None:
+        return reuso
 
     fig, ax = iniciar_card_grafico(
         (10, 9.2),
@@ -193,6 +201,9 @@ def gerar_grafico_cor_faixa_etaria(
         OUTPUT_DIR
         / f"grafico_cor_faixa_etaria_{safe_city}.png"
     )
+    reuso = reusar_grafico(chart_file)
+    if reuso is not None:
+        return reuso
 
     x = np.arange(len(faixas_etarias))
 

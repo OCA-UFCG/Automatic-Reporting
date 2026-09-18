@@ -6,6 +6,7 @@ from matplotlib.ticker import FuncFormatter, MaxNLocator
 from plotting import (
     ESCALA_FONTE,
     iniciar_card_grafico,
+    reusar_grafico,
     salvar_card_grafico,
 )
 from utils.formatting import coerce_para_float as _coerce_numero
@@ -60,6 +61,9 @@ def gerar_grafico_taxa_mortalidade(
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     chart_file = OUTPUT_DIR / f"grafico_taxa_mortalidade_{safe_city}.png"
+    reuso = reusar_grafico(chart_file)
+    if reuso is not None:
+        return reuso
 
     x = np.arange(len(anos))
 
@@ -132,6 +136,9 @@ def gerar_grafico_de_estabelecimento(
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     chart_file = OUTPUT_DIR / f"grafico_de_estabelecimento_{safe_city}.png"
+    reuso = reusar_grafico(chart_file)
+    if reuso is not None:
+        return reuso
 
     x = np.arange(len(anos))
 
@@ -202,6 +209,9 @@ def gerar_grafico_cobertura_vacinal(
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     chart_file = OUTPUT_DIR / f"grafico_cobertura_vacinal_{safe_city}.png"
+    reuso = reusar_grafico(chart_file)
+    if reuso is not None:
+        return reuso
 
     titulo = "Taxa de cobertura vacinal por tipo de vacina"
 
@@ -299,6 +309,9 @@ def gerar_grafico_publico_etario(
         OUTPUT_DIR
         / f"grafico_publico_etario_{safe_city}.png"
     )
+    reuso = reusar_grafico(chart_file)
+    if reuso is not None:
+        return reuso
 
     # Posição dos grupos no eixo X
     x = np.arange(len(categorias))

@@ -4,7 +4,12 @@ import pathlib
 import numpy as np
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 
-from plotting import ESCALA_FONTE, iniciar_card_grafico, salvar_card_grafico
+from plotting import (
+    ESCALA_FONTE,
+    iniciar_card_grafico,
+    reusar_grafico,
+    salvar_card_grafico,
+)
 
 
 def _numero(valor: object) -> float:
@@ -39,6 +44,9 @@ def gerar_grafico_tecnologias_acesso_agua(
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_tecnologias_acesso_agua_{safe_city}.png"
+    reuso = reusar_grafico(chart_file)
+    if reuso is not None:
+        return reuso
 
     fig, ax = iniciar_card_grafico(
         (8, 4.0), "Tecnologia de acesso à água"

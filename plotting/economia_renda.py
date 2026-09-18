@@ -5,7 +5,12 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib.ticker import FuncFormatter
 
-from plotting import ESCALA_FONTE, iniciar_card_grafico, salvar_card_grafico
+from plotting import (
+    ESCALA_FONTE,
+    iniciar_card_grafico,
+    reusar_grafico,
+    salvar_card_grafico,
+)
 from plotting.hidraulica import _numero
 from utils.formatting import formatar_numero_ptbr
 from utils.queries.economia_renda import _escalar_valor
@@ -75,6 +80,9 @@ def gerar_grafico_pib(
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_pib_{safe_city}.png"
+    reuso = reusar_grafico(chart_file)
+    if reuso is not None:
+        return reuso
 
     fig, ax = iniciar_card_grafico(
         (24, 7),
@@ -151,6 +159,14 @@ def _gerar_grafico_ranking_paises(
     mensagem_erro: str,
     titulo: str,
 ) -> str:
+    # Guard único aqui (não em cada `gerar_grafico_*` chamador): `gerar_grafico_fob`
+    # e `gerar_grafico_exportacao` só montam o `chart_file` e delegam pra este
+    # helper compartilhado, que é onde a figura de fato é desenhada — colocar o
+    # guard em cada chamador duplicaria a checagem sem cobrir nada a mais.
+    reuso = reusar_grafico(chart_file)
+    if reuso is not None:
+        return reuso
+
     pontos = [
         (nome, _numero(valor))
         for nome, valor in paises
@@ -289,6 +305,9 @@ def gerar_grafico_vab(
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_vab_{safe_city}.png"
+    reuso = reusar_grafico(chart_file)
+    if reuso is not None:
+        return reuso
 
     # margem_esquerda pequena: o treemap não tem rótulos de eixo Y, então a
     # folga padrão (pensada pra rótulos de categoria) só deixaria uma faixa
@@ -404,6 +423,9 @@ def gerar_grafico_balanca(
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_balanca_{safe_city}.png"
+    reuso = reusar_grafico(chart_file)
+    if reuso is not None:
+        return reuso
 
     fig, ax = iniciar_card_grafico((10, 4.5), "Visão mensal da balança comercial")
     _reservar_espaco_rotulo_x(fig, ax)

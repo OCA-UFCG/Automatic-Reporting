@@ -4,7 +4,12 @@ import pathlib
 
 from matplotlib.ticker import FuncFormatter
 
-from plotting import ESCALA_FONTE, iniciar_card_grafico, salvar_card_grafico
+from plotting import (
+    ESCALA_FONTE,
+    iniciar_card_grafico,
+    reusar_grafico,
+    salvar_card_grafico,
+)
 
 # (chave no contexto, rótulo da legenda, cor) — ordem e cores espelham o Doc.
 _CATEGORIAS = (
@@ -148,6 +153,9 @@ def gerar_grafico_esgotamento_sanitario(
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_esgotamento_sanitario_{safe_city}.png"
+    reuso = reusar_grafico(chart_file)
+    if reuso is not None:
+        return reuso
 
     rotulos = [rotulo for _, rotulo, _ in _CATEGORIAS]
     cores = [cor for _, _, cor in _CATEGORIAS]
@@ -348,6 +356,9 @@ def gerar_grafico_dinamica_esgoto(
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_dinamica_esgoto_{safe_city}.png"
+    reuso = reusar_grafico(chart_file)
+    if reuso is not None:
+        return reuso
 
     _barras_percentual_por_ano(
         # Título longo demais para uma linha no tamanho padrão do card (o
@@ -376,6 +387,9 @@ def gerar_grafico_coleta_lixo(
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_coleta_lixo_{safe_city}.png"
+    reuso = reusar_grafico(chart_file)
+    if reuso is not None:
+        return reuso
 
     _barras_percentual_por_ano(
         "Evolução do percentual de domicílios com coleta de lixo",
