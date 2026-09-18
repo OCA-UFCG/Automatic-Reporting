@@ -72,4 +72,14 @@ for mv in "${MATVIEWS[@]}"; do
   fi
 done
 log "=== refresh_matviews fim (rc=$rc_total) ==="
+
+# Invalida o cache de relatórios prontos: marca que os dados mudaram, forçando
+# regeneração preguiçosa no próximo acesso (services/cache.py compara mtime).
+CONTAINER="${REPORT_CONTAINER:-automatic-reporting-beta}"
+if docker exec "$CONTAINER" touch /app/output/.data_version 2>/dev/null; then
+  log "cache de relatórios invalidado (.data_version tocado em $CONTAINER)"
+else
+  log "AVISO: não consegui tocar .data_version no container $CONTAINER"
+fi
+
 exit "$rc_total"
