@@ -4,7 +4,12 @@ from functools import partial
 import numpy as np
 from matplotlib.lines import Line2D
 
-from plotting import ESCALA_FONTE, iniciar_card_grafico, salvar_card_grafico
+from plotting import (
+    ESCALA_FONTE,
+    iniciar_card_grafico,
+    reusar_grafico,
+    salvar_card_grafico,
+)
 from utils.formatting import coerce_para_float
 
 _CATEGORIAS_IDHM = (
@@ -55,6 +60,9 @@ def gerar_grafico_de_desenvolvimento_social(
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_de_desenvolvimento_social_{safe_city}.png"
+    reuso = reusar_grafico(chart_file)
+    if reuso is not None:
+        return reuso
 
     x = np.arange(len(anos))
 

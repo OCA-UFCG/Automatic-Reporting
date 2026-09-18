@@ -1,7 +1,10 @@
 import logging
+import os
 import re
+import tempfile
 import unicodedata
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import HTTPException
 from fastapi.responses import HTMLResponse
@@ -9,6 +12,7 @@ from fastapi.responses import HTMLResponse
 from config import (
     CARACTERISTICAS_DOCS_URL,
     OUTPUT_DIR,
+    REPORT_CACHE_TTL_S,
     require_config_value,
     resolve_csv_source,
 )
@@ -42,19 +46,29 @@ from plotting.saude import (
     gerar_grafico_publico_etario,
     gerar_grafico_taxa_mortalidade,
 )
+from services.cache import (
+    artefato_fresco,
+    evict_cache_if_needed,
+    evict_graficos_if_needed,
+    invalidar_query_cache_se_dados_mudaram,
+)
 from services.csv_loader import (
     carregar_csv,
     get_csv_config_for_macrotema,
     normalizar_colunas_macrotema,
 )
-from services.macrotemas import get_macrotema, get_macrotema_slugs_para_relatorio
+from services.macrotemas import (
+    TODOS_MACROTEMAS_ORDEM,
+    get_macrotema,
+    get_macrotema_slugs_para_relatorio,
+)
 from services.pdf import _gerar_pdf
 from utils.cover import (
     montar_capa_relatorio,
     montar_indicadores_macrotema,
     montar_score_macrotema,
 )
-from utils.data.cities import filtrar_linhas_por_cidade
+from utils.data.cities import carregar_cidades, filtrar_linhas_por_cidade
 from utils.data.macrotemas import TODOS_MACROTEMAS_SLUG
 from utils.external.docs import (
     carregar_texto_do_docs,
@@ -251,18 +265,76 @@ GRAFICOS_AUTO_MARCADOR = {
 }
 
 
+def montar_safe_report(
+    cidade: str, macrotema: str, macrotema_slugs: list[str]
+) -> tuple[str, str]:
+    """(safe_city, safe_report) com chave de cache normalizada: slugs ordenados
+    e deduplicados; o conjunto completo colapsa para 'todos'. Garante que combos
+    equivalentes (ordem/duplicata/8-explícitos) mapeiem no mesmo artefato."""
+    safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", cidade.strip().lower())
+    slugs_norm = sorted(
+        dict.fromkeys(s for s in macrotema_slugs if s != TODOS_MACROTEMAS_SLUG)
+    )
+    if macrotema == TODOS_MACROTEMAS_SLUG or set(slugs_norm) == set(TODOS_MACROTEMAS_ORDEM):
+        slug_arquivo = TODOS_MACROTEMAS_SLUG
+    elif len(slugs_norm) == 1:
+        slug_arquivo = slugs_norm[0]
+    else:
+        slug_arquivo = "_".join(slugs_norm)
+    return safe_city, f"{slug_arquivo}__{safe_city}"
+
+
+def _caminhos_relatorio(safe_report: str) -> tuple[Path, Path]:
+    """(pdf, html) do relatório. Fonte única de verdade pros caminhos usados tanto
+    pelo gate de frescor quanto pela escrita final — evita que os dois divirjam."""
+    return (
+        OUTPUT_DIR / f"relatorio_{safe_report}.pdf",
+        OUTPUT_DIR / f"relatorio_{safe_report}.html",
+    )
+
+
 async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
+    # Antes de qualquer coisa (inclusive o gate de frescor abaixo): se o dado mudou
+    # desde a última checagem, esvazia o query cache in-process (TTL 6h) pra não
+    # servir número pré-refresh num relatório que está sendo regenerado agora.
+    invalidar_query_cache_se_dados_mudaram()
     reset_figura_contador()
     try:
         macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err))
+    # Valida a cidade ANTES do gate. O safe_city que vira chave de cache sai de um
+    # re.sub que colapsa toda pontuação num "_", então ele é lossy: "Recife (PE)" e
+    # "Recife (PE)!!!" produzem a mesma chave. Com o gate na frente da validação, a
+    # segunda daria HIT e devolveria 200 com o relatório de Recife em vez do 404 que
+    # o pipeline levantaria — o erro deixaria de ser reportado. A comparação é por
+    # casefold (tolerante a caixa, como o resto do fluxo) e não pela chave, que é
+    # justamente a forma que perde a informação. Lista vazia = cities.json ausente:
+    # segue sem validar, pra não transformar arquivo faltando em 404 em tudo.
+    cidades_conhecidas = carregar_cidades()
+    if cidades_conhecidas and cidade.strip().casefold() not in {
+        c.casefold() for c in cidades_conhecidas
+    }:
+        raise HTTPException(status_code=404, detail=f"Cidade '{cidade}' não encontrada.")
+
+    # Ordem canônica das seções: o combo chega do frontend na ordem em que o
+    # usuário clicou nos checkboxes (frontend/src/App.jsx:105), que é ruído de
+    # interação, não escolha. Fixá-la aqui é o que torna verdadeira a chave
+    # normalizada de montar_safe_report — sem isso, dois cliques em ordens
+    # diferentes produzem documentos distintos disputando a mesma entrada de cache.
+    macrotema_slugs = sorted(macrotema_slugs, key=TODOS_MACROTEMAS_ORDEM.index)
+    safe_city, safe_report = montar_safe_report(cidade, macrotema, macrotema_slugs)
+    pdf_cache, html_cache = _caminhos_relatorio(safe_report)
+    # HIT: os dois artefatos existem, são mais novos que a última mudança de dado
+    # e estão dentro do TTL (ver config.REPORT_CACHE_TTL_S para o porquê do teto).
+    if artefato_fresco(pdf_cache, REPORT_CACHE_TTL_S) and artefato_fresco(
+        html_cache, REPORT_CACHE_TTL_S
+    ):
+        return HTMLResponse(content=html_cache.read_text(encoding="utf-8"))
     gerado_em = datetime.now().astimezone()
 
     linhas = None
     cover = None
-    safe_city = None
-    safe_report = None
     macrotemas_render: list[dict[str, object]] = []
     docs_html_parts = []
     caracteristicas_html_parts: list[str] = []
@@ -501,17 +573,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 }
                 for slug in macrotema_slugs
             ]
-            safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", cidade.strip().lower())
-            primeiro_slug = macrotema_slugs[0]
-            if macrotema == TODOS_MACROTEMAS_SLUG:
-                slug_arquivo = TODOS_MACROTEMAS_SLUG
-            elif "," in macrotema:
-                slug_arquivo = "_".join(
-                    slug for slug in macrotema_slugs if slug != TODOS_MACROTEMAS_SLUG
-                ) or primeiro_slug
-            else:
-                slug_arquivo = macrotema.split(",")[0].strip()
-            safe_report = f"{slug_arquivo}__{safe_city}"
+            # safe_city/safe_report já vêm computados no topo do handler (gate de cache).
 
             legenda_mapa_localizacao = None
             if CARACTERISTICAS_DOCS_URL:
@@ -668,7 +730,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                     graficos_por_placeholder[nome_grafico] = gerar_grafico(
                         cidade=linhas_macrotema[0],
                         OUTPUT_DIR=OUTPUT_DIR,
-                        safe_city=safe_report or "relatorio",
+                        safe_city=safe_city or "relatorio",
                     )
                 except ValueError as err:
                     logger.warning(
@@ -736,7 +798,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 chart_file_name = gerar_grafico_tecnologias_acesso_agua(
                     cidade=linhas_macrotema[0],
                     OUTPUT_DIR=OUTPUT_DIR,
-                    safe_city=safe_report or "relatorio",
+                    safe_city=safe_city or "relatorio",
                 )
                 graficos_por_placeholder["grafico_tecnologias_acesso_agua"] = (
                     chart_file_name
@@ -754,7 +816,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 graficos_por_placeholder["grafico_aridez"] = gerar_grafico_aridez(
                     cidade=linhas_macrotema[0],
                     OUTPUT_DIR=OUTPUT_DIR,
-                    safe_city=safe_report or "relatorio",
+                    safe_city=safe_city or "relatorio",
                 )
             except ValueError as err:
                 logger.warning(
@@ -770,7 +832,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                     gerar_grafico_dinamica_esgoto(
                         cidade=linhas_macrotema[0],
                         OUTPUT_DIR=OUTPUT_DIR,
-                        safe_city=safe_report or "relatorio",
+                        safe_city=safe_city or "relatorio",
                     )
                 )
             except (ValueError, KeyError) as err:
@@ -786,7 +848,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                     gerar_grafico_esgotamento_sanitario(
                         cidade=linhas_macrotema[0],
                         OUTPUT_DIR=OUTPUT_DIR,
-                        safe_city=safe_report or "relatorio",
+                        safe_city=safe_city or "relatorio",
                     )
                 )
             except (ValueError, KeyError) as err:
@@ -802,7 +864,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                     gerar_grafico_coleta_lixo(
                         cidade=linhas_macrotema[0],
                         OUTPUT_DIR=OUTPUT_DIR,
-                        safe_city=safe_report or "relatorio",
+                        safe_city=safe_city or "relatorio",
                     )
                 )
             except (ValueError, KeyError) as err:
@@ -818,7 +880,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 chart_file_name = gerar_grafico_de_desenvolvimento_social(
                     cidade=linhas_macrotema[0],
                     OUTPUT_DIR=OUTPUT_DIR,
-                    safe_city=safe_report or "relatorio",
+                    safe_city=safe_city or "relatorio",
                 )
                 graficos_por_placeholder["grafico_de_desenvolvimento_social"] = (
                     chart_file_name
@@ -836,7 +898,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 chart_file_name = gerar_grafico_pib(
                     cidade=linhas_macrotema[0],
                     OUTPUT_DIR=OUTPUT_DIR,
-                    safe_city=safe_report or "relatorio",
+                    safe_city=safe_city or "relatorio",
                 )
                 graficos_por_placeholder["grafico_pib"] = chart_file_name
             except ValueError as err:
@@ -851,7 +913,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 chart_file_name = gerar_grafico_vab(
                     cidade=linhas_macrotema[0],
                     OUTPUT_DIR=OUTPUT_DIR,
-                    safe_city=safe_report or "relatorio",
+                    safe_city=safe_city or "relatorio",
                 )
                 graficos_por_placeholder["grafico_vab"] = chart_file_name
             except ValueError as err:
@@ -866,7 +928,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 chart_file_name = gerar_grafico_fob(
                     cidade=linhas_macrotema[0],
                     OUTPUT_DIR=OUTPUT_DIR,
-                    safe_city=safe_report or "relatorio",
+                    safe_city=safe_city or "relatorio",
                 )
                 graficos_por_placeholder["grafico_fob"] = chart_file_name
             except ValueError as err:
@@ -881,7 +943,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 chart_file_name = gerar_grafico_exportacao(
                     cidade=linhas_macrotema[0],
                     OUTPUT_DIR=OUTPUT_DIR,
-                    safe_city=safe_report or "relatorio",
+                    safe_city=safe_city or "relatorio",
                 )
                 graficos_por_placeholder["grafico_exportacao"] = chart_file_name
             except ValueError as err:
@@ -896,7 +958,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 chart_file_name = gerar_grafico_balanca(
                     cidade=linhas_macrotema[0],
                     OUTPUT_DIR=OUTPUT_DIR,
-                    safe_city=safe_report or "relatorio",
+                    safe_city=safe_city or "relatorio",
                 )
                 graficos_por_placeholder["grafico_balanca"] = chart_file_name
             except ValueError as err:
@@ -1099,23 +1161,38 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
 
     # Output file handling
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    output_file = OUTPUT_DIR / f"relatorio_{safe_report}.html"
-    output_file.write_text(html_content, encoding="utf-8")
+    pdf_file, output_file = _caminhos_relatorio(safe_report)
 
-    # Gerar PDF em background sempre, para manter o artefato sincronizado com o HTML
-    # e evitar reaproveitar um PDF antigo quando os dados/mapas mudarem no mesmo dia.
-    pdf_file = OUTPUT_DIR / f"relatorio_{safe_report}.pdf"
-
+    # Apaga o par (pdf, html) velho antes de regerar, pra o gate nunca servir um
+    # HTML fresco apontando pra um PDF stale (ou vice-versa).
     for stale_artifact in (pdf_file, output_file):
         try:
             stale_artifact.unlink()
         except FileNotFoundError:
             pass
 
+    # Ordem importa pro gate (que exige pdf E html frescos): gera o PDF primeiro
+    # (escrita atômica em services.pdf) e só então persiste o HTML — assim
+    # "html fresco" sempre implica "pdf fresco".
     if not await _gerar_pdf(html_content, pdf_file):
         raise HTTPException(
             status_code=500,
             detail="Falha ao gerar o PDF do relatório.",
         )
+
+    # HTML atômico e por último: escreve num .tmp e os.replace no destino, depois do
+    # PDF já existir, pra o gate nunca ler um HTML meio-escrito. O nome do .tmp é
+    # único por escritor (mkstemp): os.replace é atômico pro leitor, mas não impede
+    # dois writers concorrentes de intercalar bytes num .tmp de nome fixo.
+    fd, tmp_nome = tempfile.mkstemp(
+        dir=output_file.parent, prefix=output_file.name + ".", suffix=".tmp"
+    )
+    os.close(fd)
+    tmp_html = Path(tmp_nome)
+    tmp_html.write_text(html_content, encoding="utf-8")
+    os.replace(tmp_html, output_file)
+
+    evict_cache_if_needed(protegido=safe_report)
+    evict_graficos_if_needed()
 
     return HTMLResponse(content=html_content)

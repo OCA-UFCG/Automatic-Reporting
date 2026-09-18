@@ -18,39 +18,33 @@ def _cache_path(doc_id: str) -> Path:
     return DOCS_CACHE_DIR / f"{doc_id}.json"
 
 
-def _carregar_do_cache(doc_id: str) -> dict[str, str] | None:
+def _carregar_do_cache(doc_id: str) -> dict[str, object] | None:
+    """Texto do Doc gravado em disco, ou None se não há cache utilizável.
+
+    Devolve o texto EXATAMENTE como foi gravado — `limpar_texto_exportado_docs`
+    roda só na escrita. Limpar de novo aqui mudava o resultado: a limpeza não é
+    idempotente (come uma quebra de linha final por aplicação), então o texto
+    servido dependia de quantas vezes tinha passado pelo cache.
+    """
     cache_path = _cache_path(doc_id)
     if not cache_path.exists():
         return None
     try:
         dados = json.loads(cache_path.read_text(encoding="utf-8"))
         if isinstance(dados, dict) and isinstance(dados.get("texto"), str):
-            return {
-                "texto": limpar_texto_exportado_docs(dados["texto"]),
-                "timestamp": str(dados.get("timestamp", "")),
-                "etag": str(dados.get("etag", "")),
-                "last_modified": str(dados.get("last_modified", "")),
-            }
+            return {"texto": dados["texto"], "timestamp": dados.get("timestamp")}
     except (OSError, json.JSONDecodeError, KeyError, TypeError) as e:
         logger.debug("Falha ao ler cache de docs (%s): %s", cache_path, e)
     return None
 
 
-def _salvar_no_cache(
-    doc_id: str,
-    texto: str,
-    *,
-    etag: str | None = None,
-    last_modified: str | None = None,
-) -> None:
+def _salvar_no_cache(doc_id: str, texto: str) -> None:
+    """Grava o texto JÁ LIMPO. `timestamp` é informativo (diagnóstico e log do
+    script de atualização); nada decide frescor por ele — quem decide quando
+    rebaixar é scripts/atualizar_docs.py, chamado pelo cron ou à mão."""
     try:
         DOCS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        dados = {
-            "timestamp": time.time(),
-            "texto": texto,
-            "etag": etag,
-            "last_modified": last_modified,
-        }
+        dados = {"timestamp": time.time(), "texto": texto}
         _cache_path(doc_id).write_text(
             json.dumps(dados, ensure_ascii=False), encoding="utf-8"
         )
@@ -309,35 +303,28 @@ def remover_titulos_docs(texto: str, *titulos: str) -> str:
     ).strip()
 
 
-async def carregar_texto_do_docs(link_ou_id: str) -> str:
+async def baixar_e_salvar_doc(link_ou_id: str) -> str:
+    """Caminho de REDE: exporta o Doc do Google, limpa e grava em disco.
+
+    Fica isolado aqui porque é o único ponto lento e o único que pode falhar por
+    causa de terceiro (~610ms por doc, medido; 9 docs num relatório "todos"). Quem
+    chama é scripts/atualizar_docs.py — no cron ou à mão — onde falhar é barato.
+    O relatório lê do disco via carregar_texto_do_docs e nunca passa por aqui,
+    exceto no primeiro acesso a um Doc que ainda não tem cache.
+
+    Sem requisição condicional (ETag/If-None-Match): o export do Google responde
+    `Cache-Control: no-store` e não emite ETag nem Last-Modified, então o 304 nunca
+    acontecia. E mesmo que acontecesse, economizaria só o corpo — medido, 14KB
+    custam 60ms dos 670ms da chamada; o resto é RTT + render do lado do Google.
+    """
     doc_id = extrair_doc_id(link_ou_id)
-
-    cache = _carregar_do_cache(doc_id)
     export_url = f"https://docs.google.com/document/d/{doc_id}/export?format=txt"
-
-    headers: dict[str, str] = {}
-    if cache:
-        if cache.get("etag"):
-            headers["If-None-Match"] = cache["etag"]
-        if cache.get("last_modified"):
-            headers["If-Modified-Since"] = cache["last_modified"]
-
-    texto: str | None = None
-    etag: str | None = None
-    last_modified: str | None = None
-    not_modified = False
 
     try:
         async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
-            response = await client.get(export_url, headers=headers)
-            if response.status_code == 304 and cache is not None:
-                not_modified = True
-                texto = cache["texto"]
-            else:
-                response.raise_for_status()
-                texto = response.text
-                etag = response.headers.get("ETag")
-                last_modified = response.headers.get("Last-Modified")
+            response = await client.get(export_url)
+            response.raise_for_status()
+            texto = response.text
     except httpx.HTTPStatusError as err:
         status = err.response.status_code if err.response is not None else 0
         if status in (401, 403):
@@ -348,43 +335,36 @@ async def carregar_texto_do_docs(link_ou_id: str) -> str:
             ) from err
         if status == 404:
             raise ValueError("Documento do Google Docs não encontrado (404). Verifique o link/ID.") from err
-        if cache is not None:
-            logger.warning(
-                "Falha ao acessar o Google Docs %s (status %s); usando cache local temporariamente.",
-                doc_id,
-                status,
-            )
-            return cache["texto"]
         raise ValueError(f"Erro ao exportar Google Docs ({status}). Verifique o link e as permissões.") from err
     except (httpx.HTTPError, TimeoutError) as err:
-        if cache is not None:
-            logger.warning(
-                "Falha ao acessar o Google Docs %s; usando cache local temporariamente.",
-                doc_id,
-            )
-            return cache["texto"]
         raise ValueError("Não foi possível acessar o Google Docs. Verifique a conexão, o link e as permissões.") from err
 
-    if not_modified:
-        cache_path = _cache_path(doc_id)
-        try:
-            dados = json.loads(cache_path.read_text(encoding="utf-8"))
-            dados["timestamp"] = time.time()
-            cache_path.write_text(
-                json.dumps(dados, ensure_ascii=False), encoding="utf-8"
-            )
-        except (OSError, json.JSONDecodeError, TypeError, ValueError):
-            logger.debug("Falha ao atualizar timestamp do cache de docs (%s)", cache_path)
-        return texto or ""
-
-    texto_limpo = limpar_texto_exportado_docs(texto or "")
-    if cache is None or texto_limpo != cache["texto"]:
-        _salvar_no_cache(doc_id, texto_limpo, etag=etag, last_modified=last_modified)
-    else:
-        _salvar_no_cache(
-            doc_id,
-            texto_limpo,
-            etag=etag or cache.get("etag"),
-            last_modified=last_modified or cache.get("last_modified"),
-        )
+    texto_limpo = limpar_texto_exportado_docs(texto)
+    _salvar_no_cache(doc_id, texto_limpo)
     return texto_limpo
+
+
+async def carregar_texto_do_docs(link_ou_id: str) -> str:
+    """Texto editorial do Doc, lido do cache em disco (output/docs_cache/).
+
+    Caminho quente do relatório: leitura local (~0,015ms medido) em vez da ida ao
+    Google (~610ms × 9 docs = ~15,7s por relatório "todos"). Quem mantém o cache
+    atualizado é scripts/atualizar_docs.py, no cron noturno ou chamado à mão
+    depois de uma edição — invalidação por tempo e por evento, o mesmo par de
+    services/cache.py:artefato_fresco.
+
+    Cache ausente (deploy novo, Doc recém-configurado) cai pra rede uma vez, em
+    vez de devolver relatório sem prosa: a premissa do CLAUDE.md é degradar, não
+    quebrar. É o único caminho em que um request paga rede.
+    """
+    doc_id = extrair_doc_id(link_ou_id)
+    cache = _carregar_do_cache(doc_id)
+    if cache is not None:
+        return str(cache["texto"])
+
+    logger.info(
+        "Sem cache local para o Doc %s; baixando agora. Rode scripts/atualizar_docs.py "
+        "para pré-aquecer e tirar essa espera do caminho do request.",
+        doc_id,
+    )
+    return await baixar_e_salvar_doc(link_ou_id)

@@ -43,6 +43,14 @@ de dado velho (staleness) e um objeto de schema a manter.
   velha, sem ganho perceptível. O cache de queries em memória (`utils/queries/base.py`) já
   torna instantâneas as **repetições** de qualquer view.
 
+> **Transversal materializada (não é perfil):** `mv_indicadores` — snapshot de
+> `relatorios_auto.vw_indicadores` (agregação país-inteira, ~39k municípios, ~14s
+> por chamada; leitura por município cai a ~15ms materializada). Índice único em
+> `cd_mun` — não `(nm_mun, sigla_uf)` como as `mv_perfil_*`, porque não é view de
+> perfil. DDL em `db/2026-09-17-mv_indicadores.sql`; refresh no mesmo
+> `scripts/refresh_matviews.sh` (array `MATVIEWS`). Consumida por
+> `utils/queries/indicadores.py` (`buscar_indicadores_municipio`).
+>
 > Candidata separada (não é perfil): `eco_importacao.vw_importacao_completa` (~1,8 s) — a próxima
 > mais lenta no relatório de economia, se um dia valer a pena apertar mais.
 
@@ -68,6 +76,44 @@ de dado velho (staleness) e um objeto de schema a manter.
   com **lock** (não se sobrepõe a outra execução), **statement_timeout** de segurança e
   **log com timestamp** (`~/logs/refresh_matviews.log`, ou `/tmp` como fallback). Uma falha
   numa matview não aborta as demais.
+
+## Cache dos Docs editoriais (mesma cadência, outra fonte)
+
+A prosa de cada macrotema vem de um Google Doc, e o relatório a lê do **disco**
+(`output/docs_cache/`, bind-mountado em `docker-compose.yml`), nunca do Google.
+Medido: ~610 ms por Doc contra o Google, ~0,06 ms do disco — num relatório
+`?macrotema=todos` são 9 Docs, ou **~15,7 s por relatório** que saíram do caminho
+do request.
+
+Quem mantém esse cache atualizado é `scripts/atualizar_docs.py`, com o mesmo par
+de invalidação das matviews (e o mesmo horário, pra ter uma janela de manutenção
+só):
+
+```cron
+# Atualiza o cache dos Docs editoriais — 04:00 UTC = 01:00 America/Sao_Paulo
+0 4 * * *  cd /caminho/para/Automatic-Reporting && .venv/bin/python scripts/atualizar_docs.py
+```
+
+**On-demand**, quando a editora corrige um Doc e não dá pra esperar o cron:
+
+```bash
+.venv/bin/python scripts/atualizar_docs.py
+docker exec automatic-reporting-beta python3 scripts/atualizar_docs.py   # na VM
+```
+
+Sem esse chamado manual, **uma edição no Doc só aparece no dia seguinte** — é o
+trade aceito de propósito: o cron é a rede de segurança por tempo, o chamado à mão
+é a invalidação por evento. Mesmo desenho de `services/cache.py:artefato_fresco`.
+
+O script busca os 9 Docs em paralelo (~3,7 s no total) e **uma falha não aborta as
+outras**: o Doc inacessível vira `AVISO:` no log e mantém a cópia anterior em
+disco, então o relatório sai com a prosa de ontem em vez de quebrar.
+
+> Não há requisição condicional (ETag/`If-None-Match`): o export do Google
+> responde `Cache-Control: no-store` e **não emite ETag nem Last-Modified**
+> (verificado em 2026-09-18), então o `304` nunca acontecia. E mesmo que
+> acontecesse, economizaria só o corpo — 14 KB custam ~60 ms dos ~670 ms da
+> chamada; o resto é RTT mais o render do lado do Google.
 
 ## Como adicionar uma nova matview
 

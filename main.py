@@ -1,3 +1,6 @@
+import asyncio
+import logging
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
@@ -9,6 +12,7 @@ from services import (
     gerar_relatorio_handler,
     listar_relatorios_handler,
 )
+from services.cache import invalidar_artefatos_em_disco, limpar_tmp_orfaos
 from utils.data.cities import carregar_cidades
 from utils.data.macrotemas import (
     MACROTEMAS,
@@ -18,7 +22,82 @@ from utils.data.macrotemas import (
 from utils.ssr import start_server as start_ssr_server
 from utils.ssr import stop_server as stop_ssr_server
 
-app = FastAPI(on_startup=[start_ssr_server], on_shutdown=[stop_ssr_server])
+logger = logging.getLogger(__name__)
+
+
+def _checar_mv_indicadores() -> None:
+    """Corpo síncrono da checagem (psycopg2 bloqueia): connect + query + close.
+    Roda numa thread, ver _avisar_se_mv_indicadores_faltar abaixo."""
+    try:
+        from utils.database import get_connection
+
+        conn = get_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT 1 FROM pg_matviews "
+                    "WHERE schemaname = 'relatorios_auto' "
+                    "AND matviewname = 'mv_indicadores'"
+                )
+                existe = cur.fetchone() is not None
+        finally:
+            conn.close()
+        if not existe:
+            logger.warning(
+                "relatorios_auto.mv_indicadores não encontrada — rode a DDL de "
+                "materialização (mv_indicadores + índice único + refresh_matviews.sh). "
+                "Sem ela, buscar_indicadores_municipio degrada e o relatório fica sem "
+                "os indicadores transversais."
+            )
+    except Exception:
+        # Banco indisponível no startup (ex.: tunnel ainda não subiu) não pode
+        # derrubar a app — só logamos e seguimos.
+        logger.warning(
+            "Não foi possível verificar relatorios_auto.mv_indicadores no startup "
+            "(banco inacessível?); seguindo sem bloquear.",
+            exc_info=True,
+        )
+
+
+async def _avisar_se_mv_indicadores_faltar() -> None:
+    """Aviso não-fatal no startup: os indicadores leem relatorios_auto.mv_indicadores,
+    criada por uma DDL manual e gated. Se a app subir antes da DDL, os indicadores
+    degradam silenciosamente — melhor um warning claro no log. Nunca levanta, nunca
+    bloqueia o startup e tolera o banco inacessível (tunnel fora do ar).
+
+    async + to_thread porque o Starlette roda handler de on_startup síncrono direto
+    no event loop: com o túnel fora do ar, o connect_timeout=5 de utils/database.py
+    prenderia o loop por 5s antes de a app aceitar a primeira conexão.
+    """
+    await asyncio.to_thread(_checar_mv_indicadores)
+
+
+def _limpar_tmp_orfaos_do_startup() -> None:
+    """Varre os .tmp de renders mortos (ver services.cache.limpar_tmp_orfaos).
+    Síncrono e barato: é um glob num diretório local, não bloqueia como o psycopg2."""
+    removidos = limpar_tmp_orfaos()
+    if removidos:
+        logger.info("Removidos %d .tmp órfãos de render interrompido.", len(removidos))
+
+
+def _invalidar_cache_do_startup() -> None:
+    """Deploy/reboot recria o container: é o único evento que sinaliza "o código
+    mudou". Aproveitamos ele pra invalidar o disco, senão um gráfico redesenhado
+    por um deploy fica escondido atrás do PNG antigo (services.cache). Barato:
+    um touch, e a regeneração é preguiçosa."""
+    invalidar_artefatos_em_disco()
+    logger.info("Cache em disco invalidado no startup (código pode ter mudado).")
+
+
+app = FastAPI(
+    on_startup=[
+        start_ssr_server,
+        _limpar_tmp_orfaos_do_startup,
+        _invalidar_cache_do_startup,
+        _avisar_se_mv_indicadores_faltar,
+    ],
+    on_shutdown=[stop_ssr_server],
+)
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 

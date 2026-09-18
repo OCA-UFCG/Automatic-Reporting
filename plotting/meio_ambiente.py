@@ -5,7 +5,7 @@ import numpy as np
 from matplotlib.lines import Line2D
 from matplotlib.ticker import FuncFormatter
 
-from plotting import ESCALA_FONTE
+from plotting import ESCALA_FONTE, reusar_grafico
 
 # (campo no contexto, rótulo da legenda, cor) — ordem e cores espelham o Doc.
 # Campos vêm de relatorios_auto.ambiente (percentual da área municipal em
@@ -39,6 +39,9 @@ def gerar_grafico_aridez(
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_aridez_{safe_city}.png"
+    reuso = reusar_grafico(chart_file)
+    if reuso is not None:
+        return reuso
 
     # Eixo (e barra) travados em 0-100%: é um percentual da área municipal,
     # então a escala não deve variar por cidade. Pequenos excessos de

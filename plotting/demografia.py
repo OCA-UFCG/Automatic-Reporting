@@ -6,6 +6,7 @@ from matplotlib.ticker import FuncFormatter, MaxNLocator
 from plotting import (
     ESCALA_FONTE,
     iniciar_card_grafico,
+    reusar_grafico,
     salvar_card_grafico,
 )
 from utils.formatting import formatar_numero_ptbr
@@ -42,6 +43,9 @@ def gerar_grafico_faixa_etaria_e_sexo(
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_faixa_etaria_e_sexo_{safe_city}.png"
+    reuso = reusar_grafico(chart_file)
+    if reuso is not None:
+        return reuso
 
     fig, ax = iniciar_card_grafico((8, 5.6), "População por faixa etária e sexo")
     # Reserva uma faixa abaixo do corpo do gráfico, dentro do card, para a
@@ -114,6 +118,9 @@ def gerar_grafico_composicao_cor_raca(
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_composicao_cor_raca_{safe_city}.png"
+    reuso = reusar_grafico(chart_file)
+    if reuso is not None:
+        return reuso
 
     fig, ax = iniciar_card_grafico((6.4, 4.3), "Composição por cor ou raça")
 
@@ -180,6 +187,9 @@ def gerar_grafico_visao_historica_populacao(
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_visao_historica_populacao_{safe_city}.png"
+    reuso = reusar_grafico(chart_file)
+    if reuso is not None:
+        return reuso
 
     # nm_mun já chega canonicalizado como "Cidade (UF)" (ver
     # services/generation.py); separar_cidade_uf evita duplicar a UF que

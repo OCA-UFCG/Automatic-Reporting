@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from fastapi import HTTPException
 
 from config import OUTPUT_DIR
+from services.cache import _artefatos_unicos_do_relatorio
 from utils.data.cities import carregar_cidades
 from utils.data.macrotemas import (
     MACROTEMAS,
@@ -123,15 +124,13 @@ def listar_relatorios_handler():
 
 
 def _artefatos_do_relatorio(nome_base: str) -> list[Path]:
-    sufixo = nome_base.replace("relatorio_", "", 1)
-    cidade = sufixo.rsplit("__", 1)[-1]
-    artefatos = [
-        OUTPUT_DIR / f"{nome_base}.pdf",
-        OUTPUT_DIR / f"{nome_base}.html",
-        OUTPUT_DIR / f"mapa_regiao_{sufixo}.png",
-    ]
-    artefatos.extend(sorted(OUTPUT_DIR.glob(f"grafico_*{cidade}.png")))
-    return artefatos
+    # Os grafico_*.png NÃO entram aqui: desde a D6 eles são chaveados por cidade e
+    # compartilhados entre todos os combos dela, então o glob antigo
+    # (`grafico_*{cidade}.png`) apagava os gráficos de relatórios frescos que
+    # sobraram — e o gate, vendo pdf/html ainda frescos, serviria o HTML com <img>
+    # quebrada sem nunca regerar. Eles são pool próprio, com eviction FIFO em
+    # services/cache.py:evict_graficos_if_needed.
+    return _artefatos_unicos_do_relatorio(nome_base)
 
 
 def apagar_relatorio_handler(arquivo_pdf: str):

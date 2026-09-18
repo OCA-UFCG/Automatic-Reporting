@@ -34,6 +34,7 @@ MATVIEWS=(
   mv_perfil_economia
   mv_perfil_saude_municipal
   mv_perfil_educacional_municipal
+  mv_indicadores
 )
 
 # --- log (timestamps em UTC, coerente com a VM) ---
@@ -71,4 +72,29 @@ for mv in "${MATVIEWS[@]}"; do
   fi
 done
 log "=== refresh_matviews fim (rc=$rc_total) ==="
+
+CONTAINER="${REPORT_CONTAINER:-automatic-reporting-beta}"
+
+# Prosa editorial: o relatório lê os Docs do disco (utils/external/docs.py), então
+# sem esta atualização a correção da editora nunca aparece. Roda ANTES do touch
+# abaixo, pra que a invalidação do cache já enxergue o texto novo.
+#
+# Via docker exec, e não pelo checkout da VM: /home/ubuntu/Automatic-Reporting não
+# tem .env nem .venv, enquanto o container recebe as *_DOCS_URL por -e no
+# docker run (cd-beta.yaml). Falha aqui é AVISO, não aborta: o cache em disco
+# mantém a cópia anterior e o relatório sai com a prosa de ontem.
+if docker exec "$CONTAINER" python3 scripts/atualizar_docs.py >/dev/null 2>&1; then
+  log "docs editoriais atualizados em $CONTAINER"
+else
+  log "AVISO: não consegui atualizar os docs editoriais em $CONTAINER"
+fi
+
+# Invalida o cache de relatórios prontos: marca que os dados mudaram, forçando
+# regeneração preguiçosa no próximo acesso (services/cache.py compara mtime).
+if docker exec "$CONTAINER" touch /app/output/.data_version 2>/dev/null; then
+  log "cache de relatórios invalidado (.data_version tocado em $CONTAINER)"
+else
+  log "AVISO: não consegui tocar .data_version no container $CONTAINER"
+fi
+
 exit "$rc_total"

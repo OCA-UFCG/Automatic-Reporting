@@ -43,3 +43,12 @@ def test_query_limita_a_um_municipio_e_tem_timeout():
     assert "statement_timeout" in query
     assert "WHERE" in query
     assert consulta.call_args.args[1] == ("Campina Grande", "PB")
+
+
+def test_query_le_da_materialized_view():
+    """O gargalo de perf: indicadores deve ler a mv, não a view crua."""
+    fonte = indicadores.__file__
+    with open(fonte, encoding="utf-8") as f:
+        codigo = f.read()
+    assert "relatorios_auto.mv_indicadores" in codigo
+    assert "relatorios_auto.vw_indicadores" not in codigo

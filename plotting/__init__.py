@@ -232,6 +232,22 @@ def ajustar_margem_esquerda_para_rotulos(
             )
 
 
+def reusar_grafico(chart_file: pathlib.Path) -> str | None:
+    """Nome do PNG se ele já existe e é fresco (reuso entre combos de tema),
+    senão None. Cada `gerar_grafico_*` retorna cedo quando há reuso, pulando
+    o recálculo dos dados e o desenho matplotlib.
+
+    Import de `services.cache` adiado pra dentro da função: `services/__init__.py`
+    importa `services.generation`, que importa `plotting.*` — em import-time no
+    topo deste módulo isso fecharia um ciclo (plotting -> services -> plotting,
+    ainda incompleto). Em call-time (dentro de um `gerar_grafico_*`) os módulos
+    já estão todos carregados, então não há ciclo.
+    """
+    from services.cache import artefato_fresco
+
+    return chart_file.name if artefato_fresco(chart_file) else None
+
+
 def salvar_card_grafico(fig: Figure, chart_file: pathlib.Path, dpi: int = 180) -> None:
     # Rótulos de categoria mais longos que a `margem_esquerda` default estouram
     # a borda esquerda do card. Roda aqui, no caminho por onde todo card passa,

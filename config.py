@@ -58,6 +58,21 @@ DB_STATEMENT_TIMEOUT_MS = int(get_config_value("DB_STATEMENT_TIMEOUT_MS") or "15
 # utils/ssr.py.
 QUERY_CACHE_TTL_S = int(get_config_value("QUERY_CACHE_TTL_S") or "21600")
 QUERY_CACHE_MAX = int(get_config_value("QUERY_CACHE_MAX") or "256")
+# Teto do cache de relatórios em disco. Ao ultrapassar, os relatórios mais
+# antigos são apagados (eviction FIFO por mtime). Ajustável por env.
+REPORT_CACHE_MAX_BYTES = int(get_config_value("REPORT_CACHE_MAX_BYTES") or str(1024 ** 3))  # 1 GiB
+# Janela em que um relatório pronto é servido sem regerar. Curta de propósito: o
+# gate deduplica cliques em "Gerar" (o único caminho que passa por
+# gerar_relatorio_handler — ver frontend/src/App.jsx:123); baixar um relatório já
+# existente vai pelo mount estático /output e nunca toca o gate. O TTL também fecha
+# as entradas que .data_version não observa — o Google Doc editorial acima de tudo,
+# que é revalidado por ETag a cada geração (utils/external/docs.py:329) e ficaria
+# até 24h invisível atrás de um HIT.
+REPORT_CACHE_TTL_S = int(get_config_value("REPORT_CACHE_TTL_S") or "300")
+# Teto do pool de gráficos (grafico_*.png), compartilhados entre cidades e fora do
+# teto acima (ver services/cache.py). Sem isso o pool cresce sem limite. Ajustável
+# por env.
+GRAFICO_CACHE_MAX_BYTES = int(get_config_value("GRAFICO_CACHE_MAX_BYTES") or str(512 * 1024 ** 2))  # 512 MiB
 
 MACROTEMAS = {
     "demografia": {
