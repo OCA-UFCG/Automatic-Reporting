@@ -284,6 +284,23 @@ def montar_safe_report(
     return safe_city, f"{slug_arquivo}__{safe_city}"
 
 
+# Nome do header que identifica o artefato desta resposta. O portal
+# (data-nordeste-frontend) usa esse nome exato pra achar o PDF no índice de
+# /relatorios, em vez de adivinhar por substring do nome do arquivo + mtime mais
+# recente que o clique — heurística que quebra em dois casos: num HIT do gate o
+# mtime não se move (o relatório "carregava" até o timeout do polling) e um combo
+# casa por substring com o relatório de tema único da mesma cidade.
+HEADER_ARQUIVO_RELATORIO = "X-Relatorio-Arquivo"
+
+
+def _resposta_do_relatorio(html: str, safe_report: str) -> HTMLResponse:
+    """Construtor único das duas saídas do handler (HIT do gate e fim do pipeline).
+    Centraliza pra o header não passar a existir só num dos caminhos — mesmo motivo
+    de _caminhos_relatorio abaixo."""
+    pdf, _html = _caminhos_relatorio(safe_report)
+    return HTMLResponse(content=html, headers={HEADER_ARQUIVO_RELATORIO: pdf.name})
+
+
 def _caminhos_relatorio(safe_report: str) -> tuple[Path, Path]:
     """(pdf, html) do relatório. Fonte única de verdade pros caminhos usados tanto
     pelo gate de frescor quanto pela escrita final — evita que os dois divirjam."""
@@ -330,7 +347,9 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     if artefato_fresco(pdf_cache, REPORT_CACHE_TTL_S) and artefato_fresco(
         html_cache, REPORT_CACHE_TTL_S
     ):
-        return HTMLResponse(content=html_cache.read_text(encoding="utf-8"))
+        return _resposta_do_relatorio(
+            html_cache.read_text(encoding="utf-8"), safe_report
+        )
     gerado_em = datetime.now().astimezone()
 
     linhas = None
@@ -1195,4 +1214,4 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     evict_cache_if_needed(protegido=safe_report)
     evict_graficos_if_needed()
 
-    return HTMLResponse(content=html_content)
+    return _resposta_do_relatorio(html_content, safe_report)
