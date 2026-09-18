@@ -43,6 +43,14 @@ de dado velho (staleness) e um objeto de schema a manter.
   velha, sem ganho perceptível. O cache de queries em memória (`utils/queries/base.py`) já
   torna instantâneas as **repetições** de qualquer view.
 
+> **Transversal materializada (não é perfil):** `mv_indicadores` — snapshot de
+> `relatorios_auto.vw_indicadores` (agregação país-inteira, ~39k municípios, ~14s
+> por chamada; leitura por município cai a ~15ms materializada). Índice único em
+> `cd_mun` — não `(nm_mun, sigla_uf)` como as `mv_perfil_*`, porque não é view de
+> perfil. DDL em `db/2026-09-17-mv_indicadores.sql`; refresh no mesmo
+> `scripts/refresh_matviews.sh` (array `MATVIEWS`). Consumida por
+> `utils/queries/indicadores.py` (`buscar_indicadores_municipio`).
+>
 > Candidata separada (não é perfil): `eco_importacao.vw_importacao_completa` (~1,8 s) — a próxima
 > mais lenta no relatório de economia, se um dia valer a pena apertar mais.
 
