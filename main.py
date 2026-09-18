@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
@@ -18,7 +20,49 @@ from utils.data.macrotemas import (
 from utils.ssr import start_server as start_ssr_server
 from utils.ssr import stop_server as stop_ssr_server
 
-app = FastAPI(on_startup=[start_ssr_server], on_shutdown=[stop_ssr_server])
+logger = logging.getLogger(__name__)
+
+
+def _avisar_se_mv_indicadores_faltar() -> None:
+    """Aviso não-fatal no startup: os indicadores leem relatorios_auto.mv_indicadores,
+    criada por uma DDL manual e gated. Se a app subir antes da DDL, os indicadores
+    degradam silenciosamente — melhor um warning claro no log. Nunca levanta, nunca
+    bloqueia o startup e tolera o banco inacessível (tunnel fora do ar)."""
+    try:
+        from utils.database import get_connection
+
+        conn = get_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT 1 FROM pg_matviews "
+                    "WHERE schemaname = 'relatorios_auto' "
+                    "AND matviewname = 'mv_indicadores'"
+                )
+                existe = cur.fetchone() is not None
+        finally:
+            conn.close()
+        if not existe:
+            logger.warning(
+                "relatorios_auto.mv_indicadores não encontrada — rode a DDL de "
+                "materialização (mv_indicadores + índice único + refresh_matviews.sh). "
+                "Sem ela, buscar_indicadores_municipio degrada e o relatório fica sem "
+                "os indicadores transversais."
+            )
+    except Exception:
+        # Banco indisponível no startup (ex.: tunnel ainda não subiu) não pode
+        # derrubar a app — só logamos e seguimos.
+        logger.warning(
+            "Não foi possível verificar relatorios_auto.mv_indicadores no startup "
+            "(banco inacessível?); seguindo sem bloquear.",
+            exc_info=True,
+        )
+
+
+app = FastAPI(
+    on_startup=[start_ssr_server, _avisar_se_mv_indicadores_faltar],
+    on_shutdown=[stop_ssr_server],
+)
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
