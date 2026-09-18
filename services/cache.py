@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from config import OUTPUT_DIR
+from config import OUTPUT_DIR, REPORT_CACHE_MAX_BYTES
+from services.handlers import _artefatos_do_relatorio
 
 DATA_VERSION_FILE = OUTPUT_DIR / ".data_version"
 
@@ -27,3 +28,44 @@ def artefato_fresco(caminho: Path) -> bool:
         return caminho.stat().st_mtime > _data_version_mtime()
     except FileNotFoundError:
         return False
+
+
+def _relatorios_por_idade() -> list[Path]:
+    """PDFs de relatório, do mais antigo pro mais novo (mtime do PDF)."""
+    pdfs = [
+        p for p in OUTPUT_DIR.glob("relatorio_*.pdf") if p.is_file()
+    ]
+    return sorted(pdfs, key=lambda p: p.stat().st_mtime)
+
+
+def _tamanho_cache(pdfs: list[Path]) -> int:
+    total = 0
+    for pdf in pdfs:
+        for art in _artefatos_do_relatorio(pdf.stem):
+            try:
+                total += art.stat().st_size
+            except FileNotFoundError:
+                pass
+    return total
+
+
+def evict_cache_if_needed(protegido: str | None = None) -> list[str]:
+    """Apaga relatórios mais antigos até o cache caber no teto. FIFO por mtime
+    (nunca toca mtime no acesso, pra não colidir com o frescor). Seguro: o que
+    for evictado só regenera sob demanda."""
+    pdfs = _relatorios_por_idade()
+    total = _tamanho_cache(pdfs)
+    removidos: list[str] = []
+    for pdf in pdfs:
+        if total <= REPORT_CACHE_MAX_BYTES:
+            break
+        if protegido and pdf.stem == f"relatorio_{protegido}":
+            continue
+        for art in _artefatos_do_relatorio(pdf.stem):
+            try:
+                total -= art.stat().st_size
+                art.unlink()
+            except FileNotFoundError:
+                pass
+        removidos.append(pdf.name)
+    return removidos

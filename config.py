@@ -58,6 +58,9 @@ DB_STATEMENT_TIMEOUT_MS = int(get_config_value("DB_STATEMENT_TIMEOUT_MS") or "15
 # utils/ssr.py.
 QUERY_CACHE_TTL_S = int(get_config_value("QUERY_CACHE_TTL_S") or "21600")
 QUERY_CACHE_MAX = int(get_config_value("QUERY_CACHE_MAX") or "256")
+# Teto do cache de relatórios em disco. Ao ultrapassar, os relatórios mais
+# antigos são apagados (eviction FIFO por mtime). Ajustável por env.
+REPORT_CACHE_MAX_BYTES = int(get_config_value("REPORT_CACHE_MAX_BYTES") or str(1024 ** 3))  # 1 GiB
 
 MACROTEMAS = {
     "demografia": {
