@@ -42,12 +42,17 @@ from plotting.saude import (
     gerar_grafico_publico_etario,
     gerar_grafico_taxa_mortalidade,
 )
+from services.cache import artefato_fresco, evict_cache_if_needed
 from services.csv_loader import (
     carregar_csv,
     get_csv_config_for_macrotema,
     normalizar_colunas_macrotema,
 )
-from services.macrotemas import get_macrotema, get_macrotema_slugs_para_relatorio
+from services.macrotemas import (
+    TODOS_MACROTEMAS_ORDEM,
+    get_macrotema,
+    get_macrotema_slugs_para_relatorio,
+)
 from services.pdf import _gerar_pdf
 from utils.cover import (
     montar_capa_relatorio,
@@ -254,18 +259,41 @@ GRAFICOS_AUTO_MARCADOR = {
 }
 
 
+def montar_safe_report(
+    cidade: str, macrotema: str, macrotema_slugs: list[str]
+) -> tuple[str, str]:
+    """(safe_city, safe_report) com chave de cache normalizada: slugs ordenados
+    e deduplicados; o conjunto completo colapsa para 'todos'. Garante que combos
+    equivalentes (ordem/duplicata/8-explícitos) mapeiem no mesmo artefato."""
+    safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", cidade.strip().lower())
+    slugs_norm = sorted(
+        dict.fromkeys(s for s in macrotema_slugs if s != TODOS_MACROTEMAS_SLUG)
+    )
+    if macrotema == TODOS_MACROTEMAS_SLUG or set(slugs_norm) == set(TODOS_MACROTEMAS_ORDEM):
+        slug_arquivo = TODOS_MACROTEMAS_SLUG
+    elif len(slugs_norm) == 1:
+        slug_arquivo = slugs_norm[0]
+    else:
+        slug_arquivo = "_".join(slugs_norm)
+    return safe_city, f"{slug_arquivo}__{safe_city}"
+
+
 async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     reset_figura_contador()
     try:
         macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err))
+    safe_city, safe_report = montar_safe_report(cidade, macrotema, macrotema_slugs)
+    pdf_cache = OUTPUT_DIR / f"relatorio_{safe_report}.pdf"
+    html_cache = OUTPUT_DIR / f"relatorio_{safe_report}.html"
+    # HIT: os dois artefatos existem e são mais novos que a última mudança de dado.
+    if artefato_fresco(pdf_cache) and artefato_fresco(html_cache):
+        return HTMLResponse(content=html_cache.read_text(encoding="utf-8"))
     gerado_em = datetime.now().astimezone()
 
     linhas = None
     cover = None
-    safe_city = None
-    safe_report = None
     macrotemas_render: list[dict[str, object]] = []
     docs_html_parts = []
     caracteristicas_html_parts: list[str] = []
@@ -537,17 +565,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 }
                 for slug in macrotema_slugs
             ]
-            safe_city = re.sub(r"[^a-zA-Z0-9_-]+", "_", cidade.strip().lower())
-            primeiro_slug = macrotema_slugs[0]
-            if macrotema == TODOS_MACROTEMAS_SLUG:
-                slug_arquivo = TODOS_MACROTEMAS_SLUG
-            elif "," in macrotema:
-                slug_arquivo = "_".join(
-                    slug for slug in macrotema_slugs if slug != TODOS_MACROTEMAS_SLUG
-                ) or primeiro_slug
-            else:
-                slug_arquivo = macrotema.split(",")[0].strip()
-            safe_report = f"{slug_arquivo}__{safe_city}"
+            # safe_city/safe_report já vêm computados no topo do handler (gate de cache).
 
             legenda_mapa_localizacao = None
             if CARACTERISTICAS_DOCS_URL:
@@ -1153,5 +1171,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
             status_code=500,
             detail="Falha ao gerar o PDF do relatório.",
         )
+
+    evict_cache_if_needed(protegido=safe_report)
 
     return HTMLResponse(content=html_content)
