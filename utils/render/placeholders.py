@@ -75,7 +75,13 @@ def _parse_operador_campo_a_campo(trecho: str):
 # afirmaria algo que a fonte não garante (caso histórico de
 # `demografia.$centro_pop`). Lista explícita: em outros campos, None==zero
 # é o comportamento correto.
-_CAMPOS_NULL_SENSIVEIS = {"centro_pop", "n_uc"}
+_CAMPOS_NULL_SENSIVEIS = {
+    "centro_pop",
+    "n_uc",
+    # Grupo de manejo das UCs: "sem dado" não é "zero unidades".
+    "n_protecao_pi",
+    "n_protecao_us",
+}
 
 
 def _normalizar_condicao_editorial(linha: str) -> str:
@@ -241,6 +247,15 @@ def _avaliar_condicao_editorial(
 ) -> bool:
     campos = [match.group(1) for match in matches]
 
+    # O ramo de campo único em interpretar_blocos_condicionais não alcança
+    # condições compostas, e `numero()` abaixo transformaria None em 0.0.
+    if any(
+        campo in _CAMPOS_NULL_SENSIVEIS
+        and _numero_do_campo(_resolver_campo_com_alias(contexto, campo)) is None
+        for campo in campos
+    ):
+        return False
+
     def numero(campo: str) -> float:
         valor = _resolver_campo_com_alias(contexto, campo)
         numero_do_campo = _numero_do_campo(valor)
@@ -383,6 +398,9 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
         # condicional órfã e falsa logo acima engoliria o marcador (PR #116).
         if re.match(r"(?i)^#!", limpa):
             bloco_ativo = True
+            # O rodapé é do tema inteiro: nenhum bloco persistente sobrevive.
+            bloco_populacoes_ativo = True
+            bloco_rua_ativo = True
             aguardando_fim_de_bloco_simples = False
             bloco_simples_teve_conteudo = False
             resultado.append(linha)
@@ -430,6 +448,12 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                         and atende
                     )
                     bloco_e_persistente = False
+                    # Como o `else` abaixo, este ramo gateia só o parágrafo
+                    # seguinte. Sem armar o fim de bloco, "$n_uc for maior ou
+                    # igual a 5" (última regra de UC do Doc) apagava aridez,
+                    # desertificação e a legenda "Figura X" — logo, o gráfico.
+                    aguardando_fim_de_bloco_simples = True
+                    bloco_simples_teve_conteudo = False
                 else:
                     bloco_ativo = atende
                     aguardando_fim_de_bloco_simples = True
@@ -568,6 +592,9 @@ def _resolver_campo_com_alias(contexto: dict, campo: str) -> object | None:
         return valor
 
     aliases_de_coluna = {
+        "nm_painel1": "painel1",
+        "nm_painel2": "painel2",
+        "nm_boletim1": "boletim1",
         "area": "area_territorial",
         "centro_pop": "centros_pop",
         "fundamental_com_per": "fundamental_comp_per",

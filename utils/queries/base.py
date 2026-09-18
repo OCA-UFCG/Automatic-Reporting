@@ -9,6 +9,7 @@ import psycopg2
 
 from config import QUERY_CACHE_MAX, QUERY_CACHE_TTL_S
 from utils.database import get_connection
+from utils.formatting import limpar_sentinelas
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +125,7 @@ def executar_query_dict(query: str, params: tuple, contexto_erro: str) -> dict |
             if linha is None:
                 return None
             colunas = [descricao[0] for descricao in cursor.description]
-            resultado = dict(zip(colunas, linha))
+            resultado = limpar_sentinelas(dict(zip(colunas, linha)))
     except psycopg2.Error as err:
         logger.warning("Falha ao executar query (%s): %s", contexto_erro, err)
         return None

@@ -1,11 +1,10 @@
 import pathlib
 
-import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
 from matplotlib.ticker import FuncFormatter
 
-from plotting import ESCALA_FONTE
+from plotting import ESCALA_FONTE, iniciar_card_grafico, salvar_card_grafico
 
 # (campo no contexto, rótulo da legenda, cor) — ordem e cores espelham o Doc.
 # Campos vêm de relatorios_auto.ambiente (percentual da área municipal em
@@ -48,7 +47,16 @@ def gerar_grafico_aridez(
     limite_eixo = 100.0
     alturas_barra = [min(valor, limite_eixo) for valor in valores]
 
-    fig, ax = plt.subplots(figsize=(6.1, 4.05))
+    fig, ax = iniciar_card_grafico(
+        (6.1, 4.05), "Classificação das condições de aridez"
+    )
+    # Reserva uma faixa abaixo do corpo do gráfico, dentro do card, para a
+    # legenda (senão ela cai fora da área desenhada e some do PNG).
+    posicao = ax.get_position()
+    altura_legenda = posicao.height * 0.12
+    ax.set_position(
+        (posicao.x0, posicao.y0 + altura_legenda, posicao.width, posicao.height - altura_legenda)
+    )
     x = np.arange(len(labels))
     barras = ax.bar(x, alturas_barra, width=0.6, color=cores, zorder=3)
 
@@ -92,9 +100,5 @@ def gerar_grafico_aridez(
         columnspacing=1.2,
     )
 
-    fig.patch.set_facecolor("white")
-    ax.set_facecolor("white")
-    plt.tight_layout(pad=1.2)
-    plt.savefig(chart_file, dpi=180, bbox_inches="tight", facecolor="white")
-    plt.close(fig)
+    salvar_card_grafico(fig, chart_file)
     return chart_file.name

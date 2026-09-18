@@ -1449,6 +1449,61 @@ def test_texto_que_nao_e_decimal_puro_fica_intacto():
     assert resultado == "2801108 / 12,2 pontos percentuais"
 
 
+def test_rodape_meio_ambiente_independe_da_condicao_da_descricao():
+    from utils.external.docs import extrair_descricao_tema
+    from utils.render.renderer import _QR_DATA_NORDESTE_POR_MACROTEMA
+
+    # Estrutura do Doc: a condição fica fora do bloco extraído da descrição.
+    for titulo in ("Fontes", "Conteúdos relacionados"):
+        texto = (
+            'Para quando for 0 ambiente.$n_uc, então:\n\n'
+            'descricao_tema = “Descrição ambiental.” @@\n\n'
+            f'#!{titulo}\n\n'
+            'ambiente.“$nm_painel2” = '
+            'https://datanordeste.sudene.gov.br/data-panel/unidades_conservacao\n\n'
+            '#!Conteúdos relacionados\n\n'
+            'ambiente.“$nm_boletim1” = '
+            'https://datanordeste.sudene.gov.br/boletim/7tbxR9sivkEzXGk7b5t8vu'
+        )
+        _, restante = extrair_descricao_tema(texto)
+        for contexto in ({}, {"n_uc": 0}, {"n_uc": 1}, {"n_uc": 3}):
+            contexto.update(nm_painel2="Unidades de conservação", nm_boletim1="Desertificação")
+            html = texto_para_html(restante, contexto, namespace="meio-ambiente")
+            assert f'>{titulo}</h3>' in html
+            assert '>Conteúdos relacionados</h3>' in html
+            assert 'href="https://datanordeste.sudene.gov.br/data-panel/unidades_conservacao"' in html
+            assert 'href="https://datanordeste.sudene.gov.br/boletim/7tbxR9sivkEzXGk7b5t8vu"' in html
+            assert 'class="fontes-box-intro-qr"' in html
+            assert _QR_DATA_NORDESTE_POR_MACROTEMA["meio-ambiente"] in html
+            assert "Para quando" not in html
+
+
+def test_links_ambientais_usam_nomes_do_banco_sem_prefixo_nm():
+    texto = '''#!Fontes
+
+ambiente.“$nm_painel2” = https://datanordeste.sudene.gov.br/data-panel/unidades_conservacao
+
+ambiente.“$nm_painel1” = https://datanordeste.sudene.gov.br/data-panel/aridez
+
+#!Conteúdos relacionados
+
+ambiente.“$nm_boletim1” = https://datanordeste.sudene.gov.br/boletim/7tbxR9sivkEzXGk7b5t8vu
+'''
+    contexto = {
+        "painel1": "Índice de Aridez",
+        "painel2": "Unidades de Conservação",
+        "boletim1": "Desertificação",
+    }
+    html = texto_para_html(texto, contexto, namespace="meio-ambiente")
+    assert html.count('class="fonte-badge"') == 3
+    for nome in contexto.values():
+        assert f'</strong> {nome}</a>' in html
+    assert '$nm_' not in html
+
+    # O nome explícito do documento continua tendo precedência sobre o alias.
+    contexto["nm_painel1"] = "Nome editorial"
+    html = texto_para_html(texto, contexto, namespace="meio-ambiente")
+    assert '</strong> Nome editorial</a>' in html
 def test_campo_ano_nao_ganha_separador_de_milhar():
     # Nomes tirados do schema e dos Docs de economia e saúde, não inventados.
     for campo in (
@@ -1473,3 +1528,68 @@ def test_contagem_com_ano_no_nome_mantem_separador_de_milhar():
     )
 
     assert resultado == "foram 32.211 doses"
+
+
+def test_condicao_falsa_de_campo_unico_nao_engole_o_resto_da_secao():
+    """Regressão: a regra falsa apagava tudo até "Síntese" — aridez,
+    desertificação e a legenda "Figura X" (e, sem legenda, o gráfico)."""
+    texto = """Para quando ambiente.$n_uc for maior ou igual a 5:
+Parágrafo só para municípios com muitas UCs.
+
+Entre 1991 e 2021, o clima do município apresentou mudanças.
+
+Figura X - Classificação das condições de aridez no município.
+"""
+
+    resultado = interpretar_blocos_condicionais(texto, {"n_uc": 3})
+
+    assert "Parágrafo só para municípios" not in resultado
+    assert "Entre 1991 e 2021" in resultado
+    assert "Figura X" in resultado
+
+
+def test_condicao_composta_nao_trata_campo_sem_dado_como_zero():
+    """Campo ausente tratado como 0 fazia duas alternativas contraditórias
+    ficarem verdadeiras ao mesmo tempo."""
+    texto = """Para quando ambiente.$n_uc for de 2 a 4 e ambiente.$n_protecao_us for igual a 0:
+Todas são Proteção Integral.
+
+Para quando ambiente.$n_uc for de 2 a 4 e ambiente.$n_protecao_pi for igual a 0:
+Todas são Uso Sustentável.
+"""
+
+    for contexto in (
+        {"n_uc": 3},
+        {"n_uc": 3, "n_protecao_pi": None, "n_protecao_us": None},
+    ):
+        resultado = interpretar_blocos_condicionais(texto, contexto)
+
+        assert "Proteção Integral" not in resultado, contexto
+        assert "Uso Sustentável" not in resultado, contexto
+
+    com_dado = interpretar_blocos_condicionais(
+        texto, {"n_uc": 3, "n_protecao_pi": 3, "n_protecao_us": 0}
+    )
+    assert "Todas são Proteção Integral." in com_dado
+    assert "Todas são Uso Sustentável." not in com_dado
+
+
+def test_marcador_de_rodape_reativa_blocos_persistentes():
+    """O handler de "#!" reativa também os blocos persistentes de população,
+    não só `bloco_ativo`."""
+    texto = """Para quando demografia.$pop_ind_2022 for maior que 0:
+Parágrafo indígena de 2022.
+
+#!Fontes
+
+Para quando demografia.$pop_ind_2010 for maior que 0:
+Parágrafo indígena de 2010.
+"""
+
+    resultado = interpretar_blocos_condicionais(
+        texto, {"pop_ind_2022": 0, "pop_ind_2010": 5}
+    )
+
+    assert "Parágrafo indígena de 2022." not in resultado
+    assert "#!Fontes" in resultado
+    assert "Parágrafo indígena de 2010." in resultado

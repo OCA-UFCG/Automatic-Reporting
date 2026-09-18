@@ -74,6 +74,31 @@ CONTEXTO = {
     "valor_asd": "590.55",
     "fonte_asd": "Xavier et al. (2019) e OCA",
     "unid_asd": "km²",
+    "nm_asd_avanço": (
+        "Avanço da área suscetível à desertificação no município (1991–2021)"
+    ),
+    "valor_asd_avanço": "-12.25",
+    "fonte_asd_avanço": "Xavier et al. (2019) e OCA",
+    "unid_asd_avanço": "km²",
+    # Unidades de conservação: as quatro bases da branch de big numbers de UC.
+    # Rótulo, fonte e unidade vêm da view — conferir contra vw_indicadores
+    # antes de tratar estes textos como contrato.
+    "nm_uc": "Unidades de conservação",
+    "valor_uc": "3",
+    "fonte_uc": "CNUC (2025)",
+    "unid_uc": "Unidade(s) de conservação",
+    "nm_uc_area": "Área em unidades de conservação",
+    "valor_uc_area": "2500.75",
+    "fonte_uc_area": "CNUC (2025)",
+    "unid_uc_area": "Área protegida no município (ha)",
+    "nm_uc_pi": "Grupo de proteção integral",
+    "valor_uc_pi": "0",
+    "fonte_uc_pi": "CNUC (2025)",
+    "unid_uc_pi": "Unidade(s) de conservação",
+    "nm_uc_uso": "Grupo de uso sustentável",
+    "valor_uc_uso": "3",
+    "fonte_uc_uso": "CNUC (2025)",
+    "unid_uc_uso": "Unidade(s) de conservação",
     "nm_esgotamento": "Domicílios ligados à rede geral ou pluvial",
     "valor_esgotamento": "86.62",
     "fonte_esgotamento": "IBGE (2022)",
@@ -210,6 +235,7 @@ def test_base_sem_rotulo_na_view_nao_vira_card():
 
 
 def test_indicador_sem_valor_no_banco_e_omitido():
+    # A ausência de dados não deve virar um card com unidade de medida.
     indicadores = montar_indicadores_macrotema(
         "meio-ambiente", {**CONTEXTO, "valor_asd": None}
     )
@@ -363,3 +389,47 @@ def test_score_usa_fallback_quando_coluna_ausente():
 
     assert score["valor"] == "3,66"
     assert score["maximo"] == "5"
+
+
+def test_meio_ambiente_usa_colunas_atuais_da_view():
+    # Os seis cards de meio-ambiente (ASD + as quatro bases de UC) saem da
+    # view com rótulo, fonte e unidade próprios; o ícone é o dedicado da base,
+    # não o do macrotema.
+    cards = montar_indicadores_macrotema("meio-ambiente", CONTEXTO, "leaf")
+
+    assert _por_nome(cards) == {
+        "Área suscetível à desertificação": "590,55 km²",
+        "Avanço da área suscetível à desertificação no município "
+        "(1991–2021)": "-12,25 km²",
+        "Unidades de conservação": "3",
+        "Área em unidades de conservação": "2.500,75 ha",
+        "Grupo de proteção integral": "0",
+        "Grupo de uso sustentável": "3",
+    }
+    assert [card["icone"] for card in cards] == [
+        "desertificacao",
+        "desertificacao",
+        "unidades_conservacao",
+        "area_conservacao",
+        "protecao_integral",
+        "uso_sustentavel",
+    ]
+    assert all(card["fonte"] == "CNUC (2025)" for card in cards[2:])
+
+
+def test_meio_ambiente_omite_marcador_de_ausencia_da_view():
+    # A view escreve "Não há dados" em vez de NULL quando o município não tem
+    # o indicador. Sem este filtro o card sairia com o texto no lugar do
+    # número — e, pior, com a unidade colada nele.
+    contexto = {
+        **CONTEXTO,
+        "valor_asd": "Não há dados",
+        "valor_asd_avanço": " Não há dados ",
+        "valor_uc_pi": None,
+        "valor_uc_uso": "",
+        "valor_uc_area": "Não há dados",
+    }
+
+    assert _por_nome(montar_indicadores_macrotema("meio-ambiente", contexto)) == {
+        "Unidades de conservação": "3",
+    }

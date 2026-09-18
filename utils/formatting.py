@@ -1,5 +1,39 @@
 import math
 
+# As views escrevem strings-sentinela em vez de NULL quando não têm o dado.
+# Filtrar num consumidor só não basta: a capa omitia o card enquanto a prosa
+# imprimia "o município tem Não há dados unidades de conservação".
+_SENTINELAS_SEM_DADO = frozenset(
+    {
+        "não há dados",
+        "nao ha dados",
+        "sem dados",
+        "sem informação",
+        "sem informacao",
+        "não informado",
+        "nao informado",
+        "n/d",
+        "nd",
+        "-",
+        "--",
+    }
+)
+
+
+def valor_sem_sentinela(valor: object) -> object:
+    """Converte as strings-sentinela da view em None; devolve o resto intacto."""
+    if not isinstance(valor, str):
+        return valor
+    # Igualdade, não substring: "Não há dados suficientes" é conteúdo.
+    if valor.strip().rstrip(".").casefold() in _SENTINELAS_SEM_DADO:
+        return None
+    return valor
+
+
+def limpar_sentinelas(linha: dict) -> dict:
+    """Aplica `valor_sem_sentinela` a todas as colunas de uma linha da view."""
+    return {coluna: valor_sem_sentinela(valor) for coluna, valor in linha.items()}
+
 
 def coerce_para_float(valor: object, default: float | None = 0.0) -> float | None:
     """Converte um valor (possivelmente string com vírgula decimal, None ou NaN) em float.
