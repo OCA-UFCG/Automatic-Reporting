@@ -92,10 +92,7 @@ from utils.queries.economia_renda import (
     processar_indicadores_economia,
     processar_pib_evolucao,
 )
-from utils.queries.educacao import (
-    buscar_perfil_educacional_municipio,
-    buscar_taxas_educacao_cor_faixa_etaria,
-)
+from utils.queries.educacao import buscar_taxas_educacao_cor_faixa_etaria
 from utils.queries.hidraulica import buscar_tecnologias_acesso_agua
 from utils.queries.indicadores import buscar_indicadores_municipio
 from utils.queries.perfil_municipal import buscar_perfil_municipal
@@ -307,93 +304,60 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 macrotema_dados["docs_env"],
             )
             continue
-        if macrotema_slug == "educacao":
-            # Educação usa sua própria view (vw_perfil_educacional_municipal,
-            # via buscar_perfil_educacional_municipio) em vez de
-            # buscar_perfil_municipal, mas segue a mesma regra das demais:
-            # view é a fonte primária, CSV é o fallback quando ela não tem a
-            # cidade ou o banco está fora do ar (PR #91).
-            nome_cidade_educ, uf_educ = separar_cidade_uf(cidade)
-            try:
-                perfil_educacional = buscar_perfil_educacional_municipio(
-                    nome_cidade_educ, uf_educ
+        # O banco (`relatorios_auto.vw_perfil_*`/`mv_perfil_*`) é a fonte primária: só
+        # cai para o CSV se a view não tiver a cidade ou o banco estiver fora do ar
+        # (PR #91). Educação já usava um caminho próprio aqui (view "vw_perfil_educacional_municipal"
+        # via uma lista fixa de colunas em utils/queries/educacao.py); essa lista ficou
+        # desatualizada em relação à mv_perfil_educacional_municipal (faltava, entre
+        # outras, a coluna tend_ens_sup) e o placeholder correspondente saía cru no
+        # relatório. buscar_perfil_municipal já mapeia "educacao" pra essa mesma
+        # matview com SELECT *, então segue a mesma regra das demais sem precisar
+        # manter uma lista de colunas em paralelo.
+        nome_cidade_perfil, uf_perfil = separar_cidade_uf(cidade)
+        perfil_db = (
+            buscar_perfil_municipal(macrotema_slug, nome_cidade_perfil, uf_perfil)
+            if uf_perfil
+            else None
+        )
+
+        if perfil_db:
+            linha_db = dict(perfil_db)
+            # Usa o nome canônico da própria view (grafia/acentuação corretas),
+            # nunca o texto digitado pelo usuário — do contrário o
+            # enriquecimento a jusante (características, demografia, saúde…), que
+            # casa nm_mun de forma case-sensitive, não encontra a cidade. Garante
+            # o formato "Cidade (UF)" que resolver_nome_uf/capa/mapas esperam,
+            # removendo antes um sufixo "(UF)" que algumas views já trazem.
+            nome_canonico = re.sub(
+                r"\s*\([^)]*\)\s*$", "", str(perfil_db.get("nm_mun") or nome_cidade_perfil)
+            ).strip()
+            linha_db["nm_mun"] = f"{nome_canonico} ({uf_perfil})"
+            linhas_macrotema = [linha_db]
+        else:
+            if uf_perfil:
+                # Só é fallback de verdade quando o banco foi consultado e não
+                # tinha a cidade; sem UF a view sequer é chamada.
+                logger.warning(
+                    "Sem dados no banco para '%s' (%s); usando CSV como fallback.",
+                    cidade,
+                    macrotema_slug,
                 )
+            csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
+            csv_source = resolve_csv_source(csv_url, csv_env)
+            df = carregar_csv(csv_source)
+            df = normalizar_colunas_macrotema(df, macrotema_slug)
+
+            try:
+                linhas_df = filtrar_linhas_por_cidade(df, cidade)
             except ValueError as err:
                 raise HTTPException(status_code=400, detail=str(err))
 
-            if perfil_educacional:
-                linhas_macrotema = [dict(perfil_educacional)]
-            else:
-                if uf_educ:
-                    logger.warning(
-                        "Sem dados no banco para '%s' (%s); usando CSV como fallback.",
-                        cidade,
-                        macrotema_slug,
-                    )
-                csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
-                csv_source = resolve_csv_source(csv_url, csv_env)
-                df = carregar_csv(csv_source)
-                df = normalizar_colunas_macrotema(df, macrotema_slug)
+            linhas_macrotema = linhas_df.to_dict("records")
 
-                try:
-                    linhas_df = filtrar_linhas_por_cidade(df, cidade)
-                except ValueError as err:
-                    raise HTTPException(status_code=400, detail=str(err))
-
-                linhas_macrotema = linhas_df.to_dict("records")
-
-                if not linhas_macrotema:
-                    raise HTTPException(
-                        status_code=404, detail=f"Cidade '{cidade}' não encontrada."
-                    )
-        else:
-            # O banco (`relatorios_auto.vw_perfil_*`) é a fonte primária: só cai
-            # para o CSV se a view não tiver a cidade ou o banco estiver fora do ar.
-            nome_cidade_perfil, uf_perfil = separar_cidade_uf(cidade)
-            perfil_db = (
-                buscar_perfil_municipal(macrotema_slug, nome_cidade_perfil, uf_perfil)
-                if uf_perfil
-                else None
-            )
-
-            if perfil_db:
-                linha_db = dict(perfil_db)
-                # Usa o nome canônico da própria view (grafia/acentuação corretas),
-                # nunca o texto digitado pelo usuário — do contrário o
-                # enriquecimento a jusante (características, demografia, saúde…), que
-                # casa nm_mun de forma case-sensitive, não encontra a cidade. Garante
-                # o formato "Cidade (UF)" que resolver_nome_uf/capa/mapas esperam,
-                # removendo antes um sufixo "(UF)" que algumas views já trazem.
-                nome_canonico = re.sub(
-                    r"\s*\([^)]*\)\s*$", "", str(perfil_db.get("nm_mun") or nome_cidade_perfil)
-                ).strip()
-                linha_db["nm_mun"] = f"{nome_canonico} ({uf_perfil})"
-                linhas_macrotema = [linha_db]
-            else:
-                if uf_perfil:
-                    # Só é fallback de verdade quando o banco foi consultado e não
-                    # tinha a cidade; sem UF a view sequer é chamada.
-                    logger.warning(
-                        "Sem dados no banco para '%s' (%s); usando CSV como fallback.",
-                        cidade,
-                        macrotema_slug,
-                    )
-                csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
-                csv_source = resolve_csv_source(csv_url, csv_env)
-                df = carregar_csv(csv_source)
-                df = normalizar_colunas_macrotema(df, macrotema_slug)
-
-                try:
-                    linhas_df = filtrar_linhas_por_cidade(df, cidade)
-                except ValueError as err:
-                    raise HTTPException(status_code=400, detail=str(err))
-
-                linhas_macrotema = linhas_df.to_dict("records")
-
-                if not linhas_macrotema:
-                    raise HTTPException(
-                        status_code=404, detail=f"Cidade '{cidade}' não encontrada."
-                    )
+            if not linhas_macrotema:
+                raise HTTPException(
+                    status_code=404, detail=f"Cidade '{cidade}' não encontrada."
+                )
 
         for linha in linhas_macrotema:
             linha["data_relatorio"] = gerado_em.strftime("%d/%m/%Y")
