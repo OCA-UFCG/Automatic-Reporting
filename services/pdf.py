@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 from pathlib import Path
 
@@ -24,11 +25,20 @@ def _reescrever_srcs(html_content: str) -> str:
 
 
 def _gerar_pdf_sync(html_content: str, pdf_file: Path) -> bool:
+    # Escrita atômica: renderiza num .tmp e só então os.replace no destino, pra o
+    # gate de cache nunca ler um PDF meio-escrito (o handler async cede em cada
+    # await, então requests da mesma chave se intercalam mesmo sob 1 worker).
+    tmp_file = pdf_file.with_name(pdf_file.name + ".tmp")
     try:
         pdf_html = _reescrever_srcs(html_content)
-        HTML(string=pdf_html, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(pdf_file))
+        HTML(string=pdf_html, base_url=str(OUTPUT_DIR.resolve())).write_pdf(str(tmp_file))
+        os.replace(tmp_file, pdf_file)
     except (OSError, RuntimeError, TypeError, ValueError):
         logger.exception("Falha ao gerar PDF %s", pdf_file)
+        try:
+            tmp_file.unlink()
+        except FileNotFoundError:
+            pass
         return False
     return True
 

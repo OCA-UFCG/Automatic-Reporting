@@ -1,7 +1,9 @@
 import logging
+import os
 import re
 import unicodedata
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import HTTPException
 from fastapi.responses import HTMLResponse
@@ -282,6 +284,15 @@ def montar_safe_report(
     return safe_city, f"{slug_arquivo}__{safe_city}"
 
 
+def _caminhos_relatorio(safe_report: str) -> tuple[Path, Path]:
+    """(pdf, html) do relatório. Fonte única de verdade pros caminhos usados tanto
+    pelo gate de frescor quanto pela escrita final — evita que os dois divirjam."""
+    return (
+        OUTPUT_DIR / f"relatorio_{safe_report}.pdf",
+        OUTPUT_DIR / f"relatorio_{safe_report}.html",
+    )
+
+
 async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     # Antes de qualquer coisa (inclusive o gate de frescor abaixo): se o dado mudou
     # desde a última checagem, esvazia o query cache in-process (TTL 6h) pra não
@@ -293,8 +304,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err))
     safe_city, safe_report = montar_safe_report(cidade, macrotema, macrotema_slugs)
-    pdf_cache = OUTPUT_DIR / f"relatorio_{safe_report}.pdf"
-    html_cache = OUTPUT_DIR / f"relatorio_{safe_report}.html"
+    pdf_cache, html_cache = _caminhos_relatorio(safe_report)
     # HIT: os dois artefatos existem e são mais novos que a última mudança de dado.
     if artefato_fresco(pdf_cache) and artefato_fresco(html_cache):
         return HTMLResponse(content=html_cache.read_text(encoding="utf-8"))
@@ -730,7 +740,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                     graficos_por_placeholder[nome_grafico] = gerar_grafico(
                         cidade=linhas_macrotema[0],
                         OUTPUT_DIR=OUTPUT_DIR,
-                        safe_city=safe_report or "relatorio",
+                        safe_city=safe_city or "relatorio",
                     )
                 except ValueError as err:
                     logger.warning(
@@ -798,7 +808,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 chart_file_name = gerar_grafico_tecnologias_acesso_agua(
                     cidade=linhas_macrotema[0],
                     OUTPUT_DIR=OUTPUT_DIR,
-                    safe_city=safe_report or "relatorio",
+                    safe_city=safe_city or "relatorio",
                 )
                 graficos_por_placeholder["grafico_tecnologias_acesso_agua"] = (
                     chart_file_name
@@ -816,7 +826,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 graficos_por_placeholder["grafico_aridez"] = gerar_grafico_aridez(
                     cidade=linhas_macrotema[0],
                     OUTPUT_DIR=OUTPUT_DIR,
-                    safe_city=safe_report or "relatorio",
+                    safe_city=safe_city or "relatorio",
                 )
             except ValueError as err:
                 logger.warning(
@@ -832,7 +842,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                     gerar_grafico_dinamica_esgoto(
                         cidade=linhas_macrotema[0],
                         OUTPUT_DIR=OUTPUT_DIR,
-                        safe_city=safe_report or "relatorio",
+                        safe_city=safe_city or "relatorio",
                     )
                 )
             except (ValueError, KeyError) as err:
@@ -848,7 +858,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                     gerar_grafico_esgotamento_sanitario(
                         cidade=linhas_macrotema[0],
                         OUTPUT_DIR=OUTPUT_DIR,
-                        safe_city=safe_report or "relatorio",
+                        safe_city=safe_city or "relatorio",
                     )
                 )
             except (ValueError, KeyError) as err:
@@ -864,7 +874,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                     gerar_grafico_coleta_lixo(
                         cidade=linhas_macrotema[0],
                         OUTPUT_DIR=OUTPUT_DIR,
-                        safe_city=safe_report or "relatorio",
+                        safe_city=safe_city or "relatorio",
                     )
                 )
             except (ValueError, KeyError) as err:
@@ -880,7 +890,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 chart_file_name = gerar_grafico_de_desenvolvimento_social(
                     cidade=linhas_macrotema[0],
                     OUTPUT_DIR=OUTPUT_DIR,
-                    safe_city=safe_report or "relatorio",
+                    safe_city=safe_city or "relatorio",
                 )
                 graficos_por_placeholder["grafico_de_desenvolvimento_social"] = (
                     chart_file_name
@@ -898,7 +908,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 chart_file_name = gerar_grafico_pib(
                     cidade=linhas_macrotema[0],
                     OUTPUT_DIR=OUTPUT_DIR,
-                    safe_city=safe_report or "relatorio",
+                    safe_city=safe_city or "relatorio",
                 )
                 graficos_por_placeholder["grafico_pib"] = chart_file_name
             except ValueError as err:
@@ -913,7 +923,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 chart_file_name = gerar_grafico_vab(
                     cidade=linhas_macrotema[0],
                     OUTPUT_DIR=OUTPUT_DIR,
-                    safe_city=safe_report or "relatorio",
+                    safe_city=safe_city or "relatorio",
                 )
                 graficos_por_placeholder["grafico_vab"] = chart_file_name
             except ValueError as err:
@@ -928,7 +938,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 chart_file_name = gerar_grafico_fob(
                     cidade=linhas_macrotema[0],
                     OUTPUT_DIR=OUTPUT_DIR,
-                    safe_city=safe_report or "relatorio",
+                    safe_city=safe_city or "relatorio",
                 )
                 graficos_por_placeholder["grafico_fob"] = chart_file_name
             except ValueError as err:
@@ -943,7 +953,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 chart_file_name = gerar_grafico_exportacao(
                     cidade=linhas_macrotema[0],
                     OUTPUT_DIR=OUTPUT_DIR,
-                    safe_city=safe_report or "relatorio",
+                    safe_city=safe_city or "relatorio",
                 )
                 graficos_por_placeholder["grafico_exportacao"] = chart_file_name
             except ValueError as err:
@@ -958,7 +968,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 chart_file_name = gerar_grafico_balanca(
                     cidade=linhas_macrotema[0],
                     OUTPUT_DIR=OUTPUT_DIR,
-                    safe_city=safe_report or "relatorio",
+                    safe_city=safe_city or "relatorio",
                 )
                 graficos_por_placeholder["grafico_balanca"] = chart_file_name
             except ValueError as err:
@@ -1161,24 +1171,30 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
 
     # Output file handling
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    output_file = OUTPUT_DIR / f"relatorio_{safe_report}.html"
-    output_file.write_text(html_content, encoding="utf-8")
+    pdf_file, output_file = _caminhos_relatorio(safe_report)
 
-    # Gerar PDF em background sempre, para manter o artefato sincronizado com o HTML
-    # e evitar reaproveitar um PDF antigo quando os dados/mapas mudarem no mesmo dia.
-    pdf_file = OUTPUT_DIR / f"relatorio_{safe_report}.pdf"
-
+    # Apaga o par (pdf, html) velho antes de regerar, pra o gate nunca servir um
+    # HTML fresco apontando pra um PDF stale (ou vice-versa).
     for stale_artifact in (pdf_file, output_file):
         try:
             stale_artifact.unlink()
         except FileNotFoundError:
             pass
 
+    # Ordem importa pro gate (que exige pdf E html frescos): gera o PDF primeiro
+    # (escrita atômica em services.pdf) e só então persiste o HTML — assim
+    # "html fresco" sempre implica "pdf fresco".
     if not await _gerar_pdf(html_content, pdf_file):
         raise HTTPException(
             status_code=500,
             detail="Falha ao gerar o PDF do relatório.",
         )
+
+    # HTML atômico e por último: escreve em .tmp e os.replace no destino, depois do
+    # PDF já existir, pra o gate nunca ler um HTML meio-escrito.
+    tmp_html = output_file.with_name(output_file.name + ".tmp")
+    tmp_html.write_text(html_content, encoding="utf-8")
+    os.replace(tmp_html, output_file)
 
     evict_cache_if_needed(protegido=safe_report)
 
