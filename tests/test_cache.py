@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-from services import cache, handlers
+from services import cache
 
 
 @pytest.fixture
@@ -40,11 +40,9 @@ def test_arquivo_mais_novo_que_marcador_eh_fresco(output_tmp):
 
 
 def test_eviction_remove_mais_antigos_ate_caber(output_tmp, monkeypatch):
-    # _artefatos_do_relatorio (services/handlers.py) resolve seus caminhos a
-    # partir do próprio OUTPUT_DIR do módulo handlers (import feito na carga
-    # do módulo) — precisa apontar pro tmp_path também, senão ele enumera
-    # artefatos no output/ real do projeto em vez dos arquivos de teste.
-    monkeypatch.setattr(handlers, "OUTPUT_DIR", output_tmp)
+    # Eviction opera só nos artefatos únicos do relatório (pdf/html/mapa), todos
+    # resolvidos a partir de cache.OUTPUT_DIR (já apontado pro tmp_path pela
+    # fixture) — não precisa mais mexer no OUTPUT_DIR do módulo handlers.
     monkeypatch.setattr(cache, "REPORT_CACHE_MAX_BYTES", 2500)
     # cria 3 relatórios de ~1KB cada, com mtime crescente
     nomes = ["a", "b", "c"]
@@ -63,7 +61,6 @@ def test_eviction_remove_mais_antigos_ate_caber(output_tmp, monkeypatch):
 
 
 def test_eviction_nunca_remove_protegido(output_tmp, monkeypatch):
-    monkeypatch.setattr(handlers, "OUTPUT_DIR", output_tmp)
     monkeypatch.setattr(cache, "REPORT_CACHE_MAX_BYTES", 500)
     p = output_tmp / "relatorio_demografia__novo.pdf"
     p.write_bytes(b"x" * 1000)
@@ -71,6 +68,24 @@ def test_eviction_nunca_remove_protegido(output_tmp, monkeypatch):
     removidos = cache.evict_cache_if_needed(protegido="demografia__novo")
     assert removidos == []
     assert p.exists()
+
+
+def test_eviction_nao_apaga_graficos_compartilhados_por_cidade(output_tmp, monkeypatch):
+    # D6: gráficos são chaveados por cidade e reusados entre combos. Evictar um
+    # relatório NÃO pode apagar os PNGs de gráfico, ou o HTML de outros relatórios
+    # frescos da mesma cidade passa a apontar pra imagem que não existe mais.
+    monkeypatch.setattr(cache, "REPORT_CACHE_MAX_BYTES", 500)
+    pdf = output_tmp / "relatorio_demografia__x.pdf"
+    pdf.write_bytes(b"x" * 1000)
+    os.utime(pdf, (1000, 1000))  # velho -> será evictado
+    grafico = output_tmp / "grafico_composicao_cor_raca_x.png"
+    grafico.write_bytes(b"png")
+
+    removidos = cache.evict_cache_if_needed()
+
+    assert "relatorio_demografia__x.pdf" in removidos
+    assert not pdf.exists()
+    assert grafico.exists()  # gráfico compartilhado sobrevive
 
 
 def test_invalida_query_cache_quando_data_version_avanca(output_tmp, monkeypatch):

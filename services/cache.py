@@ -11,7 +11,6 @@ import threading
 from pathlib import Path
 
 from config import OUTPUT_DIR, REPORT_CACHE_MAX_BYTES
-from services.handlers import _artefatos_do_relatorio
 from utils.queries.base import limpar_cache_queries
 
 DATA_VERSION_FILE = OUTPUT_DIR / ".data_version"
@@ -40,10 +39,26 @@ def _relatorios_por_idade() -> list[Path]:
     return sorted(pdfs, key=lambda p: p.stat().st_mtime)
 
 
+def _artefatos_unicos_do_relatorio(nome_base: str) -> list[Path]:
+    """Artefatos EXCLUSIVOS de um safe_report: o pdf, o html e o mapa da região.
+    Os gráficos (grafico_*_<cidade>.png) NÃO entram: desde a D6 eles são chaveados
+    por cidade e compartilhados entre todos os combos daquela cidade — apagá-los na
+    eviction corromperia o HTML de outros relatórios frescos que os reusam. Eles
+    formam um pool separado, retido pra reuso, fora deste teto de disco.
+    (Distinto de handlers._artefatos_do_relatorio, que ainda varre os gráficos por
+    cidade porque o DELETE manual apaga o relatório inteiro de propósito.)"""
+    sufixo = nome_base.replace("relatorio_", "", 1)
+    return [
+        OUTPUT_DIR / f"{nome_base}.pdf",
+        OUTPUT_DIR / f"{nome_base}.html",
+        OUTPUT_DIR / f"mapa_regiao_{sufixo}.png",
+    ]
+
+
 def _tamanho_cache(pdfs: list[Path]) -> int:
     total = 0
     for pdf in pdfs:
-        for art in _artefatos_do_relatorio(pdf.stem):
+        for art in _artefatos_unicos_do_relatorio(pdf.stem):
             try:
                 total += art.stat().st_size
             except FileNotFoundError:
@@ -63,7 +78,7 @@ def evict_cache_if_needed(protegido: str | None = None) -> list[str]:
             break
         if protegido and pdf.stem == f"relatorio_{protegido}":
             continue
-        for art in _artefatos_do_relatorio(pdf.stem):
+        for art in _artefatos_unicos_do_relatorio(pdf.stem):
             try:
                 total -= art.stat().st_size
                 art.unlink()
