@@ -1,5 +1,6 @@
 import os
 import time
+from pathlib import Path
 
 import pytest
 
@@ -197,3 +198,82 @@ def test_invalidar_artefatos_em_disco_cria_o_marcador_ausente(output_tmp):
     assert not (output_tmp / ".data_version").exists()
     cache.invalidar_artefatos_em_disco()
     assert (output_tmp / ".data_version").exists()
+
+
+def _some_no_stat_apos(alvo: Path, monkeypatch, apos: int = 1):
+    """Deixa `alvo` sobreviver aos `apos` primeiros stat() e sumir dos seguintes.
+
+    Modela a corrida de verdade: o arquivo está lá quando a varredura o lista e
+    some antes da leitura seguinte. Fazer stat() falhar SEMPRE não serve — o
+    is_file() do código antigo também é stat() por baixo, então filtraria o
+    fantasma antes do sorted e esconderia o bug. Determinístico: racing real em
+    teste dá flake.
+    """
+    original = Path.stat
+    vistas = {"n": 0}
+
+    def espiao(self, *args, **kwargs):
+        if self == alvo:
+            vistas["n"] += 1
+            if vistas["n"] > apos:
+                raise FileNotFoundError(2, "sumiu depois da listagem", str(alvo))
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", espiao)
+
+
+def test_eviction_tolera_pdf_que_some_depois_da_listagem(output_tmp, monkeypatch):
+    # O DELETE de /relatorios é rota síncrona: o FastAPI a roda num threadpool
+    # paralelo ao handler de geração, então um PDF sai do disco entre a listagem
+    # e a leitura seguinte. Antes, o stat nu da chave de ordenação levantava
+    # FileNotFoundError e derrubava com 500 um relatório já escrito em disco.
+    monkeypatch.setattr(cache, "REPORT_CACHE_MAX_BYTES", 1500)
+    for i, n in enumerate(["a", "b", "c"]):
+        pdf = output_tmp / f"relatorio_demografia__{n}.pdf"
+        pdf.write_bytes(b"x" * 1000)
+        os.utime(pdf, (1000 + i, 1000 + i))
+    fantasma = output_tmp / "relatorio_demografia__a.pdf"
+    _some_no_stat_apos(fantasma, monkeypatch)
+
+    removidos = cache.evict_cache_if_needed()
+
+    # Sumiu antes de ser apagado por nós: não entra no crédito, e o `b` real
+    # continua sendo evictado normalmente.
+    assert removidos == ["relatorio_demografia__b.pdf"]
+    assert not (output_tmp / "relatorio_demografia__b.pdf").exists()
+    # os.path.exists e nao fantasma.exists(): Path.exists() roda por cima de
+    # Path.stat(), que este teste mockou — perguntaria ao mock, nao ao disco.
+    assert os.path.exists(fantasma)
+
+
+def test_eviction_de_graficos_tolera_png_que_some_depois_da_listagem(
+    output_tmp, monkeypatch
+):
+    # Mesma corrida no pool de gráficos, que antes statava cada PNG três vezes
+    # (ordenar, somar, subtrair) — três chances de pegar o disco mudado.
+    monkeypatch.setattr(cache, "GRAFICO_CACHE_MAX_BYTES", 1500)
+    for i, n in enumerate(["x", "y", "z"]):
+        png = output_tmp / f"grafico_{n}.png"
+        png.write_bytes(b"x" * 1000)
+        os.utime(png, (1000 + i, 1000 + i))
+    _some_no_stat_apos(output_tmp / "grafico_x.png", monkeypatch)
+
+    removidos = cache.evict_graficos_if_needed()
+
+    assert removidos == ["grafico_x.png", "grafico_y.png"]
+    assert (output_tmp / "grafico_z.png").exists()
+
+
+def test_removidos_nao_credita_o_que_outra_request_apagou(output_tmp, monkeypatch):
+    # Retrato tirado, e o unlink perde a corrida. O espaço conta pro orçamento
+    # (foi liberado), mas a eviction não pode afirmar que apagou.
+    monkeypatch.setattr(cache, "REPORT_CACHE_MAX_BYTES", 500)
+    pdf = output_tmp / "relatorio_demografia__a.pdf"
+    pdf.write_bytes(b"x" * 1000)
+
+    def unlink_perdedor(self, *args, **kwargs):
+        raise FileNotFoundError(2, "outra request chegou primeiro", str(self))
+
+    monkeypatch.setattr(Path, "unlink", unlink_perdedor)
+
+    assert cache.evict_cache_if_needed() == []

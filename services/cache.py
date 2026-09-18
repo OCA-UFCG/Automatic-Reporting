@@ -8,9 +8,11 @@ Se o marcador não existe, nada foi invalidado ainda -> tudo é fresco.
 
 from __future__ import annotations
 
+import os
 import threading
 import time
 from pathlib import Path
+from stat import S_ISREG
 
 from config import GRAFICO_CACHE_MAX_BYTES, OUTPUT_DIR, REPORT_CACHE_MAX_BYTES
 from utils.queries.base import limpar_cache_queries
@@ -62,12 +64,46 @@ def invalidar_artefatos_em_disco() -> None:
     DATA_VERSION_FILE.touch()
 
 
+def _retrato(caminho: Path) -> os.stat_result | None:
+    """stat() de um arquivo regular, ou None se ele sumiu entre o glob e esta
+    chamada.
+
+    TOCTOU: toda função aqui lista primeiro e lê depois, e entre as duas coisas
+    o diretório é território compartilhado — o DELETE de /relatorios
+    (main.py:181 é `def`, não `async def`, então o FastAPI o roda num threadpool
+    realmente paralelo ao handler de geração) e outra geração concorrente apagam
+    artefatos debaixo desta varredura.
+
+    O retrato é tirado UMA vez e reusado pra ordenar, orçar e debitar. Reperguntar
+    o mesmo stat a cada passo não só custa syscall: deixava o `total` e o
+    `removidos` errados, porque cada pergunta podia ser respondida por um estado
+    diferente do disco.
+
+    TODO: services/handlers.py tem três pontos da mesma classe, todos anteriores
+    a este PR e no caminho dos endpoints públicos — `entrada.stat()` (:58), o
+    `exists()`-então-`stat()` do listar (:63-64) e o `exists()`-então-`unlink()`
+    do apagar (:150-151). Ficaram de fora de propósito: são bug pré-existente no
+    main, não regressão deste cache, e corrigi-los aqui faria o PR dizer que
+    consertou algo que não introduziu. Branch própria, a partir do main.
+    """
+    try:
+        st = caminho.stat()
+    except FileNotFoundError:
+        return None
+    return st if S_ISREG(st.st_mode) else None
+
+
 def _relatorios_por_idade() -> list[Path]:
-    """PDFs de relatório, do mais antigo pro mais novo (mtime do PDF)."""
-    pdfs = [
-        p for p in OUTPUT_DIR.glob("relatorio_*.pdf") if p.is_file()
-    ]
-    return sorted(pdfs, key=lambda p: p.stat().st_mtime)
+    """PDFs de relatório, do mais antigo pro mais novo (mtime do PDF). O que sumiu
+    entre o glob e o stat fica de fora da lista, em vez de entrar com um mtime
+    sentinela e depois ser contabilizado como apagado por nós."""
+    entradas: list[tuple[float, Path]] = []
+    for pdf in OUTPUT_DIR.glob("relatorio_*.pdf"):
+        st = _retrato(pdf)
+        if st is not None:
+            entradas.append((st.st_mtime, pdf))
+    entradas.sort(key=lambda item: item[0])
+    return [pdf for _, pdf in entradas]
 
 
 def _artefatos_unicos_do_relatorio(nome_base: str) -> list[Path]:
@@ -109,13 +145,22 @@ def evict_cache_if_needed(protegido: str | None = None) -> list[str]:
             break
         if protegido and pdf.stem == f"relatorio_{protegido}":
             continue
+        apagou_algo = False
         for art in _artefatos_unicos_do_relatorio(pdf.stem):
+            st = _retrato(art)
+            if st is None:
+                continue
+            # Debita sempre: o espaço sai do orçamento tendo sido esta eviction ou
+            # outra request a liberá-lo. Creditar em `removidos`, só o que de fato
+            # apagamos — senão a lista afirma uma remoção que não foi nossa.
+            total -= st.st_size
             try:
-                total -= art.stat().st_size
                 art.unlink()
             except FileNotFoundError:
-                pass
-        removidos.append(pdf.name)
+                continue
+            apagou_algo = True
+        if apagou_algo:
+            removidos.append(pdf.name)
     return removidos
 
 
@@ -151,26 +196,27 @@ def evict_graficos_if_needed() -> list[str]:
     mas o PDF já embute suas imagens (não é afetado) e o entregável principal é o
     PDF baixado, não o HTML servido depois; reconstituir o PNG sob demanda no
     próximo combo é aceitável. Sem contagem de referência por ora."""
-    graficos = sorted(
-        (p for p in OUTPUT_DIR.glob("grafico_*.png") if p.is_file()),
-        key=lambda p: p.stat().st_mtime,
-    )
-    total = 0
-    for g in graficos:
-        try:
-            total += g.stat().st_size
-        except FileNotFoundError:
-            pass
+    # (mtime, tamanho, caminho) num retrato só por arquivo — antes eram tres stats
+    # independentes (ordenar, somar, subtrair), cada um podendo pegar o disco num
+    # estado diferente.
+    graficos: list[tuple[float, int, Path]] = []
+    for png in OUTPUT_DIR.glob("grafico_*.png"):
+        st = _retrato(png)
+        if st is not None:
+            graficos.append((st.st_mtime, st.st_size, png))
+    graficos.sort(key=lambda item: item[0])
+
+    total = sum(tamanho for _, tamanho, _ in graficos)
     removidos: list[str] = []
-    for g in graficos:
+    for _, tamanho, png in graficos:
         if total <= GRAFICO_CACHE_MAX_BYTES:
             break
+        total -= tamanho
         try:
-            total -= g.stat().st_size
-            g.unlink()
+            png.unlink()
         except FileNotFoundError:
-            pass
-        removidos.append(g.name)
+            continue  # outra request chegou primeiro: o espaço conta, o crédito não
+        removidos.append(png.name)
     return removidos
 
 
