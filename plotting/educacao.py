@@ -1,4 +1,5 @@
 import pathlib
+import unicodedata
 
 import numpy as np
 
@@ -11,14 +12,33 @@ from plotting import (
 from utils.formatting import coerce_para_float as _coerce_para_float
 from utils.formatting import formatar_numero_ptbr
 
-# (prefixo da coluna na view, cor) — ordem espelha a escala de instrução
-# (pri = fundamental incompleto ... quar = superior completo) e as cores do Doc.
-_NIVEIS_INSTRUCAO = (
-    ("pri_nivel", "#8B4A2B"),
-    ("seg_nivel", "#1D7A9C"),
-    ("ter_nivel", "#E8871E"),
-    ("quar_nivel", "#7ECBE0"),
-)
+# Prefixos das colunas na view. O nome ("pri"/"seg"/"ter"/"quar") não indica o
+# nível de instrução — a view devolve essas colunas ordenadas por frequência
+# na cidade (pri = nível mais comum), não pela escala fundamental->superior.
+# A ordem/cor de exibição vem de `_indice_nivel_instrucao`, que lê o texto de
+# `<prefixo>_classe` e classifica pela escala real.
+_NIVEIS_INSTRUCAO = ("pri_nivel", "seg_nivel", "ter_nivel", "quar_nivel")
+
+# Escala fixa de instrução e cores do Doc, nessa ordem.
+_CORES_POR_NIVEL = ("#8B4A2B", "#1D7A9C", "#E8871E", "#7ECBE0")
+
+
+def _indice_nivel_instrucao(classe: str) -> int:
+    texto = (
+        unicodedata.normalize("NFKD", classe or "")
+        .encode("ascii", "ignore")
+        .decode()
+        .lower()
+    )
+    if "incompleto" in texto or "sem instrucao" in texto:
+        return 0
+    if "fundamental" in texto:
+        return 1
+    if "medio" in texto:
+        return 2
+    if "superior" in texto:
+        return 3
+    return len(_CORES_POR_NIVEL)
 
 
 def gerar_grafico_nivel_instrucao(
@@ -28,7 +48,7 @@ def gerar_grafico_nivel_instrucao(
 ):
     colunas_necessarias = [
         f"{prefixo}_{sufixo}"
-        for prefixo, _cor in _NIVEIS_INSTRUCAO
+        for prefixo in _NIVEIS_INSTRUCAO
         for sufixo in ("classe", "per", "pop")
     ]
     colunas_faltantes = [
@@ -40,14 +60,30 @@ def gerar_grafico_nivel_instrucao(
             "instrução: " + ", ".join(sorted(colunas_faltantes))
         )
 
-    rotulos = [cidade[f"{prefixo}_classe"] for prefixo, _cor in _NIVEIS_INSTRUCAO]
-    populacoes = [
-        _coerce_para_float(cidade[f"{prefixo}_pop"]) for prefixo, _cor in _NIVEIS_INSTRUCAO
+    # Reordena pela escala fundamental incompleto -> completo -> médio ->
+    # superior (não pela ordem das colunas, que vem por frequência na view).
+    niveis = sorted(
+        (
+            {
+                "classe": cidade[f"{prefixo}_classe"],
+                "populacao": _coerce_para_float(cidade[f"{prefixo}_pop"]),
+                "percentual": _coerce_para_float(cidade[f"{prefixo}_per"]),
+            }
+            for prefixo in _NIVEIS_INSTRUCAO
+        ),
+        key=lambda nivel: _indice_nivel_instrucao(nivel["classe"]),
+    )
+
+    rotulos = [
+        (nivel["classe"][:1].upper() + nivel["classe"][1:]) if nivel["classe"] else nivel["classe"]
+        for nivel in niveis
     ]
-    percentuais = [
-        _coerce_para_float(cidade[f"{prefixo}_per"]) for prefixo, _cor in _NIVEIS_INSTRUCAO
+    populacoes = [nivel["populacao"] for nivel in niveis]
+    percentuais = [nivel["percentual"] for nivel in niveis]
+    cores = [
+        _CORES_POR_NIVEL[min(_indice_nivel_instrucao(nivel["classe"]), len(_CORES_POR_NIVEL) - 1)]
+        for nivel in niveis
     ]
-    cores = [cor for _prefixo, cor in _NIVEIS_INSTRUCAO]
 
     if not any(populacoes):
         raise ValueError(
@@ -132,7 +168,8 @@ def gerar_grafico_nivel_instrucao(
         bbox_transform=fig.transFigure,
         ncol=2,
         frameon=False,
-        fontsize=11 * ESCALA_FONTE,
+        prop={"family": "Inter", "weight": "medium", "size": 11 * ESCALA_FONTE},
+        labelcolor="#4A4A4A",
         handlelength=1.0,
         labelspacing=0.6,
         columnspacing=1.6,
