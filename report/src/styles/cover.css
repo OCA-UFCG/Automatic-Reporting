@@ -1018,6 +1018,14 @@
     padding: 32px 33.76px;
     box-sizing: border-box;
     box-decoration-break: clone;
+    break-before: page;
+    page-break-before: always;
+  }
+
+  /* evita pagina em branco extra: .report-cover ja forca quebra apos si (break-after: page) */
+  .theme-detail-page:first-of-type {
+    break-before: auto;
+    page-break-before: auto;
   }
 
   .report-cover {
