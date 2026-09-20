@@ -557,7 +557,7 @@ def _resolver_percentual_derivado(contexto: dict, campo: str) -> object | None:
         return None
 
     try:
-        return round(float(valor_base) / float(total) * 100, 1)
+        return round(float(valor_base) / float(total) * 100, 2)
     except (TypeError, ValueError, ZeroDivisionError):
         return None
 
@@ -677,7 +677,7 @@ def _formatar_valor(valor: object, decimais: int | None = None, campo: str = "")
     if isinstance(valor, (int, float, Decimal)):
         numero = float(valor)
         if decimais is None:
-            decimais = 0 if numero == int(numero) else 1
+            decimais = 0 if numero == int(numero) else 2
         if campo.lower() in _CAMPOS_ANO and decimais == 0:
             return str(int(numero))
         return formatar_numero_ptbr(numero, decimais=decimais)

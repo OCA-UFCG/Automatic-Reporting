@@ -463,7 +463,7 @@ def test_database_column_names_support_editorial_document_placeholders():
     # Namespace de outra view (caract_mun.$area) resolve e consome o prefixo,
     # em vez de deixar "caract_mun." órfão antes do valor.
     assert substituir_placeholders(texto, contexto, namespace="demografia") == (
-        "593,0; 2; 1.042; 501; 541; 120; 60; 30; 30; 18"
+        "593,03; 2; 1.042; 501; 541; 120; 60; 30; 30; 18"
     )
 
 
@@ -733,14 +733,14 @@ def test_precision_suffix_overrides_the_default_one_decimal_rounding():
 
 def test_precision_suffix_does_not_leak_into_other_fields():
     # `populacao_2010` fica fora de qualquer rede de segurança de precisão,
-    # então continua no padrão de 1 casa — prova que o `:3` do campo vizinho
+    # então continua no padrão de 2 casas — prova que o `:3` do campo vizinho
     # não vazou pra ele.
     contexto = {"idhm_2010": 0.561, "populacao_2010": 630.03}
     texto = "desen_social.$idhm_2010:3 e População desen_social.$populacao_2010"
 
     assert substituir_placeholders(
         texto, contexto, namespace="desenvolvimento-social"
-    ) == "0,561 e População 630,0"
+    ) == "0,561 e População 630,03"
 
 
 def test_renda_per_capita_usa_duas_casas_mesmo_sem_sufixo_no_doc():
@@ -764,7 +764,7 @@ def test_precisao_padrao_editorial_nao_vaza_pra_outro_macrotema():
 
     assert (
         substituir_placeholders(texto, contexto, namespace="economia-renda")
-        == "0,5"
+        == "0,54"
     )
 
 
@@ -1434,7 +1434,7 @@ def test_decimal_em_coluna_de_texto_sai_no_padrao_ptbr():
         texto, {"esgoto_rede_2000": "4.4", "esgoto_rede_2022": 7.3}, "saneamento"
     )
 
-    assert resultado == "de 4,4% em 2000 para 7,3% em 2022"
+    assert resultado == "de 4,40% em 2000 para 7,30% em 2022"
 
 
 def test_texto_que_nao_e_decimal_puro_fica_intacto():

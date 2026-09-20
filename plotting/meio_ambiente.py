@@ -63,7 +63,7 @@ def gerar_grafico_aridez(
         ax.text(
             barra.get_x() + barra.get_width() / 2,
             barra.get_height() + limite_eixo * 0.02,
-            f"{valor:.1f}%".replace(".", ","),
+            f"{valor:.2f}%".replace(".", ","),
             ha="center",
             va="bottom",
             fontsize=10 * ESCALA_FONTE,

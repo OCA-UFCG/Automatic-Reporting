@@ -23,16 +23,16 @@ def test_buscar_tecnologias_acesso_agua_calcula_indicadores_historicos(monkeypat
     assert resultado["total_2020"] == 1841
     assert resultado["total_2025"] == 2038
     assert resultado["acrescimo_qtd"] == 1599
-    assert resultado["var_total_per"] == round(1599 / 439 * 100, 1)
+    assert resultado["var_total_per"] == round(1599 / 439 * 100, 2)
     # Segunda década (2020-2025) cresceu menos que a primeira (2010-2020)
     assert resultado["dec_concentracao"] == "2010 a 2020"
-    assert resultado["dec_concentracao_per"] == round(1402 / 1599 * 100, 1)
+    assert resultado["dec_concentracao_per"] == round(1402 / 1599 * 100, 2)
 
     # Finalidade calculada com base no último ano disponível (2025)
     assert resultado["primeira_agua_qtd"] == 1600
-    assert resultado["primeira_agua_per"] == round(1600 / 2038 * 100, 1)
+    assert resultado["primeira_agua_per"] == round(1600 / 2038 * 100, 2)
     assert resultado["segunda_agua_qtd"] == 438
-    assert resultado["segunda_agua_per"] == round(438 / 2038 * 100, 1)
+    assert resultado["segunda_agua_per"] == round(438 / 2038 * 100, 2)
     assert resultado["sol_predom"] == "abastecimento humano (1ª água)"
     assert resultado["sol_predom_per"] == resultado["primeira_agua_per"]
 
