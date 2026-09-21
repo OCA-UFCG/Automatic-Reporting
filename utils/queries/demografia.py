@@ -119,7 +119,7 @@ DEMOGRAFIA_SEXO_POR_FAIXA = """
             WHEN d.classificador_idade = 9 THEN '50 a 59 anos'
             WHEN d.classificador_idade = 10 THEN '60 a 69 anos'
             WHEN d.classificador_idade = 11 THEN '70 a 79 anos'
-            WHEN d.classificador_idade = 12 THEN '80+ anos'
+            WHEN d.classificador_idade = 12 THEN '80 anos ou mais'
         END AS faixa,
         SUM(d.mulher) AS mulheres,
         SUM(d.homem) AS homens,
