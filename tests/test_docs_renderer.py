@@ -27,7 +27,7 @@ Todas as famílias recebem.
 Não há famílias.
 """
     contexto = {
-        "dif_etaria_09_60": -20,
+        "dif_etaria_09_60": 20,
         "cres_pop": 0,
         "pop_rua_2022": 0,
         "pop_rua_2026": 3,

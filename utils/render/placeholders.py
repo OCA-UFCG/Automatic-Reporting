@@ -101,9 +101,9 @@ def _avaliar_condicao_demografia(expressao: str, contexto: dict) -> bool | None:
         diferenca = valor("dif_etaria_09_60")
         if diferenca is None:
             return False
-        # A query calcula idosos - crianças; o texto chama de positivo o
-        # cenário inverso, em que há mais crianças.
-        return diferenca < 0 if "positivo" in expressao else diferenca > 0
+        # A query calcula crianças - idosos: positivo é o cenário em que
+        # há mais crianças, negativo é mais idosos.
+        return diferenca > 0 if "positivo" in expressao else diferenca < 0
 
     if "cres_pop_analise" in campos:
         crescimento = valor("cres_pop")
