@@ -1,11 +1,18 @@
 import pathlib
 
-import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
 from matplotlib.ticker import FuncFormatter
 
-from plotting import ESCALA_FONTE, FONTE_ROTULO_VALOR, FONTE_TICK, reusar_grafico
+from plotting import (
+    ESCALA_FONTE,
+    FONTE_ROTULO_EIXO,
+    FONTE_ROTULO_VALOR,
+    FONTE_TICK,
+    iniciar_card_grafico,
+    reusar_grafico,
+    salvar_card_grafico,
+)
 
 # (campo no contexto, rótulo da legenda, cor) — ordem e cores espelham o Doc.
 # Campos vêm de relatorios_auto.ambiente (percentual da área municipal em
@@ -51,13 +58,23 @@ def gerar_grafico_aridez(
     limite_eixo = 100.0
     alturas_barra = [min(valor, limite_eixo) for valor in valores]
 
-    fig, ax = plt.subplots(figsize=(6.1, 4.05))
+    fig, ax = iniciar_card_grafico((6.1, 4.05), "Condições de aridez")
+    # Mesmo ajuste do gráfico de IDHM (plotting/desenvolvimento_social.py): a
+    # legenda de categorias fica abaixo do eixo (bbox_to_anchor negativo) e,
+    # sem espaço reservado, saía cortada pra fora da moldura do card.
+    posicao = ax.get_position()
+    altura_legenda = posicao.height * 0.16
+    ax.set_position(
+        (posicao.x0, posicao.y0 + altura_legenda, posicao.width, posicao.height - altura_legenda)
+    )
+
     x = np.arange(len(labels))
     barras = ax.bar(x, alturas_barra, width=0.6, color=cores, zorder=3)
 
     margem_label = limite_eixo * 0.06
     ax.set_ylim(0, limite_eixo + margem_label)
     ax.set_yticks([0, 25, 50, 75, 100])
+    ax.set_ylabel("Área municipal", fontsize=FONTE_ROTULO_EIXO * ESCALA_FONTE)
 
     for barra, valor in zip(barras, valores):
         ax.text(
@@ -87,7 +104,7 @@ def gerar_grafico_aridez(
         marcadores_legenda,
         labels,
         loc="upper center",
-        bbox_to_anchor=(0.5, -0.04),
+        bbox_to_anchor=(0.5, -0.14),
         ncol=len(labels),
         frameon=False,
         fontsize=9 * ESCALA_FONTE,
@@ -95,9 +112,5 @@ def gerar_grafico_aridez(
         columnspacing=1.2,
     )
 
-    fig.patch.set_facecolor("white")
-    ax.set_facecolor("white")
-    plt.tight_layout(pad=1.2)
-    plt.savefig(chart_file, dpi=180, bbox_inches="tight", facecolor="white")
-    plt.close(fig)
+    salvar_card_grafico(fig, chart_file)
     return chart_file.name
