@@ -352,6 +352,7 @@ def gerar_grafico_vab(
                 fontsize=11.9 * ESCALA_FONTE,
                 fontweight="bold",
                 color="#3A2A1A",
+                clip_on=True,
             )
             texto_valor = ax.text(
                 x_esquerda + _MARGEM_TEXTO,
@@ -361,6 +362,7 @@ def gerar_grafico_vab(
                 va="bottom",
                 fontsize=11.9 * ESCALA_FONTE,
                 color="#3A2A1A",
+                clip_on=True,
             )
             largura_disponivel = largura - 2 * _MARGEM_TEXTO
             textos_por_largura.append((texto_nome, largura_disponivel))
@@ -428,8 +430,13 @@ def gerar_grafico_vab(
     fig.canvas.draw()
     origem_y_px = ax.transData.transform((0, 0))[1]
     for celula in celulas:
+        # O texto do nome (va="top") só começa a desenhar _MARGEM_VERTICAL
+        # abaixo do topo da faixa, e o do valor (va="bottom") só até
+        # _MARGEM_VERTICAL antes da base; a folga real entre os dois é a
+        # faixa menos essas duas margens, não a faixa inteira.
+        altura_util = max(celula["altura_linha"] - 2 * _MARGEM_VERTICAL, 0)
         altura_disponivel_px = abs(
-            ax.transData.transform((0, celula["altura_linha"]))[1] - origem_y_px
+            ax.transData.transform((0, altura_util))[1] - origem_y_px
         )
         altura_texto_px = (
             celula["texto_nome"].get_window_extent(renderer=renderer).height
@@ -449,6 +456,7 @@ def gerar_grafico_vab(
             fontsize=11.9 * ESCALA_FONTE,
             fontweight="bold",
             color="#3A2A1A",
+            clip_on=True,
         )
         largura_disponivel_px = (
             ax.transData.transform((celula["largura_disponivel"], 0))[0] - origem_px
