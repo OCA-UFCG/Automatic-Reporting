@@ -21,7 +21,7 @@ export default function IndicatorScores({ macrotema }) {
         {linhas.map((linha, idx) => (
           <div className="indicator-score-row" key={idx}>
             {linha.map((indicador, idxIndicador) => (
-              <IndicatorScoreCard key={idxIndicador} indicador={indicador} />
+              <IndicatorScoreCard key={idxIndicador} indicador={indicador} cor={macrotema.cor} />
             ))}
             {/* Células vazias completando a linha: como a grade é uma tabela CSS,
                 sem elas o último card de uma linha incompleta esticaria até a
