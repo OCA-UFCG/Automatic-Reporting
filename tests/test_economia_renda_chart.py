@@ -78,6 +78,26 @@ def test_grafico_vab_exige_dados_de_setor():
         gerar_grafico_vab({}, Path("/tmp"), "sem_dados")
 
 
+def test_gera_grafico_vab_com_linha_fina_nao_estoura(tmp_path: Path):
+    # Setores 3º/4º (linha de baixo) somados muito menores que os 2 primeiros:
+    # a linha fica fina o bastante pra nome e valor colidirem verticalmente
+    # (achado em revisão, texto sobreposto no card). Só cobre "não quebra";
+    # a checagem de sobreposição em si é visual.
+    cidade = {
+        "vab_setores_2021": {
+            "servicos": 1_000_000_000.0,
+            "adm_publica": 900_000_000.0,
+            "agropecuaria": 2_000_000.0,
+            "industria": 1_000_000.0,
+        }
+    }
+
+    arquivo = gerar_grafico_vab(cidade, tmp_path, "recife_pe_linha_fina")
+
+    assert arquivo == "grafico_vab_recife_pe_linha_fina.png"
+    assert (tmp_path / arquivo).is_file()
+
+
 def test_gera_grafico_fob_com_paises_do_banco(tmp_path: Path):
     cidade = {
         "importacao_paises": [

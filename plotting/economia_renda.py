@@ -86,7 +86,7 @@ def gerar_grafico_pib(
 
     fig, ax = iniciar_card_grafico(
         (24, 7),
-        "Evolução anual do PIB Total",
+        "PIB total",
         margem_esquerda=0.08,
         tamanho_titulo=18,
     )
@@ -147,6 +147,7 @@ def gerar_grafico_pib(
     ax.yaxis.set_major_formatter(
         FuncFormatter(lambda valor, _: f"R$ {valor / divisor_eixo:.0f}{sufixo_eixo}")
     )
+    ax.set_ylabel("Produto interno", fontsize=13 * ESCALA_FONTE)
     ax.tick_params(axis="both", labelsize=13 * ESCALA_FONTE)
 
     salvar_card_grafico(fig, chart_file, dpi=270)
@@ -317,7 +318,9 @@ def gerar_grafico_vab(
     )
 
     _MARGEM_TEXTO = 0.015
+    _MARGEM_VERTICAL = 0.04
     textos_por_largura = []
+    celulas = []
 
     y_topo = 1.0
     for linha in linhas:
@@ -339,28 +342,43 @@ def gerar_grafico_vab(
             )
             valor_escalado, unidade = _escalar_valor(valor)
             sufixo = f" {unidade}" if unidade else ""
+            texto_valor_str = f"R$ {valor_escalado:.2f}{sufixo}"
             texto_nome = ax.text(
                 x_esquerda + _MARGEM_TEXTO,
-                y_topo - 0.04,
+                y_topo - _MARGEM_VERTICAL,
                 nome,
                 ha="left",
                 va="top",
                 fontsize=11.9 * ESCALA_FONTE,
                 fontweight="bold",
                 color="#3A2A1A",
+                clip_on=True,
             )
             texto_valor = ax.text(
                 x_esquerda + _MARGEM_TEXTO,
-                y_topo - altura_linha + 0.04,
-                f"R$ {valor_escalado:.2f}{sufixo}",
+                y_topo - altura_linha + _MARGEM_VERTICAL,
+                texto_valor_str,
                 ha="left",
                 va="bottom",
                 fontsize=11.9 * ESCALA_FONTE,
                 color="#3A2A1A",
+                clip_on=True,
             )
             largura_disponivel = largura - 2 * _MARGEM_TEXTO
             textos_por_largura.append((texto_nome, largura_disponivel))
             textos_por_largura.append((texto_valor, largura_disponivel))
+            celulas.append(
+                {
+                    "texto_nome": texto_nome,
+                    "texto_valor": texto_valor,
+                    "texto_valor_str": texto_valor_str,
+                    "nome": nome,
+                    "x_texto": x_esquerda + _MARGEM_TEXTO,
+                    "y_centro": y_topo - altura_linha / 2,
+                    "altura_linha": altura_linha,
+                    "largura_disponivel": largura_disponivel,
+                }
+            )
             x_esquerda += largura
         y_topo -= altura_linha
 
@@ -368,19 +386,15 @@ def gerar_grafico_vab(
     ax.set_ylim(0, 1)
     ax.axis("off")
 
-    _FONTE_MINIMA = 11.9 * ESCALA_FONTE
+    _FONTE_MINIMA = 8 * ESCALA_FONTE
     fig.canvas.draw()
     renderer = fig.canvas.get_renderer()
     origem_px = ax.transData.transform((0, 0))[0]
-    for texto_obj, largura_disponivel in textos_por_largura:
-        if largura_disponivel <= 0:
-            continue
-        largura_disponivel_px = (
-            ax.transData.transform((largura_disponivel, 0))[0] - origem_px
-        )
+
+    def _encolher_para_largura(texto_obj, largura_disponivel_px: float) -> None:
         largura_texto_px = texto_obj.get_window_extent(renderer=renderer).width
         if largura_texto_px <= largura_disponivel_px:
-            continue
+            return
 
         fonte_ajustada = max(
             texto_obj.get_fontsize() * largura_disponivel_px / largura_texto_px,
@@ -398,6 +412,57 @@ def gerar_grafico_vab(
                 largura_linha += 1
                 linhas_quebradas = textwrap.wrap(texto, width=largura_linha)
             texto_obj.set_text("\n".join(linhas_quebradas))
+
+    for texto_obj, largura_disponivel in textos_por_largura:
+        if largura_disponivel <= 0:
+            continue
+        largura_disponivel_px = (
+            ax.transData.transform((largura_disponivel, 0))[0] - origem_px
+        )
+        _encolher_para_largura(texto_obj, largura_disponivel_px)
+
+    # Nome (va="top") e valor (va="bottom") são duas linhas empilhadas dentro
+    # da faixa da célula; numa linha do treemap curta (setores pequenos, ver
+    # PR de sobreposição de texto), a faixa fica menor que a altura somada
+    # dos dois textos e eles colidem visualmente. Funde em um texto só,
+    # centralizado, só nesse caso — as células com espaço de sobra continuam
+    # com nome e valor em linhas separadas.
+    fig.canvas.draw()
+    origem_y_px = ax.transData.transform((0, 0))[1]
+    for celula in celulas:
+        # O texto do nome (va="top") só começa a desenhar _MARGEM_VERTICAL
+        # abaixo do topo da faixa, e o do valor (va="bottom") só até
+        # _MARGEM_VERTICAL antes da base; a folga real entre os dois é a
+        # faixa menos essas duas margens, não a faixa inteira.
+        altura_util = max(celula["altura_linha"] - 2 * _MARGEM_VERTICAL, 0)
+        altura_disponivel_px = abs(
+            ax.transData.transform((0, altura_util))[1] - origem_y_px
+        )
+        altura_texto_px = (
+            celula["texto_nome"].get_window_extent(renderer=renderer).height
+            + celula["texto_valor"].get_window_extent(renderer=renderer).height
+        )
+        if altura_texto_px <= altura_disponivel_px:
+            continue
+
+        celula["texto_nome"].remove()
+        celula["texto_valor"].remove()
+        texto_fundido = ax.text(
+            celula["x_texto"],
+            celula["y_centro"],
+            f"{celula['nome']} — {celula['texto_valor_str']}",
+            ha="left",
+            va="center",
+            fontsize=11.9 * ESCALA_FONTE,
+            fontweight="bold",
+            color="#3A2A1A",
+            clip_on=True,
+        )
+        largura_disponivel_px = (
+            ax.transData.transform((celula["largura_disponivel"], 0))[0] - origem_px
+        )
+        fig.canvas.draw()
+        _encolher_para_largura(texto_fundido, largura_disponivel_px)
 
     salvar_card_grafico(fig, chart_file)
     return chart_file.name
