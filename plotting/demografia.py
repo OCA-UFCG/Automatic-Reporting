@@ -10,7 +10,6 @@ from plotting import (
     salvar_card_grafico,
 )
 from utils.formatting import formatar_numero_ptbr
-from utils.geografia import resolver_nome_uf
 from utils.queries.base import escalar_valor
 
 
@@ -191,17 +190,9 @@ def gerar_grafico_visao_historica_populacao(
     if reuso is not None:
         return reuso
 
-    # nm_mun já chega canonicalizado como "Cidade (UF)" (ver
-    # services/generation.py); separar_cidade_uf evita duplicar a UF que
-    # um simples cidade.get("sigla_uf") colado no fim causaria.
-    nome_municipio, sigla_uf = resolver_nome_uf(cidade)
-    titulo = "Dinâmica populacional"
-    if nome_municipio:
-        titulo += f" de {nome_municipio}"
-        if sigla_uf:
-            titulo += f" ({sigla_uf})"
-    titulo += "."
-    fig, ax = iniciar_card_grafico((8, 4.4), titulo, margem_esquerda=0.20)
+    fig, ax = iniciar_card_grafico(
+        (8, 4.4), "Dinâmica populacional", margem_esquerda=0.20
+    )
     _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas=0.5)
     x = np.arange(len(anos))
     barras = ax.bar(x, valores_escalados, width=0.6, color="#D97AAA", zorder=3)

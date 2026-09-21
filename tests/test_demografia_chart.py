@@ -94,40 +94,15 @@ def test_visao_historica_populacao_usa_titulo_e_legenda_do_eixo_y(
 
     (fig,) = figuras_capturadas
     titulo = fig.texts[0].get_text()
-    # Sem nm_mun/sigla_uf no contexto (fixture não traz), o título cai no
-    # caso genérico, sem cidade anexada.
-    assert titulo == "Dinâmica populacional."
+    # Título fixo (Figura 3): não varia com nm_mun/sigla_uf.
+    assert titulo == "Dinâmica populacional"
     (ax,) = fig.axes
     assert ax.get_ylabel() == "População"
 
 
-def test_visao_historica_populacao_titulo_inclui_cidade_quando_disponivel(
+def test_visao_historica_populacao_titulo_nao_muda_com_cidade(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    import plotting.demografia as demografia_module
-    from plotting import salvar_card_grafico as salvar_card_grafico_original
-
-    figuras_capturadas = []
-
-    def _capturar_e_salvar(fig, chart_file, dpi=180):
-        figuras_capturadas.append(fig)
-        salvar_card_grafico_original(fig, chart_file, dpi=dpi)
-
-    monkeypatch.setattr(demografia_module, "salvar_card_grafico", _capturar_e_salvar)
-
-    cidade = {**_cidade_visao_historica(), "nm_mun": "Campina Grande", "sigla_uf": "PB"}
-    gerar_grafico_visao_historica_populacao(cidade, tmp_path, "campina_grande_pb")
-
-    (fig,) = figuras_capturadas
-    assert fig.texts[0].get_text() == "Dinâmica populacional de Campina Grande (PB)."
-
-
-def test_visao_historica_populacao_titulo_nao_duplica_uf_quando_nm_mun_ja_canonico(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
-    # Em produção, nm_mun já chega como "Cidade (UF)" (canonicalização em
-    # services/generation.py) e a linha ainda carrega "sigla_uf" à parte —
-    # concatenar os dois duplicava a UF ("... (PB) (PB).").
     import plotting.demografia as demografia_module
     from plotting import salvar_card_grafico as salvar_card_grafico_original
 
@@ -147,7 +122,7 @@ def test_visao_historica_populacao_titulo_nao_duplica_uf_quando_nm_mun_ja_canoni
     gerar_grafico_visao_historica_populacao(cidade, tmp_path, "campina_grande_pb")
 
     (fig,) = figuras_capturadas
-    assert fig.texts[0].get_text() == "Dinâmica populacional de Campina Grande (PB)."
+    assert fig.texts[0].get_text() == "Dinâmica populacional"
 
 
 def test_ylabel_nao_sai_cortado_para_municipio_de_porte_medio(

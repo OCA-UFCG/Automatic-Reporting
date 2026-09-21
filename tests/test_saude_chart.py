@@ -2,7 +2,9 @@ from pathlib import Path
 
 import pytest
 
+from plotting import ESCALA_FONTE, iniciar_card_grafico
 from plotting.saude import (
+    _deslocamento_minimo_para_rotulos,
     gerar_grafico_cobertura_vacinal,
     gerar_grafico_de_estabelecimento,
     gerar_grafico_publico_etario,
@@ -129,3 +131,55 @@ def test_grafico_publico_etario_sem_dados_estoura_key_error(tmp_path: Path):
     # `KeyError`. Este teste documenta o comportamento atual, não o ideal.
     with pytest.raises(KeyError):
         gerar_grafico_publico_etario({}, tmp_path, "sem_dados")
+
+
+def test_gera_grafico_publico_etario_com_valores_grandes(tmp_path: Path):
+    # Municípios maiores podem ter público-alvo/doses de 5-6 dígitos em
+    # "multifaixa etária" — a folga original entre as duas barras da mesma
+    # categoria era fixa e não escalava com a largura do texto do rótulo.
+    cidade = {
+        "publico_etario_ao_nascer": 123456,
+        "publico_etario_menor_1_ano": 123450,
+        "publico_etario_1_ano": 99999,
+        "publico_etario_multifaixa": 100001,
+        "dose_etario_ao_nascer": 123400,
+        "dose_etario_menor_1_ano": 123449,
+        "dose_etario_1_ano": 99998,
+        "dose_etario_multifaixa": 100000,
+    }
+
+    arquivo = gerar_grafico_publico_etario(cidade, tmp_path, "cidade_grande")
+
+    assert arquivo == "grafico_publico_etario_cidade_grande.png"
+    assert (tmp_path / arquivo).is_file()
+
+
+def test_deslocamento_minimo_para_rotulos_cresce_com_texto_largo(tmp_path: Path):
+    # Regressão: rótulos largos ("123.456") colidiam porque a folga entre as
+    # duas barras de cada categoria era um valor fixo, pensado só pros
+    # valores de teste (4 dígitos). O deslocamento mínimo precisa crescer
+    # junto com a largura real do texto renderizado.
+    largura = 0.24
+    espaco = 0.06
+    fontsize = 11 * ESCALA_FONTE
+    deslocamento_base = largura / 2 + espaco / 2
+
+    # Mesma geometria de `gerar_grafico_publico_etario` (4 categorias, barras
+    # nos dois lados de cada uma): o xlim autoescalado depende de quantas
+    # categorias existem, então precisa refletir o uso real da função.
+    fig, ax = iniciar_card_grafico((10, 4.6), "titulo")
+    x = [0, 1, 2, 3]
+    ax.bar([xi - deslocamento_base for xi in x], [10] * 4, width=largura)
+    ax.bar([xi + deslocamento_base for xi in x], [10] * 4, width=largura)
+    fig.canvas.draw()
+    ax.set_xlim(*ax.get_xlim())
+
+    deslocamento_curto = _deslocamento_minimo_para_rotulos(
+        fig, ax, ["1.200", "1.100"], largura, espaco, fontsize
+    )
+    deslocamento_longo = _deslocamento_minimo_para_rotulos(
+        fig, ax, ["123.456", "123.400"], largura, espaco, fontsize
+    )
+
+    assert deslocamento_curto == pytest.approx(deslocamento_base)
+    assert deslocamento_longo > deslocamento_curto
