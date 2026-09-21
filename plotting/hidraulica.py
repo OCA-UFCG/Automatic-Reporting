@@ -87,7 +87,7 @@ def gerar_grafico_tecnologias_acesso_agua(
     ax.set_xticks(x)
     ax.set_xticklabels(anos, fontsize=FONTE_TICK*ESCALA_FONTE)
     ax.set_xlabel("Ano", fontsize=FONTE_ROTULO_EIXO*ESCALA_FONTE)
-    ax.set_ylabel("Números acumulados de tecnologias sociais", fontsize=FONTE_ROTULO_EIXO*ESCALA_FONTE)
+    ax.set_ylabel("Número acumulado de\ntecnologias sociais", fontsize=FONTE_ROTULO_EIXO*ESCALA_FONTE)
     ax.yaxis.set_major_locator(MaxNLocator(nbins=5, integer=True))
     ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _: _formatar_inteiro(valor)))
     ax.grid(axis="y", linestyle=(0, (2, 3)), linewidth=0.7, color="#D9D9D9", zorder=0)
