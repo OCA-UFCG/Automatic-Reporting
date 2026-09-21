@@ -10,6 +10,7 @@ from plotting import (
     salvar_card_grafico,
 )
 from utils.formatting import coerce_para_float as _coerce_numero
+from utils.formatting import formatar_numero_ptbr
 
 
 def _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas: float = 0.34) -> None:
@@ -26,17 +27,18 @@ def _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas: float = 0.34) -> None:
 
 
 def _rotular_barra_vertical(ax, barra, texto: str, limite: float) -> None:
+    # Rótulo sempre acima da barra (nunca dentro): barras de alturas
+    # parecidas ficavam difíceis de comparar com o valor escrito por dentro.
     altura = barra.get_height()
-    pequena = altura < limite * 0.15
     ax.text(
         barra.get_x() + barra.get_width() / 2,
-        altura + limite * 0.05 if pequena else altura - limite * 0.05,
+        altura + limite * 0.03,
         texto,
         ha="center",
-        va="bottom" if pequena else "top",
+        va="bottom",
         fontsize=11*ESCALA_FONTE,
         fontweight="bold",
-        color="#4A4A4A" if pequena else "white",
+        color="#4A4A4A",
     )
 
 
@@ -68,7 +70,7 @@ def gerar_grafico_taxa_mortalidade(
     x = np.arange(len(anos))
 
     fig, ax = iniciar_card_grafico(
-        (10, 4.4), "Histórico da taxa de mortalidade infantil"
+        (10, 4.4), "Taxa de mortalidade infantil", margem_esquerda=0.20
     )
     _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas=0.6)
 
@@ -86,6 +88,7 @@ def gerar_grafico_taxa_mortalidade(
     ax.set_xticklabels(anos, fontsize=11*ESCALA_FONTE)
     ax.set_xlabel("Ano", fontsize=12*ESCALA_FONTE, labelpad=14)
 
+    ax.set_ylabel("Taxa de mortalidade infantil", fontsize=9*ESCALA_FONTE)
     ax.yaxis.set_major_locator(MaxNLocator(nbins=3, integer=True))
     ax.grid(
         axis="y",
@@ -144,7 +147,7 @@ def gerar_grafico_de_estabelecimento(
 
     fig, ax = iniciar_card_grafico(
         (10, 4.4),
-        "Histórico do número de Estabelecimento de Saúde",
+        "Estabelecimento de saúde",
         margem_esquerda=0.20,
     )
     _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas=0.6)
@@ -316,8 +319,12 @@ def gerar_grafico_publico_etario(
     # Posição dos grupos no eixo X
     x = np.arange(len(categorias))
 
-    # Largura das barras
-    largura = 0.30
+    # Largura das barras e folga entre as duas barras de cada categoria —
+    # sem essa folga elas ficam lado a lado coladas (mesma borda em `x`) e os
+    # rótulos acima colidem.
+    largura = 0.24
+    espaco = 0.06
+    deslocamento = largura / 2 + espaco / 2
 
     titulo = "Metas e doses aplicadas por público-alvo etário"
 
@@ -330,16 +337,16 @@ def gerar_grafico_publico_etario(
         (posicao.x0, posicao.y0 + altura_legenda, posicao.width, posicao.height - altura_legenda)
     )
 
-    ax.bar(
-        x - largura / 2,
+    barras_publico_alvo = ax.bar(
+        x - deslocamento,
         publico_alvo,
         width=largura,
         label="Público-alvo",
         color="#FF9AA2",
     )
 
-    ax.bar(
-        x + largura / 2,
+    barras_doses_aplicadas = ax.bar(
+        x + deslocamento,
         doses_aplicadas,
         width=largura,
         label="Doses aplicadas",
@@ -357,7 +364,14 @@ def gerar_grafico_publico_etario(
     ax.set_ylabel("")
 
     valor_maximo = max([*publico_alvo, *doses_aplicadas])
-    ax.set_ylim(0, max(valor_maximo * 1.15, 10))
+    limite = max(valor_maximo * 1.25, 10)
+    ax.set_ylim(0, limite)
+
+    for barra, valor in zip(barras_publico_alvo, publico_alvo):
+        _rotular_barra_vertical(ax, barra, formatar_numero_ptbr(valor), limite)
+
+    for barra, valor in zip(barras_doses_aplicadas, doses_aplicadas):
+        _rotular_barra_vertical(ax, barra, formatar_numero_ptbr(valor), limite)
 
     ax.yaxis.set_major_formatter(
         FuncFormatter(
