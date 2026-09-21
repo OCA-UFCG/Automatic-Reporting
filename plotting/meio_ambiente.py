@@ -5,7 +5,7 @@ import numpy as np
 from matplotlib.lines import Line2D
 from matplotlib.ticker import FuncFormatter
 
-from plotting import ESCALA_FONTE, reusar_grafico
+from plotting import ESCALA_FONTE, FONTE_ROTULO_VALOR, FONTE_TICK, reusar_grafico
 
 # (campo no contexto, rótulo da legenda, cor) — ordem e cores espelham o Doc.
 # Campos vêm de relatorios_auto.ambiente (percentual da área municipal em
@@ -66,7 +66,7 @@ def gerar_grafico_aridez(
             f"{valor:.2f}%".replace(".", ","),
             ha="center",
             va="bottom",
-            fontsize=10 * ESCALA_FONTE,
+            fontsize=FONTE_ROTULO_VALOR * ESCALA_FONTE,
             fontweight=600,
             color="#514C50",
         )
@@ -74,7 +74,7 @@ def gerar_grafico_aridez(
     ax.set_xticks([])
     ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _: f"{valor:.0f}%"))
     ax.grid(axis="y", linestyle=(0, (1, 4)), linewidth=0.8, color="#D9D9D9", zorder=0)
-    ax.tick_params(axis="both", length=0, colors="#514C50", labelsize=9 * ESCALA_FONTE)
+    ax.tick_params(axis="both", length=0, colors="#514C50", labelsize=FONTE_TICK * ESCALA_FONTE)
     for lado in ("left", "right", "bottom", "top"):
         ax.spines[lado].set_visible(False)
     ax.margins(x=0.18)
