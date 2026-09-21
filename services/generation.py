@@ -112,7 +112,6 @@ from utils.queries.indicadores import buscar_indicadores_municipio
 from utils.queries.perfil_municipal import buscar_perfil_municipal
 from utils.queries.saneamento import buscar_esgotamento_sanitario
 from utils.queries.saude import (
-    buscar_cobertura_vacinal,
     buscar_estabelecimentos_saude_serie,
     buscar_mortalidade_infantil_serie,
     buscar_perfil_saude_municipal,
@@ -369,7 +368,6 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
     dados_quilombola = None
     dados_rua = None
     dados_publico_etario = None
-    dados_cobertura_vacinal = None
     dados_mortalidade_infantil = None
     dados_estabelecimentos_saude = None
     dados_perfil_saude = None
@@ -464,7 +462,6 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 dados_quilombola = buscar_populacao_quilombola(nome_cidade_db, uf_db)
             if "saude" in macrotema_slugs:
                 dados_publico_etario = buscar_publico_etario_vacinas(nome_cidade_db, uf_db)
-                dados_cobertura_vacinal = buscar_cobertura_vacinal(nome_cidade_db, uf_db)
                 dados_mortalidade_infantil = buscar_mortalidade_infantil_serie(
                     nome_cidade_db, uf_db
                 )
@@ -530,7 +527,6 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
         if "saude" in macrotema_slugs:
             for dados_saude in (
                 dados_publico_etario,
-                dados_cobertura_vacinal,
                 dados_mortalidade_infantil,
                 dados_estabelecimentos_saude,
                 dados_perfil_saude,
