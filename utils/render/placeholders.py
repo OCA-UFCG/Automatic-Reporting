@@ -229,11 +229,18 @@ def _avaliar_comparacao_campo_a_campo(expressao: str, contexto: dict) -> bool | 
     if _parse_operador_editorial(expressao[matches[1].end():].casefold()) is not None:
         return None
 
-    def numero(match: re.Match) -> float:
-        valor = _numero_do_campo(_resolver_campo_com_alias(contexto, match.group(1)))
-        return 0.0 if valor is None else valor
+    def numero(match: re.Match) -> float | None:
+        return _numero_do_campo(_resolver_campo_com_alias(contexto, match.group(1)))
 
-    return atende(numero(matches[0]), numero(matches[1]))
+    valor_a, valor_b = numero(matches[0]), numero(matches[1])
+    # Ausência de levantamento de um lado (ex.: sem_instr_2000 = "sem dados"
+    # num município sem censo 2000) não pode virar 0 — o município passaria
+    # a bater "diferente de" contra o valor real de 2022 só por falta de
+    # dado, afirmando uma variação que a fonte não confirma.
+    if valor_a is None or valor_b is None:
+        return False
+
+    return atende(valor_a, valor_b)
 
 
 def _avaliar_condicao_editorial(
@@ -241,9 +248,11 @@ def _avaliar_condicao_editorial(
 ) -> bool:
     campos = [match.group(1) for match in matches]
 
+    def numero_bruto(campo: str) -> float | None:
+        return _numero_do_campo(_resolver_campo_com_alias(contexto, campo))
+
     def numero(campo: str) -> float:
-        valor = _resolver_campo_com_alias(contexto, campo)
-        numero_do_campo = _numero_do_campo(valor)
+        numero_do_campo = numero_bruto(campo)
         return 0.0 if numero_do_campo is None else numero_do_campo
 
     valores = [numero(campo) for campo in campos]
@@ -273,6 +282,13 @@ def _avaliar_condicao_editorial(
         # operador de número literal (que indicaria o formato "campo A for X
         # e campo B for Y" já suportado, não uma comparação entre os dois).
         if atende_campo_a_campo is not None and _parse_operador_editorial(trecho_apos) is None:
+            # Ausência de levantamento num dos campos (ex.: sem_instr_2000 =
+            # "sem dados" num município sem censo 2000) não pode virar 0 —
+            # bateria "diferente de" contra o valor real do outro campo só
+            # por falta de dado, afirmando uma variação que a fonte não
+            # confirma.
+            if numero_bruto(campos[0]) is None or numero_bruto(campos[1]) is None:
+                return False
             return atende_campo_a_campo(valores[0], valores[1])
 
     operadores = []
