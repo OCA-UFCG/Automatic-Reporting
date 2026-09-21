@@ -26,6 +26,48 @@ def _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas: float = 0.34) -> None:
     )
 
 
+def _largura_texto_polegadas(fig, texto: str, fontsize: float) -> float:
+    # Mede a largura real do texto renderizado (mesmo truque de
+    # `ajustar_margem_esquerda_para_rotulos` em `plotting/__init__.py`), em vez
+    # de estimar por número de caracteres — largura de dígito varia por fonte
+    # e por peso (aqui os rótulos são bold).
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    probe = fig.text(0, 0, texto, fontsize=fontsize, fontweight="bold")
+    largura_px = probe.get_window_extent(renderer=renderer).width
+    probe.remove()
+    return largura_px / fig.dpi
+
+
+def _deslocamento_minimo_para_rotulos(
+    fig, ax, textos: list[str], largura: float, espaco_minimo: float, fontsize: float
+) -> float:
+    # Garante que os dois rótulos de uma mesma categoria não colidam: a folga
+    # fixa (`espaco_minimo`) só é suficiente pros valores de teste (4
+    # dígitos); com valores maiores (5-6 dígitos, plausível em "multifaixa
+    # etária" de municípios maiores) os textos ficam largos o bastante pra se
+    # sobrepor mesmo com as barras afastadas. Deriva o deslocamento mínimo da
+    # largura real do texto mais largo, não de um valor fixo.
+    if not textos:
+        return largura / 2 + espaco_minimo / 2
+
+    largura_texto_pol = max(_largura_texto_polegadas(fig, t, fontsize) for t in textos)
+    ax_largura_pol = ax.get_position().width * fig.get_size_inches()[0]
+    x0, x1 = ax.get_xlim()
+    pol_por_unidade = ax_largura_pol / (x1 - x0)
+
+    # Os dois rótulos de uma categoria ficam centrados em `x - deslocamento` e
+    # `x + deslocamento`; a folga entre suas bordas é `2*deslocamento -
+    # largura_texto`. Isolando `deslocamento` pra essa folga ser >= a margem
+    # mínima desejada dá a fórmula abaixo.
+    margem_min_pol = 0.05
+    largura_texto_dados = largura_texto_pol / pol_por_unidade
+    margem_min_dados = margem_min_pol / pol_por_unidade
+    deslocamento_para_texto = (largura_texto_dados + margem_min_dados) / 2
+
+    return max(largura / 2 + espaco_minimo / 2, deslocamento_para_texto)
+
+
 def _rotular_barra_vertical(ax, barra, texto: str, limite: float) -> None:
     # Rótulo sempre acima da barra (nunca dentro): barras de alturas
     # parecidas ficavam difíceis de comparar com o valor escrito por dentro.
@@ -352,6 +394,27 @@ def gerar_grafico_publico_etario(
         label="Doses aplicadas",
         color="#FF5A6E",
     )
+
+    # Trava o xlim autoescalado nas barras já desenhadas: o ajuste de
+    # deslocamento abaixo só reposiciona as barras (`barra.set_x`), sem
+    # disparar um novo autoscale que mudaria a escala usada pra medir os
+    # rótulos.
+    fig.canvas.draw()
+    ax.set_xlim(*ax.get_xlim())
+
+    fontsize_rotulo = 11 * ESCALA_FONTE
+    textos_rotulo = [
+        formatar_numero_ptbr(valor) for valor in [*publico_alvo, *doses_aplicadas]
+    ]
+    deslocamento_ajustado = _deslocamento_minimo_para_rotulos(
+        fig, ax, textos_rotulo, largura, espaco, fontsize_rotulo
+    )
+    if deslocamento_ajustado > deslocamento:
+        deslocamento = deslocamento_ajustado
+        for barra, centro in zip(barras_publico_alvo, x - deslocamento):
+            barra.set_x(centro - largura / 2)
+        for barra, centro in zip(barras_doses_aplicadas, x + deslocamento):
+            barra.set_x(centro - largura / 2)
 
     # Eixo X
     ax.set_xticks(x)
