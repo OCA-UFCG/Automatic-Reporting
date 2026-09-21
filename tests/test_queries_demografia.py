@@ -41,7 +41,7 @@ def test_buscar_demografia_sexo_faixa_etaria_usa_faixas_do_grafico(monkeypatch):
         ("50 a 59 anos", 40, 30, 6),
         ("60 a 69 anos", 30, 20, 7),
         ("70 a 79 anos", 15, 10, 8),
-        ("80+ anos", 5, 5, 9),  # menor faixa: 10
+        ("80 anos ou mais", 5, 5, 9),  # menor faixa: 10
     ]
 
     respostas = iter([linha_resumo, linhas_por_faixa])
@@ -55,7 +55,7 @@ def test_buscar_demografia_sexo_faixa_etaria_usa_faixas_do_grafico(monkeypatch):
 
     assert resultado["cat_etaria_maior"] == "30 a 39 anos"
     assert resultado["etaria_maior"] == 310
-    assert resultado["cat_etaria_menor"] == "80+ anos"
+    assert resultado["cat_etaria_menor"] == "80 anos ou mais"
     assert resultado["etaria_menor"] == 10
 
 
