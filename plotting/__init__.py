@@ -37,6 +37,16 @@ _ARQUIVOS_INTER = (
 # para deixar os rótulos/números maiores ou menores de forma uniforme.
 ESCALA_FONTE = 1.0
 
+# Tamanhos-padrão (antes de `ESCALA_FONTE`) para os papéis de texto que se
+# repetem nos gráficos de `plotting/<tema>.py` — ticks/rótulos de categoria,
+# rótulos de valor acima de barra/fatia e rótulos de eixo (xlabel/ylabel).
+# Cards de canvas bem maior que o padrão (ex.: o gráfico de PIB, bem mais
+# largo) escalam esses tamanhos proporcionalmente em vez de usar os valores
+# fixos abaixo.
+FONTE_TICK = 11.0
+FONTE_ROTULO_VALOR = 11.0
+FONTE_ROTULO_EIXO = 12.0
+
 _CARD_PAD_POLEGADAS = 0.3
 
 

@@ -1,14 +1,17 @@
 from decimal import Decimal
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import pytest
 
 from plotting.saneamento import (
     _ANGULO_MINIMO_DA_FATIA,
     _ANGULO_MINIMO_ENTRE_ROTULOS,
     _ANOS_DINAMICA_ESGOTO,
+    _FONTE_TOTAL_MINIMA,
     _RAIO_ROTULO,
     _angulos_de_desenho,
+    _fonte_total_ajustada_ao_buraco,
     _pontos_por_ano,
     _quebrar_rotulo_longo,
     _raios_dos_rotulos,
@@ -35,6 +38,25 @@ def test_gera_rosca_de_esgotamento(tmp_path: Path):
 
     assert arquivo == "grafico_esgotamento_sanitario_campina_grande_pb.png"
     assert (tmp_path / arquivo).is_file()
+
+
+def test_fonte_total_encolhe_para_texto_longo():
+    # Mesmo eixo/aspecto do buraco da rosca em `gerar_grafico_esgotamento_sanitario`:
+    # a medição de largura depende do aspecto já estar "equal" (ver comentário
+    # em `gerar_grafico_esgotamento_sanitario`), senão o teste passaria mesmo
+    # com a medição feita na escala px/unidade errada.
+    fig, ax = plt.subplots(figsize=(10, 5.4))
+    ax.set_xlim(-1.55, 1.55)
+    ax.set_ylim(-1.55, 1.55)
+    ax.set_aspect("equal")
+
+    fonte_curta = _fonte_total_ajustada_ao_buraco(fig, ax, "147 mil", 22.0)
+    fonte_longa = _fonte_total_ajustada_ao_buraco(fig, ax, "5.470.000 mil", 22.0)
+
+    assert fonte_curta == 22.0
+    assert fonte_longa < fonte_curta
+    assert fonte_longa >= _FONTE_TOTAL_MINIMA
+    plt.close(fig)
 
 
 def test_grafico_exige_dados(tmp_path: Path):

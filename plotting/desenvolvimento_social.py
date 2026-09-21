@@ -6,6 +6,8 @@ from matplotlib.lines import Line2D
 
 from plotting import (
     ESCALA_FONTE,
+    FONTE_ROTULO_VALOR,
+    FONTE_TICK,
     iniciar_card_grafico,
     reusar_grafico,
     salvar_card_grafico,
@@ -88,13 +90,13 @@ def gerar_grafico_de_desenvolvimento_social(
             f"{valor:.3f}".replace(".", ","),
             ha="center",
             va="bottom",
-            fontsize=9*ESCALA_FONTE,
+            fontsize=FONTE_ROTULO_VALOR*ESCALA_FONTE,
             fontweight=600,
             color="#4A4A4A",
         )
 
     ax.set_xticks(x)
-    ax.set_xticklabels(anos, fontsize=9*ESCALA_FONTE)
+    ax.set_xticklabels(anos, fontsize=FONTE_TICK*ESCALA_FONTE)
     ax.set_yticks([])
 
     ax.grid(
@@ -107,7 +109,7 @@ def gerar_grafico_de_desenvolvimento_social(
     )
     ax.set_axisbelow(True)
 
-    ax.tick_params(axis="both", length=0, labelsize=9*ESCALA_FONTE, colors="#4A4A4A")
+    ax.tick_params(axis="both", length=0, labelsize=FONTE_TICK*ESCALA_FONTE, colors="#4A4A4A")
     for lado in ("top", "right", "left"):
         ax.spines[lado].set_visible(False)
     ax.spines["bottom"].set_color("#4A4A4A")
