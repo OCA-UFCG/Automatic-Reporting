@@ -5,6 +5,8 @@ from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 from plotting import (
     ESCALA_FONTE,
+    FONTE_ROTULO_VALOR,
+    FONTE_TICK,
     iniciar_card_grafico,
     reusar_grafico,
     salvar_card_grafico,
@@ -137,13 +139,13 @@ def gerar_grafico_composicao_cor_raca(
             f"{percentual:.1f}%".replace(".", ","),
             ha="left",
             va="center",
-            fontsize=10*ESCALA_FONTE,
+            fontsize=FONTE_ROTULO_VALOR*ESCALA_FONTE,
             fontweight=600,
             color="#292829",
         )
 
     ax.set_yticks(y)
-    ax.set_yticklabels(labels, fontsize=10*ESCALA_FONTE, fontweight=600, color="#292829")
+    ax.set_yticklabels(labels, fontsize=FONTE_TICK*ESCALA_FONTE, fontweight=600, color="#292829")
     ax.set_xticks([])
     ax.tick_params(axis="y", length=0, pad=10)
     for borda in ax.spines.values():

@@ -200,7 +200,7 @@ def _gerar_grafico_ranking_paises(
     posicoes = range(len(pontos))
     ax.barh(posicoes, valores, color=cores, zorder=3)
     ax.set_yticks(list(posicoes))
-    ax.set_yticklabels(nomes, fontsize=13)
+    ax.set_yticklabels(nomes, fontsize=13 * ESCALA_FONTE)
     ax.invert_yaxis()
 
     for posicao, valor in zip(posicoes, valores):
@@ -212,12 +212,12 @@ def _gerar_grafico_ranking_paises(
             f" ${formatar_numero_ptbr(valor_escalado, decimais=2)}{sufixo}",
             va="center",
             ha="left",
-            fontsize=13,
+            fontsize=13 * ESCALA_FONTE,
             color="#3A2A1A",
         )
 
-    ax.set_xlabel("Valor líquido FOB (US$)", fontsize=13)
-    ax.tick_params(axis="x", labelsize=13)
+    ax.set_xlabel("Valor líquido FOB (US$)", fontsize=13 * ESCALA_FONTE)
+    ax.tick_params(axis="x", labelsize=13 * ESCALA_FONTE)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.spines["left"].set_visible(False)
@@ -254,7 +254,7 @@ def _gerar_grafico_ranking_paises(
             transform=fig.transFigure,
             ha="left",
             va="center",
-            fontsize=13,
+            fontsize=13 * ESCALA_FONTE,
             color="#4A4A4A",
         )
 
@@ -345,7 +345,7 @@ def gerar_grafico_vab(
                 nome,
                 ha="left",
                 va="top",
-                fontsize=11.9,
+                fontsize=11.9 * ESCALA_FONTE,
                 fontweight="bold",
                 color="#3A2A1A",
             )
@@ -355,7 +355,7 @@ def gerar_grafico_vab(
                 f"R$ {valor_escalado:.2f}{sufixo}",
                 ha="left",
                 va="bottom",
-                fontsize=11.9,
+                fontsize=11.9 * ESCALA_FONTE,
                 color="#3A2A1A",
             )
             largura_disponivel = largura - 2 * _MARGEM_TEXTO
@@ -368,7 +368,7 @@ def gerar_grafico_vab(
     ax.set_ylim(0, 1)
     ax.axis("off")
 
-    _FONTE_MINIMA = 11.9
+    _FONTE_MINIMA = 11.9 * ESCALA_FONTE
     fig.canvas.draw()
     renderer = fig.canvas.get_renderer()
     origem_px = ax.transData.transform((0, 0))[0]
@@ -433,7 +433,7 @@ def gerar_grafico_balanca(
     posicoes = range(len(pontos))
     ax.bar(posicoes, valores, color=_COR_LINHA, zorder=3)
     ax.set_xticks(list(posicoes))
-    ax.set_xticklabels(meses, fontsize=13)
+    ax.set_xticklabels(meses, fontsize=13 * ESCALA_FONTE)
     ax.axhline(0, color="#4A4A4A", linewidth=1, zorder=3)
 
     for posicao, valor in zip(posicoes, valores):
@@ -446,12 +446,12 @@ def gerar_grafico_balanca(
             xytext=(0, 6 if valor >= 0 else -14),
             textcoords="offset points",
             ha="center",
-            fontsize=13,
+            fontsize=13 * ESCALA_FONTE,
             color="#3A2A1A",
         )
 
-    ax.set_ylabel("Saldo da balança comercial (US$)", fontsize=13)
-    ax.tick_params(axis="y", labelsize=13)
+    ax.set_ylabel("Saldo da balança comercial (US$)", fontsize=13 * ESCALA_FONTE)
+    ax.tick_params(axis="y", labelsize=13 * ESCALA_FONTE)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.spines["left"].set_visible(False)

@@ -5,6 +5,8 @@ from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 from plotting import (
     ESCALA_FONTE,
+    FONTE_ROTULO_EIXO,
+    FONTE_ROTULO_VALOR,
     iniciar_card_grafico,
     reusar_grafico,
     salvar_card_grafico,
@@ -130,7 +132,7 @@ def gerar_grafico_taxa_mortalidade(
     ax.set_xticklabels(anos, fontsize=11*ESCALA_FONTE)
     ax.set_xlabel("Ano", fontsize=12*ESCALA_FONTE, labelpad=14)
 
-    ax.set_ylabel("Taxa de mortalidade infantil", fontsize=9*ESCALA_FONTE)
+    ax.set_ylabel("Taxa de mortalidade infantil", fontsize=FONTE_ROTULO_EIXO*ESCALA_FONTE)
     ax.yaxis.set_major_locator(MaxNLocator(nbins=3, integer=True))
     ax.grid(
         axis="y",
@@ -206,7 +208,7 @@ def gerar_grafico_de_estabelecimento(
     ax.set_xticklabels(anos, fontsize=11*ESCALA_FONTE)
     ax.set_xlabel("Ano", fontsize=12*ESCALA_FONTE, labelpad=14)
 
-    ax.set_ylabel("Número de estabelecimentos\nde saúde", fontsize=9*ESCALA_FONTE)
+    ax.set_ylabel("Número de estabelecimentos\nde saúde", fontsize=FONTE_ROTULO_EIXO*ESCALA_FONTE)
     ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _: _formatar_valor_mil(valor)))
     ax.yaxis.set_major_locator(MaxNLocator(nbins=3))
 
@@ -296,7 +298,7 @@ def gerar_grafico_cobertura_vacinal(
             f"{valor:.2f}".replace(".", ",") + "%",
             va="center",
             ha="left",
-            fontsize=10.5*ESCALA_FONTE,
+            fontsize=FONTE_ROTULO_VALOR*ESCALA_FONTE,
             color="#3F3F3F",
         )
 

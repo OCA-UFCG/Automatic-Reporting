@@ -6,6 +6,9 @@ from matplotlib.ticker import FuncFormatter
 
 from plotting import (
     ESCALA_FONTE,
+    FONTE_ROTULO_EIXO,
+    FONTE_ROTULO_VALOR,
+    FONTE_TICK,
     iniciar_card_grafico,
     reusar_grafico,
     salvar_card_grafico,
@@ -141,6 +144,42 @@ def _formatar_total(total: float) -> str:
     return f"{total:,.0f}".replace(",", ".")
 
 
+# Raio do buraco da rosca, em fração do raio externo — mesmo valor de
+# `wedgeprops={"width": 0.42}` na chamada de `ax.pie` (a "largura" da fatia é
+# medida a partir da borda externa, então o buraco é o raio restante).
+_RAIO_BURACO_ROSCA = 1 - 0.42
+# Fonte mínima abaixo da qual o total short-circuita legibilidade em vez de
+# continuar encolhendo para caber (mesmo piso usado no treemap de VAB, em
+# plotting/economia_renda.py).
+_FONTE_TOTAL_MINIMA = 14.0
+# Encolhe até 85% da largura real do buraco: sem essa folga o texto encosta
+# na borda interna da rosca mesmo "cabendo" na medição exata.
+_FRACAO_LARGURA_UTIL_BURACO = 0.85
+
+
+def _fonte_total_ajustada_ao_buraco(fig, ax, texto: str, fontsize_max: float) -> float:
+    """Maior fonte, até `fontsize_max`, que faz `texto` caber no buraco da
+    rosca. Sem isso, totais que formatam para um texto longo (ex.: "547
+    mil") vazam a borda interna — `fontsize_max` fixo só cabe nos totais
+    curtos usados nos testes ("1.860")."""
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    largura_disponivel_px = _FRACAO_LARGURA_UTIL_BURACO * (
+        ax.transData.transform((_RAIO_BURACO_ROSCA, 0))[0]
+        - ax.transData.transform((-_RAIO_BURACO_ROSCA, 0))[0]
+    )
+    probe = ax.text(0, 0, texto, fontsize=fontsize_max, fontweight="bold", alpha=0)
+    fig.canvas.draw()
+    largura_texto_px = probe.get_window_extent(renderer=renderer).width
+    probe.remove()
+    if largura_texto_px <= largura_disponivel_px or largura_texto_px == 0:
+        return fontsize_max
+    return max(
+        fontsize_max * largura_disponivel_px / largura_texto_px,
+        _FONTE_TOTAL_MINIMA,
+    )
+
+
 def gerar_grafico_esgotamento_sanitario(
     cidade: dict,
     OUTPUT_DIR: pathlib.Path,
@@ -210,15 +249,21 @@ def gerar_grafico_esgotamento_sanitario(
         x, y = autotexto.get_position()
         fator = raio / _RAIO_ROTULO
         autotexto.set_position((x * fator, y * fator))
-        autotexto.set_fontsize(12)
+        autotexto.set_fontsize(FONTE_ROTULO_VALOR * ESCALA_FONTE)
         autotexto.set_color("#4A4A4A")
 
     # Espaço para o degrau externo dos rótulos sem cortá-los na borda do eixo.
     ax.set_xlim(-1.55, 1.55)
     ax.set_ylim(-1.55, 1.55)
+    # Precisa vir antes de medir a largura do buraco: `set_aspect` redefine a
+    # escala px/unidade em X (o `ax` não é quadrado), e a medição usaria a
+    # escala "auto" ainda vigente, superestimando em ~8% o espaço disponível.
+    ax.set_aspect("equal")
 
-    ax.text(0, 0.12, _formatar_total(total), ha="center", va="center",
-            fontsize=22*ESCALA_FONTE, fontweight="bold", color="#3F3F3F")
+    texto_total = _formatar_total(total)
+    fonte_total = _fonte_total_ajustada_ao_buraco(fig, ax, texto_total, 22 * ESCALA_FONTE)
+    ax.text(0, 0.12, texto_total, ha="center", va="center",
+            fontsize=fonte_total, fontweight="bold", color="#3F3F3F")
     ax.text(0, -0.18, "domicílios", ha="center", va="center",
             fontsize=10*ESCALA_FONTE, color="#6B6B6B")
 
@@ -233,7 +278,6 @@ def gerar_grafico_esgotamento_sanitario(
         handletextpad=0.5,
         labelspacing=0.6,
     )
-    ax.set_aspect("equal")
 
     salvar_card_grafico(fig, chart_file)
     return chart_file.name
@@ -304,6 +348,7 @@ def _barras_percentual_por_ano(
     chart_file: pathlib.Path,
     altura_header: float = 0.14,
     figsize: tuple[float, float] = (8, 4.0),
+    rotulo_y: str | None = None,
 ) -> None:
     anos = [rotulo for rotulo, _ in pontos]
     valores = [valor for _, valor in pontos]
@@ -329,16 +374,18 @@ def _barras_percentual_por_ano(
             _formatar_percentual(valor),
             ha="center",
             va="bottom",
-            fontsize=8.5*ESCALA_FONTE,
+            fontsize=FONTE_ROTULO_VALOR*ESCALA_FONTE,
             color="#3F3F3F",
         )
 
     ax.set_xticks(list(x))
-    ax.set_xticklabels(anos, fontsize=8.5*ESCALA_FONTE)
-    ax.set_xlabel("Ano", fontsize=8.5*ESCALA_FONTE)
+    ax.set_xticklabels(anos, fontsize=FONTE_TICK*ESCALA_FONTE)
+    ax.set_xlabel("Ano", fontsize=FONTE_ROTULO_EIXO*ESCALA_FONTE)
+    if rotulo_y is not None:
+        ax.set_ylabel(rotulo_y, fontsize=FONTE_ROTULO_EIXO*ESCALA_FONTE)
     ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _: f"{valor:.0f}%"))
     ax.grid(axis="y", linestyle=(0, (2, 3)), linewidth=0.7, color="#D9D9D9", zorder=0)
-    ax.tick_params(axis="both", length=0, labelsize=8.5*ESCALA_FONTE, colors="#4A4A4A")
+    ax.tick_params(axis="both", length=0, labelsize=FONTE_TICK*ESCALA_FONTE, colors="#4A4A4A")
     for borda in ax.spines.values():
         borda.set_visible(False)
 
@@ -361,17 +408,10 @@ def gerar_grafico_dinamica_esgoto(
         return reuso
 
     _barras_percentual_por_ano(
-        # Título longo demais para uma linha no tamanho padrão do card (o
-        # mesmo da Figura 3): quebra em duas e alarga a faixa do cabeçalho
-        # para acomodá-las, em vez de diminuir a fonte. A quebra vai no
-        # último ponto que ainda cabe na largura útil do cabeçalho (medida:
-        # ~95% dela), pra não sobrar espaço vazio na primeira linha.
-        "Dinâmica do percentual de domicílios conectados à rede geral de\n"
-        "esgoto ou à rede pluvial",
+        "Domicílios conectados à rede geral de esgoto ou à rede pluvial",
         pontos,
         chart_file,
-        altura_header=0.21,
-        figsize=(8, 4.3),
+        rotulo_y="Percentual de domicílios",
     )
     return chart_file.name
 
@@ -392,8 +432,9 @@ def gerar_grafico_coleta_lixo(
         return reuso
 
     _barras_percentual_por_ano(
-        "Evolução do percentual de domicílios com coleta de lixo",
+        "Domicílios com coleta de lixo",
         pontos,
         chart_file,
+        rotulo_y="Percentual de domicílios",
     )
     return chart_file.name
