@@ -34,13 +34,13 @@ def _calcular_indicadores_finalidade(
     if primeira_agua_qtd is not None:
         indicadores["primeira_agua_qtd"] = primeira_agua_qtd
         indicadores["primeira_agua_per"] = round(
-            primeira_agua_qtd / total_referencia * 100, 1
+            primeira_agua_qtd / total_referencia * 100, 2
         )
 
     if segunda_agua_qtd is not None:
         indicadores["segunda_agua_qtd"] = segunda_agua_qtd
         indicadores["segunda_agua_per"] = round(
-            segunda_agua_qtd / total_referencia * 100, 1
+            segunda_agua_qtd / total_referencia * 100, 2
         )
 
     if primeira_agua_qtd is None or segunda_agua_qtd is None:
@@ -77,7 +77,7 @@ def _calcular_indicadores_serie_historica(
     acrescimo_qtd = total_fim - total_inicio
     indicadores["acrescimo_qtd"] = acrescimo_qtd
     if total_inicio:
-        indicadores["var_total_per"] = round(acrescimo_qtd / total_inicio * 100, 1)
+        indicadores["var_total_per"] = round(acrescimo_qtd / total_inicio * 100, 2)
 
     if total_meio is None or not acrescimo_qtd:
         return indicadores
@@ -93,7 +93,7 @@ def _calcular_indicadores_serie_historica(
 
     indicadores["dec_concentracao"] = dec_concentracao
     indicadores["dec_concentracao_per"] = round(
-        acrescimo_decada_concentrada / acrescimo_qtd * 100, 1
+        acrescimo_decada_concentrada / acrescimo_qtd * 100, 2
     )
 
     return indicadores

@@ -168,8 +168,8 @@ def buscar_demografia_sexo_faixa_etaria(
         "pop_indigena": pop_indigena,
     }
 
-    dados["pop_etaria_per_0_9"] = round(float(pop_etaria_0_9) / float(pop_total) * 100, 1)
-    dados["pop_etaria_per_60_mais"] = round(float(pop_etaria_60_mais) / float(pop_total) * 100, 1)
+    dados["pop_etaria_per_0_9"] = round(float(pop_etaria_0_9) / float(pop_total) * 100, 2)
+    dados["pop_etaria_per_60_mais"] = round(float(pop_etaria_60_mais) / float(pop_total) * 100, 2)
     dados["dif_etaria_09_60"] = pop_etaria_60_mais - pop_etaria_0_9
 
     racas = {
@@ -188,7 +188,7 @@ def buscar_demografia_sexo_faixa_etaria(
     for ordinal, (cor, populacao) in zip(ordinais, racas_ordenadas):
         dados[f"cor_{ordinal}_class"] = cor
         dados[f"cor_{ordinal}_pop"] = populacao
-        dados[f"cor_{ordinal}_per"] = round(float(populacao) / float(pop_total) * 100, 1)
+        dados[f"cor_{ordinal}_per"] = round(float(populacao) / float(pop_total) * 100, 2)
     dados["cor_raca_pri_class"] = raca_maior
 
     linhas_faixa_sexo = executar_query(
@@ -394,9 +394,9 @@ def buscar_populacao_rua(
     }
     if familias_total is not None:
         familias_total_f = float(familias_total) or 1  # evita ZeroDivisionError quando é 0
-        dados["pop_rua_pobreza_per"] = round(float(pobreza) / familias_total_f * 100, 1) if familias_total else 0.0
-        dados["pop_rua_br_per"] = round(float(baixa_renda) / familias_total_f * 100, 1) if familias_total else 0.0
-        dados["pop_rua_acima_br_per"] = round(float(acima_meio) / familias_total_f * 100, 1) if familias_total else 0.0
+        dados["pop_rua_pobreza_per"] = round(float(pobreza) / familias_total_f * 100, 2) if familias_total else 0.0
+        dados["pop_rua_br_per"] = round(float(baixa_renda) / familias_total_f * 100, 2) if familias_total else 0.0
+        dados["pop_rua_acima_br_per"] = round(float(acima_meio) / familias_total_f * 100, 2) if familias_total else 0.0
     # "pop_rua_2026" só é publicado quando há dado real de 2026; caso
     # contrário o alias em placeholders.py já cobre "$pop_rua_2022" a
     # partir de pop_rua_total, sem fabricar uma comparação inexistente.

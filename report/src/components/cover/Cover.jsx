@@ -8,7 +8,10 @@ import ThemeDetail from '../ThemeDetail.jsx';
 const LIGHT_BADGE_COLORS = new Set(['#FFD65A', '#B0CC41']);
 
 export default function Cover({ cover }) {
-  const hasMaps = cover.macrotema?.descricao_html?.length > 0;
+  const macrotemaMapFigures = (cover.macrotema?.descricao_html ?? [])
+    .filter(item => typeof item === 'string' && item.startsWith('<figure'))
+    .slice(0, 2);
+  const hasMaps = macrotemaMapFigures.length > 0;
   const macrotemas = cover.macrotemas && cover.macrotemas.length > 0
     ? cover.macrotemas
     : (cover.macrotema ? [cover.macrotema] : []);
@@ -82,12 +85,9 @@ export default function Cover({ cover }) {
           )}
           {hasMaps && (
             <div className="cover-maps">
-              {cover.macrotema.descricao_html
-                .filter(item => typeof item === 'string' && item.startsWith('<figure'))
-                .slice(0, 2)
-                .map((item, idx) => (
-                  <div key={idx} dangerouslySetInnerHTML={{ __html: item }} />
-                ))}
+              {macrotemaMapFigures.map((item, idx) => (
+                <div key={idx} dangerouslySetInnerHTML={{ __html: item }} />
+              ))}
             </div>
           )}
         </div>

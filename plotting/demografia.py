@@ -135,7 +135,7 @@ def gerar_grafico_composicao_cor_raca(
         ax.text(
             percentual + limite * 0.02,
             pos_y,
-            f"{percentual:.1f}%".replace(".", ","),
+            f"{percentual:.2f}%".replace(".", ","),
             ha="left",
             va="center",
             fontsize=10*ESCALA_FONTE,

@@ -191,7 +191,7 @@ def gerar_grafico_esgotamento_sanitario(
         indice = next(indice_fatia)
         if indice not in raios_rotulos:
             return ""
-        return f"{percentuais_reais[indice]:.1f}%".replace(".", ",")
+        return f"{percentuais_reais[indice]:.2f}%".replace(".", ",")
 
     wedges, _textos, autotextos = ax.pie(
         angulos,
@@ -281,7 +281,7 @@ def _pontos_por_ano(
 
 
 def _formatar_percentual(valor: float) -> str:
-    return f"{valor:.1f}%".replace(".", ",")
+    return f"{valor:.2f}%".replace(".", ",")
 
 
 # (chave no contexto, rótulo do ano) — ordem cronológica pedida no Doc.

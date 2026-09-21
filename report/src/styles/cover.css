@@ -673,6 +673,8 @@
   .cover-maps-group {
     page-break-after: auto;
     break-after: auto;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   .cover-mapa-principal img {
