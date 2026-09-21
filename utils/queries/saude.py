@@ -21,40 +21,6 @@ PUBLICO_ETARIO_VACINAS = """
 """
 
 
-COBERTURA_VACINAL = """
-    SELECT
-        i.vacina,
-        i.cobertura_vacinal
-    FROM sau_imunizacao.vw_imunizacao_anual_2024 i
-    JOIN carac_mun.caracteristicas_municipais c
-        ON i.cd_mun = c.cd_mun::int
-    WHERE c.nm_mun = %s
-      AND c.sigla_uf = %s
-      AND i.cobertura_vacinal IS NOT NULL
-    ORDER BY i.cobertura_vacinal DESC
-"""
-
-
-def buscar_cobertura_vacinal(
-    nome_municipio: str, sigla_uf: str
-) -> dict[str, object] | None:
-    linhas = executar_query(
-        COBERTURA_VACINAL,
-        (nome_municipio, sigla_uf),
-        f"cobertura vacinal de '{nome_municipio} ({sigla_uf})'",
-        buscar_todas=True,
-    )
-    if not linhas:
-        return None
-
-    serie = [
-        {"vacina": vacina, "cobertura_vacinal": cobertura_vacinal}
-        for vacina, cobertura_vacinal in linhas
-        if vacina is not None and cobertura_vacinal is not None
-    ]
-    return {"cobertura_vacinal_serie": serie} if serie else None
-
-
 MORTALIDADE_INFANTIL_SERIE = """
     SELECT
         m.ano,
@@ -173,6 +139,23 @@ PERFIL_SAUDE_MUNICIPAL = """
 """
 
 
+VACINA_COBERTURA_CAMPOS = (
+    ("vacina_maior1", "vacina_maior1_per"),
+    ("vacina_maior2", "vacina_maior2_per"),
+    ("vacina_menor1", "vacina_menor1_per"),
+    ("vacina_menor2", "vacina_menor2_per"),
+    ("vacina_menor3", "vacina_menor3_per"),
+)
+
+
+def _montar_cobertura_vacinal_serie(dados: dict[str, object]) -> list[dict[str, object]]:
+    return [
+        {"vacina": dados[campo_nome], "cobertura_vacinal": dados[campo_per]}
+        for campo_nome, campo_per in VACINA_COBERTURA_CAMPOS
+        if dados.get(campo_nome) is not None and dados.get(campo_per) is not None
+    ]
+
+
 def buscar_perfil_saude_municipal(
     nome_municipio: str, sigla_uf: str
 ) -> dict[str, object] | None:
@@ -278,6 +261,9 @@ def buscar_perfil_saude_municipal(
         "n_estabelec_maior2": n_estabel_maior2,
         "ubs_10mil": ubs_10mil,
     }
+    serie_cobertura = _montar_cobertura_vacinal_serie(dados)
+    if serie_cobertura:
+        dados["cobertura_vacinal_serie"] = serie_cobertura
     return {campo: valor for campo, valor in dados.items() if valor is not None}
 
 
