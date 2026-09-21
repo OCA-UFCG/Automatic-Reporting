@@ -1,13 +1,13 @@
 import React from 'react';
 import { IndicatorIcon } from '../Brand.jsx';
 
-export default function IndicatorScoreCard({ indicador }) {
+export default function IndicatorScoreCard({ indicador, cor }) {
   return (
     <div className="indicator-score-card">
       <div className="indicator-score-card-header">
         <div className="indicator-score-card-info-row">
           <span className="indicator-icon-box">
-            <IndicatorIcon icone={indicador.icone} />
+            <IndicatorIcon icone={indicador.icone} cor={cor} />
           </span>
           <div className="indicator-text">
             <div className="indicator-name">{indicador.nome}</div>

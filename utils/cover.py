@@ -60,12 +60,18 @@ _CONDICAO_POR_BASE = {
 # Brand.jsx, mas nada aqui os referenciava. Bases não listadas aqui caem no
 # ícone do macrotema.
 _ICONE_POR_BASE = {
-    "pop_indigena": "indigena_alfabetizada",
-    "pop_quilombola": "quilombola_alfabetizada",
+    "pop_residente": "populacao_residente",
+    "pop_masculina": "populacao_masculina",
+    "pop_feminino": "populacao_feminina",
+    "pop_indigena": "populacao_indigena",
+    "pop_quilombola": "populacao_quilombola",
     "pop_rua": "situacao_rua",
     "fundamental_incom": "fundamental_incompleto",
     "fundamental_com": "fundamental_completo",
     "medio_com": "medio_completo",
+    "superior_com": "superior_completo",
+    "alfabetizada_indigena": "indigena_alfabetizada",
+    "alfabetizada_quilombola": "quilombola_alfabetizada",
     "esgotamento": "esgoto",
     "asd": "desertificacao",
     "asd_avanço": "desertificacao",
