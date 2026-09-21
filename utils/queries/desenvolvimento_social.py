@@ -18,7 +18,10 @@ PERFIL_DESENVOLVIMENTO_SOCIAL_MUNICIPAL = """
         renda_2010,
         bolsa_familia_per_2013,
         analise2_idhm,
-        analise_gini_2010
+        analise_gini_2010,
+        nm_painel1,
+        nm_datastory1,
+        nm_boletim1
     FROM relatorios_auto.vw_perfil_desen_social_municipal
     WHERE nm_mun = %s
       AND sigla_uf = %s
@@ -68,6 +71,9 @@ def buscar_perfil_desenvolvimento_social(
         bolsa_familia_per_2013,
         analise2_idhm,
         analise_gini_2010,
+        nm_painel1,
+        nm_datastory1,
+        nm_boletim1,
     ) = linha
 
     var_idhm_1991_2010 = None
@@ -97,5 +103,10 @@ def buscar_perfil_desenvolvimento_social(
         "bolsa_familia_per_2013": bolsa_familia_per_2013,
         "analise2_idhm": analise2_idhm,
         "analise_gini_2010": analise_gini_2010,
+        "nm_painel1": nm_painel1,
+        "nm_datastory1": nm_datastory1,
+        "nm_boletim1": nm_boletim1,
+        # O documento de Desenvolvimento Social chama o boletim de datastory2.
+        "nm_datastory2": nm_boletim1,
     }
     return {campo: valor for campo, valor in dados.items() if valor is not None}

@@ -251,7 +251,7 @@ _ROTULOS_BADGE = {
 # Ex.: "demografia.“$nm_painel1” = https://...", a forma que os Docs usam nas
 # seções "Fontes"/"Conteúdos relacionados".
 _LINHA_FONTE = re.compile(
-    r"(?i)^([a-z][\w-]*\.\s*.+?)\s*=\s*(https?://\S+)$"
+    r"(?i)^([a-z][\w-]*\.\s*.+?)\s*=\s*(https?://\S+|\[[^\]]*\]\(https?://[^\s)]+\))$"
 )
 
 # O tipo do conteúdo vive no nome do campo ($nm_boletim1, $nm_datastory2,
@@ -263,8 +263,8 @@ _ROTULO_POR_CAMPO = (
     (re.compile(r"(?i)\$\s*(?:nm[_-]?)?painel"), "Painel de dados"),
 )
 
-# Rede de segurança para quando o campo não denuncia o tipo (nome fora do
-# padrão, ou título já escrito literalmente no Doc): a rota do portal denuncia.
+# A rota do portal tem prioridade: alguns Docs usam nm_datastory também
+# para boletins. O nome do campo serve de fallback para outras URLs.
 _ROTULO_POR_URL = (
     ("/boletim/", "Boletim"),
     ("/data-stories/", "Narrativa de dados"),
@@ -343,12 +343,12 @@ def _normalizar_quebras_de_link(paragrafo: str) -> str:
 
 
 def _rotulo_da_fonte(campo: str, url: str) -> str:
-    for padrao, rotulo in _ROTULO_POR_CAMPO:
-        if padrao.search(campo):
-            return rotulo
     url_normalizada = url.casefold()
     for trecho, rotulo in _ROTULO_POR_URL:
         if trecho in url_normalizada:
+            return rotulo
+    for padrao, rotulo in _ROTULO_POR_CAMPO:
+        if padrao.search(campo):
             return rotulo
     return "Narrativa de dados"
 
@@ -362,11 +362,18 @@ def _rotular_linhas_de_fonte(texto: str) -> str:
     """
     linhas = []
     for linha in texto.splitlines():
-        fonte = _LINHA_FONTE.match(linha.strip())
+        linha_normalizada = linha.strip().replace("\\_", "_")
+        if re.fullmatch(r"\*\*#!\s*(?:Fontes|Conteúdos relacionados|Conteudos relacionados)\*\*", linha_normalizada, re.IGNORECASE):
+            linhas.append(linha_normalizada[2:-2])
+            continue
+        fonte = _LINHA_FONTE.match(linha_normalizada)
         if not fonte:
             linhas.append(linha)
             continue
         campo, url = fonte.group(1), fonte.group(2)
+        link = re.fullmatch(r"\[[^\]]*\]\((https?://[^\s)]+)\)", url)
+        if link:
+            url = link.group(1)
         campo_limpo = campo.replace("“", "").replace("”", "").replace('"', "").strip()
         linhas.append(f"[{_rotulo_da_fonte(campo, url)}: {campo_limpo}]({url})")
     return "\n".join(linhas)
