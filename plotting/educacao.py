@@ -23,7 +23,11 @@ _NIVEIS_INSTRUCAO = ("pri_nivel", "seg_nivel", "ter_nivel", "quar_nivel")
 _CORES_POR_NIVEL = ("#8B4A2B", "#1D7A9C", "#E8871E", "#7ECBE0")
 
 
-def _indice_nivel_instrucao(classe: str) -> int:
+def _indice_nivel_instrucao(classe: str | None) -> int:
+    # `classe or ""` cobre o caso de a view devolver `_classe` nulo pra um
+    # nível sem registro no município: cai no índice sentinela abaixo (fora
+    # da escala) em vez de estourar, e a checagem de índices em
+    # `gerar_grafico_nivel_instrucao` converte isso no ValueError esperado.
     texto = (
         unicodedata.normalize("NFKD", classe or "")
         .encode("ascii", "ignore")
@@ -74,16 +78,28 @@ def gerar_grafico_nivel_instrucao(
         key=lambda nivel: _indice_nivel_instrucao(nivel["classe"]),
     )
 
+    # Cada um dos 4 índices da escala (0..3) precisa aparecer exatamente uma
+    # vez: um rótulo que não bate com nenhuma palavra-chave cai no índice
+    # sentinela (len(_CORES_POR_NIVEL)) e um rótulo duplicado colide no mesmo
+    # índice — os dois casos indicam que a view não devolveu os 4 níveis
+    # esperados, e sem essa checagem o gráfico sairia com cor/posição erradas
+    # em silêncio (dado real de Recife: "pri_nivel_classe" veio como "ensino
+    # médio completo", não "incompleto").
+    indices = [_indice_nivel_instrucao(nivel["classe"]) for nivel in niveis]
+    if sorted(indices) != list(range(len(_CORES_POR_NIVEL))):
+        raise ValueError(
+            "Não foi possível classificar todos os níveis de instrução a "
+            "partir dos rótulos da view: "
+            + ", ".join(str(nivel["classe"]) for nivel in niveis)
+        )
+
     rotulos = [
         (nivel["classe"][:1].upper() + nivel["classe"][1:]) if nivel["classe"] else nivel["classe"]
         for nivel in niveis
     ]
     populacoes = [nivel["populacao"] for nivel in niveis]
     percentuais = [nivel["percentual"] for nivel in niveis]
-    cores = [
-        _CORES_POR_NIVEL[min(_indice_nivel_instrucao(nivel["classe"]), len(_CORES_POR_NIVEL) - 1)]
-        for nivel in niveis
-    ]
+    cores = [_CORES_POR_NIVEL[indice] for indice in indices]
 
     if not any(populacoes):
         raise ValueError(
@@ -248,7 +264,7 @@ def gerar_grafico_cor_faixa_etaria(
 
     fig, ax = iniciar_card_grafico(
         (12, 8.4),
-        "Taxa de analfabetismo por cor/raça e faixa etária",
+        "Taxa de analfabetismo por cor ou raça e faixa etária",
         tamanho_titulo=17,
     )
     # Mesmo ajuste de demografia.gerar_grafico_faixa_etaria_e_sexo: a legenda
@@ -314,6 +330,7 @@ def gerar_grafico_cor_faixa_etaria(
         [f"{tick}%" for tick in ticks_y],
         fontsize=15*ESCALA_FONTE,
     )
+    ax.set_ylabel("Taxa de analfabetismo", fontsize=15*ESCALA_FONTE)
 
     ax.grid(
         axis="y",

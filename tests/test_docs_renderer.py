@@ -1183,6 +1183,24 @@ Houve variação no número de pessoas sem instrução."""
     assert "Sem variação no número de pessoas sem instrução." not in com_variacao
 
 
+def test_field_vs_field_condition_treats_missing_data_as_neither_equal_nor_different():
+    """Na mv_perfil_educacional_municipal, 8 municípios têm sem_instr_2000 =
+    'sem dados' (sem censo 2000) com sem_instr_2022 preenchido normalmente
+    (ex.: '4 mil'). Sem essa guarda, 'sem dados' virava 0 e batia contra o
+    valor real de 2022 como 'diferente de', afirmando uma variação que a
+    fonte não confirma — mesmo padrão do bug de centro_pop/None-como-zero."""
+    texto = """Para quando educacao.$sem_instr_2000 for igual a educacao.$sem_instr_2022, então:
+Sem variação no número de pessoas sem instrução.
+Para quando educacao.$sem_instr_2000 for diferente de educacao.$sem_instr_2022, então:
+Houve variação no número de pessoas sem instrução."""
+
+    sem_dados = interpretar_blocos_condicionais(
+        texto, {"sem_instr_2000": "sem dados", "sem_instr_2022": "4 mil"}
+    )
+    assert "Sem variação no número de pessoas sem instrução." not in sem_dados
+    assert "Houve variação no número de pessoas sem instrução." not in sem_dados
+
+
 def test_condition_and_its_guarded_paragraph_separated_by_a_blank_line_still_gates_correctly():
     """No Doc exportado do Google Docs, a regra 'Para quando ...:' fica em um
     parágrafo próprio, separado do parágrafo que ela guarda por uma linha em
