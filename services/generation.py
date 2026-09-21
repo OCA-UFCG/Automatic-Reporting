@@ -552,7 +552,7 @@ async def gerar_relatorio_handler(cidade: str, macrotema: str = "demografia"):
                 linha.update(dados_esgotamento)
 
         if (
-            "desenvolvimento-social" in macrotema_slugs
+            macrotema_slug == "desenvolvimento-social"
             and dados_perfil_desenvolvimento_social
         ):
             for linha in linhas_macrotema:
