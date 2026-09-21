@@ -11,14 +11,33 @@ from plotting import (
 from utils.formatting import coerce_para_float as _coerce_para_float
 from utils.formatting import formatar_numero_ptbr
 
-# (prefixo da coluna na view, cor) — ordem espelha a escala de instrução
-# (pri = fundamental incompleto ... quar = superior completo) e as cores do Doc.
-_NIVEIS_INSTRUCAO = (
-    ("pri_nivel", "#8B4A2B"),
-    ("seg_nivel", "#1D7A9C"),
-    ("ter_nivel", "#E8871E"),
-    ("quar_nivel", "#7ECBE0"),
+# Prefixos das colunas na view. A ordem deles (pri/seg/ter/quar) NÃO segue a
+# escala de instrução — checado com dado real (Recife): "pri_nivel_classe"
+# veio como "ensino médio completo", não "incompleto". Por isso a cor/ordem
+# de exibição não pode ser amarrada à posição da coluna; ver
+# `_classificar_nivel` e `_ORDEM_E_CORES` abaixo, que classificam pelo texto
+# do próprio rótulo.
+_PREFIXOS_NIVEL = ("pri_nivel", "seg_nivel", "ter_nivel", "quar_nivel")
+
+# (chave de classificação, cor) — ordem espelha a escala de instrução
+# (incompleto ... superior) e as cores do Doc.
+_ORDEM_E_CORES = (
+    ("incompleto", "#E8871E"),
+    ("fundamental completo", "#7ECBE0"),
+    ("médio", "#8B4A2B"),
+    ("superior", "#1D7A9C"),
 )
+
+
+def _classificar_nivel(texto: str) -> str:
+    texto_lower = texto.lower()
+    if "incompleto" in texto_lower or "sem instru" in texto_lower:
+        return "incompleto"
+    if "superior" in texto_lower:
+        return "superior"
+    if "médio" in texto_lower or "medio" in texto_lower:
+        return "médio"
+    return "fundamental completo"
 
 
 def gerar_grafico_nivel_instrucao(
@@ -28,7 +47,7 @@ def gerar_grafico_nivel_instrucao(
 ):
     colunas_necessarias = [
         f"{prefixo}_{sufixo}"
-        for prefixo, _cor in _NIVEIS_INSTRUCAO
+        for prefixo in _PREFIXOS_NIVEL
         for sufixo in ("classe", "per", "pop")
     ]
     colunas_faltantes = [
@@ -40,20 +59,40 @@ def gerar_grafico_nivel_instrucao(
             "instrução: " + ", ".join(sorted(colunas_faltantes))
         )
 
-    rotulos = [cidade[f"{prefixo}_classe"] for prefixo, _cor in _NIVEIS_INSTRUCAO]
-    populacoes = [
-        _coerce_para_float(cidade[f"{prefixo}_pop"]) for prefixo, _cor in _NIVEIS_INSTRUCAO
+    populacoes_brutas = [
+        _coerce_para_float(cidade[f"{prefixo}_pop"]) for prefixo in _PREFIXOS_NIVEL
     ]
-    percentuais = [
-        _coerce_para_float(cidade[f"{prefixo}_per"]) for prefixo, _cor in _NIVEIS_INSTRUCAO
-    ]
-    cores = [cor for _prefixo, cor in _NIVEIS_INSTRUCAO]
-
-    if not any(populacoes):
+    if not any(populacoes_brutas):
         raise ValueError(
             "Dados de distribuição da população por nível de instrução não "
             "disponíveis."
         )
+
+    dados_por_nivel = {}
+    for prefixo in _PREFIXOS_NIVEL:
+        texto = cidade[f"{prefixo}_classe"]
+        chave = _classificar_nivel(texto)
+        dados_por_nivel[chave] = {
+            # Primeira letra maiúscula na legenda ("Ensino..."), independente
+            # de como a view devolve o texto (`_classe` vem em minúsculas).
+            "rotulo": texto[:1].upper() + texto[1:],
+            "pop": _coerce_para_float(cidade[f"{prefixo}_pop"]),
+            "per": _coerce_para_float(cidade[f"{prefixo}_per"]),
+        }
+
+    niveis_faltantes = [
+        chave for chave, _cor in _ORDEM_E_CORES if chave not in dados_por_nivel
+    ]
+    if niveis_faltantes:
+        raise ValueError(
+            "Não foi possível classificar todos os níveis de instrução a "
+            "partir dos rótulos da view: faltando " + ", ".join(niveis_faltantes)
+        )
+
+    populacoes = [dados_por_nivel[chave]["pop"] for chave, _cor in _ORDEM_E_CORES]
+    percentuais = [dados_por_nivel[chave]["per"] for chave, _cor in _ORDEM_E_CORES]
+    cores = [cor for _chave, cor in _ORDEM_E_CORES]
+    rotulos = [dados_por_nivel[chave]["rotulo"] for chave, _cor in _ORDEM_E_CORES]
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_nivel_instrucao_{safe_city}.png"
@@ -211,7 +250,7 @@ def gerar_grafico_cor_faixa_etaria(
 
     fig, ax = iniciar_card_grafico(
         (12, 8.4),
-        "Taxa de analfabetismo por cor/raça e faixa etária",
+        "Taxa de analfabetismo por cor ou raça e faixa etária",
         tamanho_titulo=17,
     )
     # Mesmo ajuste de demografia.gerar_grafico_faixa_etaria_e_sexo: a legenda
@@ -277,6 +316,7 @@ def gerar_grafico_cor_faixa_etaria(
         [f"{tick}%" for tick in ticks_y],
         fontsize=15*ESCALA_FONTE,
     )
+    ax.set_ylabel("Taxa de analfabetismo", fontsize=15*ESCALA_FONTE)
 
     ax.grid(
         axis="y",
