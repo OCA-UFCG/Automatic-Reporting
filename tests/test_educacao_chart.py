@@ -68,9 +68,9 @@ def test_grafico_nivel_instrucao_exige_todas_as_colunas(tmp_path: Path):
 
 def test_grafico_nivel_instrucao_exige_alguma_populacao(tmp_path: Path):
     cidade = {
-        f"{prefixo}_{sufixo}": 0
-        for prefixo in NIVEIS_INSTRUCAO
-        for sufixo in ("classe", "per", "pop")
+        **_cidade_com_niveis_instrucao(),
+        **{f"{prefixo}_per": 0 for prefixo in NIVEIS_INSTRUCAO},
+        **{f"{prefixo}_pop": 0 for prefixo in NIVEIS_INSTRUCAO},
     }
 
     with pytest.raises(ValueError, match="não disponíveis"):
@@ -79,9 +79,11 @@ def test_grafico_nivel_instrucao_exige_alguma_populacao(tmp_path: Path):
 
 def test_grafico_nivel_instrucao_com_classe_nula_nao_estoura(tmp_path: Path):
     """A view pode devolver `_classe` nulo pra um nível sem registro no
-    município. Antes da guarda em `_classificar_nivel`, isso estourava
-    AttributeError em `texto.lower()` em vez de degradar para o ValueError
-    de "não foi possível classificar" que `generation.py` sabe pular."""
+    município. `_indice_nivel_instrucao` já tolera `None` (`classe or ""`),
+    mas sem a checagem de índices em `gerar_grafico_nivel_instrucao` esse
+    nível cairia no índice sentinela em silêncio, sem levantar erro nenhum —
+    aqui confirmamos que ele vira o ValueError de "não foi possível
+    classificar" que `generation.py` sabe pular."""
     cidade = _cidade_com_niveis_instrucao()
     cidade["quar_nivel_classe"] = None
 

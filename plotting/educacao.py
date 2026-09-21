@@ -1,4 +1,5 @@
 import pathlib
+import unicodedata
 
 import numpy as np
 
@@ -11,38 +12,37 @@ from plotting import (
 from utils.formatting import coerce_para_float as _coerce_para_float
 from utils.formatting import formatar_numero_ptbr
 
-# Prefixos das colunas na view. A ordem deles (pri/seg/ter/quar) NÃO segue a
-# escala de instrução — checado com dado real (Recife): "pri_nivel_classe"
-# veio como "ensino médio completo", não "incompleto". Por isso a cor/ordem
-# de exibição não pode ser amarrada à posição da coluna; ver
-# `_classificar_nivel` e `_ORDEM_E_CORES` abaixo, que classificam pelo texto
-# do próprio rótulo.
-_PREFIXOS_NIVEL = ("pri_nivel", "seg_nivel", "ter_nivel", "quar_nivel")
+# Prefixos das colunas na view. O nome ("pri"/"seg"/"ter"/"quar") não indica o
+# nível de instrução — a view devolve essas colunas ordenadas por frequência
+# na cidade (pri = nível mais comum), não pela escala fundamental->superior.
+# A ordem/cor de exibição vem de `_indice_nivel_instrucao`, que lê o texto de
+# `<prefixo>_classe` e classifica pela escala real.
+_NIVEIS_INSTRUCAO = ("pri_nivel", "seg_nivel", "ter_nivel", "quar_nivel")
 
-# (chave de classificação, cor) — ordem espelha a escala de instrução
-# (incompleto ... superior) e as cores do Doc.
-_ORDEM_E_CORES = (
-    ("incompleto", "#E8871E"),
-    ("fundamental completo", "#7ECBE0"),
-    ("médio", "#8B4A2B"),
-    ("superior", "#1D7A9C"),
-)
+# Escala fixa de instrução e cores do Doc, nessa ordem.
+_CORES_POR_NIVEL = ("#8B4A2B", "#1D7A9C", "#E8871E", "#7ECBE0")
 
 
-def _classificar_nivel(texto: str | None) -> str:
-    # A view pode devolver `_classe` nulo pra um nível sem registro no
-    # município; sem essa checagem o `.lower()` estoura AttributeError em vez
-    # de deixar `niveis_faltantes`, abaixo, virar o ValueError esperado.
-    if not texto:
-        return "indefinido"
-    texto_lower = texto.lower()
-    if "incompleto" in texto_lower or "sem instru" in texto_lower:
-        return "incompleto"
-    if "superior" in texto_lower:
-        return "superior"
-    if "médio" in texto_lower or "medio" in texto_lower:
-        return "médio"
-    return "fundamental completo"
+def _indice_nivel_instrucao(classe: str | None) -> int:
+    # `classe or ""` cobre o caso de a view devolver `_classe` nulo pra um
+    # nível sem registro no município: cai no índice sentinela abaixo (fora
+    # da escala) em vez de estourar, e a checagem de índices em
+    # `gerar_grafico_nivel_instrucao` converte isso no ValueError esperado.
+    texto = (
+        unicodedata.normalize("NFKD", classe or "")
+        .encode("ascii", "ignore")
+        .decode()
+        .lower()
+    )
+    if "incompleto" in texto or "sem instrucao" in texto:
+        return 0
+    if "fundamental" in texto:
+        return 1
+    if "medio" in texto:
+        return 2
+    if "superior" in texto:
+        return 3
+    return len(_CORES_POR_NIVEL)
 
 
 def gerar_grafico_nivel_instrucao(
@@ -52,7 +52,7 @@ def gerar_grafico_nivel_instrucao(
 ):
     colunas_necessarias = [
         f"{prefixo}_{sufixo}"
-        for prefixo in _PREFIXOS_NIVEL
+        for prefixo in _NIVEIS_INSTRUCAO
         for sufixo in ("classe", "per", "pop")
     ]
     colunas_faltantes = [
@@ -64,42 +64,48 @@ def gerar_grafico_nivel_instrucao(
             "instrução: " + ", ".join(sorted(colunas_faltantes))
         )
 
-    populacoes_brutas = [
-        _coerce_para_float(cidade[f"{prefixo}_pop"]) for prefixo in _PREFIXOS_NIVEL
+    # Reordena pela escala fundamental incompleto -> completo -> médio ->
+    # superior (não pela ordem das colunas, que vem por frequência na view).
+    niveis = sorted(
+        (
+            {
+                "classe": cidade[f"{prefixo}_classe"],
+                "populacao": _coerce_para_float(cidade[f"{prefixo}_pop"]),
+                "percentual": _coerce_para_float(cidade[f"{prefixo}_per"]),
+            }
+            for prefixo in _NIVEIS_INSTRUCAO
+        ),
+        key=lambda nivel: _indice_nivel_instrucao(nivel["classe"]),
+    )
+
+    # Cada um dos 4 índices da escala (0..3) precisa aparecer exatamente uma
+    # vez: um rótulo que não bate com nenhuma palavra-chave cai no índice
+    # sentinela (len(_CORES_POR_NIVEL)) e um rótulo duplicado colide no mesmo
+    # índice — os dois casos indicam que a view não devolveu os 4 níveis
+    # esperados, e sem essa checagem o gráfico sairia com cor/posição erradas
+    # em silêncio (dado real de Recife: "pri_nivel_classe" veio como "ensino
+    # médio completo", não "incompleto").
+    indices = [_indice_nivel_instrucao(nivel["classe"]) for nivel in niveis]
+    if sorted(indices) != list(range(len(_CORES_POR_NIVEL))):
+        raise ValueError(
+            "Não foi possível classificar todos os níveis de instrução a "
+            "partir dos rótulos da view: "
+            + ", ".join(str(nivel["classe"]) for nivel in niveis)
+        )
+
+    rotulos = [
+        (nivel["classe"][:1].upper() + nivel["classe"][1:]) if nivel["classe"] else nivel["classe"]
+        for nivel in niveis
     ]
-    if not any(populacoes_brutas):
+    populacoes = [nivel["populacao"] for nivel in niveis]
+    percentuais = [nivel["percentual"] for nivel in niveis]
+    cores = [_CORES_POR_NIVEL[indice] for indice in indices]
+
+    if not any(populacoes):
         raise ValueError(
             "Dados de distribuição da população por nível de instrução não "
             "disponíveis."
         )
-
-    dados_por_nivel = {}
-    for prefixo in _PREFIXOS_NIVEL:
-        texto = cidade[f"{prefixo}_classe"]
-        chave = _classificar_nivel(texto)
-        dados_por_nivel[chave] = {
-            # Primeira letra maiúscula na legenda ("Ensino..."), independente
-            # de como a view devolve o texto (`_classe` vem em minúsculas).
-            # `chave == "indefinido"` nunca aparece em `_ORDEM_E_CORES`, então
-            # esse rótulo nunca chega a ser lido — só precisa não estourar.
-            "rotulo": "" if not texto else texto[:1].upper() + texto[1:],
-            "pop": _coerce_para_float(cidade[f"{prefixo}_pop"]),
-            "per": _coerce_para_float(cidade[f"{prefixo}_per"]),
-        }
-
-    niveis_faltantes = [
-        chave for chave, _cor in _ORDEM_E_CORES if chave not in dados_por_nivel
-    ]
-    if niveis_faltantes:
-        raise ValueError(
-            "Não foi possível classificar todos os níveis de instrução a "
-            "partir dos rótulos da view: faltando " + ", ".join(niveis_faltantes)
-        )
-
-    populacoes = [dados_por_nivel[chave]["pop"] for chave, _cor in _ORDEM_E_CORES]
-    percentuais = [dados_por_nivel[chave]["per"] for chave, _cor in _ORDEM_E_CORES]
-    cores = [cor for _chave, cor in _ORDEM_E_CORES]
-    rotulos = [dados_por_nivel[chave]["rotulo"] for chave, _cor in _ORDEM_E_CORES]
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_nivel_instrucao_{safe_city}.png"
@@ -178,7 +184,8 @@ def gerar_grafico_nivel_instrucao(
         bbox_transform=fig.transFigure,
         ncol=2,
         frameon=False,
-        fontsize=11 * ESCALA_FONTE,
+        prop={"family": "Inter", "weight": "medium", "size": 11 * ESCALA_FONTE},
+        labelcolor="#4A4A4A",
         handlelength=1.0,
         labelspacing=0.6,
         columnspacing=1.6,
