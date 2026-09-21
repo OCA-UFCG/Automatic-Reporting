@@ -29,7 +29,12 @@ _ORDEM_E_CORES = (
 )
 
 
-def _classificar_nivel(texto: str) -> str:
+def _classificar_nivel(texto: str | None) -> str:
+    # A view pode devolver `_classe` nulo pra um nível sem registro no
+    # município; sem essa checagem o `.lower()` estoura AttributeError em vez
+    # de deixar `niveis_faltantes`, abaixo, virar o ValueError esperado.
+    if not texto:
+        return "indefinido"
     texto_lower = texto.lower()
     if "incompleto" in texto_lower or "sem instru" in texto_lower:
         return "incompleto"
@@ -75,7 +80,9 @@ def gerar_grafico_nivel_instrucao(
         dados_por_nivel[chave] = {
             # Primeira letra maiúscula na legenda ("Ensino..."), independente
             # de como a view devolve o texto (`_classe` vem em minúsculas).
-            "rotulo": texto[:1].upper() + texto[1:],
+            # `chave == "indefinido"` nunca aparece em `_ORDEM_E_CORES`, então
+            # esse rótulo nunca chega a ser lido — só precisa não estourar.
+            "rotulo": "" if not texto else texto[:1].upper() + texto[1:],
             "pop": _coerce_para_float(cidade[f"{prefixo}_pop"]),
             "per": _coerce_para_float(cidade[f"{prefixo}_per"]),
         }

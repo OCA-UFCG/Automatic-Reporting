@@ -75,3 +75,15 @@ def test_grafico_nivel_instrucao_exige_alguma_populacao(tmp_path: Path):
 
     with pytest.raises(ValueError, match="não disponíveis"):
         gerar_grafico_nivel_instrucao(cidade, tmp_path, "sem_dados")
+
+
+def test_grafico_nivel_instrucao_com_classe_nula_nao_estoura(tmp_path: Path):
+    """A view pode devolver `_classe` nulo pra um nível sem registro no
+    município. Antes da guarda em `_classificar_nivel`, isso estourava
+    AttributeError em `texto.lower()` em vez de degradar para o ValueError
+    de "não foi possível classificar" que `generation.py` sabe pular."""
+    cidade = _cidade_com_niveis_instrucao()
+    cidade["quar_nivel_classe"] = None
+
+    with pytest.raises(ValueError, match="Não foi possível classificar"):
+        gerar_grafico_nivel_instrucao(cidade, tmp_path, "sem_dados")
