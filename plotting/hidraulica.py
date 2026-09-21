@@ -41,6 +41,13 @@ def gerar_grafico_tecnologias_acesso_agua(
     if not pontos:
         raise ValueError("Dados anuais de tecnologias de acesso à água não disponíveis.")
 
+    # $total_2025 = 0 não é "sem dado" (a série existe), mas o Doc já descreve
+    # esse caso em prosa e o marcador de gráfico não pode ser condicionado por
+    # um "Para quando" anterior (renderer.py reativa o bloco na linha do
+    # marcador de propósito). Suprime o gráfico aqui, no gerador.
+    if cidade.get("total_2025") == 0:
+        raise ValueError("Total de tecnologias de acesso à água em 2025 é zero.")
+
     anos = [ano for ano, _ in pontos]
     totais = [total for _, total in pontos]
     x = np.arange(len(anos))
@@ -52,7 +59,7 @@ def gerar_grafico_tecnologias_acesso_agua(
         return reuso
 
     fig, ax = iniciar_card_grafico(
-        (8, 4.0), "Tecnologia de acesso à água"
+        (8, 4.0), "Tecnologias sociais de acesso à água"
     )
     # Reserva uma faixa abaixo do corpo do gráfico, dentro do card, para o
     # rótulo "Ano" (senão ele fica colado/cortado na borda inferior do card).
@@ -80,6 +87,7 @@ def gerar_grafico_tecnologias_acesso_agua(
     ax.set_xticks(x)
     ax.set_xticklabels(anos, fontsize=FONTE_TICK*ESCALA_FONTE)
     ax.set_xlabel("Ano", fontsize=FONTE_ROTULO_EIXO*ESCALA_FONTE)
+    ax.set_ylabel("Números acumulados de tecnologias sociais", fontsize=FONTE_ROTULO_EIXO*ESCALA_FONTE)
     ax.yaxis.set_major_locator(MaxNLocator(nbins=5, integer=True))
     ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _: _formatar_inteiro(valor)))
     ax.grid(axis="y", linestyle=(0, (2, 3)), linewidth=0.7, color="#D9D9D9", zorder=0)

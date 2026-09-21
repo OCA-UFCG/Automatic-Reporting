@@ -25,3 +25,17 @@ def test_gera_grafico_com_serie_do_banco(tmp_path: Path):
 def test_grafico_exige_serie_anual(tmp_path: Path):
     with pytest.raises(ValueError, match="Dados anuais"):
         gerar_grafico_tecnologias_acesso_agua({}, tmp_path, "sem_dados")
+
+
+def test_grafico_nao_aparece_quando_total_2025_e_zero(tmp_path: Path):
+    cidade = {
+        "tecnologias_acesso_agua_serie": [
+            {"ano": 2010, "total": 0},
+            {"ano": 2020, "total": 0},
+            {"ano": 2025, "total": 0},
+        ],
+        "total_2025": 0,
+    }
+
+    with pytest.raises(ValueError, match="zero"):
+        gerar_grafico_tecnologias_acesso_agua(cidade, tmp_path, "sem_cisternas")
