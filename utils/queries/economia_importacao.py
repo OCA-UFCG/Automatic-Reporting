@@ -2,6 +2,11 @@ from collections import defaultdict
 
 from utils.queries.base import escalar_valor, executar_query
 
+# eco_importacao.vw_importacao_completa parou de ser atualizado pela equipe de
+# dados (ficou parado em julho/2026); eco_comercio_exterior.impexp_completa é o
+# schema novo, com importação e exportação na mesma tabela (`tipo_operacao`).
+# mv_perfil_economia já usa esse schema novo para os totais; esta query cobre
+# o detalhamento por país/produto/seção que a matview não tem.
 DADOS_IMPORTACAO_MUNICIPAL = """
     SELECT
         co_ano,
@@ -12,14 +17,16 @@ DADOS_IMPORTACAO_MUNICIPAL = """
         desc_sh4,
         kg_liquido,
         vl_fob
-    FROM eco_importacao.vw_importacao_completa
-    WHERE LOWER(nm_mun) = LOWER(%s)
-      AND sigla_uf = %s
+    FROM eco_comercio_exterior.impexp_completa
+    WHERE tipo_operacao = 'Importação'
+      AND LOWER(desc_municipio) = LOWER(%s)
+      AND sg_uf_mun = %s
       AND co_ano = (
           SELECT MAX(co_ano)
-          FROM eco_importacao.vw_importacao_completa
-          WHERE LOWER(nm_mun) = LOWER(%s)
-            AND sigla_uf = %s
+          FROM eco_comercio_exterior.impexp_completa
+          WHERE tipo_operacao = 'Importação'
+            AND LOWER(desc_municipio) = LOWER(%s)
+            AND sg_uf_mun = %s
       )
     ORDER BY co_mes::int
 """
