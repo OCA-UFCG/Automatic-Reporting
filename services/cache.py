@@ -193,7 +193,11 @@ def adquirir_geracao(safe_report: str) -> bool:
     sentinela = _sentinela(safe_report)
     for _ in range(3):
         try:
-            os.close(os.open(sentinela, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+            # O conteúdo (pid de quem criou) é o que permite a liberar_geracao
+            # discriminar depois "essa sentinela ainda é minha?" — ver docstring lá.
+            fd = os.open(sentinela, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, str(os.getpid()).encode())
+            os.close(fd)
             return True
         except FileExistsError:
             if _viva(sentinela):
@@ -206,10 +210,32 @@ def adquirir_geracao(safe_report: str) -> bool:
 
 
 def liberar_geracao(safe_report: str) -> None:
-    """Devolve o direito de gerar `safe_report`. Idempotente: liberar duas vezes
-    (ou liberar algo que já expirou e foi reclamado por outro) não é erro."""
+    """Devolve o direito de gerar `safe_report` — mas só se a sentinela em disco
+    ainda for a que este processo criou.
+
+    Sem essa checagem de dono, um estouro de TTL vira cascata em vez do único
+    duplicado que o design aceita: A demora mais que SENTINELA_TTL_S, B vê a
+    sentinela como morta e reclama (a corrida aceita — 1 duplicata), mas quando A
+    finalmente termina e chama liberar_geracao, ela apagaria a sentinela NOVA de
+    B (unlink incondicional, sem checar dono). C chega, O_EXCL abre livre, e é uma
+    terceira geração concorrente do mesmo relatório — e entre a apagada e a de C,
+    geracoes_em_voo() subconta o trabalho de A, que ainda está rodando. Comparar o
+    pid gravado no arquivo mantém a decisão inteiramente em disco (task 11 garante
+    uma geração por processo, então pid basta pra discriminar).
+
+    Idempotente: arquivo já ausente, ou pertencente a outro dono (reclamado
+    enquanto este processo ainda segurava a referência antiga), não é erro —
+    apenas não há nada para este processo liberar.
+    """
+    sentinela = _sentinela(safe_report)
     try:
-        _sentinela(safe_report).unlink()
+        dono = sentinela.read_bytes()
+    except FileNotFoundError:
+        return
+    if dono != str(os.getpid()).encode():
+        return  # a sentinela atual é de outro dono; não é nossa para apagar
+    try:
+        sentinela.unlink()
     except FileNotFoundError:
         pass
 

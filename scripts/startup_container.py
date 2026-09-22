@@ -11,7 +11,7 @@ from services.cache import invalidar_artefatos_em_disco, limpar_tmp_orfaos
 def main() -> None:
     removidos = limpar_tmp_orfaos()
     if removidos:
-        print(f"[startup] .tmp órfãos removidos: {len(removidos)}")
+        print(f"[startup] .tmp/.inflight órfãos removidos: {len(removidos)}")
     invalidar_artefatos_em_disco()
     print("[startup] artefatos em disco invalidados")
 

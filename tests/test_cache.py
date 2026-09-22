@@ -165,6 +165,10 @@ def test_limpa_tmp_orfaos_sem_tocar_nos_artefatos(output_tmp):
     # de eviction — era a única categoria sem teto de disco. Varrido no startup.
     orfao = output_tmp / "relatorio_demografia__x.pdf.a1b2c3.tmp"
     orfao.write_bytes(b"pdf parcial")
+    # .inflight de uma geração que morreu antes do container reiniciar: mesmo
+    # motivo do .tmp acima, mesma limpeza (services/cache.py:adquirir_geracao).
+    inflight_orfao = output_tmp / "relatorio_demografia__y.inflight"
+    inflight_orfao.write_bytes(b"12345")
     pdf = output_tmp / "relatorio_demografia__x.pdf"
     pdf.write_bytes(b"pdf")
     grafico = output_tmp / "grafico_pib_x.png"
@@ -172,8 +176,9 @@ def test_limpa_tmp_orfaos_sem_tocar_nos_artefatos(output_tmp):
 
     removidos = cache.limpar_tmp_orfaos()
 
-    assert removidos == [orfao.name]
+    assert sorted(removidos) == sorted([orfao.name, inflight_orfao.name])
     assert not orfao.exists()
+    assert not inflight_orfao.exists()
     assert pdf.exists() and grafico.exists()
 
 
