@@ -291,13 +291,24 @@ def montar_safe_report(
 # casa por substring com o relatório de tema único da mesma cidade.
 HEADER_ARQUIVO_RELATORIO = "X-Relatorio-Arquivo"
 
+# Versão do artefato que esta resposta representa: st_mtime_ns do PDF, a mesma
+# grandeza que handlers.py usa em pdf_url. O nome sozinho não basta — ele é o
+# mesmo em toda geração do mesmo relatório, sobrescrito no lugar, então um
+# cliente que casasse só por nome aceitaria o artefato da semana passada.
+HEADER_VERSAO_RELATORIO = "X-Relatorio-Versao"
+
 
 def _resposta_do_relatorio(html: str, safe_report: str) -> HTMLResponse:
     """Construtor único das duas saídas do handler (HIT do gate e fim do pipeline).
     Centraliza pra o header não passar a existir só num dos caminhos — mesmo motivo
     de _caminhos_relatorio abaixo."""
     pdf, _html = _caminhos_relatorio(safe_report)
-    return HTMLResponse(content=html, headers={HEADER_ARQUIVO_RELATORIO: pdf.name})
+    headers = {HEADER_ARQUIVO_RELATORIO: pdf.name}
+    try:
+        headers[HEADER_VERSAO_RELATORIO] = str(pdf.stat().st_mtime_ns)
+    except FileNotFoundError:
+        pass
+    return HTMLResponse(content=html, headers=headers)
 
 
 def _caminhos_relatorio(safe_report: str) -> tuple[Path, Path]:
