@@ -93,6 +93,7 @@ _ICONE_POR_BASE = {
     "idhm_longevidade": "idhm_longevidade",
     "idhm_renda": "idhm_renda",
     "gini": "gini",
+    "pib_capita": "pib_capita",
 }
 
 INDICADORES_POR_MACROTEMA: dict[str, tuple[str, ...]] = {
