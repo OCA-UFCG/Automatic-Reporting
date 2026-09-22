@@ -79,6 +79,12 @@ _ICONE_POR_BASE = {
     "uc_pi": "protecao_integral",
     "uc_uso": "uso_sustentavel",
     "uc_area": "area_conservacao",
+    "nascidos": "nascidos_vivos",
+    "mortalidade_infantil": "mortalidade_infantil",
+    "doses": "vacinas",
+    "estabelecimento": "numero_estabelecimentos",
+    "unidade_basica": "unidades_basicas",
+    "posto_saude": "posto_saude",
 }
 
 INDICADORES_POR_MACROTEMA: dict[str, tuple[str, ...]] = {
