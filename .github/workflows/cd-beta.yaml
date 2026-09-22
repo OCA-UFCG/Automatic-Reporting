@@ -258,6 +258,8 @@ jobs:
           sudo docker run \
             --name ${{ vars.CONTAINER_NAME_BETA }} \
             --restart unless-stopped \
+            --cpus=3 \
+            --memory=3g \
             -p ${{ vars.HOST_PORT_BETA }}:${{ vars.CONTAINER_PORT }} \
             -v ${{ vars.VOLUME_NAME }}:/app/output \
             -v ${{ vars.MAP_SHAPE_VOLUME_NAME }}:/app/map_shape \
