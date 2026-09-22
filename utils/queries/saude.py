@@ -132,27 +132,64 @@ PERFIL_SAUDE_MUNICIPAL = """
         n_estabel_maior1,
         grupo_estabel_maior2,
         n_estabel_maior2,
-        ubs_10mil
+        ubs_10mil,
+        bcg,
+        dtp,
+        febre_amarela,
+        hepatite_a_infantil,
+        hepatite_b_30dias,
+        hepatite_b_1dia,
+        hepatite_b_2dia,
+        influenza,
+        meningoc,
+        meningoc_1reforco,
+        penta,
+        pneumo10,
+        pneumo10_1reforco,
+        vip,
+        vip_1reforco,
+        rotavirus,
+        triplice_1dose,
+        triplice_2dose,
+        varicela
     FROM relatorios_auto.mv_perfil_saude_municipal
     WHERE nm_mun = %s
       AND sigla_uf = %s
 """
 
 
-VACINA_COBERTURA_CAMPOS = (
-    ("vacina_maior1", "vacina_maior1_per"),
-    ("vacina_maior2", "vacina_maior2_per"),
-    ("vacina_menor1", "vacina_menor1_per"),
-    ("vacina_menor2", "vacina_menor2_per"),
-    ("vacina_menor3", "vacina_menor3_per"),
+# As 19 vacinas do calendário nacional cobertas pela view; cada coluna já
+# guarda o percentual de cobertura daquela vacina (ver Figura 3 do relatório
+# de saúde). Os antigos vacina_maior1/2 e vacina_menor1/2/3 eram apenas um
+# recorte de 5 destaques e não a lista completa.
+VACINA_COBERTURA_ROTULOS = (
+    ("bcg", "BCG"),
+    ("dtp", "DTP"),
+    ("febre_amarela", "Febre Amarela"),
+    ("hepatite_a_infantil", "Hepatite A (infantil)"),
+    ("hepatite_b_30dias", "Hepatite B (até 30 dias)"),
+    ("hepatite_b_1dia", "Hepatite B (até 1 dia de vida)"),
+    ("hepatite_b_2dia", "Hepatite B (2ª dose)"),
+    ("influenza", "Influenza"),
+    ("meningoc", "Meningocócica C"),
+    ("meningoc_1reforco", "Meningocócica C (1º reforço)"),
+    ("penta", "Pentavalente"),
+    ("pneumo10", "Pneumo 10"),
+    ("pneumo10_1reforco", "Pneumo 10 (reforço)"),
+    ("vip", "Poliomielite (VIP)"),
+    ("vip_1reforco", "Poliomielite (VIP, reforço)"),
+    ("rotavirus", "Rotavírus"),
+    ("triplice_1dose", "Tríplice viral (1ª dose)"),
+    ("triplice_2dose", "Tríplice viral (2ª dose)"),
+    ("varicela", "Varicela"),
 )
 
 
 def _montar_cobertura_vacinal_serie(dados: dict[str, object]) -> list[dict[str, object]]:
     return [
-        {"vacina": dados[campo_nome], "cobertura_vacinal": dados[campo_per]}
-        for campo_nome, campo_per in VACINA_COBERTURA_CAMPOS
-        if dados.get(campo_nome) is not None and dados.get(campo_per) is not None
+        {"vacina": rotulo, "cobertura_vacinal": dados[campo]}
+        for campo, rotulo in VACINA_COBERTURA_ROTULOS
+        if dados.get(campo) is not None
     ]
 
 
@@ -211,6 +248,25 @@ def buscar_perfil_saude_municipal(
         grupo_estabel_maior2,
         n_estabel_maior2,
         ubs_10mil,
+        bcg,
+        dtp,
+        febre_amarela,
+        hepatite_a_infantil,
+        hepatite_b_30dias,
+        hepatite_b_1dia,
+        hepatite_b_2dia,
+        influenza,
+        meningoc,
+        meningoc_1reforco,
+        penta,
+        pneumo10,
+        pneumo10_1reforco,
+        vip,
+        vip_1reforco,
+        rotavirus,
+        triplice_1dose,
+        triplice_2dose,
+        varicela,
     ) = linha
 
     dados = {
@@ -260,6 +316,25 @@ def buscar_perfil_saude_municipal(
         "grupo_estabel_maior2": grupo_estabel_maior2,
         "n_estabelec_maior2": n_estabel_maior2,
         "ubs_10mil": ubs_10mil,
+        "bcg": bcg,
+        "dtp": dtp,
+        "febre_amarela": febre_amarela,
+        "hepatite_a_infantil": hepatite_a_infantil,
+        "hepatite_b_30dias": hepatite_b_30dias,
+        "hepatite_b_1dia": hepatite_b_1dia,
+        "hepatite_b_2dia": hepatite_b_2dia,
+        "influenza": influenza,
+        "meningoc": meningoc,
+        "meningoc_1reforco": meningoc_1reforco,
+        "penta": penta,
+        "pneumo10": pneumo10,
+        "pneumo10_1reforco": pneumo10_1reforco,
+        "vip": vip,
+        "vip_1reforco": vip_1reforco,
+        "rotavirus": rotavirus,
+        "triplice_1dose": triplice_1dose,
+        "triplice_2dose": triplice_2dose,
+        "varicela": varicela,
     }
     serie_cobertura = _montar_cobertura_vacinal_serie(dados)
     if serie_cobertura:
