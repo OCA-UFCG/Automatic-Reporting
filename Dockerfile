@@ -99,5 +99,8 @@ COPY --from=ssr-build /app/report/ssr-dist ./report/ssr-dist
 
 EXPOSE 8000
 
-# Start both SSR server and FastAPI
-CMD ["sh", "-c", "python3 -m scripts.startup_container && node report/ssr-dist/server.js & python3 -m uvicorn main:app --host 0.0.0.0 --port 8000"]
+# Startup do container (limpeza de .tmp + invalidação de cache, uma vez, antes de
+# qualquer processo aceitar request) e só depois os dois servidores. `&` tem
+# precedência menor que `&&` em sh: sem o `{ ...; }` agrupando node+uvicorn, o
+# `&` faria o uvicorn começar em paralelo com o startup em vez de esperar por ele.
+CMD ["sh", "-c", "python3 -m scripts.startup_container && { node report/ssr-dist/server.js & python3 -m uvicorn main:app --host 0.0.0.0 --port 8000; }"]
