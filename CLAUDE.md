@@ -91,9 +91,8 @@ Validation before finishing a change:
 - `npm run build -w report` — after editing anything under `report/src` (the SSR
   React components); the running API uses the built bundle, not the source.
 
-CI (`.github/workflows/ci.yaml`) only runs `ruff check .`, builds the bundles, and
-health-checks the API — **it does not run pytest**. The test suite is a local gate; run
-it yourself.
+CI (`.github/workflows/ci.yaml`) runs `python -m pytest`, `ruff check .`, builds the
+bundles, and health-checks the API.
 
 ## Architecture
 
@@ -196,7 +195,7 @@ in `generation.py` are the fullest example):
 - Chart tests feed a synthetic `contexto` and assert the PNG is written — they must not
   touch the database. Query tests that need the DB are the exception, not the rule.
 - Every new chart or query gets a test; every bug fix gets a regression test.
-- CI does not run them — running `python -m pytest` before you finish is the only gate.
+- CI runs the full suite; make sure `python -m pytest` passes before pushing.
 
 ## Git conventions
 
