@@ -11,9 +11,14 @@ def test_roda_limpeza_e_invalidacao_uma_vez(monkeypatch):
     assert chamadas == ["tmp", "cache"]
 
 
-def test_app_nao_registra_mais_os_hooks_de_startup():
+def test_on_startup_fica_so_com_ssr_e_aviso_de_mv_indicadores():
     import main
 
+    # Pina o conjunto inteiro, não só a ausência dos dois hooks removidos: um
+    # regression que esvaziasse on_startup ou derrubasse start_ssr_server também
+    # devia falhar aqui. `start_ssr_server` é alias de import
+    # (`from utils.ssr import start_server as start_ssr_server`); o objeto função
+    # carrega o __name__ original do módulo de origem, "start_server" — não o nome
+    # do alias.
     nomes = {f.__name__ for f in main.app.router.on_startup}
-    assert "_limpar_tmp_orfaos_do_startup" not in nomes
-    assert "_invalidar_cache_do_startup" not in nomes
+    assert nomes == {"start_server", "_avisar_se_mv_indicadores_faltar"}
