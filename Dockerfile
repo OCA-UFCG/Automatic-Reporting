@@ -100,4 +100,4 @@ COPY --from=ssr-build /app/report/ssr-dist ./report/ssr-dist
 EXPOSE 8000
 
 # Start both SSR server and FastAPI
-CMD ["sh", "-c", "node report/ssr-dist/server.js & python3 -m uvicorn main:app --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "python3 -m scripts.startup_container && node report/ssr-dist/server.js & python3 -m uvicorn main:app --host 0.0.0.0 --port 8000"]

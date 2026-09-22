@@ -12,7 +12,6 @@ from services import (
     gerar_relatorio_handler,
     listar_relatorios_handler,
 )
-from services.cache import invalidar_artefatos_em_disco, limpar_tmp_orfaos
 from utils.data.cities import carregar_cidades
 from utils.data.macrotemas import (
     MACROTEMAS,
@@ -72,28 +71,9 @@ async def _avisar_se_mv_indicadores_faltar() -> None:
     await asyncio.to_thread(_checar_mv_indicadores)
 
 
-def _limpar_tmp_orfaos_do_startup() -> None:
-    """Varre os .tmp de renders mortos (ver services.cache.limpar_tmp_orfaos).
-    Síncrono e barato: é um glob num diretório local, não bloqueia como o psycopg2."""
-    removidos = limpar_tmp_orfaos()
-    if removidos:
-        logger.info("Removidos %d .tmp órfãos de render interrompido.", len(removidos))
-
-
-def _invalidar_cache_do_startup() -> None:
-    """Deploy/reboot recria o container: é o único evento que sinaliza "o código
-    mudou". Aproveitamos ele pra invalidar o disco, senão um gráfico redesenhado
-    por um deploy fica escondido atrás do PNG antigo (services.cache). Barato:
-    um touch, e a regeneração é preguiçosa."""
-    invalidar_artefatos_em_disco()
-    logger.info("Cache em disco invalidado no startup (código pode ter mudado).")
-
-
 app = FastAPI(
     on_startup=[
         start_ssr_server,
-        _limpar_tmp_orfaos_do_startup,
-        _invalidar_cache_do_startup,
         _avisar_se_mv_indicadores_faltar,
     ],
     on_shutdown=[stop_ssr_server],
