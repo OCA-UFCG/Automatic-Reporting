@@ -85,6 +85,14 @@ _ICONE_POR_BASE = {
     "estabelecimento": "numero_estabelecimentos",
     "unidade_basica": "unidades_basicas",
     "posto_saude": "posto_saude",
+    "exportacao": "exportacao",
+    "importacao": "importacao",
+    "balanca": "balanca",
+    "idhm": "idhm",
+    "idhm_educacao": "idhm_educacao",
+    "idhm_longevidade": "idhm_longevidade",
+    "idhm_renda": "idhm_renda",
+    "gini": "gini",
 }
 
 INDICADORES_POR_MACROTEMA: dict[str, tuple[str, ...]] = {
