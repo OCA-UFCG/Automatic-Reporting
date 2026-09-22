@@ -351,7 +351,6 @@ async def gerar_relatorio_handler(
     # desde a última checagem, esvazia o query cache in-process (TTL 6h) pra não
     # servir número pré-refresh num relatório que está sendo regenerado agora.
     invalidar_query_cache_se_dados_mudaram()
-    reset_figura_contador()
     try:
         macrotema_slugs = get_macrotema_slugs_para_relatorio(macrotema)
     except ValueError as err:
@@ -416,6 +415,13 @@ async def gerar_relatorio_handler(
         False if _sentinela_ja_adquirida else adquirir_geracao(safe_report)
     )
     try:
+        # O contador de figuras é global de módulo e tem escopo de render, então
+        # o reset mora aqui e não no topo do handler: HIT do gate, 202 de dedup e
+        # 503 não renderizam nada, e desde que a geração roda em thread de fundo
+        # (services/background.py) um reset vindo de outra chamada cairia no meio
+        # da numeração de um render em voo — "Figura 3" do relatório A apontando
+        # pro gráfico do B (utils/render/renderer.py:118).
+        reset_figura_contador()
         gerado_em = datetime.now().astimezone()
 
         linhas = None

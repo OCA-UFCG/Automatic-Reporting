@@ -1,4 +1,5 @@
 import asyncio
+import re
 import threading
 import time
 
@@ -6,6 +7,7 @@ import pytest
 from fastapi import HTTPException
 
 from services import background, cache, generation
+from utils.render.renderer import reset_figura_contador, texto_para_html
 
 
 @pytest.fixture
@@ -146,3 +148,49 @@ def test_thread_de_fundo_libera_a_sentinela_mesmo_falhando(output):
     while cache.geracoes_em_voo() and time.time() < limite:
         time.sleep(0.01)
     assert cache.geracoes_em_voo() == 0
+
+
+def _proximo_numero_de_figura() -> int:
+    """Consome um número do contador global de figuras e devolve qual saiu.
+
+    É a forma observável de perguntar em que pé o contador está: ele é global de
+    módulo em utils/render/renderer.py e só aparece na legenda renderizada."""
+    html = texto_para_html("Figura X- Legenda qualquer.", {}, graficos_por_placeholder={})
+    return int(re.search(r"Figura (\d+) –", html).group(1))
+
+
+def test_hit_do_gate_nao_reseta_o_contador_de_figuras(output):
+    """O contador é escopo de render: uma chamada que não renderiza nada não pode
+    mexer nele. Com a geração em thread de fundo, esse reset cairia no meio da
+    numeração de um render em voo — que é exatamente o caso que o semáforo de 1 de
+    services/background.py existe pra evitar."""
+    _, safe = generation.montar_safe_report("Recife (PE)", "demografia", ["demografia"])
+    (output / f"relatorio_{safe}.pdf").write_bytes(b"pdf")
+    (output / f"relatorio_{safe}.html").write_text("<html></html>", encoding="utf-8")
+
+    reset_figura_contador()
+    assert _proximo_numero_de_figura() == 2  # simula um render em andamento
+
+    resposta = asyncio.run(
+        generation.gerar_relatorio_handler("Recife (PE)", "demografia")
+    )
+
+    assert resposta.status_code == 200
+    assert _proximo_numero_de_figura() == 3  # a numeração seguiu de onde parou
+
+
+def test_202_de_dedup_nao_reseta_o_contador_de_figuras(output):
+    # O caso que este plano existe pra servir: dois usuários pedem o mesmo
+    # relatório. O segundo cai no 202 de dedup enquanto o primeiro renderiza.
+    _, safe = generation.montar_safe_report("Recife (PE)", "demografia", ["demografia"])
+    cache.adquirir_geracao(safe)
+
+    reset_figura_contador()
+    assert _proximo_numero_de_figura() == 2
+
+    resposta = asyncio.run(
+        generation.gerar_relatorio_handler("Recife (PE)", "demografia", aguardar=False)
+    )
+
+    assert resposta.status_code == 202
+    assert _proximo_numero_de_figura() == 3
