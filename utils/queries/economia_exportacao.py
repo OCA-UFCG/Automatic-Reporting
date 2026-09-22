@@ -1,13 +1,11 @@
 import logging
 
-from utils.queries.base import escalar_valor
 from utils.queries.perfil_municipal import buscar_perfil_municipal
 
 logger = logging.getLogger(__name__)
 
-# A view emite a unidade no singular quando o valor arredonda para 1
-# ("valor_balanca1unid = milhão" em Igarassu/PE): sem a forma singular aqui o
-# valor entrava no gráfico 1.000.000x menor, só com um warning no log.
+# A view emite a unidade no singular quando o valor arredonda para 1 ("milhão"):
+# sem essa forma aqui o valor entra no gráfico 1.000.000x menor.
 _UNIDADE_MULTIPLICADOR = {
     "bilhões": 1_000_000_000,
     "bilhão": 1_000_000_000,
@@ -81,31 +79,6 @@ def buscar_comercio_exterior_economia(
         dados["balanca"] = linha["analise_balanca1"]
     if linha.get("analise_balanca2") is not None:
         dados["balanca2"] = linha["analise_balanca2"]
-
-    # A view calcula analise_balanca1/valor_balanca1 para o último mês fechado
-    # (agosto/2026 em Igarassu/PE: superávit de US$ 1,76 mi), mas a frase do Doc
-    # rotula o número como "no mês de junho de $ultimo_junho" — e o card e a
-    # Figura, ambos de junho, mostravam o déficit de US$ 4,96 mi. O Doc é editado
-    # por não-devs e não pode mudar, então o saldo do mês passa a vir da coluna de
-    # junho da própria view. A palavra (superávit/déficit) carrega o sinal, por
-    # isso o valor sai em módulo: "déficit de US$ 4,96 milhões".
-    # Ressalva conhecida: a Síntese reusa esse mesmo par citando exportação e
-    # importação do último mês, então lá o saldo continua sendo o de junho.
-    saldo_junho = linha.get("valor_balanca_jun")
-    if saldo_junho is not None:
-        saldo_junho = float(saldo_junho)
-        analise_junho = "superávit" if saldo_junho >= 0 else "déficit"
-        valor_junho, unidade_junho = escalar_valor(abs(saldo_junho))
-        for campo, valor in (
-            ("analise_balanca1", analise_junho),
-            ("analise_balança1", analise_junho),
-            ("balanca", analise_junho),
-            ("valor_balanca1", valor_junho),
-            ("valor_balança1", valor_junho),
-            ("valor_balanca1unid", unidade_junho),
-            ("valor_balança1unid", unidade_junho),
-        ):
-            dados[campo] = valor
 
     paises_exportacao = []
     for posicao in range(1, 5):

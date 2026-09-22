@@ -104,9 +104,10 @@ def processar_importacao(linhas: list[dict]) -> dict[str, object] | None:
         if linha.get("kg_liquido") is not None
     )
 
+    # O banco guarda desc_mes/desc_secao/desc_sh4 capitalizados e o Doc usa todos
+    # no meio da frase ("destacaram-se $secao_importado1, com..."), por isso o
+    # .lower() aqui e nas seções/produtos abaixo.
     resultado: dict[str, object] = {
-        # desc_mes vem capitalizado ("Agosto"); o Doc usa o campo no meio da
-        # frase ("em $ultimo_mes_ano, as empresas..."), então minúsculo.
         "ultimo_mes_ano": f"{ultima_linha['desc_mes'].lower()} de {ultimo_ano}",
         "ultimo_jun": ultimo_ano,
     }
@@ -130,7 +131,7 @@ def processar_importacao(linhas: list[dict]) -> dict[str, object] | None:
     totais_secao = _somar_por_chave(linhas_ultimo_mes, "desc_secao", "vl_fob")
     for posicao, (nome_secao, valor_fob) in enumerate(_top_n(totais_secao, 2), start=1):
         valor_escalado, unidade = escalar_valor(valor_fob)
-        resultado[f"secao_importado{posicao}"] = nome_secao
+        resultado[f"secao_importado{posicao}"] = nome_secao.lower()
         resultado[f"valor_secao_importado{posicao}"] = valor_escalado
         resultado[f"valor_secao_importado_unid{posicao}"] = unidade
 
@@ -139,7 +140,7 @@ def processar_importacao(linhas: list[dict]) -> dict[str, object] | None:
     top_produtos = _top_n(totais_produto_fob, 2)
     for posicao, (nome_produto, valor_fob) in enumerate(top_produtos, start=1):
         valor_escalado, unidade = escalar_valor(valor_fob)
-        resultado[f"produto_importado{posicao}"] = nome_produto
+        resultado[f"produto_importado{posicao}"] = nome_produto.lower()
         resultado[f"valor_produto_importado{posicao}"] = valor_escalado
         resultado[f"valor_produto_importadounid{posicao}"] = unidade
 
@@ -148,16 +149,14 @@ def processar_importacao(linhas: list[dict]) -> dict[str, object] | None:
         resultado[f"kg_importado_produtounid{posicao}"] = kg_unidade
 
     if len(top_produtos) >= 1:
-        resultado["produto_importado_kg1"] = top_produtos[0][0]
+        resultado["produto_importado_kg1"] = top_produtos[0][0].lower()
     if len(top_produtos) >= 2:
-        resultado["produto_importado_kg2"] = top_produtos[1][0]
+        resultado["produto_importado_kg2"] = top_produtos[1][0].lower()
 
-    # A mv_perfil_economia traz pais_importado*/secao_*/produto_* de um recorte
-    # diferente do último mês, e generation.py mescla este dict por cima da linha
-    # da view: um slot não preenchido aqui deixaria o valor da view aparecer ao
-    # lado dos nossos — foi assim que a soma dos quatro países passou do total
-    # importado. Zerar o slot vazio também faz o condicional do Doc
-    # ("para quando $valor_pais_importado4 for igual a 0") cair na variante certa.
+    # generation.py mescla este dict por cima da linha da mv_perfil_economia, que
+    # traz estes mesmos campos de outro recorte: slot não preenchido aqui deixaria
+    # o valor da view aparecer ao lado dos nossos (foi assim que a soma dos quatro
+    # países passou do total importado).
     for posicao in range(1, 5):
         resultado.setdefault(f"pais_importado{posicao}", "")
         resultado.setdefault(f"valor_pais_importado{posicao}", 0)

@@ -61,6 +61,7 @@ def test_buscar_comercio_exterior_economia_aplica_aliases_balanca_e_paises(monke
 
     # doc usa "balança" com cedilha
     assert dados["analise_balança1"] == "déficit"
+    assert dados["valor_balança1"] == -717.3
     # doc usa "balanca"/"balanca2" (bare) na síntese
     assert dados["balanca"] == "déficit"
     assert dados["balanca2"] == "negativo"
@@ -152,15 +153,14 @@ def test_unidade_vazia_nao_gera_aviso(monkeypatch, caplog):
     assert caplog.text == ""
 
 
-def test_saldo_do_mes_vem_de_junho_e_nao_do_ultimo_mes(monkeypatch):
-    """A frase do Doc rotula o saldo como "no mês de junho": o par
-    analise_balanca1/valor_balanca1 da view (último mês fechado) contradizia o
-    card e a Figura, ambos de junho."""
+def test_unidade_no_singular_multiplica_igual_ao_plural(monkeypatch):
     linha_perfil = {
-        "analise_balanca1": "superávit",
-        "valor_balanca1": 1.76,
-        "valor_balanca1unid": "milhão",
-        "valor_balanca_jun": -4961467.0,
+        "pais_exportacao1": "China",
+        "valor_pais_exportacao1": 1.76,
+        "valor_pais_exportacaounid1": "milhão",
+        "pais_exportacao2": "Argentina",
+        "valor_pais_exportacao2": 1.2,
+        "valor_pais_exportacaounid2": "bilhão",
     }
     monkeypatch.setattr(
         economia_exportacao, "buscar_perfil_municipal", lambda *a, **k: linha_perfil
@@ -168,26 +168,13 @@ def test_saldo_do_mes_vem_de_junho_e_nao_do_ultimo_mes(monkeypatch):
 
     dados = economia_exportacao.buscar_comercio_exterior_economia("Igarassu", "PE")
 
-    # módulo: a palavra já carrega o sinal ("déficit de US$ 4,96 milhões")
-    assert dados["analise_balanca1"] == "déficit"
-    assert round(dados["valor_balanca1"], 2) == 4.96
-    assert dados["valor_balanca1unid"] == "milhões"
-    assert dados["analise_balança1"] == "déficit"
-    assert dados["valor_balança1unid"] == "milhões"
-    assert dados["balanca"] == "déficit"
+    assert dados["exportacao_paises"] == [
+        ("China", 1_760_000.0),
+        ("Argentina", 1_200_000_000.0),
+    ]
 
 
-def test_saldo_do_mes_preserva_o_da_view_sem_coluna_de_junho(monkeypatch):
-    linha_perfil = {
-        "analise_balanca1": "superávit",
-        "valor_balanca1": 1.76,
-        "valor_balanca1unid": "milhão",
-    }
-    monkeypatch.setattr(
-        economia_exportacao, "buscar_perfil_municipal", lambda *a, **k: linha_perfil
-    )
-
-    dados = economia_exportacao.buscar_comercio_exterior_economia("Igarassu", "PE")
-
-    assert dados["analise_balança1"] == "superávit"
-    assert dados["valor_balança1"] == 1.76
+def test_unidade_desconhecida_avisa_no_log(caplog):
+    with caplog.at_level(logging.WARNING):
+        assert economia_exportacao._valor_absoluto(1.76, "zilhão") == 1.76
+    assert "Unidade de valor desconhecida" in caplog.text
