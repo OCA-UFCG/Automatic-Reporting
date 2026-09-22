@@ -14,7 +14,12 @@ import time
 from pathlib import Path
 from stat import S_ISREG
 
-from config import GRAFICO_CACHE_MAX_BYTES, OUTPUT_DIR, REPORT_CACHE_MAX_BYTES
+from config import (
+    GRAFICO_CACHE_MAX_BYTES,
+    OUTPUT_DIR,
+    REPORT_CACHE_MAX_BYTES,
+    SENTINELA_TTL_S,
+)
 from utils.queries.base import limpar_cache_queries
 
 DATA_VERSION_FILE = OUTPUT_DIR / ".data_version"
@@ -164,23 +169,77 @@ def evict_cache_if_needed(protegido: str | None = None) -> list[str]:
     return removidos
 
 
-def limpar_tmp_orfaos() -> list[str]:
-    """Apaga os .tmp deixados por um render morto no meio. Roda só no startup:
-    nenhum .tmp está em uso antes de a app aceitar request.
+def _sentinela(safe_report: str) -> Path:
+    return OUTPUT_DIR / f"relatorio_{safe_report}.inflight"
 
-    Existem porque a escrita atômica passou a usar mkstemp (nome único por
+
+def _viva(caminho: Path) -> bool:
+    try:
+        return (time.time() - caminho.stat().st_mtime) < SENTINELA_TTL_S
+    except FileNotFoundError:
+        return False
+
+
+def adquirir_geracao(safe_report: str) -> bool:
+    """True se esta chamada ganhou o direito de gerar `safe_report`.
+
+    O registro é um arquivo em disco, e não um lock em memória, porque com
+    `--workers N` quem precisa enxergar a geração em curso é outro processo.
+    Uma sentinela mais velha que SENTINELA_TTL_S é de uma geração que morreu:
+    ela é removida e o direito passa a quem chegou. Estourar o TTL com a geração
+    ainda viva custa uma geração duplicada, nunca um artefato corrompido — as
+    escritas são atômicas (services/pdf.py, generation.py).
+    """
+    sentinela = _sentinela(safe_report)
+    for _ in range(3):
+        try:
+            os.close(os.open(sentinela, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+            return True
+        except FileExistsError:
+            if _viva(sentinela):
+                return False
+            try:
+                sentinela.unlink()
+            except FileNotFoundError:
+                pass
+    return False
+
+
+def liberar_geracao(safe_report: str) -> None:
+    """Devolve o direito de gerar `safe_report`. Idempotente: liberar duas vezes
+    (ou liberar algo que já expirou e foi reclamado por outro) não é erro."""
+    try:
+        _sentinela(safe_report).unlink()
+    except FileNotFoundError:
+        pass
+
+
+def geracoes_em_voo() -> int:
+    """Quantas gerações de fundo estão em curso agora, no container inteiro
+    (a sentinela é visível entre workers). Usado para respeitar o teto
+    MAX_GERACOES_EM_VOO."""
+    return sum(1 for s in OUTPUT_DIR.glob("*.inflight") if _viva(s))
+
+
+def limpar_tmp_orfaos() -> list[str]:
+    """Apaga os .tmp e .inflight deixados por um render morto no meio. Roda no
+    startup do container (scripts/startup_container.py, uma vez, antes de o
+    uvicorn subir): nenhum .tmp ou .inflight pode estar em uso ainda.
+
+    Os .tmp existem porque a escrita atômica passou a usar mkstemp (nome único por
     escritor, pra dois writers concorrentes não intercalarem bytes no mesmo
     arquivo). Com o nome fixo de antes, o render seguinte sobrescrevia o resíduo;
     com nome aleatório, ele fica — e não casa nenhum dos globs de eviction
     (`relatorio_*.pdf`, `grafico_*.png`), então era a única categoria de artefato
     sem teto de disco."""
     removidos: list[str] = []
-    for tmp in OUTPUT_DIR.glob("*.tmp"):
-        try:
-            tmp.unlink()
-            removidos.append(tmp.name)
-        except FileNotFoundError:
-            pass
+    for padrao in ("*.tmp", "*.inflight"):
+        for tmp in OUTPUT_DIR.glob(padrao):
+            try:
+                tmp.unlink()
+                removidos.append(tmp.name)
+            except FileNotFoundError:
+                pass
     return removidos
 
 
