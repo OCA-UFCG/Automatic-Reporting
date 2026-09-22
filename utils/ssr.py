@@ -74,14 +74,10 @@ def _bundle_path() -> Path:
 def _porta_ocupada(porta: int | None = None) -> bool:
     """True se já há alguém ouvindo na porta do SSR. O CMD do Dockerfile sobe o
     node antes do uvicorn, então o hook de startup encontraria a porta tomada e
-    deixaria um processo natimorto por worker — ver docs/superpowers/specs."""
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(0.2)
-            s.bind(("127.0.0.1", porta or SSR_PORT))
-        return False
-    except OSError:
-        return True
+    deixaria um processo natimorto por worker."""
+    with socket.socket() as s:
+        s.settimeout(0.2)
+        return s.connect_ex(("127.0.0.1", porta or SSR_PORT)) == 0
 
 
 def start_server() -> subprocess.Popen | None:
