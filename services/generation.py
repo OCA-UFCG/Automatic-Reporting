@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse
 
 from config import (
     CARACTERISTICAS_DOCS_URL,
+    MAX_GERACOES_EM_VOO,
     OUTPUT_DIR,
     REPORT_CACHE_TTL_S,
     require_config_value,
@@ -46,11 +47,13 @@ from plotting.saude import (
     gerar_grafico_publico_etario,
     gerar_grafico_taxa_mortalidade,
 )
+from services.background import agendar_geracao
 from services.cache import (
     adquirir_geracao,
     artefato_fresco,
     evict_cache_if_needed,
     evict_graficos_if_needed,
+    geracoes_em_voo,
     invalidar_query_cache_se_dados_mudaram,
     liberar_geracao,
 )
@@ -299,6 +302,10 @@ HEADER_ARQUIVO_RELATORIO = "X-Relatorio-Arquivo"
 # cliente que casasse só por nome aceitaria o artefato da semana passada.
 HEADER_VERSAO_RELATORIO = "X-Relatorio-Versao"
 
+# Versão que está em disco no momento do 202: o portal usa pra NÃO aceitar o
+# artefato velho enquanto a geração de fundo não o substitui.
+HEADER_VERSAO_OBSOLETA = "X-Relatorio-Versao-Obsoleta"
+
 
 def _resposta_do_relatorio(html: str, safe_report: str) -> HTMLResponse:
     """Construtor único das duas saídas do handler (HIT do gate e fim do pipeline).
@@ -313,6 +320,18 @@ def _resposta_do_relatorio(html: str, safe_report: str) -> HTMLResponse:
     return HTMLResponse(content=html, headers=headers)
 
 
+def _resposta_em_geracao(safe_report: str) -> HTMLResponse:
+    """202: nomeia o artefato que vai atender o pedido e marca como obsoleta a
+    versão que está em disco agora, pra o portal não aceitar o arquivo velho."""
+    pdf, _html = _caminhos_relatorio(safe_report)
+    headers = {HEADER_ARQUIVO_RELATORIO: pdf.name}
+    try:
+        headers[HEADER_VERSAO_OBSOLETA] = str(pdf.stat().st_mtime_ns)
+    except FileNotFoundError:
+        pass
+    return HTMLResponse(content="", status_code=202, headers=headers)
+
+
 def _caminhos_relatorio(safe_report: str) -> tuple[Path, Path]:
     """(pdf, html) do relatório. Fonte única de verdade pros caminhos usados tanto
     pelo gate de frescor quanto pela escrita final — evita que os dois divirjam."""
@@ -325,6 +344,7 @@ def _caminhos_relatorio(safe_report: str) -> tuple[Path, Path]:
 async def gerar_relatorio_handler(
     cidade: str,
     macrotema: str = "demografia",
+    aguardar: bool = True,
     _sentinela_ja_adquirida: bool = False,
 ):
     # Antes de qualquer coisa (inclusive o gate de frescor abaixo): se o dado mudou
@@ -366,6 +386,29 @@ async def gerar_relatorio_handler(
         return _resposta_do_relatorio(
             html_cache.read_text(encoding="utf-8"), safe_report
         )
+    if not aguardar:
+        # Já existe alguém gerando este mesmo relatório: responde 202 e deixa o
+        # portal esperar a geração em curso, sem disparar outra.
+        if not adquirir_geracao(safe_report):
+            return _resposta_em_geracao(safe_report)
+        if geracoes_em_voo() > MAX_GERACOES_EM_VOO:
+            liberar_geracao(safe_report)
+            # 503 rápido, e não 202-e-enfileira: com o orçamento de 120s do
+            # portal, enfileirar além da capacidade só troca um erro honesto em
+            # 1s por um spinner de 2 minutos que termina no mesmo erro.
+            raise HTTPException(
+                status_code=503,
+                detail="Serviço ocupado gerando outros relatórios.",
+                headers={"Retry-After": "30"},
+            )
+        agendar_geracao(
+            lambda: gerar_relatorio_handler(
+                cidade, macrotema, aguardar=True, _sentinela_ja_adquirida=True
+            ),
+            safe_report,
+        )
+        return _resposta_em_geracao(safe_report)
+
     # Melhor esforço: se outro já está gerando este relatório, o caminho síncrono
     # gera assim mesmo (é o admin e o scan, volume baixo) — só não é ele quem
     # libera a sentinela alheia.
