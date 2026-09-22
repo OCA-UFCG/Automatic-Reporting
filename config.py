@@ -73,9 +73,14 @@ REPORT_CACHE_TTL_S = int(get_config_value("REPORT_CACHE_TTL_S") or "300")
 # teto acima (ver services/cache.py). Sem isso o pool cresce sem limite. Ajustável
 # por env.
 GRAFICO_CACHE_MAX_BYTES = int(get_config_value("GRAFICO_CACHE_MAX_BYTES") or str(512 * 1024 ** 2))  # 512 MiB
-# Uma sentinela mais velha que isto é considerada morta. Acima dos 45.9s medidos
-# no pior caso (macrotema=todos), com margem pra não atropelar geração viva.
-SENTINELA_TTL_S = int(get_config_value("SENTINELA_TTL_S") or "60")
+# Uma sentinela mais velha que isto é considerada morta. Era 60s, ancorado nos
+# 45.9s medidos em 21/09; a medição de 22/09 no ar-perf deu 58s para o pior caso
+# (macrotema=todos, cidade nova), deixando 2s de margem. E o teto de admissão é do
+# container enquanto o semáforo de render é por processo, então duas gerações podem
+# empilhar no mesmo worker e a espera vira aditiva. Errar pra cima custa bloquear
+# aquele relatório por 2 min para o PRÓXIMO usuário; errar pra baixo custa geração
+# duplicada em carga normal, que é o que a sentinela existe pra evitar.
+SENTINELA_TTL_S = int(get_config_value("SENTINELA_TTL_S") or "120")
 # Teto de gerações de fundo simultâneas, no container inteiro. Default = workers.
 MAX_GERACOES_EM_VOO = int(get_config_value("MAX_GERACOES_EM_VOO") or "3")
 
