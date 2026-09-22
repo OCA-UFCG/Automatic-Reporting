@@ -477,10 +477,13 @@
 }
 
 .indicator-score-card-header {
-  /* Absorve a sobra de altura da linha aqui (abaixo do número), para os
-     rodapés dos cards da linha ficarem todos da mesma altura. */
+  /* Estica até a altura do card mais alto da linha e o space-between joga o
+     número para a base: os números da linha alinham sozinhos, com título de
+     1, 2 ou 3 linhas, sem reserva de altura para adivinhar onde eles caem. */
   flex: 1 0 auto;
-  display: block;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   width: 100%;
   box-sizing: border-box;
   padding: 5.33px 10.67px 0;
@@ -489,8 +492,6 @@
 
 .indicator-score-card-info-row {
   display: block;
-  /* Reserva 2 linhas de nome + 1 de fonte: o número começa no mesmo Y. */
-  min-height: 50px;
 }
 
 .indicator-icon-box {
@@ -531,8 +532,6 @@
   text-overflow: ellipsis;
   white-space: normal;
   word-break: break-word;
-  /* 2 linhas (2 x 18px): nomes curtos ocupam o mesmo espaço. */
-  min-height: 36px;
 }
 
 .indicator-source {
@@ -560,6 +559,10 @@
 
 .indicator-score-card-footer {
   flex: 0 0 auto;
+  /* 2 linhas de texto: um rodapé de 1 linha ao lado de um de 2 (educação)
+     deixaria os headers da linha com alturas diferentes e desalinharia os
+     números de novo. */
+  min-height: 39px;
   display: flex;
   align-items: center;
   justify-content: center;
