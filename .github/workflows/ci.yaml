@@ -35,6 +35,9 @@ jobs:
           npm install
           npm run build -w report
 
+      - name: Run tests
+        run: python -m pytest -q
+
       - name: Start API and check health
         run: |
           uvicorn main:app --host 0.0.0.0 --port 8000 > uvicorn.log 2>&1 &
