@@ -477,6 +477,9 @@
 }
 
 .indicator-score-card-header {
+  /* Absorve a sobra de altura da linha aqui (abaixo do número), para os
+     rodapés dos cards da linha ficarem todos da mesma altura. */
+  flex: 1 0 auto;
   display: block;
   width: 100%;
   box-sizing: border-box;
@@ -556,9 +559,7 @@
 }
 
 .indicator-score-card-footer {
-  /* flex:1 ocupa o resto da altura (sem faixa branca); sempre renderizado,
-     mesmo com rodapé vazio. */
-  flex: 1 0 auto;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
