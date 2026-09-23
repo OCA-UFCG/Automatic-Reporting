@@ -92,6 +92,15 @@ def processar_pib_evolucao(linhas: list[dict]) -> dict[str, object] | None:
     return {"pib_serie": serie} if serie else None
 
 
+def _em_reais(valor: object) -> object:
+    # `vab_*`, `impostos_liquidos` e `vab_setor_maior` vêm de eco_pib.pib_municipal
+    # em milhares de reais (confirmado no banco: a soma dos 4 setores + impostos,
+    # multiplicada por 1000, bate com `pib_total` do mesmo ano/município), enquanto
+    # `pib_total`/`pib_per_capita` já vêm em reais. Sem essa conversão, valores
+    # como 74994 (R$74,99 milhões) eram lidos como R$74.994 e caíam na faixa "mil".
+    return None if valor is None else float(valor) * 1000
+
+
 def processar_indicadores_economia(linhas: list[dict]) -> dict[str, object] | None:
     if not linhas:
         return None
@@ -105,11 +114,11 @@ def processar_indicadores_economia(linhas: list[dict]) -> dict[str, object] | No
         "pib_2010": linha_2010.get("pib_total"),
         "pib_2023": linha_2023.get("pib_total"),
         "pibcapita_2023": linha_2023.get("pib_per_capita"),
-        "vab_agropecuaria": linha_2021.get("vab_agropecuaria"),
-        "vab_industria": linha_2021.get("vab_industria"),
-        "vab_servicos": linha_2021.get("vab_servicos"),
-        "vab_adm_publica": linha_2021.get("vab_adm_publica"),
-        "imposto": linha_2021.get("impostos_liquidos"),
+        "vab_agropecuaria": _em_reais(linha_2021.get("vab_agropecuaria")),
+        "vab_industria": _em_reais(linha_2021.get("vab_industria")),
+        "vab_servicos": _em_reais(linha_2021.get("vab_servicos")),
+        "vab_adm_publica": _em_reais(linha_2021.get("vab_adm_publica")),
+        "imposto": _em_reais(linha_2021.get("impostos_liquidos")),
     }
     if all(valor is None for valor in dados.values()):
         return None
@@ -159,7 +168,7 @@ def processar_indicadores_economia(linhas: list[dict]) -> dict[str, object] | No
         resultado[f"setor2021_maior{posicao}unid"] = unidade
 
     atividade_maior_vab = linha_2021.get("atividade_maior_vab")
-    vab_setor_maior = linha_2021.get("vab_setor_maior")
+    vab_setor_maior = _em_reais(linha_2021.get("vab_setor_maior"))
     pib_total_2021 = linha_2021.get("pib_total")
     if atividade_maior_vab is not None and vab_setor_maior is not None and pib_total_2021:
         resultado["ativ_participacao_pib"] = atividade_maior_vab
