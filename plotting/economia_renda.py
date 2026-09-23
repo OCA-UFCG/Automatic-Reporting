@@ -85,10 +85,10 @@ def gerar_grafico_pib(
         return reuso
 
     fig, ax = iniciar_card_grafico(
-        (24, 7),
+        (16, 6.5),
         "PIB total",
         margem_esquerda=0.08,
-        tamanho_titulo=18,
+        tamanho_titulo=16,
     )
     _reservar_espaco_rotulo_x(fig, ax)
 
@@ -133,7 +133,7 @@ def gerar_grafico_pib(
             xytext=(0, 10),
             textcoords="offset points",
             ha="center",
-            fontsize=12 * ESCALA_FONTE * 1.15,
+            fontsize=13 * ESCALA_FONTE,
             color="#4A4A4A",
         )
 
@@ -342,7 +342,7 @@ def gerar_grafico_vab(
             )
             valor_escalado, unidade = _escalar_valor(valor)
             sufixo = f" {unidade}" if unidade else ""
-            texto_valor_str = f"R$ {valor_escalado:.2f}{sufixo}"
+            texto_valor_str = f"R$ {formatar_numero_ptbr(valor_escalado, decimais=2)}{sufixo}"
             texto_nome = ax.text(
                 x_esquerda + _MARGEM_TEXTO,
                 y_topo - _MARGEM_VERTICAL,
