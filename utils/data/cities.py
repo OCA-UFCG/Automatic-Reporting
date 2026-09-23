@@ -1,9 +1,9 @@
 import ast
-import re
 
 import pandas as pd
 
 from config import CITIES_FILE
+from utils.geografia import separar_cidade_uf
 
 
 def carregar_cidades() -> list[str]:
@@ -24,10 +24,6 @@ def carregar_cidades() -> list[str]:
     return [linha.strip() for linha in conteudo.splitlines() if linha.strip()]
 
 
-def normalizar_nome_cidade(cidade: str) -> str:
-    return re.sub(r"\s*\([A-Za-z]{2}\)\s*$", "", cidade).strip()
-
-
 def filtrar_linhas_por_cidade(df: pd.DataFrame, cidade: str) -> pd.DataFrame:
     cidade_informada = cidade.strip()
     serie_cidades = df["nm_mun"].astype(str).str.strip()
@@ -36,17 +32,47 @@ def filtrar_linhas_por_cidade(df: pd.DataFrame, cidade: str) -> pd.DataFrame:
     if mascara_exata.any():
         return df[mascara_exata]
     # 2. Fallback: strip state abbreviations like "(PB)" and match
-    cidade_sem_uf = normalizar_nome_cidade(cidade_informada)
+    cidade_sem_uf, uf_informada = separar_cidade_uf(cidade_informada)
     serie_sem_uf = serie_cidades.str.replace(r"\s*\([A-Za-z]{2}\)\s*$", "", regex=True)
     mascara_sem_uf = serie_sem_uf.str.lower() == cidade_sem_uf.lower()
     matched = df[mascara_sem_uf]
     if matched.empty:
         return matched
-    # 3. Check for ambiguity: multiple states matched
-    states = serie_cidades[mascara_sem_uf].str.extract(r"\(([A-Za-z]{2})\)$")[0].dropna().unique()
-    if len(states) > 1:
+    # UF de cada linha casada, extraída do próprio nm_mun ("" quando a planilha
+    # não anota o estado nessa linha — não dá pra confiar cegamente nela).
+    uf_das_linhas = serie_cidades[mascara_sem_uf].str.extract(r"\(([A-Za-z]{2})\)\s*$")[0].fillna("").str.upper()
+    estados_diferentes = set(uf_das_linhas[uf_das_linhas != ""].unique()) - {uf_informada}
+    tem_linha_sem_uf = (uf_das_linhas == "").any()
+
+    if uf_informada:
+        # 3a. Não confiar em "só há um estado diferente anotado" quando o pedido já
+        # veio com UF: outras cidades homônimas em outros estados podem estar sem
+        # o sufixo "(UF)" na planilha (formatação inconsistente, PR de correção do
+        # bug "Presidente Dutra (BA) vs (MA)") e passariam batidas pela linha[0].
+        mascara_uf = uf_das_linhas == uf_informada
+        if mascara_uf.any():
+            return matched[mascara_uf.values]
+        if estados_diferentes and tem_linha_sem_uf:
+            raise ValueError(
+                f"Cidade ambígua: '{cidade_sem_uf}' encontrada em "
+                f"{', '.join(sorted(estados_diferentes))} e em linha(s) sem estado anotado "
+                f"na planilha; não é possível confirmar qual corresponde a "
+                f"'{cidade_sem_uf} ({uf_informada})'. Corrija a anotação de estado na fonte."
+            )
+        if estados_diferentes:
+            # Nenhuma linha corresponde à UF pedida.
+            return matched.iloc[0:0]
+        return matched
+
+    # 3b. Sem UF informada: mantém a checagem de ambiguidade original (mais de um
+    # estado anotado), mas também trata "algumas linhas com UF anotada, outras
+    # não" como ambíguo — não dá pra saber se a linha sem sufixo é a mesma
+    # cidade da(s) linha(s) com sufixo.
+    estados_tags = set(uf_das_linhas[uf_das_linhas != ""].unique())
+    if len(estados_tags) > 1 or (estados_tags and tem_linha_sem_uf):
+        estados = sorted(estados_tags)
         raise ValueError(
-            f"Cidade ambígua: '{cidade_informada}' encontrada em {', '.join(sorted(states))}. "
-            f"Indique o estado, ex: '{cidade_sem_uf} ({states[0]})'"
+            f"Cidade ambígua: '{cidade_informada}' encontrada em {', '.join(estados)}. "
+            f"Indique o estado, ex: '{cidade_sem_uf} ({estados[0]})'"
         )
     return matched
