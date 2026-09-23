@@ -1,3 +1,5 @@
+import re
+
 from utils.formatting import categoria_variacao as _analise_variacao
 from utils.queries.base import executar_query
 
@@ -55,16 +57,25 @@ def buscar_mortalidade_infantil_serie(
 
 
 ESTABELECIMENTOS_SAUDE_SERIE = """
+    -- sau_estabelecimento_de_saude.estabelecimento_saude tem linhas
+    -- triplicadas por (cd_mun, ano, tipo_estab, total) — bug de ingestão
+    -- fora deste repo (confirmado: Recife/2025 tem as mesmas 38 combinações
+    -- de tipo_estab/total repetidas 3x cada). SUM(e.total) direto inflava o
+    -- gráfico em 3x (8,7 Mil) contra o valor correto do texto (2.893, vindo
+    -- de mv_perfil_saude_municipal). Dedup por linha distinta antes de somar.
     SELECT
-        e.ano,
-        SUM(e.total) AS total_estabelecimentos
-    FROM sau_estabelecimento_de_saude.estabelecimento_saude e
-    JOIN carac_mun.caracteristicas_municipais c
-        ON e.cd_mun = c.cd_mun::int
-    WHERE c.nm_mun = %s
-      AND c.sigla_uf = %s
-    GROUP BY e.ano
-    ORDER BY e.ano
+        ano,
+        SUM(total) AS total_estabelecimentos
+    FROM (
+        SELECT DISTINCT e.ano, e.tipo_estab, e.total
+        FROM sau_estabelecimento_de_saude.estabelecimento_saude e
+        JOIN carac_mun.caracteristicas_municipais c
+            ON e.cd_mun = c.cd_mun::int
+        WHERE c.nm_mun = %s
+          AND c.sigla_uf = %s
+    ) linhas_distintas
+    GROUP BY ano
+    ORDER BY ano
 """
 
 
@@ -114,7 +125,14 @@ PERFIL_SAUDE_MUNICIPAL = """
         media_porte_mortalidade,
         analise_porte_mortalidade,
         mortalidade_brasil,
-        analise_mortalidade_brasil,
+        -- A coluna foi renomeada na view pra `analise_nacional_mortalidade`;
+        -- o alias mantém o nome antigo pra não precisar reordenar o
+        -- unpacking posicional abaixo (`linha = executar_query(...)`). Sem
+        -- isso a query inteira falhava (coluna inexistente) e
+        -- `executar_query` engolia o erro devolvendo None pra qualquer
+        -- cidade — sumindo com o gráfico de cobertura vacinal e todo o
+        -- resto desta view (mortalidade, estabelecimentos etc.).
+        analise_nacional_mortalidade AS analise_mortalidade_brasil,
         estabelecimento_2010,
         estabelecimento_2025,
         analise_estabel_2010_2025,
@@ -153,7 +171,15 @@ PERFIL_SAUDE_MUNICIPAL = """
         triplice_2dose,
         varicela
     FROM relatorios_auto.mv_perfil_saude_municipal
-    WHERE nm_mun = %s
+    -- `nm_mun` nessa matview vem sem o sufixo "(UF)" pra algumas cidades
+    -- (ex.: Recife); nome_municipio chega canonicalizado como "Cidade (UF)"
+    -- (generation.py), então a comparação exata nunca casava pra essas
+    -- cidades — o gráfico de cobertura vacinal sumia (só os placeholders
+    -- textuais vinham do fallback de CSV, que não tem as colunas por
+    -- vacina). Normaliza os dois lados removendo o sufixo, igual
+    -- utils/queries/perfil_municipal.py já faz pra essa mesma view.
+    WHERE LOWER(regexp_replace(nm_mun, '\\s*\\([^)]*\\)\\s*$', '')) =
+          LOWER(regexp_replace(%s, '\\s*\\([^)]*\\)\\s*$', ''))
       AND sigla_uf = %s
 """
 
@@ -183,6 +209,19 @@ VACINA_COBERTURA_ROTULOS = (
     ("triplice_2dose", "Tríplice viral (2ª dose)"),
     ("varicela", "Varicela"),
 )
+
+
+def _normalizar_lista_vacinas(valor: object) -> object:
+    # vacina_meta/vacina_nao_meta vêm da view como uma string única já
+    # concatenada ("X, Y, Z e W"), com nomes de vacina que às vezes trazem
+    # espaço sobrando antes da vírgula que os separa (ex.: "Meningo C ,")
+    # — bug de formatação na fonte, fora deste repo. Normaliza só o espaço
+    # em torno da vírgula; não tenta separar a lista em itens porque alguns
+    # nomes de vacina têm vírgula própria (ex.: "Poliomielite (VIP, reforço)"),
+    # o que tornaria a lista ambígua sem um vocabulário confiável pra desfazer.
+    if not isinstance(valor, str):
+        return valor
+    return re.sub(r"\s+,", ",", valor)
 
 
 def _montar_cobertura_vacinal_serie(dados: dict[str, object]) -> list[dict[str, object]]:
@@ -282,8 +321,8 @@ def buscar_perfil_saude_municipal(
         "vacina_menor2_per": vacina_menor2_per,
         "vacina_menor3": vacina_menor3,
         "vacina_menor3_per": vacina_menor3_per,
-        "vacina_meta": vacina_meta,
-        "vacina_nao_meta": vacina_nao_meta,
+        "vacina_meta": _normalizar_lista_vacinas(vacina_meta),
+        "vacina_nao_meta": _normalizar_lista_vacinas(vacina_nao_meta),
         "obitos": obitos,
         "nascidos": nascidos,
         "mortalidade_2024": mortalidade_2024,
