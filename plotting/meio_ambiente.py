@@ -22,6 +22,7 @@ _CATEGORIAS_ARIDEZ = (
     ("area_semiarida2021_per", "Semiárido", "#E67E22"),
     ("area_subumida2021_per", "Subúmido seco", "#B7D89A"),
     ("area_umida2021_per", "Úmido", "#2E75B6"),
+    ("area_sem_dados2021_per", "Sem dados", "#B0B0B0"),
 )
 
 
@@ -96,8 +97,13 @@ def gerar_grafico_aridez(
         ax.spines[lado].set_visible(False)
     ax.margins(x=0.18)
 
+    # Legenda tem largura fixa (card de 6,1"): com 4 categorias (caso histórico)
+    # cabe em fontsize=9, mas a 5ª ("Sem dados") estourava a borda do card.
+    # Encolhe fonte/espaçamento proporcionalmente acima de 4 rótulos em vez de
+    # travar num valor fixo, pra não voltar a quebrar se surgir uma 6ª classe.
+    escala_legenda = min(1.0, 4 / len(labels))
     marcadores_legenda = [
-        Line2D([0], [0], marker="o", linestyle="", markersize=9, color=cor)
+        Line2D([0], [0], marker="o", linestyle="", markersize=9 * escala_legenda, color=cor)
         for cor in cores
     ]
     ax.legend(
@@ -107,9 +113,9 @@ def gerar_grafico_aridez(
         bbox_to_anchor=(0.5, -0.14),
         ncol=len(labels),
         frameon=False,
-        fontsize=9 * ESCALA_FONTE,
-        handletextpad=0.4,
-        columnspacing=1.2,
+        fontsize=9 * ESCALA_FONTE * escala_legenda,
+        handletextpad=0.4 * escala_legenda,
+        columnspacing=1.2 * escala_legenda,
     )
 
     salvar_card_grafico(fig, chart_file)
