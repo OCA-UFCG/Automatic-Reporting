@@ -4,7 +4,7 @@ POPULACAO_MUNICIPIO_POR_ANO = """
     SELECT d.ano, COALESCE(SUM(d.populacao_total), 0) as pop_total
     FROM carac_mun.caracteristicas_municipais c
     JOIN dem_demografia.final_demografia d
-        ON c.cd_mun = d.cd_mun::text
+        ON d.cd_mun = c.cd_mun::int
     WHERE c.nm_mun = %s
       AND c.sigla_uf = %s
       AND d.ano = ANY(%s)
@@ -12,17 +12,17 @@ POPULACAO_MUNICIPIO_POR_ANO = """
 """
 
 MEDIA_CRESCIMENTO_MESMO_PORTE = """
+    -- populacoes vem de relatorios_auto.mv_populacao_por_municipio_2010_2022
+    -- (materializada, refresh noturno) em vez de reagregar
+    -- dem_demografia.final_demografia (74k linhas) a cada relatório — mesma
+    -- classe de fix de mv_indicadores. Ver db/2026-09-23-mv_populacao_por_municipio.sql.
     WITH populacoes AS (
-        SELECT cd_mun,
-               SUM(populacao_total) FILTER (WHERE ano = 2010) AS pop_2010,
-               SUM(populacao_total) FILTER (WHERE ano = 2022) AS pop_2022
-        FROM dem_demografia.final_demografia
-        WHERE ano IN (2010, 2022)
-        GROUP BY cd_mun
+        SELECT cd_mun, pop_2010, pop_2022
+        FROM relatorios_auto.mv_populacao_por_municipio_2010_2022
     ), alvo AS (
         SELECT p.pop_2022
         FROM populacoes p
-        JOIN carac_mun.caracteristicas_municipais c ON c.cd_mun = p.cd_mun::text
+        JOIN carac_mun.caracteristicas_municipais c ON p.cd_mun = c.cd_mun::int
         WHERE c.nm_mun = %s AND c.sigla_uf = %s
     )
     SELECT AVG((p.pop_2022 - p.pop_2010)::numeric / NULLIF(p.pop_2010, 0) * 100.0)
