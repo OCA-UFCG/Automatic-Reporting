@@ -35,6 +35,7 @@ MATVIEWS=(
   mv_perfil_saude_municipal
   mv_perfil_educacional_municipal
   mv_indicadores
+  mv_populacao_por_municipio_2010_2022
 )
 
 # --- log (timestamps em UTC, coerente com a VM) ---
