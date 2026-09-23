@@ -511,7 +511,10 @@ def gerar_grafico_balanca(
 
     for posicao, valor in zip(posicoes, valores):
         valor_escalado, unidade = _escalar_valor(abs(valor))
-        sufixo = f" {unidade}" if unidade else ""
+        # "Mi"/"Bi" em vez do nome por extenso: com 8 meses no eixo X os
+        # rótulos ficam lado a lado e o nome por extenso ("milhões") colide
+        # com a barra vizinha.
+        sufixo = f" {_UNIDADE_ABREVIADA.get(unidade, unidade)}" if unidade else ""
         sinal = "-" if valor < 0 else ""
         ax.annotate(
             f"{sinal}{formatar_numero_ptbr(valor_escalado, decimais=2)}{sufixo}",
