@@ -473,6 +473,14 @@ def gerar_grafico_balanca(
     OUTPUT_DIR: pathlib.Path,
     safe_city: str,
 ) -> str:
+    fob_exportado = _numero(cidade.get("fob_exportado_ultimo"))
+    fob_importado = _numero(cidade.get("fob_importado_ultimo"))
+    if not fob_exportado or not fob_importado:
+        raise ValueError(
+            "Gráfico de balança comercial exige fob_exportado_ultimo e "
+            "fob_importado_ultimo diferentes de zero."
+        )
+
     serie = cidade.get("balanca_mensal") or []
     pontos = [
         (mes, _numero(valor))
