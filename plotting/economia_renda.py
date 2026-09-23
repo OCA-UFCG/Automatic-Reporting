@@ -342,7 +342,7 @@ def gerar_grafico_vab(
             )
             valor_escalado, unidade = _escalar_valor(valor)
             sufixo = f" {unidade}" if unidade else ""
-            texto_valor_str = f"R$ {valor_escalado:.2f}{sufixo}"
+            texto_valor_str = f"R$ {formatar_numero_ptbr(valor_escalado, decimais=2)}{sufixo}"
             texto_nome = ax.text(
                 x_esquerda + _MARGEM_TEXTO,
                 y_topo - _MARGEM_VERTICAL,
