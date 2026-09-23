@@ -341,6 +341,28 @@ def _caminhos_relatorio(safe_report: str) -> tuple[Path, Path]:
     )
 
 
+def _demografia_sem_sobrescrever_view(
+    dados_demografia_db: dict[str, object], perfil_db: dict | None
+) -> dict[str, object]:
+    """O que de buscar_populacao_demografia entra na linha do relatório.
+
+    Com a linha vinda da vw_perfil_populacional_municipal, a view é a fonte: ela já
+    traz pop_total_*, cres_pop (em módulo, par do cres_pop_analise "uma redução"),
+    porte_mun, media_porte e comparar_pop_porte ("inferior à"/"similar à", com a
+    faixa de ±1 p.p.) com as regras do time de dados. Sobrescrevê-los com o cálculo
+    local descompassava o relatório da view — "uma redução de -5,3 %", "baixo
+    porte" onde a view diz "pequeno porte". O cálculo local só preenche o que a view
+    não tem (ex.: pop_total_2000) e, sem view (fallback CSV), vale inteiro.
+    """
+    if not perfil_db:
+        return dados_demografia_db
+    return {
+        chave: valor
+        for chave, valor in dados_demografia_db.items()
+        if perfil_db.get(chave) is None
+    }
+
+
 async def gerar_relatorio_handler(
     cidade: str,
     macrotema: str = "demografia",
@@ -576,8 +598,9 @@ async def gerar_relatorio_handler(
                     linha.update(dados_caracteristicas_db)
 
             if macrotema_slug == "demografia" and dados_demografia_db:
+                dados_mescla = _demografia_sem_sobrescrever_view(dados_demografia_db, perfil_db)
                 for linha in linhas_macrotema:
-                    linha.update(dados_demografia_db)
+                    linha.update(dados_mescla)
 
             if "demografia" in macrotema_slugs and dados_sexo_faixa:
                 for linha in linhas_macrotema:

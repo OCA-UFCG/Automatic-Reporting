@@ -81,6 +81,7 @@ RUN apt-get update \
         fonts-dejavu-core \
         libfreetype6 \
         libpng16-16 \
+        libharfbuzz-subset0 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
