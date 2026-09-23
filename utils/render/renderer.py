@@ -890,12 +890,18 @@ def texto_para_html(
             flags=re.IGNORECASE,
         ):
 
-            global _figura_contador
+            global _figura_contador, _proxima_referencia_inline
 
             # O gráfico desta legenda não existe para este município: descarta
             # a legenda sem consumir número, para a numeração seguir contínua.
+            # A menção inline "(Figura X)" que antecede essa legenda no texto já
+            # reservou um número em _proxima_referencia_inline antes de sabermos
+            # que a legenda seria suprimida; sem desfazer essa reserva aqui, os
+            # dois contadores ficam dessincronizados pro resto do documento e as
+            # próximas menções inline apontam pra legenda errada.
             if _suprimir_proxima_legenda:
                 _suprimir_proxima_legenda = False
+                _proxima_referencia_inline -= 1
                 continue
 
             _figura_contador += 1

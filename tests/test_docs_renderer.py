@@ -559,6 +559,30 @@ desen_social.$nm_mun alcançou IDHM de desen_social.$idhm_2010, mas indica que d
     assert "principais desafios" not in resultado_igualitario
 
 
+def test_social_development_gini_condition_with_inline_placeholder_and_decimal():
+    # Regressão: o Doc de desenvolvimento social usa a condição com o campo
+    # inline ("desen_social.$gini_2010 for maior e igual a 0,5"), não a frase
+    # fixa "Quando o índice de Gini for..." que _CONDICAO_GINI espera — isso
+    # cai no caminho genérico de _avaliar_condicao_editorial, que não sabia
+    # ler "maior E igual a" (só "ou") nem limiar decimal com vírgula (\d+
+    # truncava "0,5" pra "0"), esvaziando a Síntese inteira pra qualquer Gini
+    # (a condição "menor que 0" nunca bate, então nenhuma das duas branches
+    # sobrevivia).
+    texto = """Para quando desen_social.$gini_2010 for maior e igual a 0,5, então:
+Trecho com desigualdade.
+
+Para quando desen_social.$gini_2010 for menor que 0,5, então:
+Trecho sem desigualdade."""
+
+    resultado_desigual = interpretar_blocos_condicionais(texto, {"gini_2010": 0.68})
+    assert "Trecho com desigualdade." in resultado_desigual
+    assert "Trecho sem desigualdade." not in resultado_desigual
+
+    resultado_igualitario = interpretar_blocos_condicionais(texto, {"gini_2010": 0.4})
+    assert "Trecho sem desigualdade." in resultado_igualitario
+    assert "Trecho com desigualdade." not in resultado_igualitario
+
+
 def test_social_development_gini_condition_hides_both_branches_without_data():
     texto = """Quando o índice de Gini for maior e igual a 0,5
 Trecho com desigualdade.
@@ -875,6 +899,33 @@ def test_inline_figure_mentions_in_different_paragraphs_get_sequential_numbers()
     assert "com 2% (Figura 3)" in html
     assert "Figura 2 – Metas" in html
     assert "Figura 3 – Taxa" in html
+
+
+def test_suppressed_caption_does_not_desync_inline_reference_counter():
+    # Regressão: quando o gráfico de uma legenda não existe pra este município,
+    # a legenda é suprimida sem consumir número (`_suprimir_proxima_legenda`),
+    # mas a menção inline "(Figura X)" que a antecede no texto já tinha
+    # reservado esse número antes de sabermos que a legenda seria suprimida.
+    # Sem desfazer essa reserva, toda referência inline seguinte no documento
+    # aponta pro número seguinte, um à frente da legenda real correspondente.
+    reset_figura_contador()
+    texto = (
+        "O gráfico ausente é citado aqui (Figura X).\n"
+        "\n"
+        "*grafico_ausente\n"
+        "\n"
+        "Figura X- Legenda do gráfico ausente.\n"
+        "\n"
+        "O gráfico presente é citado aqui (Figura X).\n"
+        "\n"
+        "Figura X- Legenda do gráfico presente."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "(Figura 2)" in html
+    assert "Figura 2 – Legenda do gráfico presente" in html
+    assert "Legenda do gráfico ausente" not in html
 
 
 def test_inline_figure_reference_regex_does_not_match_unrelated_words():
