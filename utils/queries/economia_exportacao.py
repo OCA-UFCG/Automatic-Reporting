@@ -14,8 +14,8 @@ _UNIDADE_MULTIPLICADOR = {
     "mil": 1_000,
 }
 
-_MESES_BALANCA = ("jan", "fev", "mar", "abr", "mai", "jun")
-_NOMES_MESES_BALANCA = ("Jan", "Fev", "Mar", "Abr", "Mai", "Jun")
+_MESES_BALANCA = ("jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago")
+_NOMES_MESES_BALANCA = ("Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago")
 
 _CAMPOS_MERGE_DIRETOS = (
     "fob_exportado_ultimo",

@@ -44,6 +44,8 @@ def test_buscar_comercio_exterior_economia_aplica_aliases_balanca_e_paises(monke
         "valor_balanca6mesesunid": "milhões",
         "valor_balanca_jan": -6203881.0,
         "valor_balanca_jun": -7305491.0,
+        "valor_balanca_jul": -5891234.0,
+        "valor_balanca_ago": -6410778.0,
         "pais_exportacao1": "Filipinas",
         "valor_pais_exportacao1": 824.3,
         "valor_pais_exportacaounid1": "mil",
@@ -75,6 +77,8 @@ def test_buscar_comercio_exterior_economia_aplica_aliases_balanca_e_paises(monke
     assert dados["balanca_mensal"] == [
         ("Jan", -6203881.0),
         ("Jun", -7305491.0),
+        ("Jul", -5891234.0),
+        ("Ago", -6410778.0),
     ]
 
 
