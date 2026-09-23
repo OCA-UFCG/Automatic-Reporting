@@ -16,6 +16,21 @@ _UNIDADE_MULTIPLICADOR = {
 
 _MESES_BALANCA = ("jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago")
 _NOMES_MESES_BALANCA = ("Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago")
+# Nome por extenso pro início/fim do período no texto da legenda — o Doc
+# hoje cita "janeiro a junho" fixo (Figura da balança comercial), mas
+# _MESES_BALANCA já cobre até agosto: quando o mês mais recente disponível
+# passa de junho, a legenda fica desatualizada em relação ao gráfico
+# (bug real: gráfico com 8 meses, legenda ainda dizia "janeiro a junho").
+_NOMES_MESES_BALANCA_EXTENSO = {
+    "jan": "janeiro",
+    "fev": "fevereiro",
+    "mar": "março",
+    "abr": "abril",
+    "mai": "maio",
+    "jun": "junho",
+    "jul": "julho",
+    "ago": "agosto",
+}
 
 _CAMPOS_MERGE_DIRETOS = (
     "fob_exportado_ultimo",
@@ -109,12 +124,17 @@ def buscar_comercio_exterior_economia(
     # comércio exterior é resultado válido, não ausência de dado.
     dados["exportacao_paises"] = paises_exportacao
 
+    nome_mes_por_abrev = dict(zip(_MESES_BALANCA, _NOMES_MESES_BALANCA))
+    meses_disponiveis = [
+        mes for mes in _MESES_BALANCA if linha.get(f"valor_balanca_{mes}") is not None
+    ]
     balanca_mensal = [
-        (nome_mes, float(linha[f"valor_balanca_{mes}"]))
-        for mes, nome_mes in zip(_MESES_BALANCA, _NOMES_MESES_BALANCA)
-        if linha.get(f"valor_balanca_{mes}") is not None
+        (nome_mes_por_abrev[mes], float(linha[f"valor_balanca_{mes}"]))
+        for mes in meses_disponiveis
     ]
     if balanca_mensal:
         dados["balanca_mensal"] = balanca_mensal
+        dados["balanca_mes_inicial"] = _NOMES_MESES_BALANCA_EXTENSO[meses_disponiveis[0]]
+        dados["balanca_mes_final"] = _NOMES_MESES_BALANCA_EXTENSO[meses_disponiveis[-1]]
 
     return dados
