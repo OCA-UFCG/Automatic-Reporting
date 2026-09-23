@@ -6,6 +6,7 @@ from plotting.economia_renda import (
     _atribuir_cores_por_ranking,
     _dispor_setores_por_valor,
     _escolher_unidade,
+    gerar_grafico_balanca,
     gerar_grafico_fob,
     gerar_grafico_pib,
     gerar_grafico_vab,
@@ -116,6 +117,41 @@ def test_gera_grafico_fob_com_paises_do_banco(tmp_path: Path):
 def test_grafico_fob_exige_paises_de_importacao():
     with pytest.raises(ValueError, match="países de importação"):
         gerar_grafico_fob({}, Path("/tmp"), "sem_dados")
+
+
+def test_gera_grafico_balanca_com_fob_exportado_e_importado(tmp_path: Path):
+    cidade = {
+        "fob_exportado_ultimo": 6_300_000.0,
+        "fob_importado_ultimo": 4_100_000.0,
+        "balanca_mensal": [("Jan", 100_000.0), ("Fev", -50_000.0)],
+    }
+
+    arquivo = gerar_grafico_balanca(cidade, tmp_path, "recife_pe")
+
+    assert arquivo == "grafico_balanca_recife_pe.png"
+    assert (tmp_path / arquivo).is_file()
+
+
+@pytest.mark.parametrize(
+    "fob_exportado_ultimo,fob_importado_ultimo",
+    [
+        (0, 4_100_000.0),
+        (6_300_000.0, 0),
+        (None, 4_100_000.0),
+        (6_300_000.0, None),
+    ],
+)
+def test_grafico_balanca_exige_fob_exportado_e_importado_diferentes_de_zero(
+    fob_exportado_ultimo, fob_importado_ultimo
+):
+    cidade = {
+        "fob_exportado_ultimo": fob_exportado_ultimo,
+        "fob_importado_ultimo": fob_importado_ultimo,
+        "balanca_mensal": [("Jan", 100_000.0), ("Fev", -50_000.0)],
+    }
+
+    with pytest.raises(ValueError, match="fob_exportado_ultimo"):
+        gerar_grafico_balanca(cidade, Path("/tmp"), "sem_dados")
 
 
 @pytest.mark.parametrize("valor", [500, 25_000, 3_000_000, 12_945_093_200])
