@@ -87,3 +87,44 @@ def test_buscar_populacao_rua_zero_familias_total_nao_gera_zero_division(monkeyp
     assert resultado["pop_rua_pobreza_per"] == 0.0
     assert resultado["pop_rua_br_per"] == 0.0
     assert resultado["pop_rua_acima_br_per"] == 0.0
+
+
+def test_calculo_local_nao_sobrescreve_colunas_da_view():
+    # Regressão: o relatório lia a vw_perfil_populacional_municipal e depois
+    # sobrescrevia cres_pop/porte_mun/media_porte com o cálculo local, que tem
+    # sinal e rótulos próprios — o Doc saía "apresentou uma redução de -5,3 %".
+    from services.generation import _demografia_sem_sobrescrever_view
+
+    local = {
+        "pop_total_2022": 9000,
+        "pop_total_2000": 9800,  # a view não tem 2000: o local preenche
+        "cres_pop": -5.3,
+        "porte_mun": "baixo porte",
+        "media_porte": -1.2,
+        "comparar_pop_porte": "inferior à",
+    }
+    view = {
+        "pop_total_2022": 9000,
+        "cres_pop": 5.26,
+        "cres_pop_analise": "uma redução",
+        "porte_mun": "pequeno porte",
+        "media_porte": 1.2,
+        "comparar_pop_porte": "similar à",
+    }
+
+    linha = dict(view)
+    linha.update(_demografia_sem_sobrescrever_view(local, view))
+
+    assert linha["cres_pop"] == 5.26
+    assert linha["porte_mun"] == "pequeno porte"
+    assert linha["media_porte"] == 1.2
+    assert linha["pop_total_2000"] == 9800
+    assert linha["comparar_pop_porte"] == "similar à"
+
+
+def test_sem_view_calculo_local_vale_inteiro():
+    # Fallback CSV (PR #91): sem linha da view, o banco continua completando o CSV.
+    from services.generation import _demografia_sem_sobrescrever_view
+
+    local = {"cres_pop": -5.3, "porte_mun": "baixo porte"}
+    assert _demografia_sem_sobrescrever_view(local, None) == local
