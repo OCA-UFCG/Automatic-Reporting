@@ -1,0 +1,336 @@
+name: CD Prod
+
+# Prod so anda por tag de versao, nunca por push em main. "v*" e nao "*" (o
+# frontend usa "*"): as unicas tags deste repo hoje sao as das releases de asset
+# (map-shapes-2025, mapas-png-2025) — com "*", recriar uma delas (ou criar
+# mapas-png-2026) disparava deploy de prod.
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build-image:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Debug environment variables
+        run: echo "Image is ${{ vars.DOCKER_IMAGE_PROD }}"
+
+      - name: Debug image name
+        run: echo "DOCKER_IMAGE_PROD='${{ vars.DOCKER_IMAGE_PROD }}'"
+
+      - name: Update Docker Container metadata
+        uses: docker/metadata-action@v4
+        id: meta
+        with:
+          images: ${{ vars.DOCKER_IMAGE_PROD }}
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to OCA's Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ vars.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          file: Dockerfile
+          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ${{ vars.DOCKER_IMAGE_PROD }}:latest
+            ${{ steps.meta.outputs.tags }}
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            DEFAULT_DOCS_URL=${{ secrets.DEFAULT_DOCS_URL }}
+            DEMOGRAFIA_CSV_URL=${{ secrets.DEMOGRAFIA_CSV_URL }}
+            EDUCACAO_CSV_URL=${{ secrets.EDUCACAO_CSV_URL }}
+            SAUDE_CSV_URL=${{ secrets.SAUDE_CSV_URL }}
+            ECONOMIA_RENDA_CSV_URL=${{ secrets.ECONOMIA_RENDA_CSV_URL }}
+            SANEAMENTO_CSV_URL=${{ secrets.SANEAMENTO_CSV_URL }}
+            HIDRAULICA_CSV_URL=${{ secrets.HIDRAULICA_CSV_URL }}
+            CARACTERISTICAS_DOCS_URL=${{ secrets.CARACTERISTICAS_DOCS_URL }}
+            DEMOGRAFIA_DOCS_URL=${{ secrets.DEMOGRAFIA_DOCS_URL }}
+            EDUCACAO_DOCS_URL=${{ secrets.EDUCACAO_DOCS_URL }}
+            SAUDE_DOCS_URL=${{ secrets.SAUDE_DOCS_URL }}
+            ECONOMIA_RENDA_DOCS_URL=${{ secrets.ECONOMIA_RENDA_DOCS_URL }}
+            SANEAMENTO_DOCS_URL=${{ secrets.SANEAMENTO_DOCS_URL }}
+            HIDRAULICA_DOCS_URL=${{ secrets.HIDRAULICA_DOCS_URL }}
+            DESENVOLVIMENTO_SOCIAL_DOCS_URL=${{ secrets.DESENVOLVIMENTO_SOCIAL_DOCS_URL }}
+            MEIO_AMBIENTE_DOCS_URL=${{ secrets.MEIO_AMBIENTE_DOCS_URL }}
+            VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
+            UVICORN_WORKERS=2
+
+  push-prod:
+    needs: build-image
+    runs-on: automatic-prod-runner
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Debug environment Runner
+        run: echo "Image is ${{ vars.DOCKER_IMAGE_PROD }}"
+
+      - name: Ensure docker output volume exists
+        run: |
+          sudo docker volume create ${{ vars.VOLUME_NAME }}
+
+      - name: Ensure docker map shape volume exists
+        run: |
+          sudo docker volume create ${{ vars.MAP_SHAPE_VOLUME_NAME }}
+
+      - name: Ensure docker mapas volume exists
+        run: |
+          sudo docker volume create ${{ vars.MAPAS_VOLUME_NAME }}
+
+      - name: Ensure docker network exists
+        run: |
+          DOCKER_NETWORK_NAME="${{ vars.NETWORK_NAME }}"
+
+          if ! sudo docker network inspect "$DOCKER_NETWORK_NAME" >/dev/null 2>&1; then
+            sudo docker network create "$DOCKER_NETWORK_NAME"
+            echo "Created network: $DOCKER_NETWORK_NAME"
+          else
+            echo "Network already exists: $DOCKER_NETWORK_NAME"
+          fi
+
+      # Mesma guarda do cd-beta, com marker proprio: MAP_SHAPE_VOLUME_NAME e
+      # variavel de repositorio (nenhum job declara environment), entao beta e
+      # gamma resolvem para a mesma string e so nao colidem por rodarem em
+      # maquinas diferentes — o sufixo no marker tira essa dependencia.
+      #
+      # Ate 2026-09-23 o gamma nao montava Mapas_png (decisao de pressa, nao
+      # arquitetural — buscar_mapa_estatico nunca achava nada e todo mapa caia
+      # no render via shapefile). Medido: isso sozinho respondia pela maior
+      # parte do tempo de geracao (~10x mais lento que com PNG) e boa parte do
+      # consumo de memoria sob concorrencia. Corrigido: gamma passa a montar
+      # Mapas_png igual o beta, shapefile volta a ser so fallback.
+      - name: Check if map shapes release changed
+        id: shapes_check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          MARKER_FILE="$HOME/.cache/automatic-reporting/map-shapes-asset-id-prod"
+          mkdir -p "$(dirname "$MARKER_FILE")"
+
+          CURRENT_ID=$(curl -sf \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/map-shapes-2025" \
+            | python3 -c "import json, sys; print(json.load(sys.stdin)['assets'][0]['id'])")
+          PREVIOUS_ID=$(cat "$MARKER_FILE" 2>/dev/null || true)
+
+          echo "Asset id atual: $CURRENT_ID / salvo: ${PREVIOUS_ID:-<nenhum>}"
+
+          if [ "$CURRENT_ID" = "$PREVIOUS_ID" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "current_id=$CURRENT_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Download map shapes
+        if: steps.shapes_check.outputs.changed == 'true'
+        shell: bash
+        run: |
+          rm -rf ./map_shape
+          mkdir -p ./map_shape
+
+          cd ./map_shape
+
+          python3 ../scripts/download_map_shapes.py \
+            --url "${{ secrets.MAP_SHAPE_ZIP_URL }}"
+
+      - name: Debug downloaded map shape files on runner
+        if: steps.shapes_check.outputs.changed == 'true'
+        shell: bash
+        run: |
+          echo "Current directory:"
+          pwd
+
+          echo "Downloaded files:"
+          find ./map_shape -maxdepth 5 -type f | sort
+
+          echo "Shape files found:"
+          find ./map_shape -maxdepth 5 -type f | grep -E '\.shp|\.shx|\.dbf|\.prj' || true
+
+      - name: Copy map shapes into Docker volume
+        if: steps.shapes_check.outputs.changed == 'true'
+        shell: bash
+        run: |
+          sudo docker run --rm \
+            -v "${{ vars.MAP_SHAPE_VOLUME_NAME }}:/target" \
+            -v "${{ github.workspace }}/map_shape:/source:ro" \
+            alpine sh -c "rm -rf /target/* && cp -a /source/. /target/"
+
+          mkdir -p "$HOME/.cache/automatic-reporting"
+          echo "${{ steps.shapes_check.outputs.current_id }}" > "$HOME/.cache/automatic-reporting/map-shapes-asset-id-prod"
+
+      - name: Validate map shape volume
+        shell: bash
+        run: |
+          echo "Files inside map shape volume:"
+
+          sudo docker run --rm \
+            -v "${{ vars.MAP_SHAPE_VOLUME_NAME }}:/app/map_shape:ro" \
+            alpine find /app/map_shape -maxdepth 5 -type f
+
+          echo "Checking expected .shp path..."
+
+          sudo docker run --rm \
+            -v "${{ vars.MAP_SHAPE_VOLUME_NAME }}:/app/map_shape:ro" \
+            alpine test -f /app/map_shape/BR_Municipios_2025/BR_Municipios_2025.shp
+
+      # O volume de PNGs ja persiste entre deploys (runner self-hosted); so vale
+      # baixar/copiar de novo quando o asset da release realmente mudou. Marker
+      # com sufixo -prod pelo mesmo motivo do shapes_check acima (variavel de
+      # repositorio compartilhada com o beta).
+      - name: Check if map PNGs release changed
+        id: mapas_check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          MARKER_FILE="$HOME/.cache/automatic-reporting/mapas-asset-id-prod"
+          mkdir -p "$(dirname "$MARKER_FILE")"
+
+          CURRENT_ID=$(curl -sf \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/mapas-png-2025" \
+            | python3 -c "import json, sys; print(json.load(sys.stdin)['assets'][0]['id'])")
+          PREVIOUS_ID=$(cat "$MARKER_FILE" 2>/dev/null || true)
+
+          echo "Asset id atual: $CURRENT_ID / salvo: ${PREVIOUS_ID:-<nenhum>}"
+
+          if [ "$CURRENT_ID" = "$PREVIOUS_ID" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "current_id=$CURRENT_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Download map PNGs
+        if: steps.mapas_check.outputs.changed == 'true'
+        shell: bash
+        run: |
+          rm -rf ./mapas_png
+          python3 ./scripts/download_map_shapes.py \
+            --url "${{ secrets.MAPAS_ZIP_URL }}" \
+            --no-validate \
+            --output-dir ./mapas_png
+
+      - name: Copy map PNGs into Docker volume
+        if: steps.mapas_check.outputs.changed == 'true'
+        shell: bash
+        run: |
+          sudo docker run --rm \
+            -v "${{ vars.MAPAS_VOLUME_NAME }}:/target" \
+            -v "${{ github.workspace }}/mapas_png:/source:ro" \
+            alpine sh -c "rm -rf /target/* && cp -a /source/. /target/"
+
+          mkdir -p "$HOME/.cache/automatic-reporting"
+          echo "${{ steps.mapas_check.outputs.current_id }}" > "$HOME/.cache/automatic-reporting/mapas-asset-id-prod"
+
+      - name: Validate map PNG volume
+        shell: bash
+        run: |
+          TOTAL=$(sudo docker run --rm \
+            -v "${{ vars.MAPAS_VOLUME_NAME }}:/app/mapas/Mapas_png:ro" \
+            alpine sh -c 'find /app/mapas/Mapas_png -maxdepth 1 -name "*.png" | wc -l')
+
+          echo "Total de PNGs no volume: $TOTAL"
+
+          if [ "$TOTAL" -lt 1000 ]; then
+            echo "Esperado >= 1000 PNGs no primeiro nivel do volume; os relatorios cairiam no mapa gerado em runtime."
+            exit 1
+          fi
+
+      - name: Pull the latest prod image
+        run: sudo docker pull ${{ vars.DOCKER_IMAGE_PROD }}:latest
+
+      # Postgres de prod e local e instalado a mao (fora deste workflow). Sem ele o
+      # container sobe verde e serve N/D calado — executar_query devolve None por
+      # design —, que e como o gamma ficou meses quebrado. Checa antes do
+      # `docker rm`, com a imagem nova e o mesmo caminho de rede do container, pra
+      # que um banco ausente derrube o deploy e mantenha o container antigo no ar.
+      - name: Check database from a container
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_SSLMODE: ${{ secrets.DB_SSLMODE }}
+        run: |
+          sudo docker run --rm \
+            --network ${{ vars.NETWORK_NAME }} \
+            --add-host=host.docker.internal:host-gateway \
+            -e DB_HOST="$DB_HOST" \
+            -e DB_DATABASE="$DB_DATABASE" \
+            -e DB_USER="$DB_USER" \
+            -e DB_PASSWORD="$DB_PASSWORD" \
+            -e DB_PORT="$DB_PORT" \
+            -e DB_SSLMODE="$DB_SSLMODE" \
+            ${{ vars.DOCKER_IMAGE_PROD }}:latest \
+            python3 -c "
+          from utils.database import get_connection
+          cur = get_connection().cursor()
+          cur.execute('select count(*) from relatorios_auto.mv_indicadores')
+          n = cur.fetchone()[0]
+          print('mv_indicadores:', n)
+          assert n > 0, 'mv_indicadores vazia: dado nao restaurado'
+          "
+
+      - name: Stop existing container
+        run: sudo docker rm -f ${{ vars.CONTAINER_NAME_PROD }} || true
+
+      - name: Run the new Prod container
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_SSLMODE: ${{ secrets.DB_SSLMODE }}
+        run: |
+          sudo docker run \
+            --name ${{ vars.CONTAINER_NAME_PROD }} \
+            --restart unless-stopped \
+            --cpus=2 \
+            --memory=3g \
+            -p ${{ vars.HOST_PORT_PROD }}:${{ vars.CONTAINER_PORT }} \
+            -v ${{ vars.VOLUME_NAME }}:/app/output \
+            -v ${{ vars.MAP_SHAPE_VOLUME_NAME }}:/app/map_shape \
+            -v ${{ vars.MAPAS_VOLUME_NAME }}:/app/mapas/Mapas_png:ro \
+            --network ${{ vars.NETWORK_NAME }} \
+            --add-host=host.docker.internal:host-gateway \
+            -e DB_HOST="$DB_HOST" \
+            -e DB_DATABASE="$DB_DATABASE" \
+            -e DB_USER="$DB_USER" \
+            -e DB_PASSWORD="$DB_PASSWORD" \
+            -e DB_PORT="$DB_PORT" \
+            -e DB_SSLMODE="$DB_SSLMODE" \
+            -d ${{ vars.DOCKER_IMAGE_PROD }}:latest
+
+      - name: Validate files inside running container
+        shell: bash
+        run: |
+          echo "Files inside /app/map_shape:"
+          sudo docker exec ${{ vars.CONTAINER_NAME_PROD }} \
+            find /app/map_shape -maxdepth 5 -type f
+
+          echo "Checking expected .shp inside running container:"
+          sudo docker exec ${{ vars.CONTAINER_NAME_PROD }} \
+            test -f /app/map_shape/BR_Municipios_2025/BR_Municipios_2025.shp
+
+      - name: Prune unused Docker images
+        run: sudo docker system prune -f
