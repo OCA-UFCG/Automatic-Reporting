@@ -60,21 +60,22 @@ def test_processar_importacao_calcula_resumo_paises_secoes_e_produtos_do_ultimo_
     assert dados["valor_pais_importado4"] == 3.0
     assert "pais_importado5" not in dados
 
-    assert dados["secao_produtos1"] == "Seção X"
+    # nomes saem em minúscula: o Doc usa todos no meio da frase
+    assert dados["secao_importado1"] == "seção x"
     assert dados["valor_secao_importado1"] == 56.0
-    assert dados["secao_produtos2"] == "Seção Y"
+    assert dados["secao_importado2"] == "seção y"
     assert dados["valor_secao_importado2"] == 31.0
 
-    assert dados["produto_importado1"] == "Produto 1"
+    assert dados["produto_importado1"] == "produto 1"
     assert dados["valor_produto_importado1"] == 56.0
     assert round(dados["kg_importado_produto1"], 2) == 1.31
     assert dados["kg_importado_produtounid1"] == "mil"
-    assert dados["produto_importado_kg1"] == "Produto 1"
+    assert dados["produto_importado_kg1"] == "produto 1"
 
-    assert dados["produto_importado2"] == "Produto 2"
+    assert dados["produto_importado2"] == "produto 2"
     assert dados["valor_produto_importado2"] == 20.0
     assert dados["kg_importado_produto2"] == 200.0
-    assert dados["produto_importadokg2"] == "Produto 2"
+    assert dados["produto_importado_kg2"] == "produto 2"
 
 
 def test_processar_importacao_expoe_top10_paises_bruto_para_o_grafico():
@@ -104,3 +105,21 @@ def test_processar_importacao_compara_valor_medio_por_kg_entre_janeiro_e_junho()
     assert dados["valormedio_importado_janunid"] == ""
     assert round(dados["valormedio_importado_jun"], 2) == 55.06
     assert dados["analise_importado_janjun"] == "aumento"
+
+
+def test_processar_importacao_zera_slots_sem_dado_no_ultimo_mes():
+    """Slot vazio precisa sair 0/"": generation.py mescla este dict por cima da
+    linha da mv_perfil_economia, que traz esses mesmos campos de outro recorte."""
+    linhas = [
+        {"co_ano": 2026, "co_mes": "08", "desc_mes": "agosto", "desc_pais_portugues": "País A", "desc_secao": "Seção X", "desc_sh4": "Produto 1", "kg_liquido": 10.0, "vl_fob": 500.0},
+    ]
+
+    dados = economia_importacao.processar_importacao(linhas)
+
+    for posicao in (2, 3, 4):
+        assert dados[f"pais_importado{posicao}"] == ""
+        assert dados[f"valor_pais_importado{posicao}"] == 0
+    assert dados["secao_importado2"] == ""
+    assert dados["valor_secao_importado2"] == 0
+    assert dados["produto_importado2"] == ""
+    assert dados["produto_importado_kg2"] == ""

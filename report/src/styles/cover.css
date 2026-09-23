@@ -443,8 +443,8 @@
 }
 
 .indicator-score-row {
-  display: table;
-  border-spacing: 16px 0;
+  display: flex;
+  gap: 16px;
   width: 100%;
 }
 
@@ -454,12 +454,8 @@
 
 .indicator-score-card {
   box-sizing: border-box;
-  display: table-cell;
-  vertical-align: top;
-  /* Largura fixa de 1/3: um macrotema pode ter menos de 3 indicadores com valor
-     no banco (os sem valor são omitidos em utils/cover.py), e sem isso a última
-     linha esticaria os cards restantes. */
-  width: 33.33%;
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 85.33px;
   background: #FFFFFF;
   border: 1px solid #EFEFEF;
@@ -468,11 +464,22 @@
 }
 
 .indicator-score-spacer {
-  display: table-cell;
-  width: 33.33%;
+  /* Completa a última linha quando o macrotema tem menos de 3 indicadores
+     com valor (os sem valor são omitidos em utils/cover.py). */
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.indicator-score-card-inner {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .indicator-score-card-header {
+  /* Absorve a sobra de altura da linha aqui (abaixo do número), para os
+     rodapés dos cards da linha ficarem todos da mesma altura. */
+  flex: 1 0 auto;
   display: block;
   width: 100%;
   box-sizing: border-box;
@@ -482,22 +489,24 @@
 
 .indicator-score-card-info-row {
   display: block;
+  /* Reserva 2 linhas de nome + 1 de fonte: o número começa no mesmo Y. */
+  min-height: 50px;
 }
 
 .indicator-icon-box {
   display: inline-block;
-  width: 26.67px;
-  height: 26.67px;
-  border-radius: 5.33px;
+  width: 26px;
+  height: 26px;
+  padding: 2px;
+  border-radius: 4px;
   box-sizing: border-box;
-  padding: 5.33px;
   text-align: center;
   vertical-align: middle;
 }
 
 .indicator-icon {
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
   color: #E5333F;
   display: inline-block;
 }
@@ -506,10 +515,12 @@
   display: inline-block;
   vertical-align: middle;
   padding-left: 5.33px;
+  /* Largura fixa ao lado do ícone para a quebra do título não variar. */
+  width: calc(100% - 31.33px);
+  box-sizing: border-box;
 }
 
 .indicator-name {
-  min-height: 36px;
   font-family: "Inter", var(--font-sans);
   font-weight: 500;
   font-size: 12px;
@@ -520,6 +531,8 @@
   text-overflow: ellipsis;
   white-space: normal;
   word-break: break-word;
+  /* 2 linhas (2 x 18px): nomes curtos ocupam o mesmo espaço. */
+  min-height: 36px;
 }
 
 .indicator-source {
@@ -528,6 +541,10 @@
   font-size: 8px;
   line-height: 150%;
   color: #7E797B;
+  /* Sempre 1 linha: nunca empurra o número para baixo. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .indicator-value {
@@ -542,20 +559,22 @@
 }
 
 .indicator-score-card-footer {
-  display: block;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   box-sizing: border-box;
-  /* Cards da linha esticam até a altura dela, o rodapé não: sem um piso, um
-     rodapé de 1 linha ao lado de um de 2 deixa faixa branca. 34.67px = 26pt
-     x 4/3 (design em pt, WeasyPrint em px CSS) = 2 linhas de 9pt + 8pt de
-     padding, que entra na conta pelo border-box.
-     Não cobre cabeçalhos de alturas diferentes (nome de 3 linhas). */
-  min-height: 34.67px;
   padding: 5.33px 10.67px;
   background: #EFEFEF;
+}
+
+.indicator-score-card-footer-text {
   color: #292829;
   font-family: "Inter", var(--font-sans);
   font-weight: 400;
-  font-size: 8px;
+  /* Figma usa text-[6px] (x 4/3 = 8px, a escala do resto do arquivo); aqui é
+     de propósito um pouco maior que o Figma, por legibilidade. */
+  font-size: 9.33px;
   line-height: 150%;
   text-align: center;
 }
@@ -1066,6 +1085,15 @@
   .metric-caption,
   .diagnostic-block,
   .score-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Panorama de indicadores: nunca partir no meio (títulos numa página e
+     números na outra) — o painel cabe folgado numa página. */
+  .indicator-scores,
+  .indicator-score-row,
+  .indicator-score-card {
     break-inside: avoid;
     page-break-inside: avoid;
   }

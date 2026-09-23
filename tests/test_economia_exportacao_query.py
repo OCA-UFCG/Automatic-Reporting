@@ -151,3 +151,30 @@ def test_unidade_vazia_nao_gera_aviso(monkeypatch, caplog):
         economia_exportacao.buscar_comercio_exterior_economia("X", "PB")
 
     assert caplog.text == ""
+
+
+def test_unidade_no_singular_multiplica_igual_ao_plural(monkeypatch):
+    linha_perfil = {
+        "pais_exportacao1": "China",
+        "valor_pais_exportacao1": 1.76,
+        "valor_pais_exportacaounid1": "milhão",
+        "pais_exportacao2": "Argentina",
+        "valor_pais_exportacao2": 1.2,
+        "valor_pais_exportacaounid2": "bilhão",
+    }
+    monkeypatch.setattr(
+        economia_exportacao, "buscar_perfil_municipal", lambda *a, **k: linha_perfil
+    )
+
+    dados = economia_exportacao.buscar_comercio_exterior_economia("Igarassu", "PE")
+
+    assert dados["exportacao_paises"] == [
+        ("China", 1_760_000.0),
+        ("Argentina", 1_200_000_000.0),
+    ]
+
+
+def test_unidade_desconhecida_avisa_no_log(caplog):
+    with caplog.at_level(logging.WARNING):
+        assert economia_exportacao._valor_absoluto(1.76, "zilhão") == 1.76
+    assert "Unidade de valor desconhecida" in caplog.text

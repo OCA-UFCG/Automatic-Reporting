@@ -4,9 +4,13 @@ from utils.queries.perfil_municipal import buscar_perfil_municipal
 
 logger = logging.getLogger(__name__)
 
+# A view emite a unidade no singular quando o valor arredonda para 1 ("milhão"):
+# sem essa forma aqui o valor entra no gráfico 1.000.000x menor.
 _UNIDADE_MULTIPLICADOR = {
     "bilhões": 1_000_000_000,
+    "bilhão": 1_000_000_000,
     "milhões": 1_000_000,
+    "milhão": 1_000_000,
     "mil": 1_000,
 }
 

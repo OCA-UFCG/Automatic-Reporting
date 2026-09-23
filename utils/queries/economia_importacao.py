@@ -2,6 +2,11 @@ from collections import defaultdict
 
 from utils.queries.base import escalar_valor, executar_query
 
+# eco_importacao.vw_importacao_completa parou de ser atualizado pela equipe de
+# dados (ficou parado em julho/2026); eco_comercio_exterior.impexp_completa é o
+# schema novo, com importação e exportação na mesma tabela (`tipo_operacao`).
+# mv_perfil_economia já usa esse schema novo para os totais; esta query cobre
+# o detalhamento por país/produto/seção que a matview não tem.
 DADOS_IMPORTACAO_MUNICIPAL = """
     SELECT
         co_ano,
@@ -12,14 +17,16 @@ DADOS_IMPORTACAO_MUNICIPAL = """
         desc_sh4,
         kg_liquido,
         vl_fob
-    FROM eco_importacao.vw_importacao_completa
-    WHERE LOWER(nm_mun) = LOWER(%s)
-      AND sigla_uf = %s
+    FROM eco_comercio_exterior.impexp_completa
+    WHERE tipo_operacao = 'Importação'
+      AND LOWER(desc_municipio) = LOWER(%s)
+      AND sg_uf_mun = %s
       AND co_ano = (
           SELECT MAX(co_ano)
-          FROM eco_importacao.vw_importacao_completa
-          WHERE LOWER(nm_mun) = LOWER(%s)
-            AND sigla_uf = %s
+          FROM eco_comercio_exterior.impexp_completa
+          WHERE tipo_operacao = 'Importação'
+            AND LOWER(desc_municipio) = LOWER(%s)
+            AND sg_uf_mun = %s
       )
     ORDER BY co_mes::int
 """
@@ -97,8 +104,11 @@ def processar_importacao(linhas: list[dict]) -> dict[str, object] | None:
         if linha.get("kg_liquido") is not None
     )
 
+    # O banco guarda desc_mes/desc_secao/desc_sh4 capitalizados e o Doc usa todos
+    # no meio da frase ("destacaram-se $secao_importado1, com..."), por isso o
+    # .lower() aqui e nas seções/produtos abaixo.
     resultado: dict[str, object] = {
-        "ultimo_mes_ano": f"{ultima_linha['desc_mes']} de {ultimo_ano}",
+        "ultimo_mes_ano": f"{ultima_linha['desc_mes'].lower()} de {ultimo_ano}",
         "ultimo_jun": ultimo_ano,
     }
 
@@ -121,7 +131,7 @@ def processar_importacao(linhas: list[dict]) -> dict[str, object] | None:
     totais_secao = _somar_por_chave(linhas_ultimo_mes, "desc_secao", "vl_fob")
     for posicao, (nome_secao, valor_fob) in enumerate(_top_n(totais_secao, 2), start=1):
         valor_escalado, unidade = escalar_valor(valor_fob)
-        resultado[f"secao_produtos{posicao}"] = nome_secao
+        resultado[f"secao_importado{posicao}"] = nome_secao.lower()
         resultado[f"valor_secao_importado{posicao}"] = valor_escalado
         resultado[f"valor_secao_importado_unid{posicao}"] = unidade
 
@@ -130,7 +140,7 @@ def processar_importacao(linhas: list[dict]) -> dict[str, object] | None:
     top_produtos = _top_n(totais_produto_fob, 2)
     for posicao, (nome_produto, valor_fob) in enumerate(top_produtos, start=1):
         valor_escalado, unidade = escalar_valor(valor_fob)
-        resultado[f"produto_importado{posicao}"] = nome_produto
+        resultado[f"produto_importado{posicao}"] = nome_produto.lower()
         resultado[f"valor_produto_importado{posicao}"] = valor_escalado
         resultado[f"valor_produto_importadounid{posicao}"] = unidade
 
@@ -139,9 +149,28 @@ def processar_importacao(linhas: list[dict]) -> dict[str, object] | None:
         resultado[f"kg_importado_produtounid{posicao}"] = kg_unidade
 
     if len(top_produtos) >= 1:
-        resultado["produto_importado_kg1"] = top_produtos[0][0]
+        resultado["produto_importado_kg1"] = top_produtos[0][0].lower()
     if len(top_produtos) >= 2:
-        resultado["produto_importadokg2"] = top_produtos[1][0]
+        resultado["produto_importado_kg2"] = top_produtos[1][0].lower()
+
+    # generation.py mescla este dict por cima da linha da mv_perfil_economia, que
+    # traz estes mesmos campos de outro recorte: slot não preenchido aqui deixaria
+    # o valor da view aparecer ao lado dos nossos (foi assim que a soma dos quatro
+    # países passou do total importado).
+    for posicao in range(1, 5):
+        resultado.setdefault(f"pais_importado{posicao}", "")
+        resultado.setdefault(f"valor_pais_importado{posicao}", 0)
+        resultado.setdefault(f"valor_pais_importado_unid{posicao}", "")
+    for posicao in (1, 2):
+        resultado.setdefault(f"secao_importado{posicao}", "")
+        resultado.setdefault(f"valor_secao_importado{posicao}", 0)
+        resultado.setdefault(f"valor_secao_importado_unid{posicao}", "")
+        resultado.setdefault(f"produto_importado{posicao}", "")
+        resultado.setdefault(f"valor_produto_importado{posicao}", 0)
+        resultado.setdefault(f"valor_produto_importadounid{posicao}", "")
+        resultado.setdefault(f"kg_importado_produto{posicao}", 0)
+        resultado.setdefault(f"kg_importado_produtounid{posicao}", "")
+        resultado.setdefault(f"produto_importado_kg{posicao}", "")
 
     linhas_jan = [
         linha
