@@ -5,6 +5,7 @@ import hashlib
 import json
 import math
 import os
+import socket
 import subprocess
 import time
 from collections import OrderedDict
@@ -70,8 +71,20 @@ def _bundle_path() -> Path:
     return SSR_BUNDLE
 
 
-def start_server() -> subprocess.Popen:
+def _porta_ocupada(porta: int | None = None) -> bool:
+    """True se já há alguém ouvindo na porta do SSR. O CMD do Dockerfile sobe o
+    node antes do uvicorn, então o hook de startup encontraria a porta tomada e
+    deixaria um processo natimorto por worker."""
+    with socket.socket() as s:
+        s.settimeout(0.2)
+        return s.connect_ex(("127.0.0.1", porta or SSR_PORT)) == 0
+
+
+def start_server() -> subprocess.Popen | None:
     global _server_process
+
+    if _porta_ocupada():
+        return None
 
     bundle = _bundle_path()
     if not bundle.exists():

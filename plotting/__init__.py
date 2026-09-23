@@ -6,7 +6,9 @@ a tipografia do restante do documento. Sem isso o matplotlib cai no DejaVu Sans.
 """
 
 import logging
+import os
 import pathlib
+import tempfile
 from pathlib import Path
 
 import matplotlib
@@ -268,5 +270,28 @@ def salvar_card_grafico(fig: Figure, chart_file: pathlib.Path, dpi: int = 180) -
     # Sem bbox_inches="tight": a moldura já foi posicionada em coordenadas de
     # figura pensando no figsize exato, e um recorte automático cortaria as
     # bordas/cantos arredondados do card.
-    plt.savefig(chart_file, dpi=dpi, facecolor="white")
+    # Escrita atômica pelo mesmo motivo do PDF (ver comentário em
+    # services/pdf.py:_gerar_pdf_sync): duas gerações do mesmo relatório podem
+    # resolver pro mesmo `chart_file` (mesma cidade), e o freshness check pode
+    # mandar as duas regravar o PNG enquanto a outra ainda está sendo lida pro
+    # SSR/WeasyPrint. Sem isso, um `savefig` direto no destino intercalaria
+    # bytes com o outro escritor e publicaria um PNG truncado/corrompido com
+    # mtime novo — "fresco" pro cache, mas visivelmente quebrado no PDF.
+    fd, tmp_nome = tempfile.mkstemp(
+        dir=chart_file.parent, prefix=chart_file.name + ".", suffix=".tmp"
+    )
+    os.close(fd)
+    tmp_file = pathlib.Path(tmp_nome)
+    try:
+        # `format="png"` explícito: o nome do temp termina em `.tmp` (pro
+        # mkstemp), e sem isso o matplotlib infere o formato pela extensão do
+        # arquivo e falha com "Format 'tmp' is not supported".
+        plt.savefig(tmp_file, dpi=dpi, facecolor="white", format="png")
+        os.replace(tmp_file, chart_file)
+    except (OSError, RuntimeError, TypeError, ValueError):
+        try:
+            tmp_file.unlink()
+        except FileNotFoundError:
+            pass
+        raise
     plt.close(fig)

@@ -196,6 +196,8 @@ jobs:
           sudo docker run \
             --name ${{ vars.CONTAINER_NAME_GAMMA }} \
             --restart unless-stopped \
+            --cpus=3 \
+            --memory=3g \
             -p ${{ vars.HOST_PORT_GAMMA }}:${{ vars.CONTAINER_PORT }} \
             -v ${{ vars.VOLUME_NAME }}:/app/output \
             -v ${{ vars.MAP_SHAPE_VOLUME_NAME }}:/app/map_shape \

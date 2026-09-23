@@ -92,6 +92,15 @@ npm install
 npm run build -w report
 ```
 
+No Docker, o startup do container roda `python -m scripts.startup_container` antes do
+uvicorn — é o que invalida artefatos em disco quando o código muda e limpa `.tmp`
+órfãos de um render interrompido. Localmente ninguém chama isso por você, então rode
+uma vez antes de subir a API (e de novo depois de mudar código que afeta gráficos):
+
+```bash
+python -m scripts.startup_container
+```
+
 Inicie a API:
 
 ```bash

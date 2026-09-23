@@ -1,12 +1,33 @@
 import ast
+import threading
 
 import pandas as pd
 
 from config import CITIES_FILE
 from utils.geografia import separar_cidade_uf
 
+_cidades_cache: list[str] | None = None
+_cidades_lock = threading.Lock()
+
 
 def carregar_cidades() -> list[str]:
+    # Cacheado e sob lock: carregar_cidades() roda tanto no request síncrono quanto
+    # em threads de fundo (services/background.py). Duas chamadas concorrentes a
+    # ast.literal_eval no mesmo processo corrompem o contador de recursão do parser
+    # da CPython (SystemError: AST constructor recursion depth mismatch) sob carga —
+    # reproduzido com 10 gerações simultâneas. O arquivo é estático, então parsear
+    # uma vez e reusar resolve tanto a corrida quanto o custo repetido.
+    global _cidades_cache
+    if _cidades_cache is not None:
+        return _cidades_cache
+
+    with _cidades_lock:
+        if _cidades_cache is None:
+            _cidades_cache = _ler_cidades_do_arquivo()
+        return _cidades_cache
+
+
+def _ler_cidades_do_arquivo() -> list[str]:
     if not CITIES_FILE.exists():
         return []
 

@@ -156,3 +156,24 @@ def test_resposta_do_relatorio_carrega_html_e_artefato():
 
     assert resp.body.decode("utf-8") == "<html>X</html>"
     assert resp.headers["X-Relatorio-Arquivo"] == "relatorio_demografia__recife_pe_.pdf"
+
+
+def test_resposta_carrega_a_versao_do_artefato(tmp_path, monkeypatch):
+    monkeypatch.setattr(generation, "OUTPUT_DIR", tmp_path)
+    _, safe = _safe("Campina Grande (PB)", "demografia")
+    pdf = tmp_path / f"relatorio_{safe}.pdf"
+    pdf.write_bytes(b"pdf")
+
+    resposta = generation._resposta_do_relatorio("<html></html>", safe)
+
+    assert resposta.headers[generation.HEADER_ARQUIVO_RELATORIO] == pdf.name
+    assert resposta.headers[generation.HEADER_VERSAO_RELATORIO] == str(pdf.stat().st_mtime_ns)
+
+
+def test_sem_pdf_em_disco_a_versao_fica_ausente(tmp_path, monkeypatch):
+    monkeypatch.setattr(generation, "OUTPUT_DIR", tmp_path)
+    _, safe = _safe("Campina Grande (PB)", "demografia")
+
+    resposta = generation._resposta_do_relatorio("<html></html>", safe)
+
+    assert generation.HEADER_VERSAO_RELATORIO not in resposta.headers
