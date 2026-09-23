@@ -178,7 +178,10 @@ def buscar_demografia_sexo_faixa_etaria(
 
     dados["pop_etaria_per_0_9"] = round(float(pop_etaria_0_9) / float(pop_total) * 100, 2)
     dados["pop_etaria_per_60_mais"] = round(float(pop_etaria_60_mais) / float(pop_total) * 100, 2)
-    dados["dif_etaria_09_60"] = pop_etaria_0_9 - pop_etaria_60_mais
+    # Mesma convenção da vw_perfil_populacional_municipal: o campo exibido é a
+    # magnitude e o _dado leva o sinal (idosos - crianças), que decide a condição.
+    dados["dif_etaria_09_60_dado"] = pop_etaria_60_mais - pop_etaria_0_9
+    dados["dif_etaria_09_60"] = abs(dados["dif_etaria_09_60_dado"])
 
     racas = {
         "branca": pop_branca,

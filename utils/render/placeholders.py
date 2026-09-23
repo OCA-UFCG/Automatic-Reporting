@@ -105,12 +105,13 @@ def _avaliar_condicao_demografia(expressao: str, contexto: dict) -> bool | None:
         return coerce_para_float(bruto, default=None)
 
     if "dif_etaria_09_60" in campos:
-        diferenca = valor("dif_etaria_09_60")
+        # dif_etaria_09_60 é a magnitude (view e cálculo local); o sinal vem de
+        # dif_etaria_09_60_dado = idosos - crianças. O Doc chama de "positivo" o
+        # cenário com mais crianças, ou seja, _dado < 0.
+        diferenca = valor("dif_etaria_09_60_dado")
         if diferenca is None:
             return False
-        # A query calcula crianças - idosos: positivo é o cenário em que
-        # há mais crianças, negativo é mais idosos.
-        return diferenca > 0 if "positivo" in expressao else diferenca < 0
+        return diferenca < 0 if "positivo" in expressao else diferenca > 0
 
     if "cres_pop_analise" in campos:
         crescimento = valor("cres_pop")
