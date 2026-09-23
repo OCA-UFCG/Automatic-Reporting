@@ -28,6 +28,7 @@ Não há famílias.
 """
     contexto = {
         "dif_etaria_09_60": 20,
+        "dif_etaria_09_60_dado": -20,
         "cres_pop": 0,
         "pop_rua_2022": 0,
         "pop_rua_2026": 3,
@@ -42,6 +43,20 @@ Não há famílias.
     assert "Todas as famílias recebem." in resultado
     assert "Não há famílias." not in resultado
     assert "Para quando" not in resultado
+
+
+def test_dif_etaria_mais_idosos_escolhe_negativo_e_exibe_magnitude():
+    # Recife 2022: 263.996 idosos x 174.222 crianças. Saía "supera em -89.774 pessoas".
+    texto = """Para quando demografia.$dif_etaria_09_60 for positivo, então :
+Crianças superam em demografia.$dif_etaria_09_60 pessoas.
+
+Para quando demografia.$dif_etaria_09_60 for negativo, então :
+Idosos superam em demografia.$dif_etaria_09_60 pessoas.
+"""
+    contexto = {"dif_etaria_09_60": 89774, "dif_etaria_09_60_dado": 89774}
+    resultado = interpretar_blocos_condicionais(texto, contexto)
+    assert "Idosos superam" in resultado
+    assert "Crianças superam" not in resultado
 
 
 def test_novas_condicoes_rua_nao_tratam_dado_ausente_como_zero():
