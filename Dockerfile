@@ -97,12 +97,21 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 COPY --from=ssr-build /app/report/ssr-dist ./report/ssr-dist
 
+# Numero de workers do uvicorn: precisa bater com os vCPUs reais do host, nao
+# com o teto de --cpus do container. Medido no gamma (2 vCPU real): 3 workers
+# sob 3 geracoes concorrentes trava (CPU 200%, timeout >180s); 2 workers
+# resolve (WALL ~7s). Beta (4 vCPU) usa o default 3; cd-gamma.yaml passa
+# UVICORN_WORKERS=2 no build. Fica perto do CMD (nao antes do apt-get/pip) pra
+# nao invalidar cache das camadas caras a cada mudanca deste valor.
+ARG UVICORN_WORKERS=3
+ENV UVICORN_WORKERS=$UVICORN_WORKERS
+
 EXPOSE 8000
 
 # Startup do container (limpeza de .tmp + invalidação de cache, uma vez, antes de
 # qualquer processo aceitar request) e só depois os dois servidores. `&` tem
 # precedência menor que `&&` em sh: sem o `{ ...; }` agrupando node+uvicorn, o
 # `&` faria o uvicorn começar em paralelo com o startup em vez de esperar por ele.
-# `--workers 3` casa com o teto `--cpus=3` do `docker run` nos workflows de CD
-# (cd-beta.yaml / cd-gamma.yaml): um worker por CPU.
-CMD ["sh", "-c", "python3 -m scripts.startup_container && { node report/ssr-dist/server.js & python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 --workers 3; }"]
+# $UVICORN_WORKERS deve bater com os vCPUs reais do host (ver ARG acima):
+# 3 no beta (4 vCPU), 2 no gamma (2 vCPU).
+CMD ["sh", "-c", "python3 -m scripts.startup_container && { node report/ssr-dist/server.js & python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 --workers $UVICORN_WORKERS; }"]

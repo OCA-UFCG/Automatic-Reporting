@@ -61,6 +61,7 @@ jobs:
             DESENVOLVIMENTO_SOCIAL_DOCS_URL=${{ secrets.DESENVOLVIMENTO_SOCIAL_DOCS_URL }}
             MEIO_AMBIENTE_DOCS_URL=${{ secrets.MEIO_AMBIENTE_DOCS_URL }}
             VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
+            UVICORN_WORKERS=2
 
   push-gamma:
     needs: build-image
@@ -81,6 +82,10 @@ jobs:
         run: |
           sudo docker volume create ${{ vars.MAP_SHAPE_VOLUME_NAME }}
 
+      - name: Ensure docker mapas volume exists
+        run: |
+          sudo docker volume create ${{ vars.MAPAS_VOLUME_NAME }}
+
       - name: Ensure docker network exists
         run: |
           DOCKER_NETWORK_NAME="${{ vars.NETWORK_NAME }}"
@@ -97,10 +102,12 @@ jobs:
       # gamma resolvem para a mesma string e so nao colidem por rodarem em
       # maquinas diferentes — o sufixo no marker tira essa dependencia.
       #
-      # Aqui os shapefiles NAO sao fallback: o gamma nao monta Mapas_png, entao
-      # buscar_mapa_estatico nunca acha nada e gerar_mapa_regiao e o unico caminho
-      # de mapa. Por isso o "Validate map shape volume" abaixo fica sem guarda:
-      # volume vazio com marker presente tem que derrubar o deploy, nao passar.
+      # Ate 2026-09-23 o gamma nao montava Mapas_png (decisao de pressa, nao
+      # arquitetural — buscar_mapa_estatico nunca achava nada e todo mapa caia
+      # no render via shapefile). Medido: isso sozinho respondia pela maior
+      # parte do tempo de geracao (~10x mais lento que com PNG) e boa parte do
+      # consumo de memoria sob concorrencia. Corrigido: gamma passa a montar
+      # Mapas_png igual o beta, shapefile volta a ser so fallback.
       - name: Check if map shapes release changed
         id: shapes_check
         shell: bash
@@ -178,6 +185,71 @@ jobs:
             -v "${{ vars.MAP_SHAPE_VOLUME_NAME }}:/app/map_shape:ro" \
             alpine test -f /app/map_shape/BR_Municipios_2025/BR_Municipios_2025.shp
 
+      # O volume de PNGs ja persiste entre deploys (runner self-hosted); so vale
+      # baixar/copiar de novo quando o asset da release realmente mudou. Marker
+      # com sufixo -gamma pelo mesmo motivo do shapes_check acima (variavel de
+      # repositorio compartilhada com o beta).
+      - name: Check if map PNGs release changed
+        id: mapas_check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          MARKER_FILE="$HOME/.cache/automatic-reporting/mapas-asset-id-gamma"
+          mkdir -p "$(dirname "$MARKER_FILE")"
+
+          CURRENT_ID=$(curl -sf \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/mapas-png-2025" \
+            | python3 -c "import json, sys; print(json.load(sys.stdin)['assets'][0]['id'])")
+          PREVIOUS_ID=$(cat "$MARKER_FILE" 2>/dev/null || true)
+
+          echo "Asset id atual: $CURRENT_ID / salvo: ${PREVIOUS_ID:-<nenhum>}"
+
+          if [ "$CURRENT_ID" = "$PREVIOUS_ID" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "current_id=$CURRENT_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Download map PNGs
+        if: steps.mapas_check.outputs.changed == 'true'
+        shell: bash
+        run: |
+          rm -rf ./mapas_png
+          python3 ./scripts/download_map_shapes.py \
+            --url "${{ secrets.MAPAS_ZIP_URL }}" \
+            --no-validate \
+            --output-dir ./mapas_png
+
+      - name: Copy map PNGs into Docker volume
+        if: steps.mapas_check.outputs.changed == 'true'
+        shell: bash
+        run: |
+          sudo docker run --rm \
+            -v "${{ vars.MAPAS_VOLUME_NAME }}:/target" \
+            -v "${{ github.workspace }}/mapas_png:/source:ro" \
+            alpine sh -c "rm -rf /target/* && cp -a /source/. /target/"
+
+          mkdir -p "$HOME/.cache/automatic-reporting"
+          echo "${{ steps.mapas_check.outputs.current_id }}" > "$HOME/.cache/automatic-reporting/mapas-asset-id-gamma"
+
+      - name: Validate map PNG volume
+        shell: bash
+        run: |
+          TOTAL=$(sudo docker run --rm \
+            -v "${{ vars.MAPAS_VOLUME_NAME }}:/app/mapas/Mapas_png:ro" \
+            alpine sh -c 'find /app/mapas/Mapas_png -maxdepth 1 -name "*.png" | wc -l')
+
+          echo "Total de PNGs no volume: $TOTAL"
+
+          if [ "$TOTAL" -lt 1000 ]; then
+            echo "Esperado >= 1000 PNGs no primeiro nivel do volume; os relatorios cairiam no mapa gerado em runtime."
+            exit 1
+          fi
+
       - name: Pull the latest gamma image
         run: sudo docker pull ${{ vars.DOCKER_IMAGE_GAMMA }}:latest
 
@@ -196,11 +268,12 @@ jobs:
           sudo docker run \
             --name ${{ vars.CONTAINER_NAME_GAMMA }} \
             --restart unless-stopped \
-            --cpus=3 \
+            --cpus=2 \
             --memory=3g \
             -p ${{ vars.HOST_PORT_GAMMA }}:${{ vars.CONTAINER_PORT }} \
             -v ${{ vars.VOLUME_NAME }}:/app/output \
             -v ${{ vars.MAP_SHAPE_VOLUME_NAME }}:/app/map_shape \
+            -v ${{ vars.MAPAS_VOLUME_NAME }}:/app/mapas/Mapas_png:ro \
             --network ${{ vars.NETWORK_NAME }} \
             --add-host=host.docker.internal:host-gateway \
             -e DB_HOST="$DB_HOST" \
