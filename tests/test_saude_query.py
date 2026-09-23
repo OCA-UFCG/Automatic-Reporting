@@ -84,6 +84,25 @@ def test_perfil_saude_usa_as_19_colunas_de_vacina_na_serie(monkeypatch):
     assert "Polio Injetável VIP, reforço" not in nomes
 
 
+def test_perfil_saude_remove_espaco_antes_da_virgula_em_vacina_nao_meta(monkeypatch):
+    # Regressão: a view às vezes traz nomes de vacina com espaço sobrando
+    # antes da vírgula que separa a lista ("Meningo C ,"), saindo cru no
+    # texto do relatório.
+    monkeypatch.setattr(
+        saude,
+        "executar_query",
+        lambda *a, **k: _linha_perfil_saude(
+            vacina_nao_meta="1° reforço de Meningo C , 1° reforço de Pneumo 10 , Varicela"
+        ),
+    )
+
+    dados = saude.buscar_perfil_saude_municipal("Açailândia", "MA")
+
+    assert dados["vacina_nao_meta"] == (
+        "1° reforço de Meningo C, 1° reforço de Pneumo 10, Varicela"
+    )
+
+
 def test_perfil_saude_ignora_vacina_sem_valor(monkeypatch):
     monkeypatch.setattr(
         saude, "executar_query", lambda *a, **k: _linha_perfil_saude(varicela=None)

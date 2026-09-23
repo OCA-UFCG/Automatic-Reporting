@@ -18,21 +18,28 @@ _ALIASES_NAMESPACE = {
 # Cada operador é tentado nessa ordem contra o trecho de texto que segue um
 # "$campo" na condição; a ordem importa porque frases mais específicas (ex.:
 # "maior ou igual a") contêm substrings de frases mais genéricas (ex.: "igual
-# a") e precisam ser checadas antes. Os grupos capturados (sempre inteiros no
-# texto dos Docs) são os limites/limiares usados pela função de teste.
+# a") e precisam ser checadas antes. Os grupos capturados são os
+# limites/limiares usados pela função de teste — aceitam decimal com vírgula
+# (ex.: "maior ou igual a 0,5", usado no Gini) porque `\d+` sozinho truncava
+# pro inteiro antes da vírgula (bug real: "menor que 0,5" virava "menor que
+# 0", esvaziando a Síntese de desenvolvimento social pra qualquer Gini > 0).
+_NUMERO_EDITORIAL = r"(\d+(?:[.,]\d+)?)"
 _OPERADORES_EDITORIAIS: list[tuple[re.Pattern, object]] = [
-    (re.compile(r"de\s+(\d+)\s+a\s+(\d+)"), lambda v, a, b: a <= v <= b),
-    (re.compile(r"entre\s+(\d+)\s+e\s+(\d+)"), lambda v, a, b: a <= v <= b),
-    (re.compile(r"maior\s+ou\s+igual\s+a\s+(\d+)"), lambda v, n: v >= n),
-    (re.compile(r"menor\s+ou\s+igual\s+a\s+(\d+)"), lambda v, n: v <= n),
-    (re.compile(r"maior\s+que\s+(\d+)"), lambda v, n: v > n),
-    (re.compile(r"menor\s+que\s+(\d+)"), lambda v, n: v < n),
-    (re.compile(r"diferente\s+de\s+(\d+)"), lambda v, n: v != n),
-    (re.compile(r"igual\s+a\s+(\d+)"), lambda v, n: v == n),
+    (re.compile(rf"de\s+{_NUMERO_EDITORIAL}\s+a\s+{_NUMERO_EDITORIAL}"), lambda v, a, b: a <= v <= b),
+    (re.compile(rf"entre\s+{_NUMERO_EDITORIAL}\s+e\s+{_NUMERO_EDITORIAL}"), lambda v, a, b: a <= v <= b),
+    # "maior E igual a" também aparece no Doc (não só "maior OU igual a") —
+    # mesma variante que _CONDICAO_GINI já aceitava, mas esta condição cai no
+    # caminho genérico (tem "$campo" na expressão) e nunca chegava lá.
+    (re.compile(rf"maior\s+(?:e|ou)\s+igual\s+a\s+{_NUMERO_EDITORIAL}"), lambda v, n: v >= n),
+    (re.compile(rf"menor\s+(?:e|ou)\s+igual\s+a\s+{_NUMERO_EDITORIAL}"), lambda v, n: v <= n),
+    (re.compile(rf"maior\s+que\s+{_NUMERO_EDITORIAL}"), lambda v, n: v > n),
+    (re.compile(rf"menor\s+que\s+{_NUMERO_EDITORIAL}"), lambda v, n: v < n),
+    (re.compile(rf"diferente\s+de\s+{_NUMERO_EDITORIAL}"), lambda v, n: v != n),
+    (re.compile(rf"igual\s+a\s+{_NUMERO_EDITORIAL}"), lambda v, n: v == n),
     # Variante simbólica de "igual a N" (ex.: "for = 0"); não conflita com
     # ">="/">" porque essas formas só aparecem nas condições de rua, tratadas
     # à parte por _avaliar_condicao_demografia antes de chegar aqui.
-    (re.compile(r"(?<![<>!])=\s*(\d+)"), lambda v, n: v == n),
+    (re.compile(rf"(?<![<>!])=\s*{_NUMERO_EDITORIAL}"), lambda v, n: v == n),
 ]
 
 # Variante "campo A for <operador> campo B": os operadores acima exigem um
@@ -156,7 +163,9 @@ def _parse_operador_editorial(trecho: str):
     for padrao, atende in _OPERADORES_EDITORIAIS:
         match = padrao.search(trecho)
         if match:
-            return atende, tuple(float(grupo) for grupo in match.groups())
+            return atende, tuple(
+                float(grupo.replace(",", ".")) for grupo in match.groups()
+            )
     return None
 
 

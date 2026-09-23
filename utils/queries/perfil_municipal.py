@@ -26,11 +26,16 @@ def buscar_perfil_municipal(
         return None
 
     # Algumas views (ex.: vw_perfil_educacional_municipal) guardam nm_mun já
-    # com o sufixo "(UF)"; outras guardam só o nome. Compara sempre pelo nome
-    # sem o parêntese final, o que casa os dois formatos numa única query.
+    # com o sufixo "(UF)"; outras guardam só o nome (ex.: mv_perfil_saude_municipal
+    # pra Recife). Compara sempre pelo nome sem o parêntese final dos dois lados —
+    # só normalizar a coluna e comparar contra o `nome_municipio` já canonicalizado
+    # como "Cidade (UF)" (generation.py) nunca casa quando a view não tem o
+    # sufixo, e a cidade cai silenciosamente pro fallback de CSV mesmo com a
+    # linha existindo na view (bug real: Recife (PE) em saúde).
     query = f"""
         SELECT * FROM relatorios_auto.{view}
-        WHERE LOWER(regexp_replace(nm_mun, '\\s*\\([^)]*\\)\\s*$', '')) = LOWER(%s)
+        WHERE LOWER(regexp_replace(nm_mun, '\\s*\\([^)]*\\)\\s*$', '')) =
+              LOWER(regexp_replace(%s, '\\s*\\([^)]*\\)\\s*$', ''))
           AND sigla_uf = %s
         LIMIT 1
     """

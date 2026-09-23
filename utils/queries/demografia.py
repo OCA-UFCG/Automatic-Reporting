@@ -1,5 +1,13 @@
 from utils.queries.base import executar_query
 
+RACA_PLURAL = {
+    "branca": "brancas",
+    "preta": "pretas",
+    "parda": "pardas",
+    "amarela": "amarelas",
+    "indigena": "indígenas",
+}
+
 POPULACAO_MUNICIPIO_POR_ANO = """
     SELECT d.ano, COALESCE(SUM(d.populacao_total), 0) as pop_total
     FROM carac_mun.caracteristicas_municipais c
@@ -189,7 +197,13 @@ def buscar_demografia_sexo_faixa_etaria(
         dados[f"cor_{ordinal}_class"] = cor
         dados[f"cor_{ordinal}_pop"] = populacao
         dados[f"cor_{ordinal}_per"] = round(float(populacao) / float(pop_total) * 100, 2)
-    dados["cor_raca_pri_class"] = raca_maior
+    # $cor_pri_class e $cor_raca_pri_class são usados no Doc só na frase
+    # "predominância de pessoas autodeclaradas $cor_..." — "pessoas" no plural
+    # exige a forma plural da raça ("pardas", não "parda"); $cor_seg/ter/quar_class
+    # continuam no singular porque aparecem em "a população $cor_seg_class".
+    cor_pri_plural = RACA_PLURAL.get(raca_maior, raca_maior)
+    dados["cor_pri_class"] = cor_pri_plural
+    dados["cor_raca_pri_class"] = cor_pri_plural
 
     linhas_faixa_sexo = executar_query(
         DEMOGRAFIA_SEXO_POR_FAIXA,

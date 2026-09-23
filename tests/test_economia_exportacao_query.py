@@ -80,6 +80,10 @@ def test_buscar_comercio_exterior_economia_aplica_aliases_balanca_e_paises(monke
         ("Jul", -5891234.0),
         ("Ago", -6410778.0),
     ]
+    # Regressão: a legenda do gráfico citava "janeiro a junho" fixo mesmo com
+    # dado até agosto — esses dois campos dão ao Doc o mês inicial/final reais.
+    assert dados["balanca_mes_inicial"] == "janeiro"
+    assert dados["balanca_mes_final"] == "agosto"
 
 
 def test_municipio_sem_comercio_exterior_devolve_lista_vazia(monkeypatch):

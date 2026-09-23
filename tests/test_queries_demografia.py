@@ -59,6 +59,33 @@ def test_buscar_demografia_sexo_faixa_etaria_usa_faixas_do_grafico(monkeypatch):
     assert resultado["etaria_menor"] == 10
 
 
+def test_cor_pri_class_concorda_no_plural_com_pessoas(monkeypatch):
+    # Regressão: o Doc usa $cor_pri_class/$cor_raca_pri_class na frase
+    # "predominância de pessoas autodeclaradas $cor_..." — "pessoas" no plural
+    # exige "pardas", não "parda". O relatório de Recife (PE) saiu com
+    # "pessoas autodeclaradas parda".
+    linha_resumo = (
+        1000, 520, 480, 100, 150, 200, 400, 250,
+        200,  # pop_branca
+        150,  # pop_preta
+        600,  # pop_parda (maioria)
+        30, 20,
+    )
+    respostas = iter([linha_resumo, []])
+    monkeypatch.setattr(
+        demografia,
+        "executar_query",
+        lambda *args, **kwargs: next(respostas),
+    )
+
+    resultado = demografia.buscar_demografia_sexo_faixa_etaria("Cidade X", "PB")
+
+    assert resultado["cor_pri_class"] == "pardas"
+    assert resultado["cor_raca_pri_class"] == "pardas"
+    # $cor_seg_class etc. seguem no singular: aparecem em "a população $cor_seg_class".
+    assert resultado["cor_seg_class"] == "branca"
+
+
 def test_buscar_populacao_rua_distinguishes_confirmed_zero_from_no_data(monkeypatch):
     linha_zero = (2026, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
