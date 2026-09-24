@@ -123,7 +123,10 @@ def gerar_grafico_composicao_cor_raca(
     if reuso is not None:
         return reuso
 
-    fig, ax = iniciar_card_grafico((6.4, 4.3), "Composição por cor ou raça")
+    # Mesma largura (8") dos outros dois cards de demografia: no relatório todos
+    # ocupam a mancha inteira, e com a mesma largura de figura a fonte sai do
+    # mesmo tamanho nos três.
+    fig, ax = iniciar_card_grafico((8, 4.4), "Composição por cor ou raça")
 
     # Maior percentual no topo, como na lista do card (barras horizontais).
     y = np.arange(len(labels))[::-1]

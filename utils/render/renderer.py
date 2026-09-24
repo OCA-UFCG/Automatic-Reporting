@@ -106,10 +106,6 @@ _CONFIG_GRAFICOS = {
     "grafico_domicilio_por_tipo_esgosto": {
         "largura_maxima": "600px",
     },
-    "grafico_composicao_cor_ou_raca": {
-        "largura_maxima": "350px",
-        "margem_vertical": "12px",
-    },
     "grafico_tecnologias_acesso_agua": {
         "largura_maxima": "560px",
         "margem_vertical": "16px",

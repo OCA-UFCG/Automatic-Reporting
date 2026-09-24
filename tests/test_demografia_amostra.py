@@ -236,3 +236,28 @@ def test_marcador_de_cor_raca_do_doc_tem_grafico_registrado():
     legendas = dict(GRAFICOS_AUTO_MARCADOR["demografia"])
     assert marcador in legendas
     assert re.search(legendas[marcador], trecho_do_doc)
+
+
+def test_grafico_de_cor_raca_tem_a_largura_dos_outros(tmp_path: Path):
+    # Regressão: o card de cor/raça saía com 6,4" e teto de 350px no renderer,
+    # bem menor que a pirâmide e a dinâmica populacional ao lado.
+    from PIL import Image
+
+    from utils.render.renderer import _CONFIG_GRAFICOS
+
+    contexto = AMOSTRA["Cabedelo (PB)"]
+    larguras = {
+        gerar(contexto, tmp_path, "amostra"): None
+        for gerar in (
+            gerar_grafico_faixa_etaria_e_sexo,
+            gerar_grafico_composicao_cor_raca,
+            gerar_grafico_visao_historica_populacao,
+        )
+    }
+    for nome in larguras:
+        with Image.open(tmp_path / nome) as imagem:
+            larguras[nome] = imagem.width
+    assert len(set(larguras.values())) == 1, larguras
+    assert "largura_maxima" not in _CONFIG_GRAFICOS.get(
+        "grafico_composicao_cor_ou_raca", {}
+    )
