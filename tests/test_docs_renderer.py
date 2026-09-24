@@ -110,6 +110,34 @@ Não há famílias.
     assert "Não há famílias." in resultado
 
 
+def test_condicao_rua_compara_campos_com_igual_a_por_extenso():
+    # Grafia atual do Doc: "for igual a $campo" em vez de "= $campo". A
+    # comparação era ignorada e "Todas recebem." batia para qualquer total.
+    texto = """Para quando demografia.$pop_rua_2022 for 0; demografia.$pop_rua_2026 for   maior que 1 e demografia.$pop_familias_rua_2026 for igual a demografia.$pop_rua_bolsaf_2026, então:
+Todas recebem.
+
+Para quando demografia.$pop_rua_2022 for 0; demografia.$pop_rua_2026 for  maior que 1 em e demografia.$pop_familias_rua_2026 for igual a 0, então:
+Não há famílias.
+"""
+    base = {"pop_rua_2022": 0, "pop_rua_2026": 50}
+
+    parcial = interpretar_blocos_condicionais(
+        texto, {**base, "pop_familias_rua_2026": 40, "pop_rua_bolsaf_2026": 10}
+    )
+    assert "Todas recebem." not in parcial
+
+    todas = interpretar_blocos_condicionais(
+        texto, {**base, "pop_familias_rua_2026": 40, "pop_rua_bolsaf_2026": 40}
+    )
+    assert "Todas recebem." in todas
+
+    sem_familias = interpretar_blocos_condicionais(
+        texto, {**base, "pop_familias_rua_2026": 0, "pop_rua_bolsaf_2026": 0}
+    )
+    assert "Todas recebem." not in sem_familias
+    assert "Não há famílias." in sem_familias
+
+
 def test_references_render_as_html_and_related_content_gets_boxed():
     texto = """#! Referências
 

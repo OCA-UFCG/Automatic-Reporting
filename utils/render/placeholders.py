@@ -136,7 +136,11 @@ def _avaliar_condicao_demografia(expressao: str, contexto: dict) -> bool | None:
         fim = partes[indice + 1].start() if indice + 1 < len(partes) else len(expressao)
         trecho = expressao[match.end():fim].casefold()
         atual = valor(campo)
-        if indice + 1 < len(partes) and re.search(r"(?:for\s*)?=\s*$", trecho):
+        # O Doc escreve tanto "= $campo" quanto "for igual a $campo"; sem a
+        # forma por extenso, a comparação caía no `continue` abaixo (não há
+        # dígito no trecho) e era ignorada — "todas beneficiárias" batia pra
+        # qualquer total de famílias.
+        if indice + 1 < len(partes) and re.search(r"(?:for\s*)?(?:=|igual\s+a)\s*$", trecho):
             if campo == "pop_familias_rua_2026" and atual == 0:
                 return False
             if atual != valor(partes[indice + 1].group(1)):

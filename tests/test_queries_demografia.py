@@ -155,3 +155,32 @@ def test_sem_view_calculo_local_vale_inteiro():
 
     local = {"cres_pop": -5.3, "porte_mun": "baixo porte"}
     assert _demografia_sem_sobrescrever_view(local, None) == local
+
+
+def test_cor_raca_da_view_nao_e_sobrescrita_pelo_ranking_local():
+    # Regressão: o ranking local de cor/raça sobrescrevia a view e o Doc saía
+    # "A população indigena representa..." onde a view traz a classe certa.
+    from services.generation import _cor_raca_sem_sobrescrever_view
+
+    local = {
+        "cor_quar_class": "indigena",
+        "cor_quar_per": 0.1,
+        "cor_pri_class": "pardas",
+        "cat_etaria_maior": "20 a 29 anos",
+    }
+    view = {
+        "cor_quar_class": "amarela",
+        "cor_quar_per": 0.5,
+        "cat_etaria_maior": "0 a 14 anos",
+    }
+
+    linha = dict(view)
+    linha.update(_cor_raca_sem_sobrescrever_view(local, view))
+
+    assert linha["cor_quar_class"] == "amarela"
+    assert linha["cor_quar_per"] == 0.5
+    # A view não tem: o local preenche.
+    assert linha["cor_pri_class"] == "pardas"
+    # Faixa etária segue vindo do local (casa com a legenda do gráfico).
+    assert linha["cat_etaria_maior"] == "20 a 29 anos"
+    assert _cor_raca_sem_sobrescrever_view(local, None) == local
