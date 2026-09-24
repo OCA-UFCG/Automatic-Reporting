@@ -363,6 +363,27 @@ def _demografia_sem_sobrescrever_view(
     }
 
 
+def _cor_raca_sem_sobrescrever_view(
+    dados_sexo_faixa: dict[str, object], perfil_db: dict | None
+) -> dict[str, object]:
+    """O que de buscar_demografia_sexo_faixa_etaria entra na linha do relatório.
+
+    O ranking local de cor/raça ($cor_pri/seg/ter/quar_*) sobrescrevia a view e o
+    $cor_quar_class saía "indigena" onde a view já traz a classe certa. Com a linha
+    da view, os campos cor_* dela prevalecem; o resto (faixas do gráfico, pop por
+    sexo) continua vindo do cálculo local, que é quem casa com a Figura.
+    """
+    if not perfil_db:
+        return dados_sexo_faixa
+    return {
+        chave: valor
+        for chave, valor in dados_sexo_faixa.items()
+        if not (
+            chave.startswith("cor_") or chave == "raca_maior"
+        ) or perfil_db.get(chave) is None
+    }
+
+
 async def gerar_relatorio_handler(
     cidade: str,
     macrotema: str = "demografia",
@@ -603,8 +624,13 @@ async def gerar_relatorio_handler(
                     linha.update(dados_mescla)
 
             if "demografia" in macrotema_slugs and dados_sexo_faixa:
+                dados_sexo_mescla = (
+                    _cor_raca_sem_sobrescrever_view(dados_sexo_faixa, perfil_db)
+                    if macrotema_slug == "demografia"
+                    else dados_sexo_faixa
+                )
                 for linha in linhas_macrotema:
-                    linha.update(dados_sexo_faixa)
+                    linha.update(dados_sexo_mescla)
             if "demografia" in macrotema_slugs and dados_indigena:
                 for linha in linhas_macrotema:
                     linha.update(dados_indigena)
