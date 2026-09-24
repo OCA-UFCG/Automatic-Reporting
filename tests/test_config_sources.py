@@ -52,3 +52,23 @@ def test_cover_does_not_use_lorem_ipsum_when_diagnostic_is_missing():
 
     assert cover["score"]["texto_apoio"] == ""
     assert cover["macrotema"]["resumo"] == ""
+
+
+def test_area_territorial_no_card_bate_com_o_texto_narrativo():
+    # O placeholder `$area` do texto usa 2 casas decimais (default de
+    # `_formatar_valor` em utils/render/placeholders.py); o card precisa
+    # arredondar igual, senão o card e o texto mostram números diferentes
+    # para o mesmo `area_territorial` (ex.: "218,8" vs "218,84").
+    cover = montar_capa_relatorio(
+        {"nm_mun": "Recife (PE)", "area_territorial": 218.84},
+        datetime(2026, 1, 1, tzinfo=timezone.utc),
+        "Meio Ambiente",
+        "meio-ambiente",
+    )
+
+    area = next(
+        metrica
+        for metrica in cover["metricas"]
+        if metrica["rotulo"] == "Área territorial"
+    )
+    assert area["valor"] == "218,84"

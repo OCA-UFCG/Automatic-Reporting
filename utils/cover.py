@@ -404,7 +404,7 @@ def montar_capa_relatorio(
             {
                 "rotulo": "Área territorial",
                 "valor": numero_formatado(
-                    "area_territorial", "area", "area_km2", decimais=1
+                    "area_territorial", "area", "area_km2", decimais=2
                 ),
                 "sufixo": "Km²",
                 "fonte": "Censo demográfico 2022",
