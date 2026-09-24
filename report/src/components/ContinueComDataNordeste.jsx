@@ -3,7 +3,7 @@ import { QR_CODE_CATALOGO_DADOS } from '../assets/qrCodeCatalogoDados.js';
 import { QR_CODE_MONTE_RELATORIO } from '../assets/qrCodeMonteRelatorio.js';
 
 const LINK_CATALOGO_DADOS = 'https://datanordeste.sudene.gov.br/catalog';
-const LINK_MONTE_RELATORIO = 'https://datanordeste.sudene.gov.br/reports';
+const LINK_MONTE_RELATORIO = 'https://datanordeste.sudene.gov.br/relatorio';
 
 function IconCatalogoDados() {
   return (
