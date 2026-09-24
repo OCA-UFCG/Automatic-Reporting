@@ -45,6 +45,25 @@ Não há famílias.
     assert "Para quando" not in resultado
 
 
+def test_cres_pop_condicao_do_doc_aceita_positivo_negativo_e_zero():
+    # Texto do Doc de demografia. Recife: view manda cres_pop = 3.17 (módulo) e o
+    # parágrafo "Entre 2010 e 2022..." sumia; cidade estável também perdia o seu.
+    texto = """Para quando demografia.$cres_pop for 0, então:
+População estável.
+
+Para quando demografia.$cres_pop for maior ou menor que 0, então:
+População mudou.
+"""
+    for cres_pop, esperado, ausente in (
+        (3.17, "População mudou.", "População estável."),
+        (-3.2, "População mudou.", "População estável."),
+        (0, "População estável.", "População mudou."),
+    ):
+        resultado = interpretar_blocos_condicionais(texto, {"cres_pop": cres_pop})
+        assert esperado in resultado, cres_pop
+        assert ausente not in resultado, cres_pop
+
+
 def test_dif_etaria_mais_idosos_escolhe_negativo_e_exibe_magnitude():
     # Recife 2022: 263.996 idosos x 174.222 crianças. Saía "supera em -89.774 pessoas".
     texto = """Para quando demografia.$dif_etaria_09_60 for positivo, então :
@@ -941,6 +960,121 @@ def test_suppressed_caption_does_not_desync_inline_reference_counter():
     assert "(Figura 2)" in html
     assert "Figura 2 – Legenda do gráfico presente" in html
     assert "Legenda do gráfico ausente" not in html
+
+
+def test_legenda_sem_mencao_no_texto_nao_desloca_mencoes_seguintes():
+    # Regressão (Recife): "Dinâmica populacional" sai sem menção inline quando o
+    # parágrafo que a cita é condicional; as menções seguintes ficavam um número
+    # atrás da legenda real pro resto do relatório.
+    reset_figura_contador()
+    texto = (
+        "Citada (Figura X).\n"
+        "\n"
+        "Figura X- Primeira.\n"
+        "\n"
+        "Figura X- Segunda, sem menção.\n"
+        "\n"
+        "Terceira citada (Figura X).\n"
+        "\n"
+        "Figura X- Terceira."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "Citada (Figura 2)" in html
+    assert "Terceira citada (Figura 4)" in html
+    assert "Figura 4 – Terceira" in html
+
+
+def test_graficos_suprimidos_sem_mencao_nao_descontam_mencoes_seguintes():
+    # Regressão (Barra de Santo Antônio/AL): cidade sem comércio exterior tem as
+    # legendas de importação/exportação/balança suprimidas e nenhum parágrafo as
+    # cita; o `-= 1` por supressão descontava reservas inexistentes e o IDHM
+    # passava a citar "Figura 7" (cobertura vacinal).
+    reset_figura_contador()
+    texto = (
+        "Antes (Figura X).\n"
+        "\n"
+        "Figura X- Antes.\n"
+        "\n"
+        "*grafico_importacao\n"
+        "\n"
+        "Figura X- Importações.\n"
+        "\n"
+        "*grafico_exportacao\n"
+        "\n"
+        "Figura X- Exportações.\n"
+        "\n"
+        "Depois (Figura X).\n"
+        "\n"
+        "Figura X- Depois."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "Antes (Figura 2)" in html
+    assert "Depois (Figura 3)" in html
+    assert "Figura 3 – Depois" in html
+    assert "Importações" not in html and "Exportações" not in html
+
+
+def _tema_html(texto: str) -> str:
+    reset_figura_contador()
+    html = "\n".join(render_descricao_tema_html(texto, {}, namespace="economia-renda"))
+    # a sentinela da numeração adiada nunca pode vazar pro relatório
+    assert "" not in html
+    return html
+
+
+def test_mencao_a_grafico_suprimido_e_removida_e_as_seguintes_seguem_certas():
+    # Menção órfã: o parágrafo que cita o gráfico ficou, mas o gráfico não foi
+    # gerado pra esta cidade. Sai a menção inteira (com os parênteses), o resto
+    # da frase fica, e a próxima menção aponta pra legenda certa.
+    html = _tema_html(
+        "Antes (Figura X).\n\nFigura X- Antes.\n\n"
+        "O gráfico ausente é citado aqui (Figura X).\n\n"
+        "*grafico_ausente\n\nFigura X- Legenda do gráfico ausente.\n\n"
+        "Depois, conforme Figura X.\n\nFigura X- Depois."
+    )
+
+    assert "Antes (Figura 2)." in html
+    assert "O gráfico ausente é citado aqui." in html
+    assert "Depois, conforme Figura 3." in html
+    assert "Figura 3 – Depois" in html
+    assert "Legenda do gráfico ausente" not in html
+
+
+def test_mencao_orfa_na_forma_conforme_sai_com_a_virgula():
+    html = _tema_html(
+        "Destinos em 2026, conforme Figura X. A balança fechou negativa.\n\n"
+        "*grafico_ausente\n\nFigura X- Destinos das exportações."
+    )
+
+    assert "Destinos em 2026. A balança fechou negativa." in html
+    assert "conforme" not in html
+
+
+def test_numeracao_adiada_cobre_legenda_sem_mencao_e_suprimida_sem_mencao():
+    # Os dois casos do re-sync, agora pelo caminho real (render_descricao_tema_html).
+    html = _tema_html(
+        "Citada (Figura X).\n\nFigura X- Primeira.\n\n"
+        "Figura X- Segunda, sem menção.\n\n"
+        "*grafico_importacao\n\nFigura X- Importações.\n\n"
+        "Depois (Figura X).\n\nFigura X- Depois."
+    )
+
+    assert "Citada (Figura 2)." in html
+    assert "Depois (Figura 4)." in html
+    assert "Figura 4 – Depois" in html
+
+
+def test_duas_mencoes_seguidas_apontam_pras_duas_proximas_legendas():
+    html = _tema_html(
+        "Primeiro (Figura X) e segundo (Figura X).\n\n"
+        "Figura X- Um.\n\nFigura X- Dois."
+    )
+
+    assert "Primeiro (Figura 2) e segundo (Figura 3)." in html
 
 
 def test_inline_figure_reference_regex_does_not_match_unrelated_words():

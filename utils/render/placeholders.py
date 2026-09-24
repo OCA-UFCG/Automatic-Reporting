@@ -113,7 +113,11 @@ def _avaliar_condicao_demografia(expressao: str, contexto: dict) -> bool | None:
             return False
         return diferenca < 0 if "positivo" in expressao else diferenca > 0
 
-    if "cres_pop_analise" in campos:
+    # O Doc condiciona por $cres_pop ("for 0" / "for maior ou menor que 0"), não
+    # só por $cres_pop_analise. Sem isso a condição caía no avaliador genérico,
+    # que só entende "menor que 0": com a view mandando cres_pop em módulo
+    # (#159), o parágrafo de dinâmica populacional sumia pra toda cidade.
+    if "cres_pop_analise" in campos or "cres_pop" in campos:
         crescimento = valor("cres_pop")
         if crescimento is None:
             return False

@@ -1,5 +1,6 @@
 import base64
 import html as html_module
+import logging
 import re
 from urllib.parse import quote
 
@@ -26,6 +27,31 @@ _proxima_referencia_inline = 1
 # texto_para_html uma vez para cada um: marcador e legenda caem em chamadas
 # diferentes sempre que há linha em branco entre eles no Doc.
 _suprimir_proxima_legenda = False
+
+logger = logging.getLogger(__name__)
+
+# Numeração adiada das menções "(Figura X)" dentro de um macrotema. Em passada
+# única a menção é numerada antes de sabermos se o gráfico dela vai existir;
+# então, durante render_descricao_tema_html, cada menção sai como sentinela e
+# cada legenda suprimida deixa uma marca, e _resolver_referencias_adiadas casa
+# as duas coisas no fim do tema (ver a docstring dela). Fora desse escopo
+# (características, fontes, referências) a numeração continua direta.
+_referencias_adiadas = False
+_SENTINELA_REF = "FIGREF"
+_SENTINELA_SUPRIMIDA = "FIGSUP"
+_SEPARADOR_PARTES = "PARTE"
+_EVENTO_FIGURA = re.compile(
+    rf"{_SENTINELA_REF}|{_SENTINELA_SUPRIMIDA}"
+    r'|<p class="figure-caption">Figura (\d+) –'
+)
+# As três formas em que o Doc cita figura (inventário dos 9 Docs, 2026-09-23).
+# Numa menção órfã (gráfico suprimido, parágrafo mantido) sai a forma inteira:
+# "texto (Figura X)." vira "texto.". Outra forma qualquer não é removida.
+_FORMAS_MENCAO_ORFA = (
+    f" ({_SENTINELA_REF})",
+    f", conforme {_SENTINELA_REF}",
+    f", {_SENTINELA_REF}",
+)
 
 _PONTUACAO_FINAL_FRASE = re.compile(r"[.!?…]+(?=[\"'”’)]*(?:\s|$))")
 _TERMINA_EM_FRASE = re.compile(r"[.!?…]+[\"'”’)]*$")
@@ -151,10 +177,74 @@ def _substituir_referencia_figura_inline(linha: str) -> str:
     """
     def _proxima_figura(_match: re.Match) -> str:
         global _proxima_referencia_inline
+        if _referencias_adiadas:
+            return _SENTINELA_REF
         _proxima_referencia_inline += 1
         return f"Figura {_proxima_referencia_inline}"
 
     return _REFERENCIA_FIGURA_INLINE.sub(_proxima_figura, linha)
+
+
+def _resolver_referencias_adiadas(html: str, descricao: str = "") -> str:
+    """Numera as menções adiadas de um macrotema, em ordem, com uma fila.
+
+    - legenda N emitida: a menção pendente mais antiga vira "Figura N";
+    - legenda suprimida (gráfico não gerado): a menção pendente mais antiga é
+      removida com a forma que a envolve e registrada em log — melhor sumir do
+      que apontar pra figura errada. A correção de fato é no Doc: o parágrafo
+      não está condicionado ao mesmo dado que o gráfico;
+    - legenda sem menção pendente: nada a fazer;
+    - menção que sobra no fim do tema: próximo número livre (a mesma regra da
+      passada única), então nunca fica pior que antes.
+    """
+    eventos = list(_EVENTO_FIGURA.finditer(html))
+    if not any(e.group(0) == _SENTINELA_REF for e in eventos):
+        return html.replace(_SENTINELA_SUPRIMIDA, "")
+
+    destino: dict[int, str | None] = {}  # início da sentinela -> "Figura N" | None (órfã)
+    pendentes: list[int] = []
+    for evento in eventos:
+        if evento.group(0) == _SENTINELA_REF:
+            pendentes.append(evento.start())
+        elif evento.group(0) == _SENTINELA_SUPRIMIDA:
+            if pendentes:
+                destino[pendentes.pop(0)] = None
+        elif pendentes:
+            destino[pendentes.pop(0)] = f"Figura {evento.group(1)}"
+    for extra, inicio in enumerate(pendentes, start=1):
+        destino[inicio] = f"Figura {_figura_contador + extra}"
+
+    saida: list[str] = []
+    cursor = 0
+    for inicio in sorted(destino):
+        numero = destino[inicio]
+        fim = inicio + len(_SENTINELA_REF)
+        if numero is None:
+            forma = next(
+                (f for f in _FORMAS_MENCAO_ORFA
+                 if html.startswith(f, inicio - f.index(_SENTINELA_REF))),
+                None,
+            )
+            contexto_log = html[max(cursor, inicio - 80):inicio]
+            if forma is not None:
+                inicio_forma = inicio - forma.index(_SENTINELA_REF)
+                saida.append(html[cursor:inicio_forma])
+                cursor = inicio_forma + len(forma)
+                logger.warning(
+                    "Menção a figura de gráfico suprimido removida (%s): ...%s",
+                    descricao, contexto_log,
+                )
+                continue
+            numero = f"Figura {_figura_contador + 1}"
+            logger.warning(
+                "Menção a figura de gráfico suprimido em forma desconhecida, mantida (%s): ...%s",
+                descricao, contexto_log,
+            )
+        saida.append(html[cursor:inicio])
+        saida.append(numero)
+        cursor = fim
+    saida.append(html[cursor:])
+    return "".join(saida).replace(_SENTINELA_SUPRIMIDA, "")
 
 
 def resolver_referencia_figura_do_mapa(texto: str) -> str:
@@ -549,8 +639,29 @@ def render_descricao_tema_html(
     # separados). Zeramos no início de cada macrotema para que uma flag deixada
     # True por um marcador órfão no fim do tema anterior não descarte, por
     # engano, a primeira legenda deste tema.
-    global _suprimir_proxima_legenda
+    global _suprimir_proxima_legenda, _referencias_adiadas
     _suprimir_proxima_legenda = False
+    _referencias_adiadas = True
+    try:
+        partes = _render_descricao_tema_partes(
+            descricao_tema, contexto, namespace, safe_report, graficos_por_placeholder
+        )
+    finally:
+        _referencias_adiadas = False
+    resolvido = _resolver_referencias_adiadas(
+        _SEPARADOR_PARTES.join(partes),
+        descricao=f"{namespace} / {contexto.get('nm_mun', '?')}",
+    )
+    return [parte for parte in resolvido.split(_SEPARADOR_PARTES) if parte.strip()]
+
+
+def _render_descricao_tema_partes(
+    descricao_tema: str,
+    contexto: dict,
+    namespace: str,
+    safe_report: str | None,
+    graficos_por_placeholder: dict[str, str] | None,
+) -> list[str]:
     descricao_tema = interpretar_blocos_condicionais(descricao_tema, contexto)
     descricao_tema = _rotular_linhas_de_fonte(descricao_tema)
     partes = []
@@ -892,19 +1003,27 @@ def texto_para_html(
 
             global _figura_contador, _proxima_referencia_inline
 
+            # Toda legenda (emitida ou suprimida) ressincroniza o contador das
+            # menções inline "(Figura X)" com o das legendas: a próxima menção
+            # aponta sempre pra próxima legenda que de fato sair. Antes os dois
+            # andavam soltos — legenda sem menção no texto (ex.: "Dinâmica
+            # populacional") ou gráfico suprimido sem menção (ex.: importações
+            # numa cidade sem comércio exterior, onde o `-= 1` do #163
+            # descontava uma reserva que nem existia) deslocavam todas as menções
+            # seguintes do relatório. Limite conhecido: menção a um gráfico que
+            # foi suprimido (parágrafo mantido) aponta pra figura seguinte.
+
             # O gráfico desta legenda não existe para este município: descarta
             # a legenda sem consumir número, para a numeração seguir contínua.
-            # A menção inline "(Figura X)" que antecede essa legenda no texto já
-            # reservou um número em _proxima_referencia_inline antes de sabermos
-            # que a legenda seria suprimida; sem desfazer essa reserva aqui, os
-            # dois contadores ficam dessincronizados pro resto do documento e as
-            # próximas menções inline apontam pra legenda errada.
             if _suprimir_proxima_legenda:
                 _suprimir_proxima_legenda = False
-                _proxima_referencia_inline -= 1
+                _proxima_referencia_inline = _figura_contador
+                if _referencias_adiadas:
+                    html_lines.append(_SENTINELA_SUPRIMIDA)
                 continue
 
             _figura_contador += 1
+            _proxima_referencia_inline = _figura_contador
 
             legenda = re.sub(
                 r"\[[A-Za-z0-9]{1,3}\]",
