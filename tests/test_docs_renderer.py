@@ -45,6 +45,25 @@ Não há famílias.
     assert "Para quando" not in resultado
 
 
+def test_cres_pop_condicao_do_doc_aceita_positivo_negativo_e_zero():
+    # Texto do Doc de demografia. Recife: view manda cres_pop = 3.17 (módulo) e o
+    # parágrafo "Entre 2010 e 2022..." sumia; cidade estável também perdia o seu.
+    texto = """Para quando demografia.$cres_pop for 0, então:
+População estável.
+
+Para quando demografia.$cres_pop for maior ou menor que 0, então:
+População mudou.
+"""
+    for cres_pop, esperado, ausente in (
+        (3.17, "População mudou.", "População estável."),
+        (-3.2, "População mudou.", "População estável."),
+        (0, "População estável.", "População mudou."),
+    ):
+        resultado = interpretar_blocos_condicionais(texto, {"cres_pop": cres_pop})
+        assert esperado in resultado, cres_pop
+        assert ausente not in resultado, cres_pop
+
+
 def test_dif_etaria_mais_idosos_escolhe_negativo_e_exibe_magnitude():
     # Recife 2022: 263.996 idosos x 174.222 crianças. Saía "supera em -89.774 pessoas".
     texto = """Para quando demografia.$dif_etaria_09_60 for positivo, então :
