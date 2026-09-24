@@ -219,3 +219,20 @@ def test_porte_local_usa_o_mesmo_termo_da_view(monkeypatch):
     )
     dados = demografia.buscar_populacao_demografia("Pedra Preta", "RN")
     assert dados["porte_mun"] == AMOSTRA["Pedra Preta (RN)"]["porte_mun"]
+
+
+def test_marcador_de_cor_raca_do_doc_tem_grafico_registrado():
+    # Regressão: o Doc passou a trazer `*grafico_composicao_cor_ou_raca` e o
+    # gráfico estava registrado como `grafico_composicao_cor_raca` — o renderer
+    # procura a chave exata, então o PNG era gerado e nunca entrava no relatório.
+    from services.generation import GRAFICOS_AUTO_MARCADOR
+
+    trecho_do_doc = (
+        "*grafico_composicao_cor_ou_raca\n\n\n\n"
+        "Figura Q - Número de pessoas por cor ou raça em demografia.$nm_mun "
+        "(demografia.$sigla_uf).\n"
+    )
+    marcador = re.search(r"(?m)^\*(\w+)\s*$", trecho_do_doc).group(1)
+    legendas = dict(GRAFICOS_AUTO_MARCADOR["demografia"])
+    assert marcador in legendas
+    assert re.search(legendas[marcador], trecho_do_doc)

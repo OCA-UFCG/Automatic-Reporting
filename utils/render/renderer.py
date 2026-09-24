@@ -106,7 +106,7 @@ _CONFIG_GRAFICOS = {
     "grafico_domicilio_por_tipo_esgosto": {
         "largura_maxima": "600px",
     },
-    "grafico_composicao_cor_raca": {
+    "grafico_composicao_cor_ou_raca": {
         "largura_maxima": "350px",
         "margem_vertical": "12px",
     },

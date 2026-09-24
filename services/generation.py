@@ -144,10 +144,16 @@ GRAFICOS_AUTO_MARCADOR = {
             ),
         ),
         (
-            "grafico_composicao_cor_raca",
+            # Nome do marcador como está no Doc (`*grafico_composicao_cor_ou_raca`):
+            # a chave é o que o renderer procura, então precisa ser idêntica.
+            "grafico_composicao_cor_ou_raca",
             (
                 r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
-                r"Composi[cç][aã]o\s+por\s+cor\s+ou\s+ra[cç]a[^\n]*)$"
+                # Legenda antiga ("Composição por cor ou raça...") ou a atual do
+                # Doc ("Número de pessoas por cor ou raça..."), pelo mesmo motivo
+                # do grafico_visao_historica abaixo.
+                r"(?:Composi[cç][aã]o|N[uú]mero\s+de\s+pessoas)\s+por\s+cor\s+ou\s+"
+                r"ra[cç]a[^\n]*)$"
             ),
         ),
         (
@@ -860,7 +866,7 @@ async def gerar_relatorio_handler(
             if macrotema_slug == "demografia":
                 for nome_grafico, gerar_grafico in (
                     ("grafico_faixa_etaria_e_sexo", gerar_grafico_faixa_etaria_e_sexo),
-                    ("grafico_composicao_cor_raca", gerar_grafico_composicao_cor_raca),
+                    ("grafico_composicao_cor_ou_raca", gerar_grafico_composicao_cor_raca),
                     ("grafico_visao_historica", gerar_grafico_visao_historica_populacao),
                 ):
                     try:
