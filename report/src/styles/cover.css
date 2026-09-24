@@ -1039,6 +1039,12 @@
     padding: 32px 33.76px;
     box-sizing: border-box;
     box-decoration-break: clone;
+    /* Cada macrotema começa no topo de uma página: sem isso o card do tema
+       podia sobrar sozinho no rodapé e o texto começar na página seguinte.
+       Custo: espaço em branco no fim do tema anterior. Junto do
+       `break-after: page` da capa, as duas quebras viram uma só. */
+    break-before: page;
+    page-break-before: always;
   }
 
   .report-cover {
