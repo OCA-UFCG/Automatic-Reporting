@@ -1,0 +1,459 @@
+{
+ "_origem": "Snapshot de 2026-09-24 da vw_perfil_populacional_municipal + buscar_* de utils/queries/demografia.py, mesclados como em services/generation.py. Só os campos usados pelo Doc de demografia e pelos gráficos.",
+ "Recife (PE)": {
+  "cat_etaria_ind_pri": "30 a 39",
+  "cat_etaria_ind_seg": "40 a 49",
+  "cat_etaria_maior": "30 a 39 anos",
+  "cat_etaria_menor": "80 anos ou mais",
+  "centro_pop": 4,
+  "centros_pop": 4,
+  "comparar_pop_porte": "inferior à",
+  "cor_pri_class": "pardas",
+  "cor_pri_per": 48.53,
+  "cor_pri_pop": 722555,
+  "cor_quar_per": 0.18,
+  "cor_quar_pop": 2703,
+  "cor_quin_class": "indígena",
+  "cor_quin_per": 0.18,
+  "cor_raca_pri_class": "pardas",
+  "cor_seg_class": "branca",
+  "cor_seg_per": 38.85,
+  "cor_seg_pop": 578413,
+  "cor_ter_class": "preta",
+  "cor_ter_per": 12.26,
+  "cor_ter_pop": 182546,
+  "cres_pop": 3.17,
+  "cres_pop_analise": "uma redução",
+  "dif_etaria_09_60": 89774,
+  "dif_etaria_09_60_dado": 89774,
+  "etaria_analise": "predominância de adultos em idade economicamente ativa",
+  "etaria_maior_per": 15.3,
+  "etaria_menor_per": 2.68,
+  "faixas_etarias_sexo": [
+   {
+    "faixa": "0 a 9 anos",
+    "mulheres": 85516,
+    "homens": 88706
+   },
+   {
+    "faixa": "10 a 19 anos",
+    "mulheres": 90843,
+    "homens": 93992
+   },
+   {
+    "faixa": "20 a 29 anos",
+    "mulheres": 111429,
+    "homens": 107884
+   },
+   {
+    "faixa": "30 a 39 anos",
+    "mulheres": 121650,
+    "homens": 106168
+   },
+   {
+    "faixa": "40 a 49 anos",
+    "mulheres": 122499,
+    "homens": 101700
+   },
+   {
+    "faixa": "50 a 59 anos",
+    "mulheres": 109570,
+    "homens": 84967
+   },
+   {
+    "faixa": "60 a 69 anos",
+    "mulheres": 85636,
+    "homens": 59722
+   },
+   {
+    "faixa": "70 a 79 anos",
+    "mulheres": 49857,
+    "homens": 28884
+   },
+   {
+    "faixa": "80 anos ou mais",
+    "mulheres": 28384,
+    "homens": 11513
+   }
+  ],
+  "familias_rua_total": 5133,
+  "media_porte": 11.22,
+  "nm_mun": "Recife",
+  "pop_amarela": 2703,
+  "pop_branca": 578413,
+  "pop_etaria_0_9": 174222,
+  "pop_etaria_60_mais": 263996,
+  "pop_etaria_ind_pri": 420,
+  "pop_etaria_ind_seg": 415,
+  "pop_etaria_per_0_9": 11.7,
+  "pop_etaria_per_60_mais": 17.73,
+  "pop_familias_rua_2026": 5133,
+  "pop_homem": 683536,
+  "pop_homem_per": 45.91,
+  "pop_ind_2010": 3665,
+  "pop_ind_2022": 2656,
+  "pop_ind_homem_2022": 1153,
+  "pop_ind_mulher_2022": 1503,
+  "pop_indigena": 2656,
+  "pop_mulher": 805384,
+  "pop_mulher_per": 54.09,
+  "pop_parda": 722555,
+  "pop_preta": 182546,
+  "pop_qui": 118,
+  "pop_qui_per": 0.01,
+  "pop_rua_2022": 1817,
+  "pop_rua_2026": 5141,
+  "pop_rua_bolsaf_2026": 3920,
+  "pop_rua_situacao": "4562 famílias em situação de pobreza (88,88%), 223 famílias em condição de baixa renda (4,34%) e 348 famílias com renda acima de meio salário mínimo (6,78%)",
+  "pop_total_2000": 1422905,
+  "pop_total_2010": 1537704,
+  "pop_total_2022": 1488920,
+  "porte_mun": "grande porte",
+  "sigla_uf": "PE",
+  "var_pop_ind_abs": 27.5,
+  "var_pop_ind_analise": "redução",
+  "var_pop_rua_analise": "aumento"
+ },
+ "Cabedelo (PB)": {
+  "cat_etaria_ind_pri": "40 a 49",
+  "cat_etaria_ind_seg": "20 a 29",
+  "cat_etaria_maior": "40 a 49 anos",
+  "cat_etaria_menor": "80 anos ou mais",
+  "centro_pop": 1,
+  "centros_pop": 1,
+  "comparar_pop_porte": "superior à",
+  "cor_pri_class": "pardas",
+  "cor_pri_per": 55.69,
+  "cor_pri_pop": 37043,
+  "cor_quar_per": 0.36,
+  "cor_quar_pop": 241,
+  "cor_quin_class": "amarela",
+  "cor_quin_per": 0.14,
+  "cor_raca_pri_class": "pardas",
+  "cor_seg_class": "branca",
+  "cor_seg_per": 33.66,
+  "cor_seg_pop": 22392,
+  "cor_ter_class": "preta",
+  "cor_ter_per": 10.15,
+  "cor_ter_pop": 6751,
+  "cres_pop": 14.8,
+  "cres_pop_analise": "um aumento",
+  "dif_etaria_09_60": 223,
+  "dif_etaria_09_60_dado": -223,
+  "etaria_analise": "predominância de adultos em idade economicamente ativa",
+  "etaria_maior_per": 15.15,
+  "etaria_menor_per": 1.83,
+  "faixas_etarias_sexo": [
+   {
+    "faixa": "0 a 9 anos",
+    "mulheres": 4635,
+    "homens": 4909
+   },
+   {
+    "faixa": "10 a 19 anos",
+    "mulheres": 4631,
+    "homens": 4871
+   },
+   {
+    "faixa": "20 a 29 anos",
+    "mulheres": 5131,
+    "homens": 4909
+   },
+   {
+    "faixa": "30 a 39 anos",
+    "mulheres": 5366,
+    "homens": 4710
+   },
+   {
+    "faixa": "40 a 49 anos",
+    "mulheres": 5457,
+    "homens": 4623
+   },
+   {
+    "faixa": "50 a 59 anos",
+    "mulheres": 4271,
+    "homens": 3685
+   },
+   {
+    "faixa": "60 a 69 anos",
+    "mulheres": 2973,
+    "homens": 2409
+   },
+   {
+    "faixa": "70 a 79 anos",
+    "mulheres": 1600,
+    "homens": 1120
+   },
+   {
+    "faixa": "80 anos ou mais",
+    "mulheres": 825,
+    "homens": 394
+   }
+  ],
+  "familias_rua_total": 13,
+  "media_porte": 8.8,
+  "nm_mun": "Cabedelo",
+  "pop_amarela": 92,
+  "pop_branca": 22392,
+  "pop_etaria_0_9": 9544,
+  "pop_etaria_60_mais": 9321,
+  "pop_etaria_ind_pri": 50,
+  "pop_etaria_ind_seg": 47,
+  "pop_etaria_per_0_9": 14.35,
+  "pop_etaria_per_60_mais": 14.01,
+  "pop_familias_rua_2026": 13,
+  "pop_homem": 31630,
+  "pop_homem_per": 47.55,
+  "pop_ind_2010": 429,
+  "pop_ind_2022": 276,
+  "pop_ind_homem_2022": 139,
+  "pop_ind_mulher_2022": 137,
+  "pop_indigena": 241,
+  "pop_mulher": 34889,
+  "pop_mulher_per": 52.45,
+  "pop_parda": 37043,
+  "pop_preta": 6751,
+  "pop_qui": 0,
+  "pop_qui_per": 0.0,
+  "pop_rua_2022": 21,
+  "pop_rua_2026": 13,
+  "pop_rua_bolsaf_2026": 12,
+  "pop_rua_situacao": "12 famílias em situação de pobreza (92,31%) e 1 família com renda acima de meio salário mínimo (7,69%)",
+  "pop_total_2000": 42832,
+  "pop_total_2010": 57944,
+  "pop_total_2022": 66519,
+  "porte_mun": "médio porte",
+  "sigla_uf": "PB",
+  "var_pop_ind_abs": 35.7,
+  "var_pop_ind_analise": "redução",
+  "var_pop_rua_analise": "redução"
+ },
+ "Pedra Preta (RN)": {
+  "cat_etaria_ind_pri": "sem dados",
+  "cat_etaria_ind_seg": "sem dados",
+  "cat_etaria_maior": "20 a 29 anos",
+  "cat_etaria_menor": "80 anos ou mais",
+  "centro_pop": 0,
+  "centros_pop": 0,
+  "comparar_pop_porte": "inferior à",
+  "cor_pri_class": "pardas",
+  "cor_pri_per": 55.31,
+  "cor_pri_pop": 1350,
+  "cor_quar_per": 0.0,
+  "cor_quar_pop": 0,
+  "cor_quin_class": "indígena",
+  "cor_quin_per": 0.0,
+  "cor_raca_pri_class": "pardas",
+  "cor_seg_class": "branca",
+  "cor_seg_per": 30.52,
+  "cor_seg_pop": 745,
+  "cor_ter_class": "preta",
+  "cor_ter_per": 14.17,
+  "cor_ter_pop": 346,
+  "cres_pop": 5.75,
+  "cres_pop_analise": "uma redução",
+  "dif_etaria_09_60": 118,
+  "dif_etaria_09_60_dado": 118,
+  "etaria_analise": "população jovem adulta expressiva",
+  "etaria_maior_per": 16.06,
+  "etaria_menor_per": 2.87,
+  "faixas_etarias_sexo": [
+   {
+    "faixa": "0 a 9 anos",
+    "mulheres": 148,
+    "homens": 155
+   },
+   {
+    "faixa": "10 a 19 anos",
+    "mulheres": 181,
+    "homens": 195
+   },
+   {
+    "faixa": "20 a 29 anos",
+    "mulheres": 186,
+    "homens": 206
+   },
+   {
+    "faixa": "30 a 39 anos",
+    "mulheres": 174,
+    "homens": 190
+   },
+   {
+    "faixa": "40 a 49 anos",
+    "mulheres": 156,
+    "homens": 147
+   },
+   {
+    "faixa": "50 a 59 anos",
+    "mulheres": 139,
+    "homens": 143
+   },
+   {
+    "faixa": "60 a 69 anos",
+    "mulheres": 99,
+    "homens": 108
+   },
+   {
+    "faixa": "70 a 79 anos",
+    "mulheres": 68,
+    "homens": 76
+   },
+   {
+    "faixa": "80 anos ou mais",
+    "mulheres": 35,
+    "homens": 35
+   }
+  ],
+  "familias_rua_total": 0,
+  "media_porte": 0.61,
+  "nm_mun": "Pedra Preta",
+  "pop_amarela": 0,
+  "pop_branca": 745,
+  "pop_etaria_0_9": 303,
+  "pop_etaria_60_mais": 421,
+  "pop_etaria_ind_pri": "sem dados",
+  "pop_etaria_ind_seg": "sem dados",
+  "pop_etaria_per_0_9": 12.41,
+  "pop_etaria_per_60_mais": 17.25,
+  "pop_familias_rua_2026": 0,
+  "pop_homem": 1255,
+  "pop_homem_per": 51.41,
+  "pop_ind_2010": 1,
+  "pop_ind_2022": 0,
+  "pop_ind_homem_2022": 0,
+  "pop_ind_mulher_2022": 0,
+  "pop_indigena": 0,
+  "pop_mulher": 1186,
+  "pop_mulher_per": 48.59,
+  "pop_parda": 1350,
+  "pop_preta": 346,
+  "pop_qui": 0,
+  "pop_qui_per": 0.0,
+  "pop_rua_2022": 0,
+  "pop_rua_2026": 0,
+  "pop_rua_bolsaf_2026": 0,
+  "pop_rua_situacao": "0 famílias registradas nas faixas de renda analisadas",
+  "pop_total_2000": 2847,
+  "pop_total_2010": 2590,
+  "pop_total_2022": 2441,
+  "porte_mun": "pequeno porte",
+  "sigla_uf": "RN",
+  "var_pop_ind_abs": "100.00",
+  "var_pop_ind_analise": "redução",
+  "var_pop_rua_analise": "estabilidade"
+ },
+ "Igarassu (PE)": {
+  "cat_etaria_ind_pri": "50 a 59",
+  "cat_etaria_ind_seg": "40 a 49",
+  "cat_etaria_maior": "30 a 39 anos",
+  "cat_etaria_menor": "80 anos ou mais",
+  "centro_pop": 0,
+  "centros_pop": 0,
+  "comparar_pop_porte": "superior à",
+  "cor_pri_class": "pardas",
+  "cor_pri_per": 60.44,
+  "cor_pri_pop": 69627,
+  "cor_quar_per": 0.17,
+  "cor_quar_pop": 197,
+  "cor_quin_class": "amarela",
+  "cor_quin_per": 0.08,
+  "cor_raca_pri_class": "pardas",
+  "cor_seg_class": "branca",
+  "cor_seg_per": 26.78,
+  "cor_seg_pop": 30851,
+  "cor_ter_class": "preta",
+  "cor_ter_per": 12.52,
+  "cor_ter_pop": 14421,
+  "cres_pop": 12.91,
+  "cres_pop_analise": "um aumento",
+  "dif_etaria_09_60": 1352,
+  "dif_etaria_09_60_dado": -1352,
+  "etaria_analise": "predominância de adultos em idade economicamente ativa",
+  "etaria_maior_per": 15.65,
+  "etaria_menor_per": 1.61,
+  "faixas_etarias_sexo": [
+   {
+    "faixa": "0 a 9 anos",
+    "mulheres": 7987,
+    "homens": 8343
+   },
+   {
+    "faixa": "10 a 19 anos",
+    "mulheres": 8178,
+    "homens": 8605
+   },
+   {
+    "faixa": "20 a 29 anos",
+    "mulheres": 8965,
+    "homens": 8330
+   },
+   {
+    "faixa": "30 a 39 anos",
+    "mulheres": 9626,
+    "homens": 8403
+   },
+   {
+    "faixa": "40 a 49 anos",
+    "mulheres": 9425,
+    "homens": 8195
+   },
+   {
+    "faixa": "50 a 59 anos",
+    "mulheres": 7732,
+    "homens": 6429
+   },
+   {
+    "faixa": "60 a 69 anos",
+    "mulheres": 4857,
+    "homens": 3966
+   },
+   {
+    "faixa": "70 a 79 anos",
+    "mulheres": 2460,
+    "homens": 1845
+   },
+   {
+    "faixa": "80 anos ou mais",
+    "mulheres": 1128,
+    "homens": 722
+   }
+  ],
+  "familias_rua_total": 24,
+  "media_porte": 11.22,
+  "nm_mun": "Igarassu",
+  "pop_amarela": 94,
+  "pop_branca": 30851,
+  "pop_etaria_0_9": 16330,
+  "pop_etaria_60_mais": 14978,
+  "pop_etaria_ind_pri": 38,
+  "pop_etaria_ind_seg": 30,
+  "pop_etaria_per_0_9": 14.18,
+  "pop_etaria_per_60_mais": 13.0,
+  "pop_familias_rua_2026": 24,
+  "pop_homem": 54838,
+  "pop_homem_per": 47.6,
+  "pop_ind_2010": 45,
+  "pop_ind_2022": 197,
+  "pop_ind_homem_2022": 92,
+  "pop_ind_mulher_2022": 105,
+  "pop_indigena": 197,
+  "pop_mulher": 60358,
+  "pop_mulher_per": 52.4,
+  "pop_parda": 69627,
+  "pop_preta": 14421,
+  "pop_qui": 3,
+  "pop_qui_per": 0.0,
+  "pop_rua_2022": 15,
+  "pop_rua_2026": 27,
+  "pop_rua_bolsaf_2026": 17,
+  "pop_rua_situacao": "21 famílias em situação de pobreza (87,50%), 1 família em condição de baixa renda (4,17%) e 2 famílias com renda acima de meio salário mínimo (8,33%)",
+  "pop_total_2000": 82277,
+  "pop_total_2010": 102021,
+  "pop_total_2022": 115196,
+  "porte_mun": "grande porte",
+  "sigla_uf": "PE",
+  "var_pop_ind_abs": 337.8,
+  "var_pop_ind_analise": "aumento",
+  "var_pop_rua_analise": "aumento"
+ }
+}

@@ -71,8 +71,11 @@ def buscar_populacao_demografia(
             dados["cres_pop"] = round(
                 (pop_recente - pop_antiga) / pop_antiga * 100, 1
             )
+            # "pequeno porte", e não "baixo porte": é o termo da view. Sem ela
+            # (fallback CSV) este valor vai direto pro texto e o relatório
+            # trocava o rótulo conforme a fonte.
             dados["porte_mun"] = (
-                "baixo porte" if pop_recente <= 50000
+                "pequeno porte" if pop_recente <= 50000
                 else "médio porte" if pop_recente <= 100000
                 else "grande porte"
             )
@@ -425,6 +428,18 @@ def buscar_populacao_rua(
             dados["pop_rua_2022"] = pop_2022
             dados["pop_rua_bolsaf_2022"] = bf_2022
             dados["var_pop_rua_abs"] = abs(pop_rua_total - pop_2022)
-            dados["var_pop_rua_analise"] = "aumento" if pop_rua_total >= pop_2022 else "redução"
-            dados["pop_rua_bolsaf_analise"] = "aumentou" if familias_bf >= bf_2022 else "diminuiu"
+            # Mesmos rótulos da vw_perfil_populacional_municipal, inclusive o de
+            # empate: com ">=" um município com 0 em 2022 e 0 em 2026 (Pedra
+            # Preta/RN) saía "aumento" onde a view diz "estabilidade", e este
+            # cálculo sobrescreve a view na mescla de generation.py.
+            dados["var_pop_rua_analise"] = (
+                "aumento" if pop_rua_total > pop_2022
+                else "redução" if pop_rua_total < pop_2022
+                else "estabilidade"
+            )
+            dados["pop_rua_bolsaf_analise"] = (
+                "aumentou" if familias_bf > bf_2022
+                else "diminuiu" if familias_bf < bf_2022
+                else "permaneceu igual"
+            )
     return {campo: valor for campo, valor in dados.items() if valor is not None}
