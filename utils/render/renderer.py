@@ -652,7 +652,36 @@ def render_descricao_tema_html(
         _SEPARADOR_PARTES.join(partes),
         descricao=f"{namespace} / {contexto.get('nm_mun', '?')}",
     )
+    resolvido = _unir_grafico_e_legenda(resolvido)
     return [parte for parte in resolvido.split(_SEPARADOR_PARTES) if parte.strip()]
+
+
+# Bloco do gráfico (sem <div> aninhada: só <figure>s) seguido da legenda dele,
+# ainda que em partes diferentes do tema.
+_GRAFICO_SEGUIDO_DE_LEGENDA = re.compile(
+    # `(?:(?!</div>).)*`, e não `.*?`: o lazy ainda estica por cima do primeiro
+    # </div> até achar uma legenda mais à frente — um gráfico sem legenda
+    # engoliria a prosa até o próximo gráfico num bloco inquebrável.
+    r'(<div class="grafico-bloco"[^>]*>(?:(?!</div>).)*</div>)'
+    rf"(?:\s|{_SEPARADOR_PARTES})*"
+    r'(<p class="figure-caption">(?:(?!</p>).)*</p>)',
+    re.DOTALL,
+)
+
+
+def _unir_grafico_e_legenda(html: str) -> str:
+    """Põe gráfico e legenda num bloco só, que o PDF não quebra entre páginas.
+
+    Gráfico e legenda vêm de parágrafos diferentes do Doc e viram partes
+    separadas (cada uma num <div> próprio no ThemeDetail.jsx); `break-after:
+    avoid` entre eles dependeria de como o WeasyPrint propaga a quebra por esses
+    wrappers. Um bloco único com `break-inside: avoid` (.grafico-com-legenda,
+    report/src/styles/content.css) é a garantia direta. Só o par é unido — prosa
+    na mesma parte continua quebrando normalmente.
+    """
+    return _GRAFICO_SEGUIDO_DE_LEGENDA.sub(
+        r'<div class="grafico-com-legenda">\1\2</div>', html
+    )
 
 
 def _render_descricao_tema_partes(
@@ -921,12 +950,12 @@ def texto_para_html(
                 )
                 if len(figuras) == 1:
                     envoltorio = (
-                        '<div style="text-align:center; '
+                        '<div class="grafico-bloco" style="text-align:center; '
                         f"margin:{margem_vertical} 0 {_MARGEM_INFERIOR_GRAFICOS};\">"
                     )
                 else:
                     envoltorio = (
-                        '<div style="display:flex; gap:24px; justify-content:center; '
+                        '<div class="grafico-bloco" style="display:flex; gap:24px; justify-content:center; '
                         "align-items:flex-start; "
                         f"margin:{margem_vertical} 0 {_MARGEM_INFERIOR_GRAFICOS}; "
                         'flex-wrap:wrap;">'

@@ -1077,6 +1077,51 @@ def test_duas_mencoes_seguidas_apontam_pras_duas_proximas_legendas():
     assert "Primeiro (Figura 2) e segundo (Figura 3)." in html
 
 
+def _partes_com_graficos(texto: str, graficos: dict[str, str]) -> list[str]:
+    reset_figura_contador()
+    partes = render_descricao_tema_html(
+        texto, {}, namespace="economia-renda", graficos_por_placeholder=graficos
+    )
+    assert not any("" in p for p in partes)
+    return partes
+
+
+def test_grafico_e_legenda_viram_um_bloco_so_que_o_pdf_nao_quebra():
+    partes = _partes_com_graficos(
+        "Texto antes (Figura X).\n\n%%grafico_a\n\nFigura X- Legenda A.\n\nTexto depois.",
+        {"grafico_a": "a.png"},
+    )
+
+    blocos = [p for p in partes if "grafico-com-legenda" in p]
+    assert len(blocos) == 1
+    assert "a.png" in blocos[0] and "Figura 2 – Legenda A." in blocos[0]
+    # a prosa em volta fica fora do bloco inquebrável
+    assert "Texto antes" not in blocos[0] and "Texto depois" not in blocos[0]
+
+
+def test_grafico_sem_legenda_nao_engole_o_texto_ate_o_proximo_grafico():
+    partes = _partes_com_graficos(
+        "%%grafico_a\n\nProsa entre os dois.\n\n%%grafico_b\n\nFigura X- Legenda B.",
+        {"grafico_a": "a.png", "grafico_b": "b.png"},
+    )
+
+    html = "\n".join(partes)
+    bloco = next(p for p in partes if "grafico-com-legenda" in p)
+    assert "b.png" in bloco and "Legenda B" in bloco
+    assert "a.png" not in bloco and "Prosa entre os dois" not in bloco
+    assert html.count("grafico-com-legenda") == 1
+
+
+def test_dois_graficos_lado_a_lado_ficam_no_bloco_com_a_legenda():
+    partes = _partes_com_graficos(
+        "%%grafico_a+grafico_b\n\nFigura X- Legenda dupla.",
+        {"grafico_a": "a.png", "grafico_b": "b.png"},
+    )
+
+    bloco = next(p for p in partes if "grafico-com-legenda" in p)
+    assert "a.png" in bloco and "b.png" in bloco and "Legenda dupla" in bloco
+
+
 def test_inline_figure_reference_regex_does_not_match_unrelated_words():
     reset_figura_contador()
     texto = "A figura da variação mostra crescimento. Como visto na Figura 2, o IDHM cresceu."

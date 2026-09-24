@@ -372,4 +372,12 @@ li {
     break-inside: avoid;
     page-break-inside: avoid;
   }
+
+  /* Gráfico + legenda num bloco só (_unir_grafico_e_legenda em
+     utils/render/renderer.py): se o par não cabe no fim da página, pula
+     inteiro pra próxima em vez de a legenda ficar separada do gráfico. */
+  .grafico-com-legenda {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
 }
