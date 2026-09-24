@@ -92,6 +92,17 @@ def _normalizar_condicao_editorial(linha: str) -> str:
     return linha.replace("**", "").replace("\u00a0", " ").strip()
 
 
+# Operador de uma condição de população de rua ("for maior que 1", "for = 0").
+# "maior e/ou igual a" vem antes de "igual a": sem ela, a busca casava o "igual
+# a 1" de dentro de "maior e igual a 1" e a condição virava "== 1" — no Doc,
+# "$pop_rua_2022 for maior e igual a 1 e $pop_rua_2026 for igual a 0" deixava
+# sem parágrafo de rua os municípios com 2 ou mais pessoas em 2022 e nenhuma
+# em 2026 (23 no Nordeste, ex.: José de Freitas/PI, 2 -> 0).
+_OPERADOR_RUA = re.compile(
+    r"(?:for\s*)?(maior\s+(?:e|ou)\s+igual\s+a|>=|>|=|maior\s+que|igual\s+a)?\s*(\d+)"
+)
+
+
 def _avaliar_condicao_demografia(expressao: str, contexto: dict) -> bool | None:
     """Condições novas do documento de demografia, inclusive comparações de campos."""
     campos = _MARCADOR_CAMPO_CONDICIONAL.findall(expressao)
@@ -151,14 +162,18 @@ def _avaliar_condicao_demografia(expressao: str, contexto: dict) -> bool | None:
             if atual != valor(partes[indice + 1].group(1)):
                 return False
             continue
-        operador = re.search(r"(?:for\s*)?(>=|>|=|maior\s+que|igual\s+a)?\s*(\d+)", trecho)
+        operador = _OPERADOR_RUA.search(trecho)
         if operador is None:
             # "X e Y for 0" aplica o mesmo limiar aos dois campos.
             trecho_final = expressao[partes[-1].end():].casefold()
-            operador = re.search(r"(?:for\s*)?(>=|>|=|maior\s+que|igual\s+a)?\s*(\d+)", trecho_final)
+            operador = _OPERADOR_RUA.search(trecho_final)
         if operador is None:
             continue
         sinal, limite_texto = operador.groups()
+        # "maior  que" com espaço duplo tem que cair no mesmo caso de "maior que".
+        sinal = re.sub(r"\s+", " ", sinal) if sinal else sinal
+        if sinal and sinal.startswith("maior") and "igual" in sinal:
+            sinal = ">="
         limite = float(limite_texto)
         if sinal in {">", "maior que"} and not atual > limite:
             return False

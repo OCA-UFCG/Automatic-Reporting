@@ -131,6 +131,34 @@ Não há famílias.
     assert "Não há famílias." in resultado
 
 
+def test_condicao_rua_maior_e_igual_a_inclui_valores_acima_do_limite():
+    # Regressão: "maior e igual a 1" era lido como "igual a 1" e os municípios
+    # com 2+ pessoas em 2022 e nenhuma em 2026 ficavam sem parágrafo de rua.
+    texto = """Para quando demografia.$pop_rua_2022 for maior e igual a 1 e demografia.$pop_rua_2026 for igual a 0, então:
+Deixou de haver registros.
+"""
+    for pop_2022, esperado in (
+        (2, True),  # José de Freitas (PI): 2 -> 0
+        (1, True),  # Craíbas (AL): 1 -> 0
+        (0, False),  # Pedra Preta (RN): 0 -> 0
+    ):
+        contexto = {"pop_rua_2022": pop_2022, "pop_rua_2026": 0}
+        resultado = interpretar_blocos_condicionais(texto, contexto)
+        assert ("Deixou de haver registros." in resultado) is esperado, pop_2022
+    # Variante "ou" e espaço duplo em "maior  que" caem nos mesmos casos.
+    texto_ou = texto.replace("maior e igual a", "maior ou igual a")
+    assert "Deixou" in interpretar_blocos_condicionais(
+        texto_ou, {"pop_rua_2022": 5, "pop_rua_2026": 0}
+    )
+    texto_maior_que = texto.replace("maior e igual a 1", "maior  que 1")
+    assert "Deixou" not in interpretar_blocos_condicionais(
+        texto_maior_que, {"pop_rua_2022": 1, "pop_rua_2026": 0}
+    )
+    assert "Deixou" in interpretar_blocos_condicionais(
+        texto_maior_que, {"pop_rua_2022": 2, "pop_rua_2026": 0}
+    )
+
+
 def test_condicao_rua_compara_campos_com_igual_a_por_extenso():
     # Grafia atual do Doc: "for igual a $campo" em vez de "= $campo". A
     # comparação era ignorada e "Todas recebem." batia para qualquer total.
