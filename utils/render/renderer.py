@@ -892,19 +892,25 @@ def texto_para_html(
 
             global _figura_contador, _proxima_referencia_inline
 
+            # Toda legenda (emitida ou suprimida) ressincroniza o contador das
+            # menções inline "(Figura X)" com o das legendas: a próxima menção
+            # aponta sempre pra próxima legenda que de fato sair. Antes os dois
+            # andavam soltos — legenda sem menção no texto (ex.: "Dinâmica
+            # populacional") ou gráfico suprimido sem menção (ex.: importações
+            # numa cidade sem comércio exterior, onde o `-= 1` do #163
+            # descontava uma reserva que nem existia) deslocavam todas as menções
+            # seguintes do relatório. Limite conhecido: menção a um gráfico que
+            # foi suprimido (parágrafo mantido) aponta pra figura seguinte.
+
             # O gráfico desta legenda não existe para este município: descarta
             # a legenda sem consumir número, para a numeração seguir contínua.
-            # A menção inline "(Figura X)" que antecede essa legenda no texto já
-            # reservou um número em _proxima_referencia_inline antes de sabermos
-            # que a legenda seria suprimida; sem desfazer essa reserva aqui, os
-            # dois contadores ficam dessincronizados pro resto do documento e as
-            # próximas menções inline apontam pra legenda errada.
             if _suprimir_proxima_legenda:
                 _suprimir_proxima_legenda = False
-                _proxima_referencia_inline -= 1
+                _proxima_referencia_inline = _figura_contador
                 continue
 
             _figura_contador += 1
+            _proxima_referencia_inline = _figura_contador
 
             legenda = re.sub(
                 r"\[[A-Za-z0-9]{1,3}\]",

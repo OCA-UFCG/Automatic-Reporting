@@ -962,6 +962,62 @@ def test_suppressed_caption_does_not_desync_inline_reference_counter():
     assert "Legenda do gráfico ausente" not in html
 
 
+def test_legenda_sem_mencao_no_texto_nao_desloca_mencoes_seguintes():
+    # Regressão (Recife): "Dinâmica populacional" sai sem menção inline quando o
+    # parágrafo que a cita é condicional; as menções seguintes ficavam um número
+    # atrás da legenda real pro resto do relatório.
+    reset_figura_contador()
+    texto = (
+        "Citada (Figura X).\n"
+        "\n"
+        "Figura X- Primeira.\n"
+        "\n"
+        "Figura X- Segunda, sem menção.\n"
+        "\n"
+        "Terceira citada (Figura X).\n"
+        "\n"
+        "Figura X- Terceira."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "Citada (Figura 2)" in html
+    assert "Terceira citada (Figura 4)" in html
+    assert "Figura 4 – Terceira" in html
+
+
+def test_graficos_suprimidos_sem_mencao_nao_descontam_mencoes_seguintes():
+    # Regressão (Barra de Santo Antônio/AL): cidade sem comércio exterior tem as
+    # legendas de importação/exportação/balança suprimidas e nenhum parágrafo as
+    # cita; o `-= 1` por supressão descontava reservas inexistentes e o IDHM
+    # passava a citar "Figura 7" (cobertura vacinal).
+    reset_figura_contador()
+    texto = (
+        "Antes (Figura X).\n"
+        "\n"
+        "Figura X- Antes.\n"
+        "\n"
+        "*grafico_importacao\n"
+        "\n"
+        "Figura X- Importações.\n"
+        "\n"
+        "*grafico_exportacao\n"
+        "\n"
+        "Figura X- Exportações.\n"
+        "\n"
+        "Depois (Figura X).\n"
+        "\n"
+        "Figura X- Depois."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "Antes (Figura 2)" in html
+    assert "Depois (Figura 3)" in html
+    assert "Figura 3 – Depois" in html
+    assert "Importações" not in html and "Exportações" not in html
+
+
 def test_inline_figure_reference_regex_does_not_match_unrelated_words():
     reset_figura_contador()
     texto = "A figura da variação mostra crescimento. Como visto na Figura 2, o IDHM cresceu."
