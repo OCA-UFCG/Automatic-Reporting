@@ -78,6 +78,27 @@ Idosos superam em demografia.$dif_etaria_09_60 pessoas.
     assert "Crianças superam" not in resultado
 
 
+def test_dif_etaria_condicao_escrita_com_o_campo_dado():
+    # Regressão: o Doc passou a escrever "$dif_etaria_09_60_dado for positivo";
+    # a condição só era reconhecida pelo nome sem "_dado" e o parágrafo de faixa
+    # etária sumia nas 4 cidades da amostra. "Positivo" segue sendo o ramo de
+    # "crianças superam" (_dado = idosos - crianças < 0).
+    texto = """Para quando  demografia.$dif_etaria_09_60_dado for positivo, então :
+Crianças superam em demografia.$dif_etaria_09_60 pessoas.
+
+Para quando demografia.$dif_etaria_09_60_dado for negativo, então :
+Idosos superam em demografia.$dif_etaria_09_60 pessoas.
+"""
+    for dado, esperado, ausente in (
+        (89774, "Idosos superam", "Crianças superam"),  # Recife (PE)
+        (-223, "Crianças superam", "Idosos superam"),  # Cabedelo (PB)
+    ):
+        contexto = {"dif_etaria_09_60": abs(dado), "dif_etaria_09_60_dado": dado}
+        resultado = interpretar_blocos_condicionais(texto, contexto)
+        assert esperado in resultado, dado
+        assert ausente not in resultado, dado
+
+
 def test_novas_condicoes_rua_nao_tratam_dado_ausente_como_zero():
     texto = """Para quando demografia.$pop_rua_2022 e demografia.$pop_rua_2026 for 0:
 Sem registros nos dois anos.

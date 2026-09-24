@@ -104,10 +104,15 @@ def _avaliar_condicao_demografia(expressao: str, contexto: dict) -> bool | None:
         bruto = _resolver_campo_com_alias(contexto, campo)
         return coerce_para_float(bruto, default=None)
 
-    if "dif_etaria_09_60" in campos:
+    if "dif_etaria_09_60" in campos or "dif_etaria_09_60_dado" in campos:
         # dif_etaria_09_60 é a magnitude (view e cálculo local); o sinal vem de
         # dif_etaria_09_60_dado = idosos - crianças. O Doc chama de "positivo" o
-        # cenário com mais crianças, ou seja, _dado < 0.
+        # cenário com mais crianças, ou seja, _dado < 0. Vale para as duas grafias
+        # da condição: o Doc passou a escrever "$dif_etaria_09_60_dado for
+        # positivo" e, sem casar esse nome, a condição caía no avaliador genérico
+        # (que não entende "positivo") e o parágrafo sumia em toda cidade. O
+        # texto do ramo "positivo" continua sendo o de "crianças supera", então
+        # o sinal não é lido ao pé da letra.
         diferenca = valor("dif_etaria_09_60_dado")
         if diferenca is None:
             return False
