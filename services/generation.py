@@ -347,46 +347,36 @@ def _caminhos_relatorio(safe_report: str) -> tuple[Path, Path]:
     )
 
 
-def _demografia_sem_sobrescrever_view(
-    dados_demografia_db: dict[str, object], perfil_db: dict | None
-) -> dict[str, object]:
-    """O que de buscar_populacao_demografia entra na linha do relatório.
+# Campos do cálculo local que continuam valendo mesmo com a linha da view: eles
+# descrevem o que a pirâmide etária (Figura 2) desenha, que sai das faixas por
+# década de buscar_demografia_sexo_faixa_etaria. A view já usou outro
+# agrupamento ("0 a 14", "30 a 59") e o texto citava uma faixa que não existe na
+# legenda do gráfico ao lado.
+_CAMPOS_LOCAIS_DO_GRAFICO = frozenset(
+    {"cat_etaria_maior", "cat_etaria_menor", "etaria_maior", "etaria_menor"}
+)
 
-    Com a linha vinda da vw_perfil_populacional_municipal, a view é a fonte: ela já
-    traz pop_total_*, cres_pop (em módulo, par do cres_pop_analise "uma redução"),
-    porte_mun, media_porte e comparar_pop_porte ("inferior à"/"similar à", com a
-    faixa de ±1 p.p.) com as regras do time de dados. Sobrescrevê-los com o cálculo
-    local descompassava o relatório da view — "uma redução de -5,3 %", "baixo
-    porte" onde a view diz "pequeno porte". O cálculo local só preenche o que a view
-    não tem (ex.: pop_total_2000) e, sem view (fallback CSV), vale inteiro.
+
+def _locais_sem_sobrescrever_view(
+    dados_locais: dict[str, object], perfil_db: dict | None
+) -> dict[str, object]:
+    """O que de um buscar_* de demografia entra na linha do relatório.
+
+    Com a linha vinda da vw_perfil_populacional_municipal, a view é a fonte e o
+    cálculo local só preenche o que ela não tem (pop_total_2000, as faixas do
+    gráfico, a população por cor/raça do gráfico de barras). Sobrescrever a view
+    descompassava o relatório das regras do time de dados, caso a caso:
+    "uma redução de -5,3 %" e "baixo porte" (cres_pop/porte_mun), $cor_quar_class
+    "indigena" onde a view traz a classe certa, "aumento" onde a view diz
+    "estabilidade" (var_pop_rua_analise) e "30 a 39" sem o "anos" que o Doc
+    espera (cat_etaria_ind_*). Sem view (fallback CSV), o local vale inteiro.
     """
     if not perfil_db:
-        return dados_demografia_db
+        return dados_locais
     return {
         chave: valor
-        for chave, valor in dados_demografia_db.items()
-        if perfil_db.get(chave) is None
-    }
-
-
-def _cor_raca_sem_sobrescrever_view(
-    dados_sexo_faixa: dict[str, object], perfil_db: dict | None
-) -> dict[str, object]:
-    """O que de buscar_demografia_sexo_faixa_etaria entra na linha do relatório.
-
-    O ranking local de cor/raça ($cor_pri/seg/ter/quar_*) sobrescrevia a view e o
-    $cor_quar_class saía "indigena" onde a view já traz a classe certa. Com a linha
-    da view, os campos cor_* dela prevalecem; o resto (faixas do gráfico, pop por
-    sexo) continua vindo do cálculo local, que é quem casa com a Figura.
-    """
-    if not perfil_db:
-        return dados_sexo_faixa
-    return {
-        chave: valor
-        for chave, valor in dados_sexo_faixa.items()
-        if not (
-            chave.startswith("cor_") or chave == "raca_maior"
-        ) or perfil_db.get(chave) is None
+        for chave, valor in dados_locais.items()
+        if chave in _CAMPOS_LOCAIS_DO_GRAFICO or perfil_db.get(chave) is None
     }
 
 
@@ -624,29 +614,27 @@ async def gerar_relatorio_handler(
                 for linha in linhas_macrotema:
                     linha.update(dados_caracteristicas_db)
 
+            # A view prevalece sobre os buscar_* de demografia só no próprio
+            # relatório de demografia: é a linha dela que está em `perfil_db`. Nos
+            # outros macrotemas, perfil_db é a view deles e os campos de demografia
+            # entram como estão.
+            view_demografia = perfil_db if macrotema_slug == "demografia" else None
             if macrotema_slug == "demografia" and dados_demografia_db:
-                dados_mescla = _demografia_sem_sobrescrever_view(dados_demografia_db, perfil_db)
+                dados_mescla = _locais_sem_sobrescrever_view(dados_demografia_db, view_demografia)
                 for linha in linhas_macrotema:
                     linha.update(dados_mescla)
 
-            if "demografia" in macrotema_slugs and dados_sexo_faixa:
-                dados_sexo_mescla = (
-                    _cor_raca_sem_sobrescrever_view(dados_sexo_faixa, perfil_db)
-                    if macrotema_slug == "demografia"
-                    else dados_sexo_faixa
-                )
-                for linha in linhas_macrotema:
-                    linha.update(dados_sexo_mescla)
-            if "demografia" in macrotema_slugs and dados_indigena:
-                for linha in linhas_macrotema:
-                    linha.update(dados_indigena)
-            if "demografia" in macrotema_slugs and dados_quilombola:
-                for linha in linhas_macrotema:
-                    linha.update(dados_quilombola)
+            if "demografia" in macrotema_slugs:
+                for dados_locais in (dados_sexo_faixa, dados_indigena, dados_quilombola):
+                    if dados_locais:
+                        dados_mescla = _locais_sem_sobrescrever_view(dados_locais, view_demografia)
+                        for linha in linhas_macrotema:
+                            linha.update(dados_mescla)
 
             if dados_rua:
+                dados_rua_mescla = _locais_sem_sobrescrever_view(dados_rua, view_demografia)
                 for linha in linhas_macrotema:
-                    linha.update(dados_rua)
+                    linha.update(dados_rua_mescla)
 
             if dados_indicadores:
                 for linha in linhas_macrotema:

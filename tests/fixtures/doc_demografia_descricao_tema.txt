@@ -1,11 +1,11 @@
 O município de demografia.$nm_mun (demografia.$sigla_uf), em 2022, possuía população residente de demografia.$pop_total_2022 pessoas, sendo considerado um município de demografia.$porte_mun. A maior concentração populacional de demografia.$nm_mun (demografia.$sigla_uf) está na faixa etária de demografia.$cat_etaria_maior (demografia.$etaria_maior_per%), que indica demografia.$etaria_analise (Figura x). Desse total, demografia.$pop_mulher (demografia.$pop_mulher_per%) são do sexo feminino e demografia.$pop_homem (demografia.$pop_homem_per%) do sexo masculino.
 
 
-Para quando  demografia.$dif_etaria_09_60 for positivo, então :
+Para quando  demografia.$dif_etaria_09_60_dado for positivo, então :
 A distribuição por faixa etária permite observar outras características da população municipal. Em 2022, demografia.$pop_etaria_0_9 habitantes (demografia.$pop_etaria_per_0_9%) tinham entre 0 e 9 anos, enquanto demografia.$pop_etaria_60_mais (demografia.$pop_etaria_per_60_mais%) possuíam 60 anos ou mais. Assim, a população de crianças de até 9 anos supera em aproximadamente demografia.$dif_etaria_09_60 pessoas a população com 60 anos ou mais. Essas informações contribuem para dimensionar diferentes grupos da população e podem subsidiar o planejamento de políticas, serviços e equipamentos públicos voltados às diferentes faixas etárias.
 
 
-Para quando demografia.$dif_etaria_09_60 for negativo, então :
+Para quando demografia.$dif_etaria_09_60_dado for negativo, então :
 A distribuição por faixa etária permite observar outras características da população municipal. Em 2022, demografia.$pop_etaria_0_9 habitantes (demografia.$pop_etaria_per_0_9%) tinham entre 0 e 9 anos, enquanto demografia.$pop_etaria_60_mais (demografia.$pop_etaria_per_60_mais%) possuíam 60 anos ou mais. Assim, a população com 60 anos ou mais supera em aproximadamente demografia.$dif_etaria_09_60 pessoas a população de crianças de até 9 anos. Essas informações contribuem para dimensionar diferentes grupos da população e podem subsidiar o planejamento de políticas, serviços e equipamentos públicos voltados às diferentes faixas etárias.
 
 
@@ -32,7 +32,7 @@ Entre 2010 e 2022, a população do município apresentou demografia.$cres_pop_a
 Figura Z – Dinâmica populacional de demografia.$nm_mun (demografia.$sigla_uf).
 
 
-Quanto à composição por cor ou raça, há predominância de pessoas autodeclaradas demografia.$cor_pri_class, que representa demografia.$cor_pri_per% dos habitantes (demografia.$cor_pri_pop). Em seguida, aparecem a população demografia.$cor_seg_class, com demografia.$cor_seg_per% (demografia.$cor_seg_pop), a demografia.$cor_ter_class, com demografia.$cor_ter_per% (demografia.$cor_ter_pop) e demografia.$cor_quar_per com demografia.$cor_quar_per% e (demografia.$cor_quar_pop), conforme a Figura Q. A população demografia.$cor_quin_class representa menos de demografia.$cor_quin_per% dos habitantes do município.  Esses dados contribuem para caracterizar o perfil da população e, quando associados a outros indicadores sociais e econômicos, podem subsidiar a identificação de desigualdades e o direcionamento de políticas públicas.
+Quanto à composição por cor ou raça, há predominância de pessoas autodeclaradas demografia.$cor_pri_class, que representa demografia.$cor_pri_per% dos habitantes (demografia.$cor_pri_pop). Em seguida, aparecem a população demografia.$cor_seg_class, com demografia.$cor_seg_per% (demografia.$cor_seg_pop), a demografia.$cor_ter_class, com demografia.$cor_ter_per% (demografia.$cor_ter_pop) e a demografia.$cor_quar_class, com demografia.$cor_quar_per% (demografia.$cor_quar_pop), conforme a Figura Q. A população demografia.$cor_quin_class representa demografia.$cor_quin_per% dos habitantes do município.  Esses dados contribuem para caracterizar o perfil da população e, quando associados a outros indicadores sociais e econômicos, podem subsidiar a identificação de desigualdades e o direcionamento de políticas públicas.
 
 
 *grafico_composicao_cor_ou_raca
@@ -42,11 +42,7 @@ Quanto à composição por cor ou raça, há predominância de pessoas autodecla
 Figura Q - Número de pessoas por cor ou raça em demografia.$nm_mun (demografia.$sigla_uf).
 
 
-Para quando demografia.$pop_ind_2022 for diferente de 0 e demografia.$pop_qui for igual a 0, então:
-Em 2022, a população autodeclarada indígena de demografia.$nm_mun (demografia.$sigla_uf) era de demografia.$pop_ind_2022 pessoas, sendo demografia.$pop_ind_mulher_2022 mulheres e demografia.$pop_ind_homem_2022 homens. A maior concentração estava entre demografia.$cat_etaria_ind_pri  anos, com demografia.$pop_etaria_ind_pri pessoas, seguida pela faixa de demografia.$cat_etaria_ind_seg, com demografia.$pop_etaria_ind_seg.
-
-
-Para quando demografia.$pop_ind_2010 for diferente de 0, então:
+Para quando demografia.$pop_ind_2010 for diferente de 0:
 Em relação a 2010, quando o município registrava demografia.$pop_ind_2010 pessoas autodeclaradas indígenas, ocorrendo demografia.$var_pop_ind_analise de aproximadamente demografia.$var_pop_ind_abs%.
 
 
@@ -54,22 +50,18 @@ Para quando demografia.$pop_ind_2010 for igual a 0, então:
 Em relação a 2010, o município não registrava nenhuma pessoa autodeclarada indígena.
 
 
-Quanto à população autodeclarada quilombola, não foram identificados registros para demografia.$nm_mun nos dados consultados. Contudo, esse resultado deve ser interpretado considerando os limites da fonte de dados utilizada, não sendo suficiente, por si só, para afastar a presença dessa população no município.
-
-
-Para quando demografia.$pop_ind_2022 e demografia.$pop_qui for diferente de 0, então:
-Em 2022, a população autodeclarada indígena de demografia.$nm_mun (demografia.$sigla_uf) era de demografia.$pop_ind_2022 pessoas, sendo demografia.$pop_ind_mulher_2022 mulheres e demografia.$pop_ind_homem_2022 homens. A maior concentração estava entre demografia.$cat_etaria_ind_pri  anos, com demografia.$pop_etaria_ind_pri pessoas, seguida pela faixa de demografia.$cat_etaria_ind_seg, com demografia.$pop_etaria_ind_seg.
-
-
-Para quando demografia.$pop_ind_2010 for diferente de 0, então:
-Em relação a 2010, quando o município registrava demografia.$pop_ind_2010 pessoas autodeclaradas indígenas, houve demografia.$var_pop_ind_analise de aproximadamente demografia.$var_pop_ind_abs%.
-
-
-Para quando demografia.$pop_ind_2010 for igual a 0, então: Em relação a 2010, o município não registrava nenhuma pessoa autodeclarada indígena. Quanto à população autodeclarada quilombola, em 2022, havia demografia.$pop_qui pessoas, representando demografia.$pop_qui_per% da população total. Essas informações permitem conhecer melhor a presença e o perfil da população autodeclarada indígena e quilombola no município e podem subsidiar o planejamento de ações direcionadas a esses grupos.
+Para quando demografia.$pop_ind_2022 diferente de 0 e demografia.$pop_qui for igual a 0, então:
+Em 2022, a população autodeclarada indígena de demografia.$nm_mun (demografia.$sigla_uf) era de demografia.$pop_ind_2022 pessoas, sendo demografia.$pop_ind_mulher_2022 mulheres e demografia.$pop_ind_homem_2022 homens. A maior concentração estava entre demografia.$cat_etaria_ind_pri, com demografia.$pop_etaria_ind_pri pessoas, seguida pela faixa de demografia.$cat_etaria_ind_seg, com demografia.$pop_etaria_ind_seg pessoas. Para a população autodeclarada quilombola, não foram encontrados registros no município na fonte de dados consultada. Contudo, esse resultado deve ser interpretado considerando os limites da base utilizada, não sendo suficiente, por si só, para afastar a presença dessa população no município.
 
 
 Para quando demografia.$pop_ind_2022 for igual a 0 e demografia.$pop_qui for diferente de 0, então:
 Em 2022, não foram encontrados registros para a população autodeclarada indígena no município de demografia.$nm_mun (demografia.$sigla_uf). Contudo, esse resultado deve ser interpretado considerando os limites da fonte de dados utilizada, não sendo suficiente, por si só, para afastar a presença dessa população no município. Quanto à população autodeclarada quilombola em demografia.$nm_mun (demografia.$sigla_uf), em 2022 havia demografia.$pop_qui pessoas, representando demografia.$pop_qui_per% da população total. A identificação dessa população contribui para dar visibilidade à sua presença no município e fornece informações relevantes para o planejamento e a formulação de políticas públicas, permitindo que suas especificidades e demandas sejam consideradas na definição de prioridades e na oferta de serviços.
+
+
+Para quando demografia.$pop_ind_2022 for diferente de 0 e demografia.$pop_qui for diferente de 0, então:
+
+
+        Em 2022, a população autodeclarada indígena de demografia.$nm_mun (demografia.$sigla_uf) era de demografia.$pop_ind_2022 pessoas, sendo demografia.$pop_ind_mulher_2022 mulheres e demografia.$pop_ind_homem_2022 homens. A maior concentração estava entre demografia.$cat_etaria_ind_pri, com demografia.$pop_etaria_ind_pri pessoas, seguida pela faixa de demografia.$cat_etaria_ind_seg, com demografia.$pop_etaria_ind_seg pessoas. Quanto à população autodeclarada quilombola, em 2022 havia demografia.$pop_qui pessoas, representando demografia.$pop_qui_per% da população total.
 
 
 Para quando demografia.$pop_ind_2022 for igual a 0 e demografia.$pop_qui for igual a 0, então:

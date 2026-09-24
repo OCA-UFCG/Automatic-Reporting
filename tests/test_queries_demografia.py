@@ -120,7 +120,7 @@ def test_calculo_local_nao_sobrescreve_colunas_da_view():
     # Regressão: o relatório lia a vw_perfil_populacional_municipal e depois
     # sobrescrevia cres_pop/porte_mun/media_porte com o cálculo local, que tem
     # sinal e rótulos próprios — o Doc saía "apresentou uma redução de -5,3 %".
-    from services.generation import _demografia_sem_sobrescrever_view
+    from services.generation import _locais_sem_sobrescrever_view
 
     local = {
         "pop_total_2022": 9000,
@@ -140,7 +140,7 @@ def test_calculo_local_nao_sobrescreve_colunas_da_view():
     }
 
     linha = dict(view)
-    linha.update(_demografia_sem_sobrescrever_view(local, view))
+    linha.update(_locais_sem_sobrescrever_view(local, view))
 
     assert linha["cres_pop"] == 5.26
     assert linha["porte_mun"] == "pequeno porte"
@@ -151,16 +151,16 @@ def test_calculo_local_nao_sobrescreve_colunas_da_view():
 
 def test_sem_view_calculo_local_vale_inteiro():
     # Fallback CSV (PR #91): sem linha da view, o banco continua completando o CSV.
-    from services.generation import _demografia_sem_sobrescrever_view
+    from services.generation import _locais_sem_sobrescrever_view
 
     local = {"cres_pop": -5.3, "porte_mun": "baixo porte"}
-    assert _demografia_sem_sobrescrever_view(local, None) == local
+    assert _locais_sem_sobrescrever_view(local, None) == local
 
 
 def test_cor_raca_da_view_nao_e_sobrescrita_pelo_ranking_local():
     # Regressão: o ranking local de cor/raça sobrescrevia a view e o Doc saía
     # "A população indigena representa..." onde a view traz a classe certa.
-    from services.generation import _cor_raca_sem_sobrescrever_view
+    from services.generation import _locais_sem_sobrescrever_view
 
     local = {
         "cor_quar_class": "indigena",
@@ -175,7 +175,7 @@ def test_cor_raca_da_view_nao_e_sobrescrita_pelo_ranking_local():
     }
 
     linha = dict(view)
-    linha.update(_cor_raca_sem_sobrescrever_view(local, view))
+    linha.update(_locais_sem_sobrescrever_view(local, view))
 
     assert linha["cor_quar_class"] == "amarela"
     assert linha["cor_quar_per"] == 0.5
@@ -183,4 +183,36 @@ def test_cor_raca_da_view_nao_e_sobrescrita_pelo_ranking_local():
     assert linha["cor_pri_class"] == "pardas"
     # Faixa etária segue vindo do local (casa com a legenda do gráfico).
     assert linha["cat_etaria_maior"] == "20 a 29 anos"
-    assert _cor_raca_sem_sobrescrever_view(local, None) == local
+    assert _locais_sem_sobrescrever_view(local, None) == local
+
+
+def test_rua_e_indigena_da_view_nao_sao_sobrescritos_pelo_calculo_local():
+    # Regressão: buscar_populacao_rua e buscar_populacao_indigena entravam por
+    # cima da view. Pedra Preta (0 pessoas em 2022 e 2026) saía "aumento" onde a
+    # view diz "estabilidade", e Recife perdia o "anos" da faixa indígena que o
+    # Doc não escreve mais ("entre $cat_etaria_ind_pri, com ...").
+    from services.generation import _locais_sem_sobrescrever_view
+
+    view = {
+        "var_pop_rua_analise": "estabilidade",
+        "pop_rua_bolsaf_analise": "permaneceu igual",
+        "cat_etaria_ind_pri": "30 a 39 anos",
+        "var_pop_ind_abs": 27.53,
+    }
+    rua_local = {"var_pop_rua_analise": "aumento", "pop_rua_bolsaf_analise": "aumentou",
+                 "pop_rua_total": 0}
+    indigena_local = {"cat_etaria_ind_pri": "30 a 39", "var_pop_ind_abs": 27.5,
+                      "pop_total_indigena": 2656}
+
+    linha = dict(view)
+    linha.update(_locais_sem_sobrescrever_view(rua_local, view))
+    linha.update(_locais_sem_sobrescrever_view(indigena_local, view))
+
+    assert linha["var_pop_rua_analise"] == "estabilidade"
+    assert linha["pop_rua_bolsaf_analise"] == "permaneceu igual"
+    assert linha["cat_etaria_ind_pri"] == "30 a 39 anos"
+    assert linha["var_pop_ind_abs"] == 27.53
+    # A view não tem: o local preenche.
+    assert linha["pop_rua_total"] == 0
+    assert linha["pop_total_indigena"] == 2656
+
