@@ -68,6 +68,7 @@ def test_cada_bloco_condicional_escolhe_um_unico_ramo(cidade):
     assert texto.count("A distribuição por faixa etária permite") == 1
     assert texto.count("Entre 2010 e 2022") == 1
     assert texto.count("Outro grupo relevante para a caracterização") == 1
+    assert texto.count("Em relação a 2010") == 1
     assert texto.count("Centro de Referência Especializado") + texto.count(
         "Centros de Referência Especializado"
     ) == 1
@@ -105,6 +106,8 @@ def test_cada_bloco_condicional_escolhe_um_unico_ramo(cidade):
                 "sendo considerado um município de pequeno porte",
                 "a população com 60 anos ou mais supera em aproximadamente 118",
                 "apresentou uma redução de 5,75",
+                # Ramo "igual a 1" do Doc: singular, e só ele (o do plural é "maior que 1").
+                "registrava 1 pessoa autodeclarada indígena,",
                 "não foram encontrados registros de pessoas autodeclaradas indígenas e quilombolas",
                 "Em 2022 e março de 2026, não havia pessoas registradas",
                 "não contava com um Centro de Referência",

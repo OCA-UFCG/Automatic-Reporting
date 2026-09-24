@@ -42,10 +42,12 @@ Quanto à composição por cor ou raça, há predominância de pessoas autodecla
 Figura Q - Número de pessoas por cor ou raça em demografia.$nm_mun (demografia.$sigla_uf).
 
 
-Para quando demografia.$pop_ind_2010 for diferente de 0:
+Para quando demografia.$pop_ind_2010 for maior que 1:
 Em relação a 2010, quando o município registrava demografia.$pop_ind_2010 pessoas autodeclaradas indígenas, ocorrendo demografia.$var_pop_ind_analise de aproximadamente demografia.$var_pop_ind_abs%.
 
 
+Para quando demografia.$pop_ind_2010 for igual a 1:
+Em relação a 2010, quando o município registrava demografia.$pop_ind_2010 pessoa autodeclarada indígena, ocorrendo demografia.$var_pop_ind_analise de aproximadamente demografia.$var_pop_ind_abs%.
 Para quando demografia.$pop_ind_2010 for igual a 0, então:
 Em relação a 2010, o município não registrava nenhuma pessoa autodeclarada indígena.
 
