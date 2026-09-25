@@ -11,7 +11,7 @@ from plotting.economia_renda import (
     gerar_grafico_pib,
     gerar_grafico_vab,
 )
-from utils.queries.economia_renda import _escalar_valor
+from utils.queries.base import escalar_valor as _escalar_valor
 
 
 def test_gera_grafico_com_serie_do_banco(tmp_path: Path):

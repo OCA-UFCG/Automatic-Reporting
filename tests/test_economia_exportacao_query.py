@@ -186,3 +186,15 @@ def test_unidade_desconhecida_avisa_no_log(caplog):
     with caplog.at_level(logging.WARNING):
         assert economia_exportacao._valor_absoluto(1.76, "zilhão") == 1.76
     assert "Unidade de valor desconhecida" in caplog.text
+
+
+def test_buscar_comercio_exterior_economia_poe_de_no_peso_exportado(monkeypatch):
+    """"5,76 milhões de quilogramas"."""
+    linha_perfil = {"kg_exportado": 5.76, "kg_exportado_unid": "milhões"}
+    monkeypatch.setattr(
+        economia_exportacao, "buscar_perfil_municipal", lambda *args, **kwargs: linha_perfil
+    )
+
+    dados = economia_exportacao.buscar_comercio_exterior_economia("Recife", "PE")
+
+    assert dados["kg_exportado_unid"] == "milhões de"

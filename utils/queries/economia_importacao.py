@@ -1,6 +1,10 @@
 from collections import defaultdict
 
-from utils.queries.base import escalar_valor, executar_query
+from utils.queries.base import (
+    escalar_valor_por_extenso,
+    executar_query,
+    unidade_de_massa,
+)
 
 # eco_importacao.vw_importacao_completa parou de ser atualizado pela equipe de
 # dados (ficou parado em julho/2026); eco_comercio_exterior.impexp_completa é o
@@ -112,25 +116,25 @@ def processar_importacao(linhas: list[dict]) -> dict[str, object] | None:
         "ultimo_jun": ultimo_ano,
     }
 
-    fob_valor, fob_unid = escalar_valor(fob_ultimo)
-    kg_valor, kg_unid = escalar_valor(kg_ultimo)
+    fob_valor, fob_unid = escalar_valor_por_extenso(fob_ultimo)
+    kg_valor, kg_unid = escalar_valor_por_extenso(kg_ultimo)
     resultado["fob_importado_ultimo"] = fob_valor
     resultado["fob_importado_ultimo_unid"] = fob_unid
     resultado["kg_importado_ultimo"] = kg_valor
-    resultado["kg_importado_ultimo_unid"] = kg_unid
+    resultado["kg_importado_ultimo_unid"] = unidade_de_massa(kg_unid)
 
     totais_pais = _somar_por_chave(linhas_ultimo_mes, "desc_pais_portugues", "vl_fob")
     top10_paises = _top_n(totais_pais, 10)
     resultado["importacao_paises"] = top10_paises
     for posicao, (nome_pais, valor_fob) in enumerate(top10_paises[:4], start=1):
-        valor_escalado, unidade = escalar_valor(valor_fob)
+        valor_escalado, unidade = escalar_valor_por_extenso(valor_fob)
         resultado[f"pais_importado{posicao}"] = nome_pais
         resultado[f"valor_pais_importado{posicao}"] = valor_escalado
         resultado[f"valor_pais_importado_unid{posicao}"] = unidade
 
     totais_secao = _somar_por_chave(linhas_ultimo_mes, "desc_secao", "vl_fob")
     for posicao, (nome_secao, valor_fob) in enumerate(_top_n(totais_secao, 2), start=1):
-        valor_escalado, unidade = escalar_valor(valor_fob)
+        valor_escalado, unidade = escalar_valor_por_extenso(valor_fob)
         resultado[f"secao_importado{posicao}"] = nome_secao.lower()
         resultado[f"valor_secao_importado{posicao}"] = valor_escalado
         resultado[f"valor_secao_importado_unid{posicao}"] = unidade
@@ -139,25 +143,34 @@ def processar_importacao(linhas: list[dict]) -> dict[str, object] | None:
     totais_produto_kg = _somar_por_chave(linhas_ultimo_mes, "desc_sh4", "kg_liquido")
     top_produtos = _top_n(totais_produto_fob, 2)
     for posicao, (nome_produto, valor_fob) in enumerate(top_produtos, start=1):
-        valor_escalado, unidade = escalar_valor(valor_fob)
+        valor_escalado, unidade = escalar_valor_por_extenso(valor_fob)
         resultado[f"produto_importado{posicao}"] = nome_produto.lower()
         resultado[f"valor_produto_importado{posicao}"] = valor_escalado
         resultado[f"valor_produto_importadounid{posicao}"] = unidade
 
-        # totais_produto_kg é um agrupamento à parte (_somar_por_chave ignora
-        # linhas com kg_liquido nulo): o produto mais importado por valor pode
-        # não ter nenhum registro de peso. escalar_valor(None) devolve
-        # (None, None); gravar isso no contexto faria o placeholder ficar sem
-        # valor e vazar cru no relatório, em vez de cair no default (0) abaixo.
-        kg_escalado, kg_unidade = escalar_valor(totais_produto_kg.get(nome_produto))
+    # "Quanto ao peso, sobressaíram-se…" lista os mais pesados, como a view faz;
+    # não o peso dos dois de maior valor.
+    top_produtos_kg = _top_n(totais_produto_kg, 2)
+    # "O único produto… correspondentes a $kg_importado_produto1 kg": o peso é o dele.
+    if len(top_produtos) < 2:
+        top_produtos_kg = [
+            (nome_produto, totais_produto_kg.get(nome_produto))
+            for nome_produto, _valor_fob in top_produtos
+        ]
+    # Menos de dois produtos com peso: completa com o próximo por valor (0 kg no
+    # default abaixo), para não sobrar nome de produto vazio.
+    for nome_produto, _valor_fob in top_produtos:
+        if len(top_produtos_kg) >= 2:
+            break
+        if nome_produto not in dict(top_produtos_kg):
+            top_produtos_kg.append((nome_produto, None))
+    for posicao, (nome_produto, kg_produto) in enumerate(top_produtos_kg, start=1):
+        resultado[f"produto_importado_kg{posicao}"] = nome_produto.lower()
+        # Sem peso, escalar devolve None: gravar deixaria $kg cru; cai no default 0.
+        kg_escalado, kg_unidade = escalar_valor_por_extenso(kg_produto)
         if kg_escalado is not None:
             resultado[f"kg_importado_produto{posicao}"] = kg_escalado
-            resultado[f"kg_importado_produtounid{posicao}"] = kg_unidade
-
-    if len(top_produtos) >= 1:
-        resultado["produto_importado_kg1"] = top_produtos[0][0].lower()
-    if len(top_produtos) >= 2:
-        resultado["produto_importado_kg2"] = top_produtos[1][0].lower()
+            resultado[f"kg_importado_produtounid{posicao}"] = unidade_de_massa(kg_unidade)
 
     # generation.py mescla este dict por cima da linha da mv_perfil_economia, que
     # traz estes mesmos campos de outro recorte: slot não preenchido aqui deixaria
@@ -191,11 +204,11 @@ def processar_importacao(linhas: list[dict]) -> dict[str, object] | None:
     valormedio_jan = _valor_medio_por_kg(linhas_jan)
     valormedio_jun = _valor_medio_por_kg(linhas_jun)
     if valormedio_jan is not None:
-        valor, unidade = escalar_valor(valormedio_jan)
+        valor, unidade = escalar_valor_por_extenso(valormedio_jan)
         resultado["valormedio_importado_jan"] = valor
         resultado["valormedio_importado_janunid"] = unidade
     if valormedio_jun is not None:
-        valor, unidade = escalar_valor(valormedio_jun)
+        valor, unidade = escalar_valor_por_extenso(valormedio_jun)
         resultado["valormedio_importado_jun"] = valor
         resultado["valormedio_importado_jununid"] = unidade
     if valormedio_jan is not None and valormedio_jun is not None:

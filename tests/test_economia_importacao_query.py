@@ -126,12 +126,8 @@ def test_processar_importacao_zera_slots_sem_dado_no_ultimo_mes():
 
 
 def test_processar_importacao_nao_vaza_kg_quando_produto_top_fob_nao_tem_peso():
-    """O ranking por peso (kg_liquido) é um agrupamento à parte do ranking por
-    valor (vl_fob): o produto #1 em valor pode não ter nenhuma linha com peso
-    registrado. escalar_valor(None) devolve (None, None) — gravar isso no
-    contexto faria $kg_importado_produto1 vazar cru no relatório em vez de
-    cair no default 0 (bug real, revisão editorial de Economia e Renda,
-    25/09/2026)."""
+    """O produto #1 em valor pode não ter peso registrado: ele completa a segunda
+    posição com 0, sem deixar $kg_importado_produto* cru no relatório."""
     linhas = [
         {"co_ano": 2026, "co_mes": "08", "desc_mes": "agosto", "desc_pais_portugues": "País A", "desc_secao": "Seção X", "desc_sh4": "Produto 1", "kg_liquido": None, "vl_fob": 5000.0},
         {"co_ano": 2026, "co_mes": "08", "desc_mes": "agosto", "desc_pais_portugues": "País B", "desc_secao": "Seção X", "desc_sh4": "Produto 2", "kg_liquido": 100.0, "vl_fob": 1000.0},
@@ -139,6 +135,58 @@ def test_processar_importacao_nao_vaza_kg_quando_produto_top_fob_nao_tem_peso():
 
     dados = economia_importacao.processar_importacao(linhas)
 
-    assert dados["produto_importado_kg1"] == "produto 1"
-    assert dados["kg_importado_produto1"] == 0
-    assert dados["kg_importado_produtounid1"] == ""
+    assert dados["produto_importado_kg1"] == "produto 2"
+    assert dados["kg_importado_produto1"] == 100.0
+    assert dados["produto_importado_kg2"] == "produto 1"
+    assert dados["kg_importado_produto2"] == 0
+    assert dados["kg_importado_produtounid2"] == ""
+
+
+def _linha_importacao(produto, kg, fob, pais="País A"):
+    return {
+        "co_ano": 2026, "co_mes": "08", "desc_mes": "agosto",
+        "desc_pais_portugues": pais, "desc_secao": "Seção X",
+        "desc_sh4": produto, "kg_liquido": kg, "vl_fob": fob,
+    }
+
+
+def test_processar_importacao_ordena_os_pesos_por_kg_e_nao_por_valor():
+    """Davinópolis/MA: pneumáticos (223 mil kg) antes de queijos (216 mil kg),
+    embora queijos tenham o maior valor."""
+    linhas = [
+        _linha_importacao("Queijos e requeijão", 216_013.0, 1_090_000.0),
+        _linha_importacao("Pneumáticos novos, de borracha", 223_517.0, 501_300.0),
+    ]
+
+    dados = economia_importacao.processar_importacao(linhas)
+
+    assert dados["produto_importado1"] == "queijos e requeijão"
+    assert dados["produto_importado_kg1"] == "pneumáticos novos, de borracha"
+    assert dados["kg_importado_produto1"] == 223.517
+    assert dados["produto_importado_kg2"] == "queijos e requeijão"
+
+
+def test_processar_importacao_com_um_produto_usa_o_peso_dele():
+    """"O único produto… correspondentes a $kg_importado_produto1 kg"."""
+    linhas = [
+        _linha_importacao("Produto com valor", 10.0, 1000.0),
+        _linha_importacao("Produto sem valor", 500.0, None),
+    ]
+
+    dados = economia_importacao.processar_importacao(linhas)
+
+    assert dados["produto_importado1"] == "produto com valor"
+    assert dados["produto_importado_kg1"] == "produto com valor"
+    assert dados["kg_importado_produto1"] == 10.0
+
+
+def test_processar_importacao_concorda_unidade_e_poe_de_no_peso():
+    """"US$ 1,70 milhão" e "34,47 milhões de kg"."""
+    linhas = [_linha_importacao("Produto 1", 34_470_000.0, 1_700_000.0)]
+
+    dados = economia_importacao.processar_importacao(linhas)
+
+    assert dados["fob_importado_ultimo_unid"] == "milhão"
+    assert dados["valor_pais_importado_unid1"] == "milhão"
+    assert dados["kg_importado_ultimo_unid"] == "milhões de"
+    assert dados["kg_importado_produtounid1"] == "milhões de"

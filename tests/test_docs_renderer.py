@@ -1947,3 +1947,22 @@ Texto da síntese.
 
     assert partes[0] == '<h2 class="theme-detail-heading">Síntese</h2>'
     assert "Texto da síntese." in partes[1]
+
+
+def test_campo_vazio_antes_de_pontuacao_nao_deixa_espaco_solto():
+    """Itarema/CE: "Espanha (US$ 617 )" com a unidade vazia abaixo de mil."""
+    contexto = {"pais": "Espanha", "valor": 617, "unid": ""}
+    texto = "economia.$pais (US$ economia.$valor economia.$unid), com US$ economia.$valor economia.$unid."
+
+    assert substituir_placeholders(texto, contexto, namespace="economia-renda") == (
+        "Espanha (US$ 617), com US$ 617."
+    )
+
+
+def test_campo_vazio_nao_mexe_no_espacamento_escrito_no_doc():
+    contexto = {"valor": 617, "unid": "mil"}
+    texto = "US$ economia.$valor economia.$unid ) e ( nota ) ."
+
+    assert substituir_placeholders(texto, contexto, namespace="economia-renda") == (
+        "US$ 617 mil ) e ( nota ) ."
+    )

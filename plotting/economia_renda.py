@@ -13,7 +13,7 @@ from plotting import (
 )
 from plotting.hidraulica import _numero
 from utils.formatting import formatar_numero_ptbr
-from utils.queries.economia_renda import _escalar_valor
+from utils.queries.base import escalar_valor as _escalar_valor
 
 _COR_LINHA = "#F0883E"
 
@@ -246,7 +246,7 @@ def gerar_grafico_fob(
         cidade.get("importacao_paises") or [],
         OUTPUT_DIR / f"grafico_fob_{safe_city}.png",
         "Dados de países de importação não disponíveis.",
-        "Destinos das importações ordenados pelo valor líquido FOB",
+        "Origens das importações ordenadas pelo valor líquido FOB",
     )
 
 
