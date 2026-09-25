@@ -1766,6 +1766,24 @@ def test_condicoes_de_vacina_sem_dado_nao_vazam_bloco_misto():
     assert "MISTA" not in parcial
 
 
+def test_condicoes_de_vacina_aceitam_nenhuma_em_vacina_meta():
+    texto = (
+        "Para quando saude.$vacina_meta for igual a todas, então:\nTODAS\n\n"
+        "Para quando saude.$vacina_meta for igual a nenhuma, então:\nNENHUMA\n\n"
+        "Para quando saude.$vacina_meta for diferente de todas e "
+        "saude.$vacina_meta for diferente de nenhuma, então:\nMISTA\n"
+    )
+
+    def blocos(vacina_meta):
+        saida = interpretar_blocos_condicionais(texto, {"vacina_meta": vacina_meta})
+        return {b for b in ("TODAS", "NENHUMA", "MISTA") if b in saida}
+
+    assert blocos("todas") == {"TODAS"}
+    assert blocos("nenhuma") == {"NENHUMA"}
+    assert blocos("BCG") == {"MISTA"}
+    assert blocos(None) == set()
+
+
 def test_condicao_de_vacina_combinada_com_campo_numerico():
     # Antes, misturar vacina_meta/vacina_nao_meta com outro campo caía
     # inteiro no caminho numérico, que força texto para 0.0 e nunca bate —
