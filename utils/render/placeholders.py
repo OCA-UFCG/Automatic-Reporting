@@ -86,7 +86,12 @@ def _parse_operador_campo_a_campo(trecho: str):
 # (fundados depois de 2000); sem essa entrada, a condição de educação
 # ("igual a 0") tratava a ausência de série histórica como "não houve
 # mudança" (revisão editorial de Educação, 25/09/2026).
-_CAMPOS_NULL_SENSIVEIS = {"centro_pop", "n_uc", "tend_sem_instr_per_dado"}
+# `asd_per_2021` é NULL em Fernando de Noronha (sem classificação de aridez);
+# como 0, o município recebia "nenhuma parte do território em área suscetível à
+# desertificação" (revisão editorial de Meio Ambiente, 25/09/2026).
+# A regra vale também em condição composta: a Síntese de meio ambiente cruza
+# n_uc com asd_per_2021 numa condição só.
+_CAMPOS_NULL_SENSIVEIS = {"centro_pop", "n_uc", "tend_sem_instr_per_dado", "asd_per_2021"}
 
 
 def _normalizar_condicao_editorial(linha: str) -> str:
@@ -450,6 +455,18 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                 if especial is None:
                     especial = _avaliar_condicao_vacina(expressao, contexto)
                 atende = especial if especial is not None else _avaliar_condicao_editorial(matches, expressao, contexto)
+                # Sem dado num campo null-sensível, nenhuma condição sobre ele
+                # vale, simples ou composta. Antes era um ramo à parte, só para
+                # condição de um campo e sem o fim de bloco do ramo comum
+                # (5742bdb): o texto depois do parágrafo herdava a condição.
+                # "Sem dado" é não ter número: None da view, NaN do fallback de
+                # CSV (pandas) ou texto como "sem dados".
+                if any(
+                    campo in _CAMPOS_NULL_SENSIVEIS
+                    and _numero_do_campo(_resolver_campo_com_alias(contexto, campo)) is None
+                    for campo in campos
+                ):
+                    atende = False
                 # Blocos persistentes (indígena/quilombola) guardam vários
                 # parágrafos além do primeiro; conteúdo inline nessa mesma
                 # linha não pode reativar bloco_ativo cedo demais e vazar os
@@ -461,13 +478,6 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                 elif "pop_ind_2010" in campos:
                     bloco_ativo = bloco_populacoes_ativo and atende
                     bloco_e_persistente = True
-                elif len(campos) == 1 and campos <= _CAMPOS_NULL_SENSIVEIS:
-                    (campo_unico,) = campos
-                    bloco_ativo = (
-                        _resolver_campo_com_alias(contexto, campo_unico) is not None
-                        and atende
-                    )
-                    bloco_e_persistente = False
                 else:
                     bloco_ativo = atende
                     aguardando_fim_de_bloco_simples = True

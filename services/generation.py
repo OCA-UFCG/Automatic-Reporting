@@ -89,6 +89,7 @@ from utils.external.docs import (
     extrair_resumo_tema,
     remover_titulos_docs,
 )
+from utils.formatting import coerce_para_float
 from utils.geografia import resolver_nome_uf, separar_cidade_uf
 from utils.queries.caracteristicas import buscar_caracteristicas_municipio
 from utils.queries.demografia import (
@@ -363,6 +364,66 @@ def _demografia_sem_sobrescrever_view(
     }
 
 
+def _caracteristicas_sem_sobrescrever_bioma(
+    dados_caracteristicas_db: dict[str, object], linha: dict
+) -> dict[str, object]:
+    """O que de buscar_caracteristicas_municipio entra na linha do tema.
+
+    `bioma` tem dois sentidos: nas características é o bioma do município
+    ("Caatinga", para a capa); na view `ambiente` é a frase pronta sobre as UCs
+    ("inserida no bioma Caatinga"). Sobrescrever o da view fazia os 671 municípios
+    com UC saírem "…com área de 1.234 hectares, Caatinga." (revisão editorial de
+    Meio Ambiente, 25/09/2026). Só `bioma` tem esse conflito entre as views dos
+    temas; `nm_mun`, `estado` e `sigla_uf` têm o mesmo sentido nos dois lados.
+    """
+    if "bioma" not in linha:
+        return dados_caracteristicas_db
+    return {chave: valor for chave, valor in dados_caracteristicas_db.items() if chave != "bioma"}
+
+
+# Particípio da frase pronta de `bioma` da view ambiente ("inserida no bioma X",
+# "inseridas nos biomas X e Y"). Só casa com essa redação; outra fica como está.
+_PARTICIPIO_BIOMA = re.compile(r"^inseridas?(?=\s+nos?\s+biomas?\s)", re.IGNORECASE)
+
+
+def _bioma_concordando_com_n_uc(bioma: object, n_uc: object) -> object:
+    """A view escolhe "inserida"/"inseridas" pelo número de biomas; no Doc o
+    particípio concorda com a UC ("1 Unidade…, inserida") ou com as Unidades
+    ("N Unidades…, inseridas"). Em 126 municípios com 1 UC saía "inseridas nos
+    biomas", e em 133 com várias UCs, "inserida no bioma" (revisão editorial de
+    Meio Ambiente, 25/09/2026).
+
+    TODO: remover quando a view `ambiente` concordar o particípio pelo n_uc
+    (pedido ao time de dados); até lá a regra fica duplicada aqui.
+    """
+    quantidade = coerce_para_float(n_uc, default=None)
+    if not isinstance(bioma, str) or quantidade is None:
+        return bioma
+    participio = "inserida" if quantidade == 1 else "inseridas"
+    return _PARTICIPIO_BIOMA.sub(participio, bioma, count=1)
+
+
+def _contexto_caracteristicas(
+    linha: dict, dados_caracteristicas_db: dict[str, object] | None
+) -> dict:
+    """Contexto do Doc de Características: a linha do tema com as características
+    por cima, para `caract_mun.$bioma` ser o bioma do município mesmo quando a
+    linha é a de Meio Ambiente (ver _caracteristicas_sem_sobrescrever_bioma).
+
+    Só o `bioma` muda: o resto das características já está na linha, e o que foi
+    mesclado depois delas (indicadores, consultas dos temas) continua valendo. O
+    `bioma` da linha nunca vale para a capa: nos outros temas ele só existe porque
+    veio destas mesmas características, e em Meio Ambiente é a frase das UCs. Sem
+    bioma nas características (valor None, que a consulta descarta, ou consulta
+    sem resultado), `caract_mun.$bioma` sai literal, como todo placeholder sem
+    valor, em vez de "inserido no bioma inserida no bioma Caatinga"."""
+    contexto = {chave: valor for chave, valor in linha.items() if chave != "bioma"}
+    bioma = (dados_caracteristicas_db or {}).get("bioma")
+    if bioma is not None:
+        contexto["bioma"] = bioma
+    return contexto
+
+
 def _cor_raca_sem_sobrescrever_view(
     dados_sexo_faixa: dict[str, object], perfil_db: dict | None
 ) -> dict[str, object]:
@@ -616,7 +677,16 @@ async def gerar_relatorio_handler(
 
             if dados_caracteristicas_db:
                 for linha in linhas_macrotema:
-                    linha.update(dados_caracteristicas_db)
+                    linha.update(
+                        _caracteristicas_sem_sobrescrever_bioma(dados_caracteristicas_db, linha)
+                    )
+
+            if macrotema_slug == "meio-ambiente":
+                for linha in linhas_macrotema:
+                    if "bioma" in linha:
+                        linha["bioma"] = _bioma_concordando_com_n_uc(
+                            linha["bioma"], linha.get("n_uc")
+                        )
 
             if macrotema_slug == "demografia" and dados_demografia_db:
                 dados_mescla = _demografia_sem_sobrescrever_view(dados_demografia_db, perfil_db)
@@ -719,7 +789,9 @@ async def gerar_relatorio_handler(
                     # cidade do relatório. Usar um contexto vazio fazia campos como
                     # caract_mun.$nm_mun permanecerem sem resolução, especialmente
                     # quando o relatório era iniciado por Economia e Renda.
-                    contexto_caracteristicas = linhas_macrotema[0]
+                    contexto_caracteristicas = _contexto_caracteristicas(
+                        linhas_macrotema[0], dados_caracteristicas_db
+                    )
                     try:
                         caracteristicas_texto = await carregar_texto_do_docs(
                             CARACTERISTICAS_DOCS_URL

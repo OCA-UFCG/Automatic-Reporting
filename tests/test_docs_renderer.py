@@ -1280,6 +1280,76 @@ Houve mudança."""
     assert "Houve mudança." not in resultado
 
 
+# Recorte do Doc de Meio Ambiente: aridez (um campo) e Síntese (condição composta
+# com n_uc). Fernando de Noronha (PE) é o único município com asd_per_2021 NULL.
+_TEXTO_ARIDEZ_E_SINTESE = """Para quando ambiente.$asd_per_2021 for igual a 0, então:
+Nenhuma parte suscetível.
+
+Para quando ambiente.$asd_per_2021 for diferente de 0, então:
+Parte suscetível.
+
+Para quando ambiente.$n_uc for igual a 0 e ambiente.$asd_per_2021 for igual a 0, então:
+Síntese sem UC e sem área suscetível.
+
+Para quando ambiente.$n_uc for igual a 0 e ambiente.$asd_per_2021 for maior que 0, então:
+Síntese sem UC e com área suscetível.
+
+Texto incondicional."""
+
+
+def test_meio_ambiente_sem_dado_de_aridez_nao_afirma_nada_sobre_a_aridez():
+    """Sem dado de aridez (asd_per_2021 NULL), nenhuma versão pode aparecer — nem
+    a de um campo nem a composta da Síntese. Tratar NULL como 0 afirmava "nenhuma
+    parte do território em área suscetível" sem dado (revisão editorial de Meio
+    Ambiente, 25/09/2026)."""
+    resultado = interpretar_blocos_condicionais(
+        _TEXTO_ARIDEZ_E_SINTESE, {"n_uc": 0, "asd_per_2021": None}
+    )
+
+    assert "Nenhuma parte suscetível." not in resultado
+    assert "Parte suscetível." not in resultado
+    assert "Síntese sem UC e sem área suscetível." not in resultado
+    assert "Síntese sem UC e com área suscetível." not in resultado
+    assert "Texto incondicional." in resultado
+
+
+def test_meio_ambiente_aridez_nan_do_csv_tambem_e_sem_dado():
+    # No fallback de CSV (pandas), o valor ausente chega como NaN, não None.
+    resultado = interpretar_blocos_condicionais(
+        _TEXTO_ARIDEZ_E_SINTESE, {"n_uc": 0, "asd_per_2021": float("nan")}
+    )
+
+    assert "Nenhuma parte suscetível." not in resultado
+    assert "Síntese sem UC e sem área suscetível." not in resultado
+    assert "Texto incondicional." in resultado
+
+
+def test_meio_ambiente_aridez_zero_continua_escolhendo_a_versao_de_zero():
+    resultado = interpretar_blocos_condicionais(
+        _TEXTO_ARIDEZ_E_SINTESE, {"n_uc": 0, "asd_per_2021": 0}
+    )
+
+    assert "Nenhuma parte suscetível." in resultado
+    assert "Parte suscetível." not in resultado
+    assert "Síntese sem UC e sem área suscetível." in resultado
+    assert "Síntese sem UC e com área suscetível." not in resultado
+    assert "Texto incondicional." in resultado
+
+
+def test_condicao_de_campo_null_sensivel_so_vale_para_o_paragrafo_seguinte():
+    """Como qualquer condição simples (5742bdb), a de um campo null-sensível só
+    controla o parágrafo logo abaixo; o texto depois dele não herda a condição."""
+    texto = """Para meio-ambiente.$n_uc for igual a 0:
+Sem UC.
+
+Texto incondicional."""
+
+    resultado = interpretar_blocos_condicionais(texto, {"n_uc": 3})
+
+    assert "Sem UC." not in resultado
+    assert "Texto incondicional." in resultado
+
+
 def test_range_and_generic_threshold_operators_pick_the_matching_block():
     """meio-ambiente precisa de faixas ("de 2 a 4") e limiares genéricos
     ("maior ou igual a 5") além dos operadores fixos originais (0/1/>1)."""
@@ -1780,3 +1850,100 @@ def test_contagem_com_ano_no_nome_mantem_separador_de_milhar():
     )
 
     assert resultado == "foram 32.211 doses"
+
+
+def test_titulo_de_secao_sem_conteudo_antes_da_caixa_de_fontes_sai():
+    # Fernando de Noronha (PE) não tem dado de aridez: as seis versões da Síntese
+    # de Meio Ambiente ficam de fora e sobrava o título "Síntese" sozinho, colado
+    # na caixa de Fontes (revisão editorial de Meio Ambiente, 25/09/2026).
+    texto = """Texto do tema.
+
+Síntese
+
+Para quando ambiente.$asd_per_2021 for igual a 0, então:
+Síntese sem área suscetível.
+
+#!Fontes
+
+[Painel: Aridez](https://datanordeste.sudene.gov.br/data-panel/aridez)
+"""
+
+    partes = render_descricao_tema_html(texto, {"asd_per_2021": None}, namespace="meio-ambiente")
+
+    assert not any('<h2 class="theme-detail-heading">Síntese</h2>' in parte for parte in partes)
+    assert any("Texto do tema." in parte for parte in partes)
+    assert any("fontes-box" in parte for parte in partes)
+
+
+def test_titulo_de_secao_sem_conteudo_no_fim_do_tema_sai():
+    texto = """#! Primeira
+
+Texto da primeira.
+
+Síntese
+"""
+
+    partes = render_descricao_tema_html(texto, {}, namespace="demografia")
+
+    assert len(partes) == 2
+    assert partes[0] == '<h2 class="theme-detail-heading">Primeira</h2>'
+    assert "Texto da primeira." in partes[1]
+
+
+def test_titulo_seguido_de_subtitulo_continua():
+    # Título pai sem texto próprio antes do subtítulo é estrutura, não seção vazia.
+    texto = """#! Meio Ambiente
+
+#! Unidades de Conservação
+
+Texto das UCs.
+"""
+
+    partes = render_descricao_tema_html(texto, {}, namespace="meio-ambiente")
+
+    assert partes[:2] == [
+        '<h2 class="theme-detail-heading">Meio Ambiente</h2>',
+        '<h2 class="theme-detail-heading">Unidades de Conservação</h2>',
+    ]
+    assert "Texto das UCs." in partes[2]
+
+
+def test_titulo_cuja_unica_figura_nao_foi_gerada_sai():
+    # O gráfico não gerado some com a legenda, e sobra a marca da legenda
+    # suprimida, removida só no fim do render: a seção fica vazia do mesmo jeito.
+    reset_figura_contador()
+    texto = """Texto do tema.
+
+Síntese
+
+*grafico_aridez
+
+Figura X - Classificação das condições de aridez em Cidade X (PB) para o ano de 2021.
+
+#!Fontes
+
+[Painel: Aridez](https://datanordeste.sudene.gov.br/data-panel/aridez)
+"""
+
+    partes = render_descricao_tema_html(
+        texto, {}, namespace="meio-ambiente", graficos_por_placeholder={}
+    )
+
+    assert not any("Síntese" in parte for parte in partes)
+    assert not any("Classificação das condições" in parte for parte in partes)
+
+
+def test_titulo_de_secao_com_conteudo_continua():
+    texto = """Síntese
+
+Texto da síntese.
+
+#!Fontes
+
+[Painel: Aridez](https://datanordeste.sudene.gov.br/data-panel/aridez)
+"""
+
+    partes = render_descricao_tema_html(texto, {}, namespace="meio-ambiente")
+
+    assert partes[0] == '<h2 class="theme-detail-heading">Síntese</h2>'
+    assert "Texto da síntese." in partes[1]
