@@ -82,7 +82,11 @@ def _parse_operador_campo_a_campo(trecho: str):
 # afirmaria algo que a fonte não garante (caso histórico de
 # `demografia.$centro_pop`). Lista explícita: em outros campos, None==zero
 # é o comportamento correto.
-_CAMPOS_NULL_SENSIVEIS = {"centro_pop", "n_uc"}
+# `tend_sem_instr_per_dado` vem "sem dados" nos municípios sem Censo 2000
+# (fundados depois de 2000); sem essa entrada, a condição de educação
+# ("igual a 0") tratava a ausência de série histórica como "não houve
+# mudança" (revisão editorial de Educação, 25/09/2026).
+_CAMPOS_NULL_SENSIVEIS = {"centro_pop", "n_uc", "tend_sem_instr_per_dado"}
 
 
 def _normalizar_condicao_editorial(linha: str) -> str:
