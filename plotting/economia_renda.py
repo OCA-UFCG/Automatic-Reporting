@@ -88,7 +88,7 @@ def gerar_grafico_pib(
         (16, 6.5),
         "PIB total",
         margem_esquerda=0.08,
-        tamanho_titulo=16,
+        tamanho_titulo=24,
     )
     _reservar_espaco_rotulo_x(fig, ax)
 
@@ -107,35 +107,9 @@ def gerar_grafico_pib(
     valor_minimo = min(valores)
     valor_maximo = max(valores)
     amplitude = valor_maximo - valor_minimo or valor_maximo or 1.0
-    # Margem extra no topo (0.28 em vez de 0.15) para as anotações de valor,
-    # que ficam acima de cada ponto, não colarem na faixa de título do card.
     margem = amplitude * 0.15
-    # Fixa os limites do eixo Y antes de anotar: a posição em pixels de cada
-    # rótulo (usada logo abaixo pra detectar sobreposição) depende dos
-    # limites vigentes no momento do desenho, e eles têm que ser os finais.
-    ax.set_ylim(valor_minimo - margem, valor_maximo + amplitude * 0.28)
+    ax.set_ylim(valor_minimo - margem, valor_maximo + margem)
     ax.set_xticks(anos)
-
-    for ano, valor in zip(anos, valores):
-        divisor_ponto, unidade_ponto = _escolher_unidade(valor)
-        # "Mi"/"Bi"/"Ti" em vez do nome por extenso só aqui: é só o rótulo do
-        # ponto, mais compacto pra sobrar espaço no eixo X lotado de anos; o
-        # eixo Y (abaixo) continua com a unidade por extenso.
-        unidade_ponto_abreviada = {
-            "milhões": "Mi",
-            "bilhões": "Bi",
-            "trilhões": "Ti",
-        }.get(unidade_ponto, unidade_ponto)
-        sufixo_ponto = f" {unidade_ponto_abreviada}" if unidade_ponto_abreviada else ""
-        ax.annotate(
-            f"R$ {valor / divisor_ponto:.1f}{sufixo_ponto}",
-            (ano, valor),
-            xytext=(0, 10),
-            textcoords="offset points",
-            ha="center",
-            fontsize=13 * ESCALA_FONTE,
-            color="#4A4A4A",
-        )
 
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -147,8 +121,8 @@ def gerar_grafico_pib(
     ax.yaxis.set_major_formatter(
         FuncFormatter(lambda valor, _: f"R$ {valor / divisor_eixo:.0f}{sufixo_eixo}")
     )
-    ax.set_ylabel("Produto interno", fontsize=13 * ESCALA_FONTE)
-    ax.tick_params(axis="both", labelsize=13 * ESCALA_FONTE)
+    ax.set_ylabel("Produto interno", fontsize=20 * ESCALA_FONTE)
+    ax.tick_params(axis="both", labelsize=20 * ESCALA_FONTE)
 
     salvar_card_grafico(fig, chart_file, dpi=270)
     return chart_file.name
