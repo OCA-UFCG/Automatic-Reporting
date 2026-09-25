@@ -653,7 +653,11 @@ def render_descricao_tema_html(
         descricao=f"{namespace} / {contexto.get('nm_mun', '?')}",
     )
     resolvido = _unir_grafico_e_legenda(resolvido)
-    return [parte for parte in resolvido.split(_SEPARADOR_PARTES) if parte.strip()]
+    # Depois do filtro de partes vazias: uma seção cujo único conteúdo era um
+    # gráfico não gerado só fica vazia quando a marca da legenda suprimida sai.
+    return _sem_titulos_vazios(
+        [parte for parte in resolvido.split(_SEPARADOR_PARTES) if parte.strip()]
+    )
 
 
 # Bloco do gráfico (sem <div> aninhada: só <figure>s) seguido da legenda dele,
@@ -768,6 +772,29 @@ def _render_descricao_tema_partes(
 
     fechar_caixa_fontes()
     return partes
+
+
+_PARTE_SO_TITULO = re.compile(r'<h2 class="theme-detail-heading">(?:(?!</h2>).)*</h2>', re.DOTALL)
+
+
+def _sem_titulos_vazios(partes: list[str]) -> list[str]:
+    """Tira o título de seção que não tem conteúdo até a caixa de Fontes ou o fim
+    do tema. Quando nenhuma versão condicional de uma seção vale (ex.: a Síntese
+    de Meio Ambiente em Fernando de Noronha, sem dado de aridez), sobrava o título
+    sozinho (revisão editorial de Meio Ambiente, 25/09/2026).
+
+    Título seguido de outro título fica: pode ser título pai de um subtítulo, e
+    os dois saem com o mesmo <h2>. Só vale para título que é uma parte inteira;
+    título solto no meio de um parágrafo (ver _TITULOS_SECAO_NA_LINHA) tem
+    conteúdo em volta."""
+    mantidas: list[str] = []
+    for parte in reversed(partes):
+        seguinte = mantidas[-1] if mantidas else None
+        encerra_secao = seguinte is None or seguinte.startswith('<div class="fontes-box-wrap">')
+        if encerra_secao and _PARTE_SO_TITULO.fullmatch(parte.strip()):
+            continue
+        mantidas.append(parte)
+    return mantidas[::-1]
 
 
 def texto_para_html(
