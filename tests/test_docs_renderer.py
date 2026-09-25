@@ -1264,6 +1264,22 @@ Com várias UCs."""
     assert "Com várias UCs." not in resultado_sem_dado
 
 
+def test_education_missing_tend_sem_instr_does_not_claim_no_change():
+    """`tend_sem_instr_per_dado` vem "sem dados" nos municípios sem Censo 2000
+    (fundados depois de 2000): ausência de série histórica não pode virar
+    "igual a 0" e afirmar que não houve mudança (revisão editorial de
+    Educação, 25/09/2026)."""
+    texto = """Para educacao.$tend_sem_instr_per_dado for igual a 0:
+Não houve mudança.
+Para educacao.$tend_sem_instr_per_dado for diferente de 0:
+Houve mudança."""
+
+    resultado = interpretar_blocos_condicionais(texto, {"nm_mun": "Cidade X"})
+
+    assert "Não houve mudança." not in resultado
+    assert "Houve mudança." not in resultado
+
+
 def test_range_and_generic_threshold_operators_pick_the_matching_block():
     """meio-ambiente precisa de faixas ("de 2 a 4") e limiares genéricos
     ("maior ou igual a 5") além dos operadores fixos originais (0/1/>1)."""
