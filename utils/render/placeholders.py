@@ -680,7 +680,7 @@ _TEXTO_DECIMAL_COM_PONTO = re.compile(r"^-?\d+\.\d+$")
 
 
 # Rede de segurança pra campos que têm uma precisão editorial fixa por
-# convenção (IDHM/Gini/subíndices sempre 3 casas, renda per capita sempre 2):
+# convenção (IDHM/subíndices sempre 3 casas, Gini e renda per capita sempre 2):
 # o Doc de desenvolvimento social já perdeu os sufixos ``:3``/``:2`` sem
 # querer numa edição (achado em revisão, antes de ir pro main), o que caía no
 # padrão global de 1 casa (abaixo) e cortava a precisão. Escopado por
@@ -689,7 +689,11 @@ _TEXTO_DECIMAL_COM_PONTO = re.compile(r"^-?\d+\.\d+$")
 # — isto só cobre a falta dele.
 _PRECISAO_PADRAO_POR_NAMESPACE: dict[str, tuple[tuple[re.Pattern, int], ...]] = {
     "desenvolvimento-social": (
-        (re.compile(r"(?i)^(?:idhm|gini|subindice\d*)(?:_|$)"), 3),
+        (re.compile(r"(?i)^(?:idhm|subindice\d*)(?:_|$)"), 3),
+        # O Gini vem da fonte (des_idhm.vw_idhm) com 2 casas em todas as linhas;
+        # com 3, o relatório imprimia "0,530". Duas casas mostram o valor exato,
+        # então não há arredondamento que troque o lado do limiar de 0,5.
+        (re.compile(r"(?i)^gini(?:_|$)"), 2),
         (re.compile(r"(?i)^renda_\d{4}$"), 2),
     ),
 }
