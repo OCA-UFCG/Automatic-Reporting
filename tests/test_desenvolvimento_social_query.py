@@ -1,4 +1,7 @@
-from utils.queries.desenvolvimento_social import _categoria_variacao
+from utils.queries.desenvolvimento_social import (
+    _categoria_variacao,
+    buscar_perfil_desenvolvimento_social,
+)
 
 
 def test_categoria_variacao_returns_the_word_with_its_article():
@@ -10,6 +13,26 @@ def test_categoria_variacao_returns_the_word_with_its_article():
 def test_categoria_variacao_handles_missing_or_invalid_values():
     assert _categoria_variacao(None) is None
     assert _categoria_variacao("n/a") is None
+
+
+def test_busca_normaliza_sufixo_uf_no_nm_mun(monkeypatch):
+    # vw_perfil_desen_social_municipal guarda nm_mun sem sufixo "(UF)"; sem
+    # normalizar (regexp_replace), passar o nome já canonicalizado como
+    # "Cidade (UF)" (generation.py) nunca casaria — mesma classe de bug do
+    # Recife (PE) em saúde, corrigida em utils/queries/perfil_municipal.py.
+    chamadas = []
+
+    def query(sql, params, descricao):
+        chamadas.append(sql)
+        return (None,) * 17 + ("IDHM", "Explore Nordeste", "Emprego e Rendimento")
+
+    monkeypatch.setattr(
+        "utils.queries.desenvolvimento_social.executar_query", query
+    )
+
+    buscar_perfil_desenvolvimento_social("Recife (PE)", "PE")
+
+    assert "regexp_replace(nm_mun" in chamadas[-1]
 
 
 def test_perfil_carrega_nomes_dos_conteudos_e_alias_do_docs(monkeypatch):

@@ -1,5 +1,8 @@
 from utils.queries.base import executar_query
 
+# Compara nm_mun sem caixa e sem um eventual sufixo "(UF)", mesmo padrão de
+# utils/queries/perfil_municipal.py — evita a mesma classe de bug (Recife (PE)
+# em saúde) caso a comparação exata algum dia deixe de casar aqui.
 PERFIL_DESENVOLVIMENTO_SOCIAL_MUNICIPAL = """
     SELECT
         idhm_1991,
@@ -23,7 +26,8 @@ PERFIL_DESENVOLVIMENTO_SOCIAL_MUNICIPAL = """
         nm_datastory1,
         nm_boletim1
     FROM relatorios_auto.vw_perfil_desen_social_municipal
-    WHERE nm_mun = %s
+    WHERE LOWER(regexp_replace(nm_mun, '\\s*\\([^)]*\\)\\s*$', '')) =
+          LOWER(regexp_replace(%s, '\\s*\\([^)]*\\)\\s*$', ''))
       AND sigla_uf = %s
 """
 
