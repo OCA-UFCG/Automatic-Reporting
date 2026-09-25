@@ -1,6 +1,5 @@
 import re
 
-from utils.formatting import categoria_variacao as _analise_variacao
 from utils.queries.base import executar_query
 
 PUBLICO_ETARIO_VACINAS = """
@@ -15,7 +14,7 @@ PUBLICO_ETARIO_VACINAS = """
         COALESCE(SUM(CASE WHEN i.categoria = 'Menores de 1 ano de idade' THEN i.doses_aplicadas ELSE 0 END), 0) as dose_etario_menor_1_ano,
         COALESCE(SUM(CASE WHEN i.categoria = '1 ano de idade' THEN i.doses_aplicadas ELSE 0 END), 0) as dose_etario_1_ano,
         COALESCE(SUM(CASE WHEN i.categoria = 'Multifaixa etária' THEN i.doses_aplicadas ELSE 0 END), 0) as dose_etario_multifaixa
-    FROM sau_imunizacao.vw_imunizacao_anual_2024 i
+    FROM sau_imunizacao.vw_imunizacao_anual_2025 i
     JOIN carac_mun.caracteristicas_municipais c
         ON i.cd_mun = c.cd_mun::int
     WHERE c.nm_mun = %s
@@ -190,12 +189,12 @@ PERFIL_SAUDE_MUNICIPAL = """
 # recorte de 5 destaques e não a lista completa.
 VACINA_COBERTURA_ROTULOS = (
     ("bcg", "BCG"),
-    ("dtp", "DTP"),
+    ("dtp", "DTP (1º reforço)"),
     ("febre_amarela", "Febre Amarela"),
     ("hepatite_a_infantil", "Hepatite A (infantil)"),
     ("hepatite_b_30dias", "Hepatite B (até 30 dias)"),
     ("hepatite_b_1dia", "Hepatite B (até 1 dia de vida)"),
-    ("hepatite_b_2dia", "Hepatite B (2ª dose)"),
+    ("hepatite_b_2dia", "Hepatite B (até 2 dias de vida)"),
     ("influenza", "Influenza"),
     ("meningoc", "Meningocócica C"),
     ("meningoc_1reforco", "Meningocócica C (1º reforço)"),
@@ -328,7 +327,6 @@ def buscar_perfil_saude_municipal(
         "mortalidade_2024": mortalidade_2024,
         "mortalidade_2025": mortalidade_2025,
         "var_mortalidade_per": var_mortalidade_per,
-        "analise_mortalidade_2024_2025": _analise_variacao(var_mortalidade_per),
         "analise_mortalidade": analise_mortalidade,
         "ano_menor_mortalidade": (
             str(ano_menor_mortalidade) if ano_menor_mortalidade is not None else None

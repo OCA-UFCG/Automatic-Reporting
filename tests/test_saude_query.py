@@ -113,3 +113,27 @@ def test_perfil_saude_ignora_vacina_sem_valor(monkeypatch):
     serie = dados["cobertura_vacinal_serie"]
     assert len(serie) == 18
     assert all(item["vacina"] != "Varicela" for item in serie)
+
+
+def test_perfil_saude_nao_sobrescreve_analise_mortalidade_da_view(monkeypatch):
+    monkeypatch.setattr(
+        saude,
+        "executar_query",
+        lambda *a, **k: _linha_perfil_saude(
+            mortalidade_2024=25.86, mortalidade_2025=20.94, var_mortalidade_per=19.02
+        ),
+    )
+
+    dados = saude.buscar_perfil_saude_municipal("Aldeias Altas", "MA")
+
+    assert "analise_mortalidade_2024_2025" not in dados
+    assert dados["var_mortalidade_per"] == 19.02
+
+
+def test_perfil_saude_rotula_dtp_e_hepatite_b_como_o_texto(monkeypatch):
+    monkeypatch.setattr(saude, "executar_query", lambda *a, **k: _linha_perfil_saude())
+
+    serie = saude.buscar_perfil_saude_municipal("Feliz Deserto", "AL")["cobertura_vacinal_serie"]
+
+    assert {"vacina": "DTP (1º reforço)", "cobertura_vacinal": 80.41} in serie
+    assert {"vacina": "Hepatite B (até 2 dias de vida)", "cobertura_vacinal": 63.84} in serie
