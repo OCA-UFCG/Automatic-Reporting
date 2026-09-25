@@ -19,7 +19,7 @@ def test_processar_indicadores_economia_calcula_variacao_e_setores_maiores(monke
     linhas = economia_renda.buscar_linhas_pib_municipal("Campina Grande", "PB")
     dados = economia_renda.processar_indicadores_economia(linhas)
 
-    assert dados["pib_unid_2010"] == "bilhões"
+    assert dados["pib_unid_2010"] == "bilhão"
     assert round(dados["pib_2010"], 2) == round(1_000_000_000.0 / 1e9, 2)
     assert dados["pib_unid_2023"] == "bilhões"
     assert round(dados["pib_2023"], 2) == round(12_945_093_200.0 / 1e9, 2)

@@ -1,5 +1,6 @@
 import logging
 
+from utils.queries.base import unidade_de_massa
 from utils.queries.perfil_municipal import buscar_perfil_municipal
 
 logger = logging.getLogger(__name__)
@@ -84,6 +85,9 @@ def buscar_comercio_exterior_economia(
     dados: dict[str, object] = {
         campo: linha[campo] for campo in _CAMPOS_MERGE_DIRETOS if linha.get(campo) is not None
     }
+
+    if "kg_exportado_unid" in dados:
+        dados["kg_exportado_unid"] = unidade_de_massa(dados["kg_exportado_unid"])
 
     for campo_banco, campo_doc in _ALIASES_BALANCA_CEDILHA.items():
         if linha.get(campo_banco) is not None:

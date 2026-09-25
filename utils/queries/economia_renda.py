@@ -1,5 +1,4 @@
-from utils.queries.base import escalar_valor as _escalar_valor
-from utils.queries.base import executar_query
+from utils.queries.base import escalar_valor_por_extenso, executar_query
 
 DADOS_PIB_MUNICIPAL = """
     SELECT
@@ -129,11 +128,11 @@ def processar_indicadores_economia(linhas: list[dict]) -> dict[str, object] | No
     analise1_pib = _analise_variacao(diferenca_pib_2010_2023)
     setores2021 = _setores_maiores_vab(dados)
 
-    pib_2010, pib_unid_2010 = _escalar_valor(dados["pib_2010"])
-    pib_2023, pib_unid_2023 = _escalar_valor(dados["pib_2023"])
-    pibcapita_2023, pibcapita_unid_2023 = _escalar_valor(dados["pibcapita_2023"])
-    imposto, imposto_unid = _escalar_valor(dados["imposto"])
-    diferenca_pib_2010_2023, diferenca_pib_2010_2023unid = _escalar_valor(
+    pib_2010, pib_unid_2010 = escalar_valor_por_extenso(dados["pib_2010"])
+    pib_2023, pib_unid_2023 = escalar_valor_por_extenso(dados["pib_2023"])
+    pibcapita_2023, pibcapita_unid_2023 = escalar_valor_por_extenso(dados["pibcapita_2023"])
+    imposto, imposto_unid = escalar_valor_por_extenso(dados["imposto"])
+    diferenca_pib_2010_2023, diferenca_pib_2010_2023unid = escalar_valor_por_extenso(
         diferenca_pib_2010_2023
     )
 
@@ -162,7 +161,7 @@ def processar_indicadores_economia(linhas: list[dict]) -> dict[str, object] | No
         }
 
     for posicao, (nome_setor, valor_vab) in enumerate(setores2021, start=1):
-        valor_escalado, unidade = _escalar_valor(valor_vab)
+        valor_escalado, unidade = escalar_valor_por_extenso(valor_vab)
         resultado[f"setor2021_maior{posicao}"] = nome_setor
         resultado[f"setor2021_maior{posicao}_vab"] = valor_escalado
         resultado[f"setor2021_maior{posicao}unid"] = unidade

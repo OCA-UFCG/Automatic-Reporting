@@ -768,6 +768,11 @@ def _resolver_contexto_por_alias(contexto: dict, alias: str, namespace: str) -> 
     return contexto
 
 
+# Marca de campo que resolveu para vazio: "US$ $valor $unid)" com unidade vazia
+# deixava "US$ 617 )". Só esse espaço some; o espaçamento do Doc fica.
+_CAMPO_VAZIO = "\x00"
+
+
 def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demografia") -> str:
     texto, precisoes = _extrair_precisoes(texto)
 
@@ -790,11 +795,9 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
     def _resolver_ou_manter(match: re.Match) -> str:
         campo = match.group(1)
         valor = _resolver_campo_com_alias(contexto, campo)
-        return (
-            _formatar_valor(valor, _precisao(campo), campo)
-            if valor is not None
-            else match.group(0)
-        )
+        if valor is None:
+            return match.group(0)
+        return _formatar_valor(valor, _precisao(campo), campo) or _CAMPO_VAZIO
 
     def _substituir_dolar(match: re.Match) -> str:
         placeholder_namespace = match.group(1).lower()
@@ -809,7 +812,7 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
         if isinstance(contexto_alvo, dict):
             valor = _resolver_campo_com_alias(contexto_alvo, campo)
             if valor is not None:
-                return _formatar_valor(valor, _precisao(campo), campo)
+                return _formatar_valor(valor, _precisao(campo), campo) or _CAMPO_VAZIO
         return match.group(0)
 
     alias_map = {
@@ -911,4 +914,5 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
         resultado,
     )
 
-    return resultado
+    resultado = re.sub(rf"[ \t]*{_CAMPO_VAZIO}(?=[),.;])", "", resultado)
+    return resultado.replace(_CAMPO_VAZIO, "")

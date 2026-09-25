@@ -71,6 +71,26 @@ def escalar_valor(valor: object) -> tuple[object, object]:
     return valor, ""
 
 
+_UNIDADE_SINGULAR = {"milhões": "milhão", "bilhões": "bilhão"}
+
+
+def escalar_valor_por_extenso(valor: object) -> tuple[object, object]:
+    """Para texto: "1,70 milhão", não "1,70 milhões". Os gráficos seguem em
+    escalar_valor, que acha o divisor pela unidade no plural."""
+    valor_escalado, unidade = escalar_valor(valor)
+    # Compara o valor como o texto exibe (2 casas): 1,999 sai "2,00 milhões".
+    if unidade in _UNIDADE_SINGULAR and round(valor_escalado, 2) < 2:
+        return valor_escalado, _UNIDADE_SINGULAR[unidade]
+    return valor_escalado, unidade
+
+
+def unidade_de_massa(unidade: object) -> object:
+    """O Doc escreve "$kg $unid kg": "565,53 mil kg", mas "34,47 milhões de kg"."""
+    if unidade in ("milhão", "milhões", "bilhão", "bilhões"):
+        return f"{unidade} de"
+    return unidade
+
+
 def executar_query(
     query: str, params: tuple, contexto_erro: str, buscar_todas: bool = False
 ) -> list | tuple | None:
