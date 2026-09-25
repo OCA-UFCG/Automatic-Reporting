@@ -123,3 +123,22 @@ def test_processar_importacao_zera_slots_sem_dado_no_ultimo_mes():
     assert dados["valor_secao_importado2"] == 0
     assert dados["produto_importado2"] == ""
     assert dados["produto_importado_kg2"] == ""
+
+
+def test_processar_importacao_nao_vaza_kg_quando_produto_top_fob_nao_tem_peso():
+    """O ranking por peso (kg_liquido) é um agrupamento à parte do ranking por
+    valor (vl_fob): o produto #1 em valor pode não ter nenhuma linha com peso
+    registrado. escalar_valor(None) devolve (None, None) — gravar isso no
+    contexto faria $kg_importado_produto1 vazar cru no relatório em vez de
+    cair no default 0 (bug real, revisão editorial de Economia e Renda,
+    25/09/2026)."""
+    linhas = [
+        {"co_ano": 2026, "co_mes": "08", "desc_mes": "agosto", "desc_pais_portugues": "País A", "desc_secao": "Seção X", "desc_sh4": "Produto 1", "kg_liquido": None, "vl_fob": 5000.0},
+        {"co_ano": 2026, "co_mes": "08", "desc_mes": "agosto", "desc_pais_portugues": "País B", "desc_secao": "Seção X", "desc_sh4": "Produto 2", "kg_liquido": 100.0, "vl_fob": 1000.0},
+    ]
+
+    dados = economia_importacao.processar_importacao(linhas)
+
+    assert dados["produto_importado_kg1"] == "produto 1"
+    assert dados["kg_importado_produto1"] == 0
+    assert dados["kg_importado_produtounid1"] == ""

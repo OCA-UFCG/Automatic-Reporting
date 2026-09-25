@@ -144,9 +144,15 @@ def processar_importacao(linhas: list[dict]) -> dict[str, object] | None:
         resultado[f"valor_produto_importado{posicao}"] = valor_escalado
         resultado[f"valor_produto_importadounid{posicao}"] = unidade
 
+        # totais_produto_kg é um agrupamento à parte (_somar_por_chave ignora
+        # linhas com kg_liquido nulo): o produto mais importado por valor pode
+        # não ter nenhum registro de peso. escalar_valor(None) devolve
+        # (None, None); gravar isso no contexto faria o placeholder ficar sem
+        # valor e vazar cru no relatório, em vez de cair no default (0) abaixo.
         kg_escalado, kg_unidade = escalar_valor(totais_produto_kg.get(nome_produto))
-        resultado[f"kg_importado_produto{posicao}"] = kg_escalado
-        resultado[f"kg_importado_produtounid{posicao}"] = kg_unidade
+        if kg_escalado is not None:
+            resultado[f"kg_importado_produto{posicao}"] = kg_escalado
+            resultado[f"kg_importado_produtounid{posicao}"] = kg_unidade
 
     if len(top_produtos) >= 1:
         resultado["produto_importado_kg1"] = top_produtos[0][0].lower()
