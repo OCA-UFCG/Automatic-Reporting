@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from utils.render.placeholders import interpretar_blocos_condicionais
 from utils.render.renderer import (
     render_descricao_tema_html,
@@ -854,23 +856,34 @@ def test_precisao_padrao_editorial_nao_vaza_pra_outro_macrotema():
     )
 
 
-def test_idhm_gini_e_subindices_usam_tres_casas_mesmo_sem_sufixo_no_doc():
+def test_idhm_e_subindices_usam_tres_casas_mesmo_sem_sufixo_no_doc():
     # Rede de segurança: se o `:3` sumir do Doc (como já aconteceu na prática),
-    # esses campos não caem pro padrão de 1 casa que corta a precisão do IDHM/
-    # Gini e arrisca confundir o leitor perto de um limiar de Síntese.
-    contexto = {
-        "idhm_2010": 0.770,
-        "gini_2010": 0.502,
-        "subindice1_2010": 0.843,
-    }
-    texto = (
-        "desen_social.$idhm_2010, desen_social.$gini_2010, "
-        "desen_social.$subindice1_2010"
-    )
+    # esses campos não caem pro padrão de 1 casa que corta a precisão do IDHM
+    # e arrisca confundir o leitor perto de um limiar de Síntese.
+    contexto = {"idhm_2010": 0.770, "subindice1_2010": 0.843}
+    texto = "desen_social.$idhm_2010, desen_social.$subindice1_2010"
 
     assert substituir_placeholders(
         texto, contexto, namespace="desenvolvimento-social"
-    ) == "0,770, 0,502, 0,843"
+    ) == "0,770, 0,843"
+
+
+def test_gini_usa_duas_casas_como_na_fonte():
+    # O Gini chega da fonte com 2 casas (a view devolve Decimal("0.530") depois
+    # do round(..., 3)). Com 3 casas o relatório imprimia "0,530".
+    contexto = {"gini_2010": Decimal("0.530")}
+
+    assert substituir_placeholders(
+        "desen_social.$gini_2010", contexto, namespace="desenvolvimento-social"
+    ) == "0,53"
+
+
+def test_sufixo_no_doc_ainda_vence_a_precisao_padrao_do_gini():
+    contexto = {"gini_2010": 0.542}
+
+    assert substituir_placeholders(
+        "desen_social.$gini_2010:3", contexto, namespace="desenvolvimento-social"
+    ) == "0,542"
 
 
 def test_social_development_gini_condition_accepts_para_prefix_and_ou_wording():
