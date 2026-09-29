@@ -1,3 +1,4 @@
+import math
 import re
 from decimal import Decimal
 
@@ -259,7 +260,7 @@ def _campo_sem_dado(valor: object) -> bool:
     """None, NaN (fallback de CSV) ou o texto "sem dados", sem caixa."""
     if valor is None:
         return True
-    if isinstance(valor, float) and valor != valor:
+    if isinstance(valor, float) and math.isnan(valor):
         return True
     if not isinstance(valor, str):
         return False
