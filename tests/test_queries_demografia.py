@@ -251,32 +251,60 @@ def test_indigena_da_view_nao_e_sobrescrita_pelo_calculo_local():
     assert _indigena_sem_sobrescrever_view(local, None) == local
 
 
-def test_cor_raca_com_pessoas_e_percentual_zero_vira_menos_de_0_01():
+def test_cor_raca_com_pessoas_e_percentual_zero_mostra_casas_decimais():
     # Regressão: com 1 pessoa em 20.953 habitantes a view guarda 0,00 e o Doc
     # saía "e a indígena, 0% (1)" (Coreaú, CE; 9 municípios em 29/09/2026).
+    # O Time Dados pediu o valor com as casas decimais: "0,005%".
     from decimal import Decimal
 
-    from services.generation import _cor_raca_menos_de_0_01
+    from services.generation import _percentuais_pequenos_com_casas
 
     linha = {
+        "pop_total_2022": 20953,
         "cor_pri_pop": 14000, "cor_pri_per": Decimal("66.82"),
         "cor_quar_pop": 2, "cor_quar_per": Decimal("0.01"),
         "cor_quin_class": "indígena", "cor_quin_pop": 1, "cor_quin_per": Decimal("0.00"),
     }
-    _cor_raca_menos_de_0_01(linha)
+    _percentuais_pequenos_com_casas(linha)
 
-    assert linha["cor_quin_per"] == "menos de 0,01"
+    assert linha["cor_quin_per"] == "0,005"
     # Percentual que não arredonda para zero fica como está.
     assert linha["cor_quar_per"] == Decimal("0.01")
     assert linha["cor_pri_per"] == Decimal("66.82")
 
 
-def test_cor_raca_sem_pessoas_mantem_0():
+def test_quilombola_com_pessoas_e_percentual_zero_mostra_casas_decimais():
+    # Fortaleza saía "representava 0% da população total (39)".
+    from decimal import Decimal
+
+    from services.generation import _percentuais_pequenos_com_casas
+
+    linha = {"pop_total_2022": 2428708, "pop_qui": 39, "pop_qui_per": Decimal("0.00")}
+    _percentuais_pequenos_com_casas(linha)
+    assert linha["pop_qui_per"] == "0,002"
+
+
+def test_percentual_ate_primeiro_algarismo():
+    from services.generation import _percentual_ate_primeiro_algarismo
+
+    assert _percentual_ate_primeiro_algarismo(1, 20953) == "0,005"  # 0,00477
+    assert _percentual_ate_primeiro_algarismo(1, 29412) == "0,003"  # 0,00340
+    assert _percentual_ate_primeiro_algarismo(7, 866300) == "0,0008"  # 0,00081
+    # O arredondamento que sobe uma casa não deixa zero sobrando no fim.
+    assert _percentual_ate_primeiro_algarismo(96, 10_000_000) == "0,001"  # 0,00096
+
+
+def test_percentuais_sem_pessoas_mantem_0():
     # Com 0 pessoas o "0%" está certo (São Pedro, RN: "e a indígena, 0% (0)").
     from decimal import Decimal
 
-    from services.generation import _cor_raca_menos_de_0_01
+    from services.generation import _percentuais_pequenos_com_casas
 
-    linha = {"cor_quin_pop": 0, "cor_quin_per": Decimal("0.00")}
-    _cor_raca_menos_de_0_01(linha)
+    linha = {
+        "pop_total_2022": 6000,
+        "cor_quin_pop": 0, "cor_quin_per": Decimal("0.00"),
+        "pop_qui": 0, "pop_qui_per": Decimal("0.00"),
+    }
+    _percentuais_pequenos_com_casas(linha)
     assert linha["cor_quin_per"] == Decimal("0.00")
+    assert linha["pop_qui_per"] == Decimal("0.00")
