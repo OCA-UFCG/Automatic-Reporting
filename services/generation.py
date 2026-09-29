@@ -4,6 +4,7 @@ import re
 import tempfile
 import unicodedata
 from datetime import datetime
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 from fastapi import HTTPException
@@ -469,22 +470,40 @@ def _indigena_sem_sobrescrever_view(
 _ORDINAIS_COR_RACA = ("pri", "seg", "ter", "quar", "quin")
 
 
-def _cor_raca_menos_de_0_01(linha: dict) -> None:
-    """Grupo de cor ou raça com pessoas e percentual que arredonda para zero
-    passa a dizer "menos de 0,01" em vez de 0.
+def _percentual_ate_primeiro_algarismo(pessoas: float, total: float) -> str:
+    """Percentual com as casas decimais que forem precisas até o primeiro
+    algarismo diferente de zero, com vírgula: 1 em 20.953 -> "0,005"; 7 em
+    866.300 -> "0,0008"."""
+    percentual = Decimal(str(pessoas)) / Decimal(str(total)) * 100
+    casas = max(2, -percentual.adjusted())
+    arredondado = percentual.quantize(Decimal(1).scaleb(-casas), rounding=ROUND_HALF_UP)
+    return format(arredondado.normalize(), "f").replace(".", ",")
 
-    Com 1 pessoa em 20.953 habitantes (0,0048%), a view guarda 0,00 e o Doc
-    saía "e a indígena, 0% (1)": zero por cento ao lado de uma pessoa, em 9
-    municípios (revisão editorial de Demografia, 29/09/2026). O Doc escreve o
-    "%" depois do campo, então sai "menos de 0,01% (1)". Com 0 pessoas o "0%"
-    está certo e fica. O gráfico calcula os percentuais pelas contagens e não
-    lê estes campos; nenhuma regra do Doc os usa.
+
+def _percentuais_pequenos_com_casas(linha: dict) -> None:
+    """Percentual que arredonda para zero, mas com pessoas no grupo, passa a
+    mostrar as casas decimais até o primeiro algarismo diferente de zero.
+
+    A view guarda os percentuais com 2 casas: com 1 pessoa em 20.953 habitantes
+    (0,0048%) guarda 0,00 e o Doc saía "e a indígena, 0% (1)" (9 municípios,
+    cor ou raça) e, em Fortaleza, "representava 0% da população total (39)"
+    (14 municípios, quilombolas). O Time Dados pediu o valor com as casas
+    decimais, "0,005%" (revisão editorial de Demografia, 29/09/2026). O
+    percentual é recalculado pela contagem sobre $pop_total_2022, o mesmo
+    denominador da view. Com 0 pessoas o "0%" está certo e fica. O Doc escreve
+    o "%" depois do campo; nenhuma regra do Doc usa estes campos e o gráfico
+    calcula os percentuais pelas contagens.
     """
-    for ordinal in _ORDINAIS_COR_RACA:
-        pessoas = coerce_para_float(linha.get(f"cor_{ordinal}_pop"), default=None)
-        percentual = coerce_para_float(linha.get(f"cor_{ordinal}_per"), default=None)
+    total = coerce_para_float(linha.get("pop_total_2022"), default=None)
+    if not total or total <= 0:
+        return
+    pares = [(f"cor_{o}_pop", f"cor_{o}_per") for o in _ORDINAIS_COR_RACA]
+    pares.append(("pop_qui", "pop_qui_per"))
+    for campo_pessoas, campo_percentual in pares:
+        pessoas = coerce_para_float(linha.get(campo_pessoas), default=None)
+        percentual = coerce_para_float(linha.get(campo_percentual), default=None)
         if pessoas and pessoas > 0 and percentual is not None and round(percentual, 2) == 0:
-            linha[f"cor_{ordinal}_per"] = "menos de 0,01"
+            linha[campo_percentual] = _percentual_ate_primeiro_algarismo(pessoas, total)
 
 
 async def gerar_relatorio_handler(
@@ -756,7 +775,7 @@ async def gerar_relatorio_handler(
                     linha.update(dados_quilombola)
             if macrotema_slug == "demografia":
                 for linha in linhas_macrotema:
-                    _cor_raca_menos_de_0_01(linha)
+                    _percentuais_pequenos_com_casas(linha)
 
             if dados_rua:
                 for linha in linhas_macrotema:
