@@ -58,6 +58,15 @@ def _calcular_indicadores_finalidade(
     if primeira_agua_qtd is None or segunda_agua_qtd is None:
         return indicadores
 
+    # Empate (ex.: Jijoca de Jericoacoara/CE, 10 e 10): nenhuma predomina, e o
+    # Doc dizia "predominância ... 50%". sol_predom/sol_predom_per ficam como
+    # estão porque a abertura do tema também depende de sol_predom_per > 0; o
+    # Doc escolhe a frase da Síntese por empate_finalidade. Com 0 e 0 (só
+    # escolares) não é empate: o Doc tem frase própria para esse caso.
+    indicadores["empate_finalidade"] = int(
+        primeira_agua_qtd == segunda_agua_qtd and primeira_agua_qtd > 0
+    )
+
     if primeira_agua_qtd >= segunda_agua_qtd:
         indicadores["sol_predom"] = _LABEL_PRIMEIRA_AGUA
         indicadores["sol_predom_per"] = indicadores["primeira_agua_per"]
