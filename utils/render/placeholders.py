@@ -1,10 +1,37 @@
 import math
 import re
+from contextvars import ContextVar
 from decimal import Decimal
 
 from utils.formatting import coerce_para_float, formatar_numero_ptbr
 
 _MARCADOR_CAMPO_CONDICIONAL = re.compile(r"(?:[A-Za-z_][\w-]*\.)?\$([A-Za-z_][\w]*)")
+
+# Regras que o parser descarta ou lê diferente do escrito não quebram nada: o
+# parágrafo some ou sai no município errado, sem aviso. Foi a causa mais cara
+# das revisões editoriais (Demografia, 28-29/09/2026: parágrafo de famílias
+# repetido em 499 municípios por um "for menor $campo" sem "que"). Os
+# avaliadores registram aqui o que não entenderam; só conferir_condicoes() liga
+# a coleta, então o relatório não paga nada por isso.
+_PROBLEMAS_CONDICAO: ContextVar[list[str] | None] = ContextVar("_PROBLEMAS_CONDICAO", default=None)
+
+
+def _registrar_problema(motivo: str) -> None:
+    problemas = _PROBLEMAS_CONDICAO.get()
+    if problemas is not None and motivo not in problemas:
+        problemas.append(motivo)
+
+
+def _resto_do_trecho(trecho: str) -> str:
+    """O trecho depois de um $campo sem o fecho da regra (", então") e sem o
+    "e" que liga ao próximo campo: o que sobra é a comparação escrita."""
+    resto = re.sub(r"[\s,]*(?:ent[ãa]o)?[\s,]*$", "", trecho.strip())
+    return re.sub(r"\s+e$", "", resto).strip()
+
+
+# Um $campo logo depois destas palavras é o outro lado de uma comparação entre
+# campos, não uma comparação própria sem operador.
+_FIM_DE_OPERADOR = re.compile(r"(?:menor|maior|igual\s+a|diferente\s+de|que|=)$")
 
 _ALIASES_NAMESPACE = {
     "demografia": {"demografia", "demo"},
@@ -144,10 +171,16 @@ def _avaliar_condicao_demografia(expressao: str, contexto: dict) -> bool | None:
         return False
 
     partes = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(expressao))
+    # Cada trecho é avaliado mesmo depois de um falso, para conferir_condicoes()
+    # ver a regra inteira; o resultado é o mesmo de sair no primeiro falso.
+    atende_tudo = True
+    trecho_anterior = ""
     for indice, match in enumerate(partes):
         campo = match.group(1)
         fim = partes[indice + 1].start() if indice + 1 < len(partes) else len(expressao)
         trecho = expressao[match.end():fim].casefold()
+        lado_direito = bool(_FIM_DE_OPERADOR.search(_resto_do_trecho(trecho_anterior)))
+        trecho_anterior = trecho
         atual = valor(campo)
         # O Doc escreve tanto "= $campo" quanto "for igual a $campo"; sem a
         # forma por extenso, a comparação caía no `continue` abaixo (não há
@@ -159,10 +192,9 @@ def _avaliar_condicao_demografia(expressao: str, contexto: dict) -> bool | None:
         if atende is None and re.search(r"=\s*$", trecho):
             atende = lambda a, b: a == b  # forma simbólica "= $campo"
         if indice + 1 < len(partes) and atende is not None:
-            if campo == "pop_familias_rua_2026" and atual == 0:
-                return False
-            if not atende(atual, valor(partes[indice + 1].group(1))):
-                return False
+            sem_familias = campo == "pop_familias_rua_2026" and atual == 0
+            if sem_familias or not atende(atual, valor(partes[indice + 1].group(1))):
+                atende_tudo = False
             continue
         operador = re.search(r"(?:for\s*)?(>=|>|=|maior\s+que|igual\s+a)?\s*(\d+)", trecho)
         if operador is None:
@@ -170,15 +202,28 @@ def _avaliar_condicao_demografia(expressao: str, contexto: dict) -> bool | None:
             trecho_final = expressao[partes[-1].end():].casefold()
             operador = re.search(r"(?:for\s*)?(>=|>|=|maior\s+que|igual\s+a)?\s*(\d+)", trecho_final)
         if operador is None:
+            resto = _resto_do_trecho(trecho)
+            if resto or not lado_direito:
+                _registrar_problema(
+                    f"${campo} {resto or '(sem comparação)'}: comparação não reconhecida, "
+                    "o trecho é ignorado e a regra vale sem ele"
+                )
             continue
         sinal, limite_texto = operador.groups()
+        if re.search(r"\bmenor\b|\bdiferente\b|\bmaior\s+(?:e|ou)\s+igual", _resto_do_trecho(trecho)):
+            _registrar_problema(
+                f"${campo} {_resto_do_trecho(trecho)}: nas regras de situação de rua é lido como "
+                f"\"{'maior que' if sinal in {'>', 'maior que'} else 'igual a'} {limite_texto}\""
+            )
         limite = float(limite_texto)
         if sinal in {">", "maior que"} and not atual > limite:
-            return False
+            atende_tudo = False
         if sinal == ">=" and not atual >= limite:
-            return False
+            atende_tudo = False
         if sinal not in {">", ">=", "maior que"} and atual != limite:
-            return False
+            atende_tudo = False
+    if not atende_tudo:
+        return False
     # Uma condição diz "família recebe Bolsa Família = 0" sem marcador.
     return not (
         "família recebe bolsa família = 0" in expressao
@@ -372,6 +417,17 @@ def _avaliar_condicao_editorial(
         fim = matches[indice + 1].start() if indice + 1 < len(matches) else len(expressao)
         trecho = expressao[match.end():fim].casefold()
         operadores.append(_parse_operador_editorial(trecho))
+        if "maior ou menor" in trecho:
+            _registrar_problema(
+                f"${campos[indice]} {_resto_do_trecho(trecho)}: \"maior ou menor\" é lido como \"menor que\""
+            )
+        elif operadores[-1] is None and _resto_do_trecho(trecho):
+            _registrar_problema(
+                f"${campos[indice]} {_resto_do_trecho(trecho)}: comparação não reconhecida"
+                + ("" if any(operadores) or indice + 1 < len(matches) else ", a regra nunca vale")
+            )
+    if not any(operadores) and not _PROBLEMAS_CONDICAO.get():
+        _registrar_problema("nenhuma comparação reconhecida, a regra nunca vale")
     operador_compartilhado = next((op for op in reversed(operadores) if op), None)
     operadores = [op or operador_compartilhado for op in operadores]
 
@@ -427,6 +483,47 @@ def _avaliar_condicoes_de_rua(texto: str, contexto: dict) -> tuple[bool, bool]:
         if atende:
             alguma_bateu = True
     return tem_condicoes, alguma_bateu
+
+
+def _avaliar_condicao(matches: list[re.Match], expressao: str, contexto: dict) -> bool:
+    """Uma condição "Para quando ...:" com $campo, pelo avaliador que a
+    entende: rua/demografia, vacina, "sem dados" ou o genérico numérico."""
+    especial = _avaliar_condicao_demografia(expressao, contexto)
+    if especial is None:
+        especial = _avaliar_condicao_vacina(expressao, contexto)
+    if especial is None:
+        especial = _avaliar_condicao_sem_dados(expressao, contexto)
+    return especial if especial is not None else _avaliar_condicao_editorial(matches, expressao, contexto)
+
+
+def conferir_condicoes(texto: str) -> list[str]:
+    """As regras "Para quando ...:" do Doc que o parser descarta em parte ou lê
+    diferente do escrito, uma linha de aviso por problema.
+
+    Passa cada regra pelos mesmos avaliadores do relatório (_avaliar_condicao),
+    com todo campo valendo 1: o valor não importa para saber se a regra foi
+    entendida, só para evitar a saída antecipada de "campo sem dado". Chamado
+    por scripts/atualizar_docs.py a cada Doc baixado.
+    """
+    avisos: list[str] = []
+    for linha in texto.splitlines():
+        limpa = _normalizar_condicao_editorial(linha)
+        condicao = re.match(r"(?i)^para(?:\s+quando)?\s+(.+?):\s*(.*)$", limpa)
+        if not condicao:
+            continue
+        expressao = condicao.group(1).casefold()
+        matches = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(expressao))
+        if not matches:
+            continue
+        contexto = {match.group(1): 1 for match in matches}
+        problemas: list[str] = []
+        token = _PROBLEMAS_CONDICAO.set(problemas)
+        try:
+            _avaliar_condicao(matches, expressao, contexto)
+        finally:
+            _PROBLEMAS_CONDICAO.reset(token)
+        avisos.extend(f"{limpa}\n    → {problema}" for problema in problemas)
+    return avisos
 
 
 def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
@@ -500,12 +597,7 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
             matches = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(expressao))
             if matches:
                 campos = {match.group(1) for match in matches}
-                especial = _avaliar_condicao_demografia(expressao, contexto)
-                if especial is None:
-                    especial = _avaliar_condicao_vacina(expressao, contexto)
-                if especial is None:
-                    especial = _avaliar_condicao_sem_dados(expressao, contexto)
-                atende = especial if especial is not None else _avaliar_condicao_editorial(matches, expressao, contexto)
+                atende = _avaliar_condicao(matches, expressao, contexto)
                 # Sem dado num campo null-sensível, nenhuma condição sobre ele
                 # vale, simples ou composta. Antes era um ramo à parte, só para
                 # condição de um campo e sem o fim de bloco do ramo comum

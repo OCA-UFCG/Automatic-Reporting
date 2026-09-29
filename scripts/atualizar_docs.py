@@ -23,6 +23,12 @@ Ganho: tira ~610ms por Doc (medido) do caminho do request — ~15,7s num relató
 Falhar aqui é barato de propósito: um Doc inacessível vira aviso no log e mantém
 a cópia anterior em disco; o relatório continua saindo com a prosa de ontem em vez
 de quebrar. Sai com código 1 se algum Doc falhou, pro cron registrar.
+
+Cada Doc baixado passa também por conferir_condicoes: regra "Para quando ...:"
+que o parser descarta em parte ou lê diferente do escrito vira AVISO com o texto
+da regra. Não muda o código de saída: o Doc foi baixado e o relatório sai, mas
+com um parágrafo sumido ou no município errado. É o momento de avisar quem
+editou o Doc (revisão editorial de Demografia, 29/09/2026).
 """
 
 import asyncio
@@ -34,6 +40,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from config import CARACTERISTICAS_DOCS_URL
 from utils.data.macrotemas import MACROTEMAS
 from utils.external.docs import baixar_e_salvar_doc
+from utils.render.placeholders import conferir_condicoes
 
 
 def _docs_configurados() -> list[tuple[str, str]]:
@@ -64,14 +71,23 @@ async def main() -> int:
     )
 
     falhas = 0
+    regras_com_problema = 0
     for (rotulo, _), resultado in zip(docs, resultados):
         if isinstance(resultado, Exception):
             falhas += 1
             print(f"AVISO: {rotulo}: {resultado} (mantida a cópia anterior em disco)")
-        else:
-            print(f"ok: {rotulo} ({len(resultado)} caracteres)")
+            continue
+        print(f"ok: {rotulo} ({len(resultado)} caracteres)")
+        for aviso in conferir_condicoes(resultado):
+            regras_com_problema += 1
+            print(f"AVISO: {rotulo}: regra que o relatório não entende:\n  {aviso}")
 
     print(f"=== atualizar_docs: {len(docs) - falhas}/{len(docs)} atualizados ===")
+    if regras_com_problema:
+        print(
+            f"=== {regras_com_problema} regra(s) com problema: o parágrafo pode sumir ou "
+            "sair no município errado. Corrija no Google Doc e rode de novo. ==="
+        )
     return 1 if falhas else 0
 
 
