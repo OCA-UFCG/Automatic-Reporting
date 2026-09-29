@@ -47,6 +47,7 @@ def test_buscar_tecnologias_acesso_agua_predominio_de_segunda_agua(monkeypatch):
 
     assert resultado is not None
     assert resultado["sol_predom"] == "irrigação e dessedentação de animais (2ª água)"
+    assert resultado["empate_finalidade"] == 0
     assert resultado["sol_predom_per"] == resultado["segunda_agua_per"] == 80.0
 
 
@@ -103,6 +104,38 @@ def test_buscar_tecnologias_acesso_agua_so_escolares(monkeypatch):
     assert resultado["escolares_qtd"] == 12
     assert resultado["escolares_per"] == 100.0
     assert resultado["primeira_agua_qtd"] == resultado["segunda_agua_qtd"] == 0
+
+
+def test_buscar_tecnologias_acesso_agua_empate_nao_tem_predominancia(monkeypatch):
+    # Jijoca de Jericoacoara (CE), 2025: 10 de 1ª água e 10 de 2ª. O Doc dizia
+    # "com predominância ... 50%". sol_predom_per continua preenchido: a
+    # abertura do tema depende dele; a Síntese escolhe a frase pelo empate.
+    linhas = [(2025, 20, 10, 10, 0)]
+
+    monkeypatch.setattr(
+        hidraulica, "executar_query", lambda *args, **kwargs: linhas
+    )
+    resultado = hidraulica.buscar_tecnologias_acesso_agua("Jijoca de Jericoacoara", "CE")
+
+    assert resultado is not None
+    assert resultado["empate_finalidade"] == 1
+    assert resultado["sol_predom_per"] == 50.0
+    assert resultado["primeira_agua_per"] == resultado["segunda_agua_per"] == 50.0
+
+
+def test_buscar_tecnologias_acesso_agua_so_escolares_nao_e_empate(monkeypatch):
+    # 0 de 1ª e 0 de 2ª água (Marajá do Sena/MA) não é empate: o Doc tem frase
+    # própria para quem só tem cisternas escolares.
+    linhas = [(2025, 12, 0, 0, 12)]
+
+    monkeypatch.setattr(
+        hidraulica, "executar_query", lambda *args, **kwargs: linhas
+    )
+    resultado = hidraulica.buscar_tecnologias_acesso_agua("Marajá do Sena", "MA")
+
+    assert resultado is not None
+    assert resultado["empate_finalidade"] == 0
+    assert resultado["sol_predom_per"] == 0
 
 
 def test_buscar_tecnologias_acesso_agua_sem_dados_retorna_none(monkeypatch):
