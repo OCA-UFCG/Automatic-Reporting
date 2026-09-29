@@ -140,6 +140,40 @@ Não há famílias.
     assert "Não há famílias." in sem_familias
 
 
+def test_condicao_rua_compara_campos_com_menor_que_e_maior_que():
+    # Revisão da Etapa 2 (28/09/2026): "algumas beneficiárias" precisa de
+    # "bolsaf menor que familias". O parser só entendia igual entre campos e
+    # ignorava o resto, então o parágrafo saía em todo município — Brasileira
+    # (PI) recebia "Havia 0 famílias… das quais 0 eram beneficiárias".
+    texto = """Para quando demografia.$pop_rua_2026 for maior que 0 e demografia.$pop_familias_rua_2026 for maior que 1 e demografia.$pop_rua_bolsaf_2026 for igual a 0, então:
+Nenhuma recebe.
+
+Para quando demografia.$pop_rua_2026 for maior que 0 e demografia.$pop_familias_rua_2026 for maior que 1 e demografia.$pop_rua_bolsaf_2026 for igual a 1, então:
+Apenas uma recebe.
+
+Para quando demografia.$pop_rua_2026 for maior que 0 e demografia.$pop_rua_bolsaf_2026 for maior que 1 e demografia.$pop_rua_bolsaf_2026 for menor que demografia.$pop_familias_rua_2026, então:
+Algumas recebem.
+
+Para quando demografia.$pop_rua_2026 for maior que 0 e demografia.$pop_familias_rua_2026 for maior que 1 e demografia.$pop_familias_rua_2026 for igual a demografia.$pop_rua_bolsaf_2026, então:
+Todas recebem.
+"""
+    paragrafos = ("Nenhuma recebe.", "Apenas uma recebe.", "Algumas recebem.", "Todas recebem.")
+
+    def escolhidos(familias: int, bolsaf: int, rua: int = 10) -> list[str]:
+        resultado = interpretar_blocos_condicionais(
+            texto,
+            {"pop_rua_2026": rua, "pop_familias_rua_2026": familias, "pop_rua_bolsaf_2026": bolsaf},
+        )
+        return [p for p in paragrafos if p in resultado]
+
+    assert escolhidos(5133, 3920) == ["Algumas recebem."]  # Recife (PE)
+    assert escolhidos(40, 40) == ["Todas recebem."]
+    assert escolhidos(40, 1) == ["Apenas uma recebe."]
+    assert escolhidos(40, 0) == ["Nenhuma recebe."]
+    assert escolhidos(1, 1) == []  # 1 família: parágrafos próprios, fora deste grupo
+    assert escolhidos(0, 0, rua=0) == []  # Brasileira (PI)
+
+
 def test_references_render_as_html_and_related_content_gets_boxed():
     texto = """#! Referências
 
