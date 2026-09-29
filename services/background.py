@@ -5,9 +5,11 @@ agendar com asyncio.create_task deixaria o worker cego para o próprio /relatori
 — o polling do portal pararia justamente enquanto os relatórios geram. Aqui a
 geração roda numa thread com loop próprio; o loop do worker fica livre.
 
-O semáforo de 1 é por processo e existe por correção, não por capacidade:
-utils/render/renderer.py guarda o contador de figuras em global de módulo, então
-dois relatórios no mesmo processo embaralham a numeração.
+O semáforo de 1 é por processo. Nasceu por correção: utils/render/renderer.py
+guardava o contador de figuras em global de módulo, e dois relatórios no mesmo
+processo embaralhavam a numeração. O contador agora vive num ContextVar por
+render (o semáforo nunca cobriu o caminho síncrono, que era onde o bug aparecia);
+o semáforo fica para limitar memória e CPU (matplotlib, WeasyPrint) por worker.
 """
 
 from __future__ import annotations

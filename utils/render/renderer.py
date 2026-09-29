@@ -2,6 +2,8 @@ import base64
 import html as html_module
 import logging
 import re
+from contextvars import ContextVar
+from dataclasses import dataclass
 from urllib.parse import quote
 
 from config import BASE_DIR
@@ -17,26 +19,53 @@ from utils.render.placeholders import (
 )
 from utils.render.sections import identificar_secao_macrotema
 
-_figura_contador = 1
-_proxima_referencia_inline = 1
-# Um marcador de gráfico que não gerou imagem (ex.: município sem comércio
-# exterior) deixava a legenda seguinte órfã no relatório, e ainda consumindo
-# um número de figura. O marcador sinaliza aqui que a próxima legenda deve ser
-# descartada. É estado de módulo, e não local, porque
-# render_descricao_tema_html quebra o texto em parágrafos e chama
-# texto_para_html uma vez para cada um: marcador e legenda caem em chamadas
-# diferentes sempre que há linha em branco entre eles no Doc.
-_suprimir_proxima_legenda = False
+
+@dataclass
+class _EstadoFiguras:
+    """Numeração de figuras de UM render de relatório.
+
+    Mora num ContextVar, e não em globais de módulo: o handler zera a numeração
+    e depois faz `await` (Doc, SSR) antes de renderizar, então dois relatórios
+    no mesmo processo se intercalavam e somavam no mesmo contador — Recife saía
+    com as figuras 1, 7…11 e São Luís com 1, 12…16. Cada task do asyncio e cada
+    thread de fundo tem o próprio contexto; to_thread herda o da geração.
+    """
+
+    contador: int = 1
+    proxima_referencia_inline: int = 1
+    # Um marcador de gráfico que não gerou imagem (ex.: município sem comércio
+    # exterior) deixava a legenda seguinte órfã no relatório, e ainda consumindo
+    # um número de figura. O marcador sinaliza aqui que a próxima legenda deve ser
+    # descartada. É estado do render, e não local, porque
+    # render_descricao_tema_html quebra o texto em parágrafos e chama
+    # texto_para_html uma vez para cada um: marcador e legenda caem em chamadas
+    # diferentes sempre que há linha em branco entre eles no Doc.
+    suprimir_proxima_legenda: bool = False
+    # Numeração adiada das menções "(Figura X)" dentro de um macrotema. Em passada
+    # única a menção é numerada antes de sabermos se o gráfico dela vai existir;
+    # então, durante render_descricao_tema_html, cada menção sai como sentinela e
+    # cada legenda suprimida deixa uma marca, e _resolver_referencias_adiadas casa
+    # as duas coisas no fim do tema (ver a docstring dela). Fora desse escopo
+    # (características, fontes, referências) a numeração continua direta.
+    referencias_adiadas: bool = False
+
+
+_estado_figuras: ContextVar[_EstadoFiguras] = ContextVar("estado_figuras")
+
+
+def _figuras() -> _EstadoFiguras:
+    # Sem default no ContextVar de propósito: um objeto default seria o mesmo
+    # para todo contexto que nunca chamou reset — o compartilhamento de antes.
+    try:
+        return _estado_figuras.get()
+    except LookupError:
+        estado = _EstadoFiguras()
+        _estado_figuras.set(estado)
+        return estado
+
 
 logger = logging.getLogger(__name__)
 
-# Numeração adiada das menções "(Figura X)" dentro de um macrotema. Em passada
-# única a menção é numerada antes de sabermos se o gráfico dela vai existir;
-# então, durante render_descricao_tema_html, cada menção sai como sentinela e
-# cada legenda suprimida deixa uma marca, e _resolver_referencias_adiadas casa
-# as duas coisas no fim do tema (ver a docstring dela). Fora desse escopo
-# (características, fontes, referências) a numeração continua direta.
-_referencias_adiadas = False
 _SENTINELA_REF = "FIGREF"
 _SENTINELA_SUPRIMIDA = "FIGSUP"
 _SEPARADOR_PARTES = "PARTE"
@@ -142,11 +171,9 @@ def _html_figura_grafico(
 
 
 def reset_figura_contador() -> None:
-    global _figura_contador, _proxima_referencia_inline
-    global _suprimir_proxima_legenda
-    _figura_contador = 1
-    _proxima_referencia_inline = 1
-    _suprimir_proxima_legenda = False
+    # Objeto novo, não zerar o atual: o atual pode ser o de outro render que
+    # passou o contexto adiante (asyncio.run e to_thread copiam o contexto).
+    _estado_figuras.set(_EstadoFiguras())
 
 
 # Sem `(?i)` de propósito: o flag global tornaria `[A-Zx]` insensível a
@@ -176,11 +203,11 @@ def _substituir_referencia_figura_inline(linha: str) -> str:
     figura seguinte na sequência, na ordem em que aparecem.
     """
     def _proxima_figura(_match: re.Match) -> str:
-        global _proxima_referencia_inline
-        if _referencias_adiadas:
+        estado = _figuras()
+        if estado.referencias_adiadas:
             return _SENTINELA_REF
-        _proxima_referencia_inline += 1
-        return f"Figura {_proxima_referencia_inline}"
+        estado.proxima_referencia_inline += 1
+        return f"Figura {estado.proxima_referencia_inline}"
 
     return _REFERENCIA_FIGURA_INLINE.sub(_proxima_figura, linha)
 
@@ -212,7 +239,7 @@ def _resolver_referencias_adiadas(html: str, descricao: str = "") -> str:
         elif pendentes:
             destino[pendentes.pop(0)] = f"Figura {evento.group(1)}"
     for extra, inicio in enumerate(pendentes, start=1):
-        destino[inicio] = f"Figura {_figura_contador + extra}"
+        destino[inicio] = f"Figura {_figuras().contador + extra}"
 
     saida: list[str] = []
     cursor = 0
@@ -235,7 +262,7 @@ def _resolver_referencias_adiadas(html: str, descricao: str = "") -> str:
                     descricao, contexto_log,
                 )
                 continue
-            numero = f"Figura {_figura_contador + 1}"
+            numero = f"Figura {_figuras().contador + 1}"
             logger.warning(
                 "Menção a figura de gráfico suprimido em forma desconhecida, mantida (%s): ...%s",
                 descricao, contexto_log,
@@ -634,20 +661,20 @@ def render_descricao_tema_html(
     safe_report: str | None = None,
     graficos_por_placeholder: dict[str, str] | None = None,
 ) -> list[str]:
-    # A flag de supressão é estado de módulo e sobrevive entre chamadas de
+    # A flag de supressão é estado do render e sobrevive entre chamadas de
     # texto_para_html (necessário porque marcador e legenda caem em parágrafos
     # separados). Zeramos no início de cada macrotema para que uma flag deixada
     # True por um marcador órfão no fim do tema anterior não descarte, por
     # engano, a primeira legenda deste tema.
-    global _suprimir_proxima_legenda, _referencias_adiadas
-    _suprimir_proxima_legenda = False
-    _referencias_adiadas = True
+    estado = _figuras()
+    estado.suprimir_proxima_legenda = False
+    estado.referencias_adiadas = True
     try:
         partes = _render_descricao_tema_partes(
             descricao_tema, contexto, namespace, safe_report, graficos_por_placeholder
         )
     finally:
-        _referencias_adiadas = False
+        estado.referencias_adiadas = False
     resolvido = _resolver_referencias_adiadas(
         _SEPARADOR_PARTES.join(partes),
         descricao=f"{namespace} / {contexto.get('nm_mun', '?')}",
@@ -859,7 +886,7 @@ def texto_para_html(
     ultimo_foi_paragrafo_plano = False
     ultimo_texto_paragrafo_plano = ""
 
-    global _suprimir_proxima_legenda
+    estado = _figuras()
 
     for linha in linhas:
 
@@ -989,7 +1016,7 @@ def texto_para_html(
                     )
                 html_lines.append(envoltorio + "".join(figuras) + "</div>")
 
-            _suprimir_proxima_legenda = not figuras
+            estado.suprimir_proxima_legenda = not figuras
 
             continue
 
@@ -1000,7 +1027,7 @@ def texto_para_html(
                 html_lines.append("</ul>")
                 em_lista = False
 
-            _suprimir_proxima_legenda = False
+            estado.suprimir_proxima_legenda = False
             titulo = linha_limpa[2:].strip()
 
             if titulo:
@@ -1013,7 +1040,7 @@ def texto_para_html(
         # LISTAS
         if linha_limpa.startswith(("- ", "• ", "* ")):
 
-            _suprimir_proxima_legenda = False
+            estado.suprimir_proxima_legenda = False
 
             if not em_lista:
                 html_lines.append("<ul>")
@@ -1046,7 +1073,7 @@ def texto_para_html(
             in {"apresentação", "demografia"}
         ):
 
-            _suprimir_proxima_legenda = False
+            estado.suprimir_proxima_legenda = False
             html_lines.append(
                 f"<h2>{html_module.escape(linha_limpa)}</h2>"
             )
@@ -1056,8 +1083,6 @@ def texto_para_html(
             linha_limpa,
             flags=re.IGNORECASE,
         ):
-
-            global _figura_contador, _proxima_referencia_inline
 
             # Toda legenda (emitida ou suprimida) ressincroniza o contador das
             # menções inline "(Figura X)" com o das legendas: a próxima menção
@@ -1071,15 +1096,15 @@ def texto_para_html(
 
             # O gráfico desta legenda não existe para este município: descarta
             # a legenda sem consumir número, para a numeração seguir contínua.
-            if _suprimir_proxima_legenda:
-                _suprimir_proxima_legenda = False
-                _proxima_referencia_inline = _figura_contador
-                if _referencias_adiadas:
+            if estado.suprimir_proxima_legenda:
+                estado.suprimir_proxima_legenda = False
+                estado.proxima_referencia_inline = estado.contador
+                if estado.referencias_adiadas:
                     html_lines.append(_SENTINELA_SUPRIMIDA)
                 continue
 
-            _figura_contador += 1
-            _proxima_referencia_inline = _figura_contador
+            estado.contador += 1
+            estado.proxima_referencia_inline = estado.contador
 
             legenda = re.sub(
                 r"\[[A-Za-z0-9]{1,3}\]",
@@ -1089,7 +1114,7 @@ def texto_para_html(
 
             legenda = re.sub(
                 r"^figura\s+[^–-]*[–-]",
-                f"Figura {_figura_contador} –",
+                f"Figura {estado.contador} –",
                 legenda,
                 flags=re.IGNORECASE,
             )
@@ -1107,7 +1132,7 @@ def texto_para_html(
             # saindo como texto corrido. Ex.: o "Síntese" do Doc de
             # Infraestrutura e Saneamento, que precisa ficar verde como
             # "Apresentação" e "Características Gerais".
-            _suprimir_proxima_legenda = False
+            estado.suprimir_proxima_legenda = False
             html_lines.append(
                 f'<h2 class="theme-detail-heading">'
                 f"{html_module.escape(linha_limpa)}"
@@ -1116,7 +1141,7 @@ def texto_para_html(
 
         else:
 
-            _suprimir_proxima_legenda = False
+            estado.suprimir_proxima_legenda = False
 
             linha_limpa = re.sub(
                 r"\[[A-Za-z0-9]{1,3}\]",
