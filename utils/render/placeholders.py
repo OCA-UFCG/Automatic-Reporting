@@ -43,11 +43,14 @@ _OPERADORES_EDITORIAIS: list[tuple[re.Pattern, object]] = [
 ]
 
 # Variante "campo A for <operador> campo B": os operadores acima exigem um
-# número literal, então não casam quando o outro lado também é "$campo". Só
-# cobre igual/diferente, os únicos casos usados hoje.
+# número literal, então não casam quando o outro lado também é "$campo".
+# menor/maior que entram com a revisão de Demografia de 28/09/2026 ("bolsaf
+# menor que familias" separa "algumas" de "todas" beneficiárias).
 _OPERADORES_CAMPO_A_CAMPO: list[tuple[re.Pattern, object]] = [
     (re.compile(r"diferente\s+de\s*$"), lambda a, b: a != b),
     (re.compile(r"igual\s+a\s*$"), lambda a, b: a == b),
+    (re.compile(r"menor\s+que\s*$"), lambda a, b: a < b),
+    (re.compile(r"maior\s+que\s*$"), lambda a, b: a > b),
 ]
 
 
@@ -148,11 +151,16 @@ def _avaliar_condicao_demografia(expressao: str, contexto: dict) -> bool | None:
         # O Doc escreve tanto "= $campo" quanto "for igual a $campo"; sem a
         # forma por extenso, a comparação caía no `continue` abaixo (não há
         # dígito no trecho) e era ignorada — "todas beneficiárias" batia pra
-        # qualquer total de famílias.
-        if indice + 1 < len(partes) and re.search(r"(?:for\s*)?(?:=|igual\s+a)\s*$", trecho):
+        # qualquer total de famílias. Os demais operadores entre campos vêm da
+        # tabela compartilhada; antes, "menor que $campo" era ignorado em
+        # silêncio e o parágrafo saía em todo município.
+        atende = _parse_operador_campo_a_campo(trecho)
+        if atende is None and re.search(r"=\s*$", trecho):
+            atende = lambda a, b: a == b  # forma simbólica "= $campo"
+        if indice + 1 < len(partes) and atende is not None:
             if campo == "pop_familias_rua_2026" and atual == 0:
                 return False
-            if atual != valor(partes[indice + 1].group(1)):
+            if not atende(atual, valor(partes[indice + 1].group(1))):
                 return False
             continue
         operador = re.search(r"(?:for\s*)?(>=|>|=|maior\s+que|igual\s+a)?\s*(\d+)", trecho)

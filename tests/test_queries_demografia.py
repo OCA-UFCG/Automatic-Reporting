@@ -59,6 +59,37 @@ def test_buscar_demografia_sexo_faixa_etaria_usa_faixas_do_grafico(monkeypatch):
     assert resultado["etaria_menor"] == 10
 
 
+def test_faixas_etarias_empatadas_no_topo_viram_plural(monkeypatch):
+    # Revisão da Etapa 2 (28/09/2026): o Doc escolhe "na faixa etária" x "nas
+    # faixas etárias" por $qtd_faixas_etarias_maior. Com max() sozinho, um
+    # empate citava só uma das faixas, escolhida pela ordem do dicionário.
+    linha_resumo = (1000, 520, 480, 100, 150, 200, 400, 250, 600, 200, 150, 30, 20)
+    linhas_por_faixa = [
+        ("0 a 9 anos", 40, 60, 1),
+        ("20 a 29 anos", 150, 160, 3),  # 310, empatada
+        ("30 a 39 anos", 160, 150, 4),  # 310, empatada
+        ("80 anos ou mais", 5, 5, 9),
+    ]
+
+    def buscar(linhas):
+        respostas = iter([linha_resumo, linhas])
+        monkeypatch.setattr(demografia, "executar_query", lambda *a, **k: next(respostas))
+        return demografia.buscar_demografia_sexo_faixa_etaria("Cidade X", "PB")
+
+    empate = buscar(linhas_por_faixa)
+    assert empate["qtd_faixas_etarias_maior"] == 2
+    assert empate["cat_etaria_maior"] == "20 a 29 anos e 30 a 39 anos"
+    assert empate["etaria_maior"] == 310
+
+    tres = buscar([*linhas_por_faixa, ("40 a 49 anos", 300, 10, 5)])
+    assert tres["qtd_faixas_etarias_maior"] == 3
+    assert tres["cat_etaria_maior"] == "20 a 29 anos, 30 a 39 anos e 40 a 49 anos"
+
+    unica = buscar(linhas_por_faixa[:2])
+    assert unica["qtd_faixas_etarias_maior"] == 1
+    assert unica["cat_etaria_maior"] == "20 a 29 anos"
+
+
 def test_cor_pri_class_concorda_no_plural_com_pessoas(monkeypatch):
     # Regressão: o Doc usa $cor_pri_class/$cor_raca_pri_class na frase
     # "predominância de pessoas autodeclaradas $cor_..." — "pessoas" no plural

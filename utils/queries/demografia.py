@@ -229,9 +229,18 @@ def buscar_demografia_sexo_faixa_etaria(
         if faixa is not None
     }
     if totais_por_faixa:
-        faixa_maior = max(totais_por_faixa, key=totais_por_faixa.get)
-        dados["cat_etaria_maior"] = faixa_maior
-        dados["etaria_maior"] = totais_por_faixa[faixa_maior]
+        # Empate no topo cita todas as faixas: o Doc escolhe "na faixa etária"
+        # x "nas faixas etárias" por $qtd_faixas_etarias_maior (revisão de
+        # 28/09/2026). max() sozinho citava só uma, pela ordem do dicionário.
+        maior_total = max(totais_por_faixa.values())
+        faixas_maiores = [f for f, total in totais_por_faixa.items() if total == maior_total]
+        dados["qtd_faixas_etarias_maior"] = len(faixas_maiores)
+        dados["cat_etaria_maior"] = (
+            ", ".join(faixas_maiores[:-1]) + " e " + faixas_maiores[-1]
+            if len(faixas_maiores) > 1
+            else faixas_maiores[0]
+        )
+        dados["etaria_maior"] = maior_total
 
         faixa_menor = min(totais_por_faixa, key=totais_por_faixa.get)
         dados["cat_etaria_menor"] = faixa_menor
