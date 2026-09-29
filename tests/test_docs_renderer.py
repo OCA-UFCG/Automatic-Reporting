@@ -2031,3 +2031,55 @@ def test_campo_vazio_nao_mexe_no_espacamento_escrito_no_doc():
     assert substituir_placeholders(texto, contexto, namespace="economia-renda") == (
         "US$ 617 mil ) e ( nota ) ."
     )
+
+
+# Recorte do Doc de Saneamento: municípios sem Censo 2000 têm
+# esgoto_rede_2000 = "sem dados" e nenhuma versão numérica casa com eles.
+_TEXTO_ESGOTO_SEM_DADOS = """Para quando saneamento.$esgoto_rede_2000 for sem dados, então:
+Sem série histórica.
+
+Para quando saneamento.$esgoto_rede_2000 for diferente de saneamento.$esgoto_rede_2022, então:
+Variou.
+
+Para quando saneamento.$esgoto_rede_2000 for igual a saneamento.$esgoto_rede_2022, então:
+Igual.
+
+Para quando saneamento.$esgoto_rede_2000 for sem dados e saneamento.$coleta_2010 for igual a saneamento.$coleta_2022, então:
+Sem série de esgoto, coleta igual."""
+
+
+def test_sanitation_sem_dados_condition_matches_only_missing_field():
+    sem_dados = interpretar_blocos_condicionais(
+        _TEXTO_ESGOTO_SEM_DADOS,
+        {"esgoto_rede_2000": "sem dados", "esgoto_rede_2022": "28.0",
+         "coleta_2010": "80.0", "coleta_2022": "90.0"},
+    )
+    assert "Sem série histórica." in sem_dados
+    # Comparação entre campos continua falsa quando falta dado.
+    assert "Variou." not in sem_dados
+    assert "Igual." not in sem_dados
+    assert "Sem série de esgoto, coleta igual." not in sem_dados
+
+    composta = interpretar_blocos_condicionais(
+        _TEXTO_ESGOTO_SEM_DADOS,
+        {"esgoto_rede_2000": "Sem Dados", "esgoto_rede_2022": "28.0",
+         "coleta_2010": "90.0", "coleta_2022": "90.0"},
+    )
+    assert "Sem série histórica." in composta
+    assert "Sem série de esgoto, coleta igual." in composta
+
+    nulo = interpretar_blocos_condicionais(
+        _TEXTO_ESGOTO_SEM_DADOS, {"esgoto_rede_2022": "28.0"}
+    )
+    assert "Sem série histórica." in nulo
+
+
+def test_sanitation_sem_dados_condition_ignores_municipalities_with_data():
+    com_dados = interpretar_blocos_condicionais(
+        _TEXTO_ESGOTO_SEM_DADOS,
+        {"esgoto_rede_2000": "10.0", "esgoto_rede_2022": "28.0",
+         "coleta_2010": "80.0", "coleta_2022": "90.0"},
+    )
+    assert "Sem série histórica." not in com_dados
+    assert "Variou." in com_dados
+    assert "Igual." not in com_dados

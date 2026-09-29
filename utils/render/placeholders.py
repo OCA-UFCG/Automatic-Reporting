@@ -248,6 +248,43 @@ def _avaliar_condicao_vacina(expressao: str, contexto: dict) -> bool | None:
     return True
 
 
+# "campo for (igual a) sem dados": o Doc de saneamento precisa de versões do
+# parágrafo para municípios sem Censo 2000 (esgoto_rede_2000 = "sem dados").
+# As comparações numéricas devolvem falso quando o campo não é número, então
+# sem esta condição nenhuma versão casava e o município ficava sem texto.
+_CONDICAO_SEM_DADOS = re.compile(r"\bfor\s+(?:igual\s+a\s+)?sem\s+dados?\s*(?:,?\s*então)?\s*$")
+
+
+def _campo_sem_dado(valor: object) -> bool:
+    """None, NaN (fallback de CSV) ou o texto "sem dados", sem caixa."""
+    if valor is None:
+        return True
+    if isinstance(valor, float) and valor != valor:
+        return True
+    return isinstance(valor, str) and valor.strip().casefold() in {"sem dados", "sem dado"}
+
+
+def _avaliar_condicao_sem_dados(expressao: str, contexto: dict) -> bool | None:
+    """Condições "campo for sem dados", isoladas ou compostas via "e". Devolve
+    None quando nenhuma parte pede "sem dados", para cair nos outros caminhos.
+    As demais partes seguem o caminho numérico, avaliadas cada uma por si."""
+    partes = _CONJUNCAO.split(expressao)
+    if not any(_CONDICAO_SEM_DADOS.search(parte.strip()) for parte in partes):
+        return None
+    for parte in partes:
+        matches = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(parte))
+        if not matches:
+            return None
+        if _CONDICAO_SEM_DADOS.search(parte.strip()):
+            if len(matches) != 1:
+                return None
+            if not _campo_sem_dado(_resolver_campo_com_alias(contexto, matches[0].group(1))):
+                return False
+        elif not _avaliar_condicao_editorial(matches, parte, contexto):
+            return False
+    return True
+
+
 def _avaliar_comparacao_campo_a_campo(expressao: str, contexto: dict) -> bool | None:
     """Avalia UMA comparação "campo A for igual a/diferente de campo B".
     Devolve None quando o trecho não tem essa forma (dois campos e nada além
@@ -463,6 +500,8 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                 especial = _avaliar_condicao_demografia(expressao, contexto)
                 if especial is None:
                     especial = _avaliar_condicao_vacina(expressao, contexto)
+                if especial is None:
+                    especial = _avaliar_condicao_sem_dados(expressao, contexto)
                 atende = especial if especial is not None else _avaliar_condicao_editorial(matches, expressao, contexto)
                 # Sem dado num campo null-sensível, nenhuma condição sobre ele
                 # vale, simples ou composta. Antes era um ramo à parte, só para
