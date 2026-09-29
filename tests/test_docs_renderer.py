@@ -2112,3 +2112,72 @@ def test_sanitation_sem_dados_condition_ignores_municipalities_with_data():
     assert "Sem série histórica." not in com_dados
     assert "Variou." in com_dados
     assert "Igual." not in com_dados
+
+
+def test_conferir_condicoes_aponta_regras_que_o_parser_nao_entende():
+    # Revisão de Demografia (29/09/2026): "for menor $campo", sem "que", era
+    # ignorado em silêncio e o parágrafo de famílias saía em 499 municípios;
+    # "for positivo" com _dado no nome nunca valia; "maior e igual a 1" nas
+    # regras de rua era lido como "igual a 1".
+    from utils.render.placeholders import conferir_condicoes
+
+    texto = """Para quando demografia.$pop_rua_2026 for maior que 0 e demografia.$pop_familias_rua_2026 for menor demografia.$pop_rua_bolsaf_2026, então:
+Texto.
+
+Para quando demografia.$dif_etaria_09_60_dado for positivo, então:
+Texto.
+
+Para quando demografia.$pop_rua_2022 for maior e igual a 1 e demografia.$pop_rua_2026 for igual a 0, então:
+Texto.
+"""
+    avisos = conferir_condicoes(texto)
+
+    assert len(avisos) == 3
+    assert "$pop_familias_rua_2026 for menor" in avisos[0]
+    assert "for positivo" in avisos[1] and "nunca vale" in avisos[1]
+    assert 'lido como "igual a 1"' in avisos[2]
+
+
+def test_conferir_condicoes_nao_acusa_regras_validas():
+    # As formas que o Doc revisado de Demografia usa, e a de saneamento com
+    # "sem dados": nenhuma pode virar aviso, senão o aviso vira ruído.
+    from utils.render.placeholders import conferir_condicoes
+
+    texto = """descricao_tema = “Para quando demografia.$qtd_faixas_etarias_maior for igual a 1, então:
+Texto.
+
+Para quando demografia.$qtd_faixas_etarias_maior for maior que 1 e demografia.$cres_pop_dado for diferente de 0, então:
+Texto.
+
+Para quando demografia.$pop_rua_2026 for maior que 0 e demografia.$pop_rua_bolsaf_2026 for maior que 1 e demografia.$pop_rua_bolsaf_2026 for menor que demografia.$pop_familias_rua_2026, então:
+Texto.
+
+Para quando demografia.$pop_rua_2026 for maior que 0 e demografia.$pop_familias_rua_2026 for maior que 1 e demografia.$pop_familias_rua_2026 for igual a demografia.$pop_rua_bolsaf_2026, então:
+Texto.
+
+Para quando demografia.$pop_rua_2022 for igual a 0 e demografia.$pop_rua_2026 for igual a 0, então:
+Texto.
+
+Para quando infraestrutura.$esgoto_rede_2000 for sem dados, então:
+Texto.
+
+Para efeito de análise:
+Frase comum, sem $campo na regra.
+"""
+    assert conferir_condicoes(texto) == []
+
+
+def test_regra_de_rua_avalia_todos_os_trechos_com_o_mesmo_resultado():
+    # conferir_condicoes precisa ver a regra inteira, então o avaliador de rua
+    # deixou de sair no primeiro trecho falso. O resultado tem de ser o mesmo.
+    texto = """Para quando demografia.$pop_rua_2026 for maior que 0 e demografia.$pop_rua_bolsaf_2026 for maior que 1 e demografia.$pop_rua_bolsaf_2026 for menor que demografia.$pop_familias_rua_2026, então:
+Algumas beneficiárias.
+"""
+    def sai(pessoas, familias, bf):
+        contexto = {"pop_rua_2026": pessoas, "pop_familias_rua_2026": familias, "pop_rua_bolsaf_2026": bf}
+        return "Algumas beneficiárias." in interpretar_blocos_condicionais(texto, contexto)
+
+    assert sai(10, 8, 5)
+    assert not sai(0, 8, 5)   # primeiro trecho falso
+    assert not sai(10, 8, 1)  # segundo trecho falso
+    assert not sai(10, 5, 5)  # comparação entre campos falsa
