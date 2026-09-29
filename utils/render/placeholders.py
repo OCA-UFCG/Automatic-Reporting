@@ -771,12 +771,33 @@ _CAMPOS_ANO = {
     "ano_referencia_finalidade",
 }
 
+# Contagens que a view de educação entrega como texto (a coluna precisa ser text
+# para caber "sem dados" nos municípios sem Censo 2000). String inteira fica
+# intacta por padrão (código de município), então estas saíam "equivalente a
+# 5635 pessoas" (revisão editorial de Educação, 29/09/2026). Lista explícita
+# pelo mesmo motivo de _CAMPOS_ANO: nenhum padrão de nome separa contagem de
+# código.
+_CAMPOS_CONTAGEM_EM_TEXTO = {
+    "tend_ens_sup",
+    "tend_sem_instr_abs",
+    "tend_nivel_sup_abs",
+    "sem_instr_2000",
+    "sem_instr_2022",
+}
+_TEXTO_INTEIRO = re.compile(r"^-?\d+$")
+
 
 def _formatar_valor(valor: object, decimais: int | None = None, campo: str = "") -> str:
     if isinstance(valor, bool):
         return str(valor)
     if isinstance(valor, str) and _TEXTO_DECIMAL_COM_PONTO.match(valor.strip()):
         valor = float(valor)
+    elif (
+        isinstance(valor, str)
+        and campo.lower() in _CAMPOS_CONTAGEM_EM_TEXTO
+        and _TEXTO_INTEIRO.match(valor.strip())
+    ):
+        valor = int(valor)
     if isinstance(valor, (int, float, Decimal)):
         numero = float(valor)
         if decimais is None:

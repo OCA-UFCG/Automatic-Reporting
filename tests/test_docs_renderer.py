@@ -1917,6 +1917,35 @@ def test_contagem_com_ano_no_nome_mantem_separador_de_milhar():
     assert resultado == "foram 32.211 doses"
 
 
+def test_contagem_de_educacao_guardada_como_texto_ganha_separador_de_milhar():
+    # tend_ens_sup vem da view como texto ("5635"): string inteira fica intacta
+    # de propósito (código de município), e o relatório saía "equivalente a
+    # 5635 pessoas" (revisão editorial de Educação, 29/09/2026).
+    resultado = substituir_placeholders(
+        "equivalente a educacao.$tend_ens_sup pessoas", {"tend_ens_sup": "5635"}, "educacao"
+    )
+
+    assert resultado == "equivalente a 5.635 pessoas"
+
+
+def test_contagem_em_texto_sem_numero_fica_como_esta():
+    resultado = substituir_placeholders(
+        "passou de educacao.$sem_instr_2000", {"sem_instr_2000": "sem dados"}, "educacao"
+    )
+
+    assert resultado == "passou de sem dados"
+
+
+def test_texto_inteiro_fora_da_lista_de_contagens_fica_sem_separador():
+    # Trava quem tentar formatar toda string inteira: código de município não
+    # pode virar "2.801.108".
+    resultado = substituir_placeholders(
+        "código educacao.$cd_mun", {"cd_mun": "2801108"}, "educacao"
+    )
+
+    assert resultado == "código 2801108"
+
+
 def test_titulo_de_secao_sem_conteudo_antes_da_caixa_de_fontes_sai():
     # Fernando de Noronha (PE) não tem dado de aridez: as seis versões da Síntese
     # de Meio Ambiente ficam de fora e sobrava o título "Síntese" sozinho, colado
