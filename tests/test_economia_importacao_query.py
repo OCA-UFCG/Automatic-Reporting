@@ -107,6 +107,34 @@ def test_processar_importacao_compara_valor_medio_por_kg_entre_janeiro_e_junho()
     assert dados["analise_importado_janjun"] == "aumento"
 
 
+def test_valor_medio_compara_janeiro_com_o_ultimo_mes_e_nao_com_junho():
+    linhas = [
+        {"co_ano": 2026, "co_mes": "01", "desc_mes": "janeiro", "desc_pais_portugues": "País A", "desc_secao": "Seção X", "desc_sh4": "Produto 1", "kg_liquido": 500.0, "vl_fob": 10000.0},
+        {"co_ano": 2026, "co_mes": "06", "desc_mes": "junho", "desc_pais_portugues": "País A", "desc_secao": "Seção X", "desc_sh4": "Produto 1", "kg_liquido": 100.0, "vl_fob": 9000.0},
+        {"co_ano": 2026, "co_mes": "08", "desc_mes": "agosto", "desc_pais_portugues": "País A", "desc_secao": "Seção X", "desc_sh4": "Produto 1", "kg_liquido": 1000.0, "vl_fob": 5000.0},
+    ]
+
+    dados = economia_importacao.processar_importacao(linhas)
+
+    assert dados["ultimo_mes_ano"] == "agosto de 2026"
+    assert dados["valormedio_importado_ultimo"] == 5.0
+    assert dados["valormedio_importado_ultimounid"] == ""
+    # Junho (90/kg) diria "aumento"; agosto (5/kg) contra janeiro (20/kg) é redução.
+    assert dados["analise_importado_janjun"] == "aumento"
+    assert dados["analise_importado_janultimo"] == "redução"
+
+
+def test_valor_medio_do_ultimo_mes_sem_peso_sai_zero():
+    linhas = [
+        {"co_ano": 2026, "co_mes": "08", "desc_mes": "agosto", "desc_pais_portugues": "País A", "desc_secao": "Seção X", "desc_sh4": "Produto 1", "kg_liquido": 0.0, "vl_fob": 0.0},
+    ]
+
+    dados = economia_importacao.processar_importacao(linhas)
+
+    assert dados["valormedio_importado_ultimo"] == 0
+    assert "analise_importado_janultimo" not in dados
+
+
 def test_processar_importacao_zera_slots_sem_dado_no_ultimo_mes():
     """Slot vazio precisa sair 0/"": generation.py mescla este dict por cima da
     linha da mv_perfil_economia, que traz esses mesmos campos de outro recorte."""

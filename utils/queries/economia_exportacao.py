@@ -1,6 +1,6 @@
 import logging
 
-from utils.queries.base import unidade_de_massa
+from utils.queries.base import escalar_valor_por_extenso, unidade_de_massa
 from utils.queries.perfil_municipal import buscar_perfil_municipal
 
 logger = logging.getLogger(__name__)
@@ -149,5 +149,27 @@ def buscar_comercio_exterior_economia(
         dados["balanca_mensal"] = balanca_mensal
         dados["balanca_mes_inicial"] = _NOMES_MESES_BALANCA_EXTENSO[meses_disponiveis[0]]
         dados["balanca_mes_final"] = _NOMES_MESES_BALANCA_EXTENSO[meses_disponiveis[-1]]
+        dados.update(_saldo_acumulado(balanca_mensal))
 
     return dados
+
+
+def _saldo_acumulado(balanca_mensal: list[tuple[str, float]]) -> dict[str, object]:
+    """Saldo de janeiro até balanca_mes_final, os mesmos meses do gráfico.
+
+    valor_balanca6meses da view soma só janeiro–junho e vem com sinal: o Doc
+    dizia "seis primeiros meses" com o gráfico até agosto, e "US$ -645,51 mil".
+    Aqui o valor sai em módulo e o sinal vira palavra, como em valor_balanca1_abs
+    e analise_balanca1.
+    """
+    saldo = sum(valor for _mes, valor in balanca_mensal)
+    valor, unidade = escalar_valor_por_extenso(abs(saldo))
+    if valor == 0:
+        analise = "saldo zero"
+    else:
+        analise = "superávit" if saldo > 0 else "déficit"
+    return {
+        "valor_balanca_acumulado": valor,
+        "valor_balanca_acumuladounid": unidade,
+        "analise_balanca_acumulado": analise,
+    }

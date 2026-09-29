@@ -105,6 +105,46 @@ def test_buscar_comercio_exterior_economia_aplica_aliases_balanca_e_paises(monke
     assert dados["balanca_mes_final"] == "agosto"
 
 
+def test_saldo_acumulado_soma_os_meses_do_grafico_e_sai_em_modulo(monkeypatch):
+    # Morro do Chapéu/BA: valor_balanca6meses da view somava só jan–jun
+    # (-645,51 mil) com o gráfico até agosto, e o Doc imprimia o sinal.
+    meses = ("jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago")
+    saldos = (0.0, 0.0, 0.0, -334171.0, -315004.0, 3669.0, 11800.0, -356.0)
+    linha_perfil = {
+        "valor_balanca6meses": -645.51,
+        "valor_balanca6mesesunid": "mil",
+        **{f"valor_balanca_{mes}": saldo for mes, saldo in zip(meses, saldos)},
+    }
+    monkeypatch.setattr(
+        economia_exportacao, "buscar_perfil_municipal", lambda *a, **k: linha_perfil
+    )
+
+    dados = economia_exportacao.buscar_comercio_exterior_economia("Morro do Chapéu", "BA")
+
+    assert dados["valor_balanca_acumulado"] == 634.06
+    assert dados["valor_balanca_acumuladounid"] == "mil"
+    assert dados["analise_balanca_acumulado"] == "déficit"
+    assert dados["balanca_mes_final"] == "agosto"
+
+
+def test_saldo_acumulado_positivo_e_zero(monkeypatch):
+    linha_perfil = {"valor_balanca_jan": 1_500_000.0, "valor_balanca_fev": 300_000.0}
+    monkeypatch.setattr(
+        economia_exportacao, "buscar_perfil_municipal", lambda *a, **k: linha_perfil
+    )
+    dados = economia_exportacao.buscar_comercio_exterior_economia("Campina Grande", "PB")
+    assert dados["analise_balanca_acumulado"] == "superávit"
+    assert (dados["valor_balanca_acumulado"], dados["valor_balanca_acumuladounid"]) == (
+        1.8,
+        "milhão",
+    )
+
+    linha_perfil = {"valor_balanca_jan": 0.0, "valor_balanca_fev": 0.0}
+    dados = economia_exportacao.buscar_comercio_exterior_economia("Batalha", "AL")
+    assert dados["analise_balanca_acumulado"] == "saldo zero"
+    assert dados["valor_balanca_acumulado"] == 0
+
+
 def test_municipio_sem_comercio_exterior_devolve_lista_vazia(monkeypatch):
     # Batalha/AL: unidade '' e nome/valor NULL porque o município não
     # comercia. A chave existe mesmo vazia, como `importacao_paises`.

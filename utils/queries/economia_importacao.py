@@ -216,4 +216,20 @@ def processar_importacao(linhas: list[dict]) -> dict[str, object] | None:
             "aumento" if valormedio_jun >= valormedio_jan else "redução"
         )
 
+    # O Doc comparava janeiro com junho fixo enquanto o resto da seção já fala do
+    # último mês ($ultimo_mes_ano). _jun fica até o Doc trocar para estes campos.
+    # Sem peso no último mês: 0, para a condição "for diferente de 0" do Doc
+    # esconder a frase (o campo não existe na view, não há outro valor por baixo).
+    valormedio_ultimo = _valor_medio_por_kg(linhas_ultimo_mes)
+    resultado["valormedio_importado_ultimo"] = 0
+    resultado["valormedio_importado_ultimounid"] = ""
+    if valormedio_ultimo is not None:
+        valor, unidade = escalar_valor_por_extenso(valormedio_ultimo)
+        resultado["valormedio_importado_ultimo"] = valor
+        resultado["valormedio_importado_ultimounid"] = unidade
+    if valormedio_jan is not None and valormedio_ultimo is not None:
+        resultado["analise_importado_janultimo"] = (
+            "aumento" if valormedio_ultimo >= valormedio_jan else "redução"
+        )
+
     return resultado
