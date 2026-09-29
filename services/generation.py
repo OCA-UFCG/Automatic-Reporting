@@ -561,12 +561,12 @@ async def gerar_relatorio_handler(
         False if _sentinela_ja_adquirida else adquirir_geracao(safe_report)
     )
     try:
-        # O contador de figuras é global de módulo e tem escopo de render, então
-        # o reset mora aqui e não no topo do handler: HIT do gate, 202 de dedup e
-        # 503 não renderizam nada, e desde que a geração roda em thread de fundo
-        # (services/background.py) um reset vindo de outra chamada cairia no meio
-        # da numeração de um render em voo — "Figura 3" do relatório A apontando
-        # pro gráfico do B (utils/render/renderer.py:118).
+        # O contador de figuras tem escopo de render, então o reset mora aqui e
+        # não no topo do handler: HIT do gate, 202 de dedup e 503 não renderizam
+        # nada. Ele vive num ContextVar (utils/render/renderer.py, _EstadoFiguras)
+        # porque o `await` do Doc logo abaixo deixa outro relatório renderizar no
+        # meio deste; como global de módulo, os dois somavam no mesmo contador
+        # (Recife com as figuras 1, 7…11).
         reset_figura_contador()
         gerado_em = datetime.now().astimezone()
 

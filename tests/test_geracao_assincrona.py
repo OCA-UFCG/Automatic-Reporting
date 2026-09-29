@@ -194,3 +194,50 @@ def test_202_de_dedup_nao_reseta_o_contador_de_figuras(output):
 
     assert resposta.status_code == 202
     assert _proximo_numero_de_figura() == 3
+
+
+async def _render_que_cede_o_loop(numeros: list[int]) -> None:
+    # A forma do handler: zera, faz `await` (carregar_texto_do_docs, SSR) e só
+    # então renderiza as legendas.
+    reset_figura_contador()
+    await asyncio.sleep(0)
+    for _ in range(3):
+        numeros.append(_proximo_numero_de_figura())
+        await asyncio.sleep(0)
+
+
+def test_renders_intercalados_no_mesmo_loop_numeram_cada_um_do_zero():
+    """Regressão: três GET /relatorio síncronos em paralelo somavam no mesmo
+    contador — Recife saía com 1, 7…11 e São Luís com 1, 12…16."""
+    a: list[int] = []
+    b: list[int] = []
+
+    async def principal() -> None:
+        await asyncio.gather(_render_que_cede_o_loop(a), _render_que_cede_o_loop(b))
+
+    asyncio.run(principal())
+
+    assert a == [2, 3, 4]
+    assert b == [2, 3, 4]
+
+
+def test_render_em_thread_nao_mexe_na_numeracao_de_outra_thread():
+    # Caminho síncrono (admin, scan) no loop do worker junto com uma geração de
+    # services/background.py: o semáforo de 1 só cobre a segunda.
+    barreira = threading.Barrier(2)
+    numeros: dict[str, list[int]] = {"a": [], "b": []}
+
+    def render(nome: str) -> None:
+        reset_figura_contador()
+        barreira.wait()
+        for _ in range(3):
+            numeros[nome].append(_proximo_numero_de_figura())
+            time.sleep(0.001)
+
+    threads = [threading.Thread(target=render, args=(nome,)) for nome in numeros]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert numeros == {"a": [2, 3, 4], "b": [2, 3, 4]}
