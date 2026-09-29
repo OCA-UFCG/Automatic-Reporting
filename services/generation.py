@@ -466,6 +466,27 @@ def _indigena_sem_sobrescrever_view(
     }
 
 
+_ORDINAIS_COR_RACA = ("pri", "seg", "ter", "quar", "quin")
+
+
+def _cor_raca_menos_de_0_01(linha: dict) -> None:
+    """Grupo de cor ou raça com pessoas e percentual que arredonda para zero
+    passa a dizer "menos de 0,01" em vez de 0.
+
+    Com 1 pessoa em 20.953 habitantes (0,0048%), a view guarda 0,00 e o Doc
+    saía "e a indígena, 0% (1)": zero por cento ao lado de uma pessoa, em 9
+    municípios (revisão editorial de Demografia, 29/09/2026). O Doc escreve o
+    "%" depois do campo, então sai "menos de 0,01% (1)". Com 0 pessoas o "0%"
+    está certo e fica. O gráfico calcula os percentuais pelas contagens e não
+    lê estes campos; nenhuma regra do Doc os usa.
+    """
+    for ordinal in _ORDINAIS_COR_RACA:
+        pessoas = coerce_para_float(linha.get(f"cor_{ordinal}_pop"), default=None)
+        percentual = coerce_para_float(linha.get(f"cor_{ordinal}_per"), default=None)
+        if pessoas and pessoas > 0 and percentual is not None and round(percentual, 2) == 0:
+            linha[f"cor_{ordinal}_per"] = "menos de 0,01"
+
+
 async def gerar_relatorio_handler(
     cidade: str,
     macrotema: str = "demografia",
@@ -733,6 +754,9 @@ async def gerar_relatorio_handler(
             if "demografia" in macrotema_slugs and dados_quilombola:
                 for linha in linhas_macrotema:
                     linha.update(dados_quilombola)
+            if macrotema_slug == "demografia":
+                for linha in linhas_macrotema:
+                    _cor_raca_menos_de_0_01(linha)
 
             if dados_rua:
                 for linha in linhas_macrotema:

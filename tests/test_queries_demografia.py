@@ -249,3 +249,34 @@ def test_indigena_da_view_nao_e_sobrescrita_pelo_calculo_local():
     # A view não tem: o local preenche.
     assert linha["pop_total_indigena"] == 470
     assert _indigena_sem_sobrescrever_view(local, None) == local
+
+
+def test_cor_raca_com_pessoas_e_percentual_zero_vira_menos_de_0_01():
+    # Regressão: com 1 pessoa em 20.953 habitantes a view guarda 0,00 e o Doc
+    # saía "e a indígena, 0% (1)" (Coreaú, CE; 9 municípios em 29/09/2026).
+    from decimal import Decimal
+
+    from services.generation import _cor_raca_menos_de_0_01
+
+    linha = {
+        "cor_pri_pop": 14000, "cor_pri_per": Decimal("66.82"),
+        "cor_quar_pop": 2, "cor_quar_per": Decimal("0.01"),
+        "cor_quin_class": "indígena", "cor_quin_pop": 1, "cor_quin_per": Decimal("0.00"),
+    }
+    _cor_raca_menos_de_0_01(linha)
+
+    assert linha["cor_quin_per"] == "menos de 0,01"
+    # Percentual que não arredonda para zero fica como está.
+    assert linha["cor_quar_per"] == Decimal("0.01")
+    assert linha["cor_pri_per"] == Decimal("66.82")
+
+
+def test_cor_raca_sem_pessoas_mantem_0():
+    # Com 0 pessoas o "0%" está certo (São Pedro, RN: "e a indígena, 0% (0)").
+    from decimal import Decimal
+
+    from services.generation import _cor_raca_menos_de_0_01
+
+    linha = {"cor_quin_pop": 0, "cor_quin_per": Decimal("0.00")}
+    _cor_raca_menos_de_0_01(linha)
+    assert linha["cor_quin_per"] == Decimal("0.00")
