@@ -5,7 +5,8 @@ TECNOLOGIAS_ACESSO_AGUA = """
         ano,
         tot_cisternas,
         i_agua_total,
-        ii_agua
+        ii_agua,
+        escolares
     FROM hidr_cisternas.final_tecnologias_sociais_de_acesso_a_agua
     WHERE LOWER(nm_mun) = LOWER(%s)
       AND sigla_uf = %s
@@ -15,9 +16,11 @@ TECNOLOGIAS_ACESSO_AGUA = """
 _DECADAS_SERIE_HISTORICA = (2010, 2020, 2025)
 
 # i_agua = tecnologias de "1ª água" (abastecimento humano); ii_agua = "2ª água"
-# (irrigação e dessedentação animal). São as duas finalidades descritas no
-# texto do relatório; tot_cisternas ainda inclui tecnologias escolares, por
-# isso as duas quantidades abaixo não somam ao total.
+# (irrigação e dessedentação animal). tot_cisternas = i_agua_total + ii_agua +
+# escolares em todos os municípios (conferido no beta em 29/09/2026): sem as
+# escolares, a divisão por finalidade não fecha com o total em 801 municípios,
+# e em 44 deles todas as tecnologias são escolares. Por isso elas entram no
+# contexto como `escolares_qtd`/`escolares_per`.
 _LABEL_PRIMEIRA_AGUA = "abastecimento humano (1ª água)"
 _LABEL_SEGUNDA_AGUA = "irrigação e dessedentação de animais (2ª água)"
 
@@ -26,6 +29,7 @@ def _calcular_indicadores_finalidade(
     total_referencia: float | None,
     primeira_agua_qtd: float | None,
     segunda_agua_qtd: float | None,
+    escolares_qtd: float | None = None,
 ) -> dict[str, object]:
     indicadores: dict[str, object] = {}
     if not total_referencia:
@@ -43,6 +47,14 @@ def _calcular_indicadores_finalidade(
             segunda_agua_qtd / total_referencia * 100, 2
         )
 
+    if escolares_qtd is not None:
+        indicadores["escolares_qtd"] = escolares_qtd
+        indicadores["escolares_per"] = round(
+            escolares_qtd / total_referencia * 100, 2
+        )
+
+    # A predominância segue só entre 1ª e 2ª água: as escolares nunca superam
+    # as duas num município que tem alguma delas (0 casos no beta, 29/09/2026).
     if primeira_agua_qtd is None or segunda_agua_qtd is None:
         return indicadores
 
@@ -113,7 +125,7 @@ def buscar_tecnologias_acesso_agua(
 
     serie = [
         {"ano": ano, "total": total}
-        for ano, total, _i_agua_total, _ii_agua in linhas
+        for ano, total, _i_agua_total, _ii_agua, _escolares in linhas
         if ano is not None and total is not None
     ]
     if not serie:
@@ -124,11 +136,13 @@ def buscar_tecnologias_acesso_agua(
     dados.update(_calcular_indicadores_serie_historica(por_ano))
 
     ultimo_ano = max(por_ano)
-    _, total_ultimo_ano, i_agua_total, ii_agua = next(
+    _, total_ultimo_ano, i_agua_total, ii_agua, escolares = next(
         linha for linha in linhas if linha[0] == ultimo_ano
     )
     dados.update(
-        _calcular_indicadores_finalidade(total_ultimo_ano, i_agua_total, ii_agua)
+        _calcular_indicadores_finalidade(
+            total_ultimo_ano, i_agua_total, ii_agua, escolares
+        )
     )
     # Ano real dos dados de 1ª/2ª água, que nem sempre é o mais recente da
     # série. A capa usava isso para rotular a fonte dos cards de acesso à
