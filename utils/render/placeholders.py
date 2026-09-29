@@ -261,7 +261,9 @@ def _campo_sem_dado(valor: object) -> bool:
         return True
     if isinstance(valor, float) and valor != valor:
         return True
-    return isinstance(valor, str) and valor.strip().casefold() in {"sem dados", "sem dado"}
+    if not isinstance(valor, str):
+        return False
+    return valor.strip().casefold() in {"sem dados", "sem dado"}
 
 
 def _avaliar_condicao_sem_dados(expressao: str, contexto: dict) -> bool | None:
