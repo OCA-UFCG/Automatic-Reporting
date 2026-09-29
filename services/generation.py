@@ -445,6 +445,27 @@ def _cor_raca_sem_sobrescrever_view(
     }
 
 
+def _indigena_sem_sobrescrever_view(
+    dados_indigena: dict[str, object], perfil_db: dict | None
+) -> dict[str, object]:
+    """O que de buscar_populacao_indigena entra na linha do relatório.
+
+    O cálculo local sobrescrevia a view: as faixas saíam sem "anos" ("30 a 39",
+    "80 ou mais"), `var_pop_ind_abs` arredondado a uma casa (21,55 virava 21,5) e
+    `var_pop_ind_analise` "aumento" onde a view diz "estabilidade" (revisão
+    editorial de Demografia, 29/09/2026). Com a linha da view, tudo o que ela traz
+    prevalece, inclusive a contagem de cada faixa, que assim vem da mesma fonte
+    que o rótulo. O resto (totais por sexo, território) continua vindo do local.
+    """
+    if not perfil_db:
+        return dados_indigena
+    return {
+        chave: valor
+        for chave, valor in dados_indigena.items()
+        if perfil_db.get(chave) is None
+    }
+
+
 async def gerar_relatorio_handler(
     cidade: str,
     macrotema: str = "demografia",
@@ -702,8 +723,13 @@ async def gerar_relatorio_handler(
                 for linha in linhas_macrotema:
                     linha.update(dados_sexo_mescla)
             if "demografia" in macrotema_slugs and dados_indigena:
+                dados_indigena_mescla = (
+                    _indigena_sem_sobrescrever_view(dados_indigena, perfil_db)
+                    if macrotema_slug == "demografia"
+                    else dados_indigena
+                )
                 for linha in linhas_macrotema:
-                    linha.update(dados_indigena)
+                    linha.update(dados_indigena_mescla)
             if "demografia" in macrotema_slugs and dados_quilombola:
                 for linha in linhas_macrotema:
                     linha.update(dados_quilombola)

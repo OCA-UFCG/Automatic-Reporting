@@ -215,3 +215,37 @@ def test_cor_raca_da_view_nao_e_sobrescrita_pelo_ranking_local():
     # Faixa etária segue vindo do local (casa com a legenda do gráfico).
     assert linha["cat_etaria_maior"] == "20 a 29 anos"
     assert _cor_raca_sem_sobrescrever_view(local, None) == local
+
+
+def test_indigena_da_view_nao_e_sobrescrita_pelo_calculo_local():
+    # Regressão: buscar_populacao_indigena sobrescrevia a view e o Doc saía
+    # "a de 80 ou mais anos" (o Doc acrescentava "anos" a "30 a 39") e
+    # "21,50%" onde a view tem 21,55%.
+    from services.generation import _indigena_sem_sobrescrever_view
+
+    local = {
+        "pop_total_indigena": 470,
+        "cat_etaria_ind_pri": "30 a 39",
+        "pop_etaria_ind_pri": 99,
+        "cat_etaria_ind_seg": "80 ou mais",
+        "var_pop_ind_abs": 21.5,
+        "var_pop_ind_analise": "aumento",
+    }
+    view = {
+        "cat_etaria_ind_pri": "30 a 39 anos",
+        "pop_etaria_ind_pri": 99,
+        "cat_etaria_ind_seg": "80 anos ou mais",
+        "var_pop_ind_abs": "21.55",
+        "var_pop_ind_analise": "estabilidade",
+    }
+
+    linha = dict(view)
+    linha.update(_indigena_sem_sobrescrever_view(local, view))
+
+    assert linha["cat_etaria_ind_pri"] == "30 a 39 anos"
+    assert linha["cat_etaria_ind_seg"] == "80 anos ou mais"
+    assert linha["var_pop_ind_abs"] == "21.55"
+    assert linha["var_pop_ind_analise"] == "estabilidade"
+    # A view não tem: o local preenche.
+    assert linha["pop_total_indigena"] == 470
+    assert _indigena_sem_sobrescrever_view(local, None) == local
