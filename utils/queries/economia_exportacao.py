@@ -48,6 +48,8 @@ _CAMPOS_MERGE_DIRETOS = (
     "pais_exportacao6destino",
 )
 
+_CAMPOS_TEXTO_MEIO_DE_FRASE = ("secao_exportacao1", "produto_exportado1")
+
 # doc usa "balança" (com cedilha); coluna do banco é "balanca" (sem cedilha)
 _ALIASES_BALANCA_CEDILHA = {
     "analise_balanca1": "analise_balança1",
@@ -88,6 +90,13 @@ def buscar_comercio_exterior_economia(
 
     if "kg_exportado_unid" in dados:
         dados["kg_exportado_unid"] = unidade_de_massa(dados["kg_exportado_unid"])
+
+    # A view traz seção e produto capitalizados ("Produtos das indústrias..."),
+    # mas o Doc os usa no meio da frase. Mesmo .lower() que processar_importacao
+    # aplica em secao_importado/produto_importado, para as duas seções baterem.
+    for campo in _CAMPOS_TEXTO_MEIO_DE_FRASE:
+        if isinstance(dados.get(campo), str):
+            dados[campo] = dados[campo].lower()
 
     for campo_banco, campo_doc in _ALIASES_BALANCA_CEDILHA.items():
         if linha.get(campo_banco) is not None:

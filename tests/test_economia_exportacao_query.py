@@ -26,6 +26,25 @@ def test_buscar_comercio_exterior_economia_repassa_fob_exportado_ultimo(monkeypa
     assert dados["kg_exportado"] == 918.2
 
 
+def test_secao_e_produto_exportados_vem_em_minusculas_como_na_importacao(monkeypatch):
+    # O Doc cita a seção no meio da frase; a importação já saía "produtos das
+    # indústrias químicas" e a exportação "Produtos das Indústrias Químicas".
+    linha_perfil = {
+        "secao_exportacao1": "Produtos das Indústrias Químicas",
+        "produto_exportado1": "Calçados",
+    }
+    monkeypatch.setattr(
+        economia_exportacao,
+        "buscar_perfil_municipal",
+        lambda *args, **kwargs: linha_perfil,
+    )
+
+    dados = economia_exportacao.buscar_comercio_exterior_economia("Campina Grande", "PB")
+
+    assert dados["secao_exportacao1"] == "produtos das indústrias químicas"
+    assert dados["produto_exportado1"] == "calçados"
+
+
 def test_buscar_comercio_exterior_economia_retorna_none_sem_perfil(monkeypatch):
     monkeypatch.setattr(
         economia_exportacao, "buscar_perfil_municipal", lambda *args, **kwargs: None
