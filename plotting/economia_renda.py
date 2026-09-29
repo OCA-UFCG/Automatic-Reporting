@@ -14,6 +14,7 @@ from plotting import (
 from plotting.hidraulica import _numero
 from utils.formatting import formatar_numero_ptbr
 from utils.queries.base import escalar_valor as _escalar_valor
+from utils.queries.base import escalar_valor_por_extenso
 
 _COR_LINHA = "#F0883E"
 
@@ -314,7 +315,8 @@ def gerar_grafico_vab(
                     linewidth=2,
                 )
             )
-            valor_escalado, unidade = _escalar_valor(valor)
+            # Rótulo por extenso, como no texto: "R$ 1,76 bilhão", não "bilhões".
+            valor_escalado, unidade = escalar_valor_por_extenso(valor)
             sufixo = f" {unidade}" if unidade else ""
             texto_valor_str = f"R$ {formatar_numero_ptbr(valor_escalado, decimais=2)}{sufixo}"
             texto_nome = ax.text(

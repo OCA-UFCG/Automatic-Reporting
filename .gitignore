@@ -15,3 +15,4 @@ report/node_modules/
 /map_shape
 /mapas
 .opencode
+.claude/settings.local.json

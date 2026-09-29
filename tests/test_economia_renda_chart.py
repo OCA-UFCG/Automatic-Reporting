@@ -99,6 +99,33 @@ def test_gera_grafico_vab_com_linha_fina_nao_estoura(tmp_path: Path):
     assert (tmp_path / arquivo).is_file()
 
 
+def test_rotulo_do_vab_usa_bilhao_no_singular_abaixo_de_2(tmp_path: Path, monkeypatch):
+    # O texto já dizia "R$ 1,76 bilhão"; o treemap escrevia "R$ 1,76 bilhões".
+    textos: list[str] = []
+
+    def _capturar(fig, chart_file, dpi=180):
+        textos.extend(texto.get_text() for ax in fig.axes for texto in ax.texts)
+
+    monkeypatch.setattr("plotting.economia_renda.salvar_card_grafico", _capturar)
+    cidade = {
+        "vab_setores_2021": {
+            "servicos": 1_760_000_000.0,
+            "adm_publica": 2_500_000_000.0,
+            "industria": 1_200_000.0,
+            "agropecuaria": 300_000_000.0,
+        }
+    }
+
+    gerar_grafico_vab(cidade, tmp_path, "vab_singular")
+
+    # A linha fina junta nome e valor ("Indústria — R$\n1,20 milhão").
+    rotulos = " ".join(textos).replace("\n", " ")
+    assert "R$ 1,76 bilhão" in rotulos
+    assert "R$ 2,50 bilhões" in rotulos
+    assert "R$ 1,20 milhão" in rotulos
+    assert "R$ 300,00 milhões" in rotulos
+
+
 def test_gera_grafico_fob_com_paises_do_banco(tmp_path: Path):
     cidade = {
         "importacao_paises": [

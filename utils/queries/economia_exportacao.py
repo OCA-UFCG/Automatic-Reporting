@@ -1,6 +1,6 @@
 import logging
 
-from utils.queries.base import unidade_de_massa
+from utils.queries.base import escalar_valor_por_extenso, unidade_de_massa
 from utils.queries.perfil_municipal import buscar_perfil_municipal
 
 logger = logging.getLogger(__name__)
@@ -48,6 +48,8 @@ _CAMPOS_MERGE_DIRETOS = (
     "pais_exportacao6destino",
 )
 
+_CAMPOS_TEXTO_MEIO_DE_FRASE = ("secao_exportacao1", "produto_exportado1")
+
 # doc usa "balança" (com cedilha); coluna do banco é "balanca" (sem cedilha)
 _ALIASES_BALANCA_CEDILHA = {
     "analise_balanca1": "analise_balança1",
@@ -88,6 +90,13 @@ def buscar_comercio_exterior_economia(
 
     if "kg_exportado_unid" in dados:
         dados["kg_exportado_unid"] = unidade_de_massa(dados["kg_exportado_unid"])
+
+    # A view traz seção e produto capitalizados ("Produtos das indústrias..."),
+    # mas o Doc os usa no meio da frase. Mesmo .lower() que processar_importacao
+    # aplica em secao_importado/produto_importado, para as duas seções baterem.
+    for campo in _CAMPOS_TEXTO_MEIO_DE_FRASE:
+        if isinstance(dados.get(campo), str):
+            dados[campo] = dados[campo].lower()
 
     for campo_banco, campo_doc in _ALIASES_BALANCA_CEDILHA.items():
         if linha.get(campo_banco) is not None:
@@ -140,5 +149,27 @@ def buscar_comercio_exterior_economia(
         dados["balanca_mensal"] = balanca_mensal
         dados["balanca_mes_inicial"] = _NOMES_MESES_BALANCA_EXTENSO[meses_disponiveis[0]]
         dados["balanca_mes_final"] = _NOMES_MESES_BALANCA_EXTENSO[meses_disponiveis[-1]]
+        dados.update(_saldo_acumulado(balanca_mensal))
 
     return dados
+
+
+def _saldo_acumulado(balanca_mensal: list[tuple[str, float]]) -> dict[str, object]:
+    """Saldo de janeiro até balanca_mes_final, os mesmos meses do gráfico.
+
+    valor_balanca6meses da view soma só janeiro–junho e vem com sinal: o Doc
+    dizia "seis primeiros meses" com o gráfico até agosto, e "US$ -645,51 mil".
+    Aqui o valor sai em módulo e o sinal vira palavra, como em valor_balanca1_abs
+    e analise_balanca1.
+    """
+    saldo = sum(valor for _mes, valor in balanca_mensal)
+    valor, unidade = escalar_valor_por_extenso(abs(saldo))
+    if valor == 0:
+        analise = "saldo zero"
+    else:
+        analise = "superávit" if saldo > 0 else "déficit"
+    return {
+        "valor_balanca_acumulado": valor,
+        "valor_balanca_acumuladounid": unidade,
+        "analise_balanca_acumulado": analise,
+    }
