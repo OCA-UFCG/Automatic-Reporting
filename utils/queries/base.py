@@ -4,6 +4,7 @@ import logging
 import threading
 import time
 from collections import OrderedDict
+from decimal import ROUND_HALF_UP, Decimal
 
 import psycopg2
 
@@ -74,10 +75,23 @@ def escalar_valor(valor: object) -> tuple[object, object]:
 _UNIDADE_SINGULAR = {"milhões": "milhão", "bilhões": "bilhão"}
 
 
+def _arredondar_como_a_view(valor: float) -> float:
+    """2 casas, meio para cima, como o ROUND(numeric) da mv_perfil_economia.
+
+    Em float, 2675 / 1000 vira 2,67499…, e o texto trazia importações de
+    "US$ 2,67 mil" ao lado de um déficit de "US$ 2,68 mil" vindo da view
+    (Maragogipe/BA). str() devolve o decimal curto ("2.675") antes de arredondar.
+    """
+    return float(Decimal(str(valor)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
 def escalar_valor_por_extenso(valor: object) -> tuple[object, object]:
     """Para texto: "1,70 milhão", não "1,70 milhões". Os gráficos seguem em
     escalar_valor, que acha o divisor pela unidade no plural."""
     valor_escalado, unidade = escalar_valor(valor)
+    if valor_escalado is None:
+        return None, None
+    valor_escalado = _arredondar_como_a_view(valor_escalado)
     # Compara o valor como o texto exibe (2 casas): 1,999 sai "2,00 milhões".
     if unidade in _UNIDADE_SINGULAR and round(valor_escalado, 2) < 2:
         return valor_escalado, _UNIDADE_SINGULAR[unidade]

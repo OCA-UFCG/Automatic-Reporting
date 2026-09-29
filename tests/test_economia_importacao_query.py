@@ -162,7 +162,7 @@ def test_processar_importacao_ordena_os_pesos_por_kg_e_nao_por_valor():
 
     assert dados["produto_importado1"] == "queijos e requeijão"
     assert dados["produto_importado_kg1"] == "pneumáticos novos, de borracha"
-    assert dados["kg_importado_produto1"] == 223.517
+    assert dados["kg_importado_produto1"] == 223.52  # "223,52 mil kg": arredondado como o texto exibe
     assert dados["produto_importado_kg2"] == "queijos e requeijão"
 
 

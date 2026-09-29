@@ -27,6 +27,20 @@ def test_escalar_valor_segue_no_plural_para_os_graficos():
     assert escalar_valor(1_700_000)[1] == "milhões"
 
 
+@pytest.mark.parametrize(
+    ("valor", "esperado"),
+    [
+        # Maragogipe/BA: 2.675 importados; a view (numeric) diz 2,68 mil no déficit.
+        (2_675, (2.68, "mil")),
+        (1_005_000, (1.01, "milhão")),
+        (2.675, (2.68, "")),
+        (2_674, (2.67, "mil")),
+    ],
+)
+def test_escalar_valor_por_extenso_arredonda_meio_para_cima_como_a_view(valor, esperado):
+    assert escalar_valor_por_extenso(valor) == esperado
+
+
 def test_escalar_valor_por_extenso_sem_valor():
     assert escalar_valor_por_extenso(None) == (None, None)
 
