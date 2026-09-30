@@ -809,6 +809,79 @@ Com vários Centros POP."""
     assert "Com vários Centros POP." not in resultado
 
 
+_TEXTO_RUA_E_CENTRO_POP = """Para quando demografia.$pop_familias_rua_2026 for igual a 0, então:
+Não havia famílias em situação de rua.
+
+Para quando demografia.$pop_familias_rua_2026 for maior que 0, então:
+Havia demografia.$pop_familias_rua_2026 famílias em situação de rua.
+
+
+Para quando demografia.$centro_pop for igual a 0, então:
+O município não contava com um Centro POP.
+
+
+Para quando demografia.$centro_pop for igual a 1, então:
+O município contava com um Centro POP.
+
+
+Síntese"""
+
+
+def test_centro_pop_continues_previous_street_paragraph():
+    # Pedido do conteúdo (30/09/2026): o Centro POP é continuação do último
+    # parágrafo de situação de rua, não um parágrafo próprio.
+    resultado = interpretar_blocos_condicionais(
+        _TEXTO_RUA_E_CENTRO_POP, {"pop_familias_rua_2026": 3, "centro_pop": 1}
+    )
+
+    assert (
+        "Havia demografia.$pop_familias_rua_2026 famílias em situação de rua. "
+        "O município contava com um Centro POP."
+    ) in resultado.splitlines()
+    assert "Não havia famílias" not in resultado
+
+    html = texto_para_html(
+        _TEXTO_RUA_E_CENTRO_POP, {"pop_familias_rua_2026": 3, "centro_pop": 0}
+    )
+    assert (
+        "<p>Havia 3 famílias em situação de rua. "
+        "O município não contava com um Centro POP.</p>"
+    ) in html
+
+
+def test_centro_pop_stays_own_paragraph_after_non_sentence_line():
+    texto = """#!Situação de rua
+Para quando demografia.$centro_pop for igual a 1, então:
+O município contava com um Centro POP."""
+
+    resultado = interpretar_blocos_condicionais(texto, {"centro_pop": 1})
+
+    assert resultado.splitlines() == [
+        "#!Situação de rua",
+        "O município contava com um Centro POP.",
+    ]
+
+
+def test_centro_pop_null_emits_nothing_and_leaves_previous_paragraph_intact():
+    resultado = interpretar_blocos_condicionais(
+        _TEXTO_RUA_E_CENTRO_POP, {"pop_familias_rua_2026": 0}
+    )
+
+    assert "Não havia famílias em situação de rua." in resultado.splitlines()
+    assert "Centro POP" not in resultado
+
+
+def test_only_centro_pop_continues_previous_paragraph():
+    texto = """Primeiro parágrafo.
+
+Para quando demografia.$n_uc for igual a 1, então:
+Havia uma unidade de conservação."""
+
+    resultado = interpretar_blocos_condicionais(texto, {"n_uc": 1})
+
+    assert "Havia uma unidade de conservação." in resultado.splitlines()
+
+
 def test_demography_editorial_conditions_close_2010_block_with_autodeclarada_wording():
     texto = """Para quando demografia.$pop_ind_2022 e demografia.$pop_qui for diferente de 0:
 Tem os dois grupos.

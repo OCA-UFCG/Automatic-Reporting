@@ -124,6 +124,34 @@ def _parse_operador_campo_a_campo(trecho: str):
 # n_uc com asd_per_2021 numa condição só.
 _CAMPOS_NULL_SENSIVEIS = {"centro_pop", "n_uc", "tend_sem_instr_per_dado", "asd_per_2021"}
 
+# O parágrafo de Centro POP continua o último parágrafo de situação de rua
+# emitido (famílias, pessoas ou o fallback "Não foram encontrados registros"),
+# em vez de sair como <p> próprio. No Doc cada condicional precisa ficar
+# separada por linha em branco, e mapear a frase de Centro POP dentro de cada
+# combinação de rua multiplicaria as condicionais (pedido do conteúdo,
+# 30/09/2026). Vale só para este campo.
+_CAMPO_CONTINUA_PARAGRAFO_ANTERIOR = "centro_pop"
+_TERMINA_EM_FRASE = re.compile(r"[.!?…]+[\"'”’)]*$")
+
+
+def _anexar_ao_ultimo_paragrafo(resultado: list[str], texto: str) -> bool:
+    """Cola ``texto`` na última linha não vazia de ``resultado``.
+
+    Só cola quando essa linha é prosa que fecha frase — título ``#!``,
+    marcador de gráfico ou fragmento sem pontuação ficam intactos e o texto
+    segue como parágrafo próprio (retorna False).
+    """
+    for indice in range(len(resultado) - 1, -1, -1):
+        anterior = resultado[indice].strip()
+        if not anterior:
+            continue
+        if not _TERMINA_EM_FRASE.search(anterior):
+            return False
+        del resultado[indice + 1 :]
+        resultado[indice] = f"{anterior} {texto.strip()}"
+        return True
+    return False
+
 
 def _normalizar_condicao_editorial(linha: str) -> str:
     # A exportação Markdown do Docs intercala negrito e escapa operadores e
@@ -552,6 +580,9 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
     # as duas versões (igual/diferente) vazam juntas. Só a primeira linha em
     # branco *depois* de já termos visto conteúdo do parágrafo conta.
     bloco_simples_teve_conteudo = False
+    # Primeira linha do bloco de Centro POP ainda por colar no parágrafo
+    # anterior (ver _CAMPO_CONTINUA_PARAGRAFO_ANTERIOR).
+    anexar_ao_anterior = False
 
     for linha in texto.splitlines():
         limpa = _normalizar_condicao_editorial(linha)
@@ -564,6 +595,7 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
             bloco_ativo = True
             aguardando_fim_de_bloco_simples = False
             bloco_simples_teve_conteudo = False
+            anexar_ao_anterior = False
             resultado.append(linha)
             continue
 
@@ -574,6 +606,7 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
             bloco_ativo = True
             aguardando_fim_de_bloco_simples = False
             bloco_simples_teve_conteudo = False
+            anexar_ao_anterior = False
             resultado.append(linha)
             continue
 
@@ -626,9 +659,18 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                     aguardando_fim_de_bloco_simples = True
                     bloco_simples_teve_conteudo = False
                     bloco_e_persistente = False
+                anexar_ao_anterior = (
+                    atende
+                    and not bloco_e_persistente
+                    and _CAMPO_CONTINUA_PARAGRAFO_ANTERIOR in campos
+                )
                 if condicao.group(2) and not bloco_e_persistente:
-                    if bloco_ativo:
+                    if bloco_ativo and not (
+                        anexar_ao_anterior
+                        and _anexar_ao_ultimo_paragrafo(resultado, condicao.group(2))
+                    ):
                         resultado.append(condicao.group(2))
+                    anexar_ao_anterior = False
                     bloco_ativo = True
                     aguardando_fim_de_bloco_simples = False
                 continue
@@ -723,6 +765,10 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                 continue
 
         if bloco_ativo:
+            if anexar_ao_anterior and limpa:
+                anexar_ao_anterior = False
+                if _anexar_ao_ultimo_paragrafo(resultado, linha):
+                    continue
             resultado.append(linha)
 
     return "\n".join(resultado)
