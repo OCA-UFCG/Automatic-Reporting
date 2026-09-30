@@ -326,3 +326,35 @@ def test_percentuais_sem_pessoas_mantem_0():
     _percentuais_pequenos_com_casas(linha)
     assert linha["cor_quin_per"] == Decimal("0.00")
     assert linha["pop_qui_per"] == Decimal("0.00")
+
+
+def test_contagem_indigena_da_view_com_ponto_de_milhar_vira_inteiro():
+    # Regressão: a view entrega pop_etaria_ind_pri/_seg como texto formatado
+    # (to_char com ponto de milhar, "3.835"), que o renderer lia como decimal:
+    # Pesqueira (PE) saía "que reunia 3,83 pessoas". Nas regras do Doc,
+    # "1.000" também valia como "igual a 1" (revisão de Demografia, 30/09/2026).
+    from services.generation import _contagens_indigenas_como_numero
+    from utils.render.placeholders import substituir_placeholders
+
+    linha = {
+        "pop_etaria_ind_pri": "3.835",
+        "pop_etaria_ind_seg": "1.000",
+        "pop_qui": 310,
+    }
+    _contagens_indigenas_como_numero(linha)
+
+    assert linha["pop_etaria_ind_pri"] == 3835
+    assert linha["pop_etaria_ind_seg"] == 1000
+    assert substituir_placeholders(
+        "reunia demografia.$pop_etaria_ind_pri pessoas", linha, "demografia"
+    ) == "reunia 3.835 pessoas"
+
+
+def test_contagem_indigena_sem_milhar_ou_sem_dados_fica_como_esta():
+    from services.generation import _contagens_indigenas_como_numero
+
+    linha = {"pop_etaria_ind_pri": "44", "pop_etaria_ind_seg": "sem dados"}
+    _contagens_indigenas_como_numero(linha)
+
+    assert linha["pop_etaria_ind_pri"] == 44
+    assert linha["pop_etaria_ind_seg"] == "sem dados"
