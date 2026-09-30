@@ -181,6 +181,12 @@ def reset_figura_contador() -> None:
 # como "a figura a seguir". A caixa de "figura" é tratada à parte.
 _REFERENCIA_FIGURA_INLINE = re.compile(r"\b[Ff]igura\s+\[?(?:[A-Zx]|&)\]?\b")
 
+# O export .txt do Google Docs escreve o marcador conforme o estilo da lista:
+# "* " na maioria dos Docs, mas "●" seguido de vários espaços depois que o
+# Doc de Meio Ambiente recebeu um .docx colado (30/09/2026). O marcador precisa
+# de espaço depois, para "-5%" ou uma frase com travessão não virarem item.
+_ITEM_DE_LISTA = re.compile(r"[-*•●○◦■▪]\s+(?P<item>\S.*)")
+
 
 def _substituir_referencia_figura_inline(linha: str) -> str:
     """Substitui menções inline como "(Figura X)" pelo número real da figura.
@@ -1038,7 +1044,8 @@ def texto_para_html(
             continue
 
         # LISTAS
-        if linha_limpa.startswith(("- ", "• ", "* ")):
+        item_de_lista = _ITEM_DE_LISTA.fullmatch(linha_limpa)
+        if item_de_lista:
 
             estado.suprimir_proxima_legenda = False
 
@@ -1047,7 +1054,7 @@ def texto_para_html(
                 em_lista = True
 
             item = convert_links_to_html(
-                _substituir_referencia_figura_inline(linha_limpa[2:].strip())
+                _substituir_referencia_figura_inline(item_de_lista.group("item"))
             )
 
             html_lines.append(f"<li>{item}</li>")

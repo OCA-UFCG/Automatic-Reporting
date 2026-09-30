@@ -2254,3 +2254,39 @@ Algumas beneficiárias.
     assert not sai(0, 8, 5)   # primeiro trecho falso
     assert not sai(10, 8, 1)  # segundo trecho falso
     assert not sai(10, 5, 5)  # comparação entre campos falsa
+
+
+def test_lista_com_marcador_de_outro_estilo_do_google_docs_vira_lista():
+    # Colar um .docx no Google Doc pode trocar o estilo da lista: o export em
+    # .txt passa a escrever "●" e vários espaços em vez de "* ". Foi o que
+    # aconteceu no Doc de Meio Ambiente em 30/09/2026 — as instituições das
+    # Fontes saíam como <p> com o "●" solto, sem o recuo de lista.
+    texto = """#!Fontes
+
+As informações desses painéis têm origem nas seguintes instituições:
+
+●     Cadastro Nacional de Unidades de Conservação (CNUC); e
+●     Observatório da Caatinga e Desertificação (OCA).
+"""
+
+    caixa = render_descricao_tema_html(texto, {}, namespace="ambiente")[0]
+
+    assert "●" not in caixa
+    assert (
+        "<ul><li>Cadastro Nacional de Unidades de Conservação (CNUC); e</li>"
+        "<li>Observatório da Caatinga e Desertificação (OCA).</li></ul>"
+    ) in caixa.replace("\n", "")
+
+
+def test_outros_marcadores_de_lista_do_google_docs():
+    for marcador in ("*", "-", "•", "●", "○", "◦", "■", "▪"):
+        html = texto_para_html(f"{marcador} Primeiro item\n{marcador}   Segundo item", {})
+        assert "<li>Primeiro item</li>" in html, marcador
+        assert "<li>Segundo item</li>" in html, marcador
+
+
+def test_travessao_e_hifen_colado_nao_viram_lista():
+    # Só símbolo de marcador seguido de espaço abre lista: "-5%" e uma frase
+    # que começa com travessão continuam parágrafo.
+    html = texto_para_html("-5% em relação a 2010.\n\n– Uma fala entre travessões.", {})
+    assert "<li>" not in html
