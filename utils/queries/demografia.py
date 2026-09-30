@@ -275,6 +275,13 @@ INDIGENA_COMPLEMENTAR_MUNICIPIO = """
 """
 
 
+def _rotulo_faixa_ind_com_anos(rotulo: str) -> str:
+    """"30 a 39" -> "30 a 39 anos" e "80 ou mais" -> "80 anos ou mais", como na view."""
+    if rotulo.endswith(" ou mais"):
+        return rotulo.replace(" ou mais", " anos ou mais")
+    return f"{rotulo} anos"
+
+
 def buscar_populacao_indigena(
     nome_municipio: str, sigla_uf: str
 ) -> dict[str, object] | None:
@@ -333,6 +340,23 @@ def buscar_populacao_indigena(
         for ordinal, (faixa, total) in zip(("pri", "seg"), faixas_2022):
             dados[f"cat_etaria_ind_{ordinal}"] = labels.get(faixa, faixa)
             dados[f"pop_etaria_ind_{ordinal}"] = total
+        # Empate no topo: o Doc escolhe a frase por $qtd_faixas_ind_pri e cita
+        # todas as faixas empatadas por $cat_etaria_ind_pri_todas, em ordem de
+        # idade e com "anos" como na view. A view só traz a 1ª e a 2ª faixa, e
+        # a 1ª de um empate sai pela ordem (revisão de Demografia, 30/09/2026:
+        # 507 municípios com a 1ª faixa empatada, 181 deles com 3 ou mais).
+        maior_total = faixas_2022[0][1]
+        if maior_total:
+            ordem = list(labels)
+            empatadas = sorted(
+                (faixa for faixa, total in faixas_2022 if total == maior_total),
+                key=lambda faixa: ordem.index(faixa) if faixa in ordem else len(ordem),
+            )
+            nomes = [_rotulo_faixa_ind_com_anos(labels.get(f, f)) for f in empatadas]
+            dados["qtd_faixas_ind_pri"] = len(nomes)
+            dados["cat_etaria_ind_pri_todas"] = (
+                ", ".join(nomes[:-1]) + " e " + nomes[-1] if len(nomes) > 1 else nomes[0]
+            )
     return {campo: valor for campo, valor in dados.items() if valor is not None}
 
 
