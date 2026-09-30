@@ -1,4 +1,5 @@
 import pathlib
+from decimal import ROUND_HALF_UP, Decimal
 
 import numpy as np
 from matplotlib.ticker import FuncFormatter, MaxNLocator
@@ -100,21 +101,34 @@ _CORES_COR_RACA = {
 }
 
 
+def _percentuais_cor_raca(cidade: dict) -> list[tuple[str, float]]:
+    """(cor, %) da maior pra menor, com o mesmo denominador e arredondamento do
+    $cor_*_per do texto (view): população total do Censo 2022, que inclui quem
+    não declarou cor ou raça, e ROUND do Postgres (meio pra cima). Com a soma das
+    cinco raças, Águas Belas (PE) saía 56,44% de pardos no gráfico e 56,43% no
+    texto (revisão editorial, 30/09/2026)."""
+    racas = {
+        cor: Decimal(str(cidade.get(f"pop_{cor}") or 0)) for cor in _ROTULOS_COR_RACA
+    }
+    if not sum(racas.values()):
+        raise ValueError("Dados de composição por cor ou raça não disponíveis.")
+    total = Decimal(str(cidade.get("pop_total_2022") or sum(racas.values())))
+
+    itens = sorted(racas.items(), key=lambda item: item[1], reverse=True)
+    return [
+        (cor, float((valor * 100 / total).quantize(Decimal("0.01"), ROUND_HALF_UP)))
+        for cor, valor in itens
+    ]
+
+
 def gerar_grafico_composicao_cor_raca(
     cidade: dict,
     OUTPUT_DIR: pathlib.Path,
     safe_city: str,
 ) -> str:
-    racas = {
-        cor: float(cidade.get(f"pop_{cor}") or 0) for cor in _ROTULOS_COR_RACA
-    }
-    total = sum(racas.values())
-    if not total:
-        raise ValueError("Dados de composição por cor ou raça não disponíveis.")
-
-    itens = sorted(racas.items(), key=lambda item: item[1], reverse=True)
+    itens = _percentuais_cor_raca(cidade)
     labels = [_ROTULOS_COR_RACA[cor] for cor, _ in itens]
-    percentuais = [valor / total * 100 for _, valor in itens]
+    percentuais = [percentual for _, percentual in itens]
     cores = [_CORES_COR_RACA[cor] for cor, _ in itens]
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from plotting.demografia import (
+    _percentuais_cor_raca,
     gerar_grafico_composicao_cor_raca,
     gerar_grafico_faixa_etaria_e_sexo,
     gerar_grafico_visao_historica_populacao,
@@ -49,6 +50,34 @@ def test_gera_grafico_composicao_cor_raca(tmp_path: Path):
 def test_grafico_composicao_cor_raca_exige_dados(tmp_path: Path):
     with pytest.raises(ValueError, match="Dados de composição por cor ou raça"):
         gerar_grafico_composicao_cor_raca({}, tmp_path, "sem_dados")
+
+
+def test_percentuais_cor_raca_usam_pop_total_como_o_texto():
+    # Águas Belas/PE (Censo 2022): 6 pessoas sem declaração de cor ou raça. O
+    # texto ($cor_pri_per, view) divide pela população total: 56,43% de pardos.
+    cidade = {
+        "pop_total_2022": 41548,
+        "pop_branca": 10723,
+        "pop_preta": 2594,
+        "pop_parda": 23446,
+        "pop_amarela": 34,
+        "pop_indigena": 4745,
+    }
+
+    assert _percentuais_cor_raca(cidade) == [
+        ("parda", 56.43),
+        ("branca", 25.81),
+        ("indigena", 11.42),
+        ("preta", 6.24),
+        ("amarela", 0.08),
+    ]
+
+
+def test_percentuais_cor_raca_arredondam_meio_pra_cima():
+    # 1/8 = 12,5% e 1/800 = 0,125%: ROUND do Postgres dá 0,13, não 0,12.
+    cidade = {"pop_total_2022": 800, "pop_parda": 799, "pop_preta": 1}
+
+    assert dict(_percentuais_cor_raca(cidade))["preta"] == 0.13
 
 
 def test_gera_grafico_faixa_etaria_e_sexo(tmp_path: Path):
