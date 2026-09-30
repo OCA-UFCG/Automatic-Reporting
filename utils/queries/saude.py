@@ -1,6 +1,6 @@
 import re
 
-from utils.queries.base import executar_query
+from utils.queries.base import executar_query, executar_query_dict
 
 PUBLICO_ETARIO_VACINAS = """
     SELECT
@@ -182,6 +182,36 @@ PERFIL_SAUDE_MUNICIPAL = """
       AND sigla_uf = %s
 """
 
+# Metas de cobertura (%) por vacina. Consulta à parte do perfil de propósito: as
+# colunas meta_* foram criadas pelo Time Dados no beta em 30/09/2026 e podem não
+# existir em outro banco. Se a consulta falhar, `executar_query_dict` devolve None e o
+# gráfico só perde o "(Meta: XX%)", em vez de derrubar o perfil inteiro. A Hepatite B
+# de até 1 e 2 dias não tem meta (nem coluna).
+METAS_COBERTURA_VACINAL = """
+    SELECT
+        meta_bcg,
+        meta_dtp,
+        meta_febre_amarela,
+        meta_hepatite_a_infantil,
+        meta_hepatite_b_30dias,
+        meta_influenza,
+        meta_meningoc,
+        meta_meningoc_1reforco,
+        meta_penta,
+        meta_pneumo10,
+        meta_pneumo10_1reforco,
+        meta_vip,
+        meta_vip_1reforco,
+        meta_rotavirus,
+        meta_triplice_1dose,
+        meta_triplice_2dose,
+        meta_varicela
+    FROM relatorios_auto.mv_perfil_saude_municipal
+    WHERE LOWER(regexp_replace(nm_mun, '\\s*\\([^)]*\\)\\s*$', '')) =
+          LOWER(regexp_replace(%s, '\\s*\\([^)]*\\)\\s*$', ''))
+      AND sigla_uf = %s
+"""
+
 
 # As 19 vacinas do calendário nacional cobertas pela view; cada coluna já
 # guarda o percentual de cobertura daquela vacina (ver Figura 3 do relatório
@@ -223,9 +253,16 @@ def _normalizar_lista_vacinas(valor: object) -> object:
     return re.sub(r"\s+,", ",", valor)
 
 
-def _montar_cobertura_vacinal_serie(dados: dict[str, object]) -> list[dict[str, object]]:
+def _montar_cobertura_vacinal_serie(
+    dados: dict[str, object], metas: dict[str, object] | None = None
+) -> list[dict[str, object]]:
+    metas = metas or {}
     return [
-        {"vacina": rotulo, "cobertura_vacinal": dados[campo]}
+        {
+            "vacina": rotulo,
+            "cobertura_vacinal": dados[campo],
+            "meta": metas.get(f"meta_{campo}"),
+        }
         for campo, rotulo in VACINA_COBERTURA_ROTULOS
         if dados.get(campo) is not None
     ]
@@ -373,7 +410,12 @@ def buscar_perfil_saude_municipal(
         "triplice_2dose": triplice_2dose,
         "varicela": varicela,
     }
-    serie_cobertura = _montar_cobertura_vacinal_serie(dados)
+    metas = executar_query_dict(
+        METAS_COBERTURA_VACINAL,
+        (nome_municipio, sigla_uf),
+        f"metas de cobertura vacinal de '{nome_municipio} ({sigla_uf})'",
+    )
+    serie_cobertura = _montar_cobertura_vacinal_serie(dados, metas)
     if serie_cobertura:
         dados["cobertura_vacinal_serie"] = serie_cobertura
     return {campo: valor for campo, valor in dados.items() if valor is not None}

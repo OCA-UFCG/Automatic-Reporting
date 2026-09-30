@@ -41,6 +41,18 @@ def _largura_texto_polegadas(fig, texto: str, fontsize: float) -> float:
     return largura_px / fig.dpi
 
 
+def _larguras_textos_polegadas(fig, textos: list[str], fontsize: float) -> list[float]:
+    # Versão em lote de `_largura_texto_polegadas`: um único `draw()` para todos os
+    # textos (cada `draw()` custa ~80 ms num card alto, e eram 19 por gráfico).
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    sondas = [fig.text(0, 0, texto, fontsize=fontsize) for texto in textos]
+    larguras = [sonda.get_window_extent(renderer=renderer).width / fig.dpi for sonda in sondas]
+    for sonda in sondas:
+        sonda.remove()
+    return larguras
+
+
 def _deslocamento_minimo_para_rotulos(
     fig, ax, textos: list[str], largura: float, espaco_minimo: float, fontsize: float
 ) -> float:
@@ -233,6 +245,17 @@ def gerar_grafico_de_estabelecimento(
     return chart_file.name
 
 
+def _formatar_percentual(valor: float) -> str:
+    return f"{valor:.2f}".replace(".", ",") + "%"
+
+
+def _rotulo_cobertura(cobertura: float, meta: float | None) -> str:
+    texto = _formatar_percentual(cobertura)
+    if meta is None:
+        return texto
+    return f"{texto} (Meta: {round(meta)}%)"
+
+
 def gerar_grafico_cobertura_vacinal(
     cidade: dict,
     OUTPUT_DIR: pathlib.Path,
@@ -241,7 +264,11 @@ def gerar_grafico_cobertura_vacinal(
     serie = cidade.get("cobertura_vacinal_serie") or []
 
     dados = [
-        (str(item["vacina"]), _coerce_numero(item.get("cobertura_vacinal")))
+        (
+            str(item["vacina"]),
+            _coerce_numero(item.get("cobertura_vacinal")),
+            _coerce_numero(item.get("meta")) if item.get("meta") is not None else None,
+        )
         for item in serie
         if item.get("vacina") is not None
     ]
@@ -250,8 +277,9 @@ def gerar_grafico_cobertura_vacinal(
 
     dados.sort(key=lambda item: item[1], reverse=True)
 
-    vacinas = [nome for nome, _ in dados]
-    coberturas = [valor for _, valor in dados]
+    vacinas = [nome for nome, _, _ in dados]
+    coberturas = [valor for _, valor, _ in dados]
+    metas = [meta for _, _, meta in dados]
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -284,21 +312,32 @@ def gerar_grafico_cobertura_vacinal(
 
     ax.set_ylabel("Vacina", fontsize=12*ESCALA_FONTE)
 
-    limite_superior = max(110.0, max(coberturas) * 1.08)
+    # O rótulo leva "(Meta: XX,XX%)" quando a vacina tem meta; o limite do eixo é
+    # calculado pela largura real do texto mais longo, senão ele vaza do card.
+    textos = [_rotulo_cobertura(valor, meta) for valor, meta in zip(coberturas, metas)]
+    fontsize_rotulo = FONTE_ROTULO_VALOR * ESCALA_FONTE
+    largura_eixo = ax.get_position().width * fig.get_figwidth()
+    folga = 0.012
+    larguras = _larguras_textos_polegadas(fig, textos, fontsize_rotulo)
+    limite_superior = max(
+        100.0,
+        *(
+            valor / max(1 - folga - largura / largura_eixo, 0.1)
+            for valor, largura in zip(coberturas, larguras)
+        ),
+    )
     ax.set_xlim(0, limite_superior)
 
     ax.xaxis.set_major_formatter(FuncFormatter(lambda valor, _: f"{valor:g}%"))
 
-    ax.axvline(100, color="#E4444C", linestyle="--", linewidth=1, zorder=2)
-
-    for indice, valor in enumerate(coberturas):
+    for indice, (valor, texto) in enumerate(zip(coberturas, textos)):
         ax.text(
-            valor + limite_superior * 0.012,
+            valor + limite_superior * folga,
             indice,
-            f"{valor:.2f}".replace(".", ",") + "%",
+            texto,
             va="center",
             ha="left",
-            fontsize=FONTE_ROTULO_VALOR*ESCALA_FONTE,
+            fontsize=fontsize_rotulo,
             color="#3F3F3F",
         )
 
@@ -385,7 +424,7 @@ def gerar_grafico_publico_etario(
         x - deslocamento,
         publico_alvo,
         width=largura,
-        label="Público-alvo",
+        label="Metas de doses aplicadas",
         color="#FF9AA2",
     )
 
