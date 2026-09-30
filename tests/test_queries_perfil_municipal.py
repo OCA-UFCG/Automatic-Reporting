@@ -8,6 +8,15 @@ def test_educacao_mapeia_para_matview_de_perfil_educacional():
     )
 
 
+def test_desenvolvimento_social_tem_view_primaria():
+    # Sem view no mapa, o tema lia a linha base só do CSV e dava 404 para município
+    # fora da planilha, mesmo com a linha na view (Assú e Arez, 30/09/2026).
+    assert (
+        perfil_municipal.VIEW_POR_MACROTEMA["desenvolvimento-social"]
+        == "vw_perfil_desen_social_municipal"
+    )
+
+
 def test_busca_normaliza_sufixo_uf_no_nm_mun(monkeypatch):
     # `mv_perfil_educacional_municipal` guarda nm_mun como "Cidade (UF)" em
     # algumas linhas; sem normalizar (regexp_replace), o match por nome digitado
