@@ -251,6 +251,24 @@ def test_indigena_da_view_nao_e_sobrescrita_pelo_calculo_local():
     assert _indigena_sem_sobrescrever_view(local, None) == local
 
 
+def test_indigena_faixas_empatadas_no_topo(monkeypatch):
+    # Revisão de Demografia (30/09/2026): "A faixa etária predominante" saía em
+    # municípios com a 1ª faixa empatada. O Doc escolhe a frase por
+    # $qtd_faixas_ind_pri e cita todas as faixas empatadas, em ordem de idade.
+    def buscar(faixas):
+        respostas = iter([(12, 6, 6, 0, 12), [(2022, f, t) for f, t in faixas]])
+        monkeypatch.setattr(demografia, "executar_query", lambda *a, **k: next(respostas))
+        return demografia.buscar_populacao_indigena("Cidade X", "MA")
+
+    tres = buscar([("faixa_80_mais", 2), ("faixa_0_9", 2), ("faixa_40_49", 2), ("faixa_20_29", 1)])
+    assert tres["qtd_faixas_ind_pri"] == 3
+    assert tres["cat_etaria_ind_pri_todas"] == "0 a 9 anos, 40 a 49 anos e 80 anos ou mais"
+
+    unica = buscar([("faixa_30_39", 5), ("faixa_60_69", 3), ("faixa_10_19", 3)])
+    assert unica["qtd_faixas_ind_pri"] == 1
+    assert unica["cat_etaria_ind_pri_todas"] == "30 a 39 anos"
+
+
 def test_cor_raca_com_pessoas_e_percentual_zero_mostra_casas_decimais():
     # Regressão: com 1 pessoa em 20.953 habitantes a view guarda 0,00 e o Doc
     # saía "e a indígena, 0% (1)" (Coreaú, CE; 9 municípios em 29/09/2026).
