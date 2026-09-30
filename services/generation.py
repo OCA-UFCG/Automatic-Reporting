@@ -506,6 +506,23 @@ def _percentuais_pequenos_com_casas(linha: dict) -> None:
             linha[campo_percentual] = _percentual_ate_primeiro_algarismo(pessoas, total)
 
 
+_CONTAGEM_COM_MILHAR = re.compile(r"^\d{1,3}(?:\.\d{3})*$")
+
+
+def _contagens_indigenas_como_numero(linha: dict) -> None:
+    """Pessoas na 1ª e na 2ª faixa etária indígena passam a ser número.
+
+    A view entrega as duas como texto já formatado (to_char com ponto de
+    milhar, "3.835"), que o renderer lê como decimal: Pesqueira (PE) saía
+    "que reunia 3,83 pessoas" e, nas regras do Doc, "1.000" valia como
+    "igual a 1" (revisão de Demografia, 30/09/2026). "sem dados" fica.
+    """
+    for campo in ("pop_etaria_ind_pri", "pop_etaria_ind_seg"):
+        valor = linha.get(campo)
+        if isinstance(valor, str) and _CONTAGEM_COM_MILHAR.match(valor.strip()):
+            linha[campo] = int(valor.strip().replace(".", ""))
+
+
 async def gerar_relatorio_handler(
     cidade: str,
     macrotema: str = "demografia",
@@ -776,6 +793,7 @@ async def gerar_relatorio_handler(
             if macrotema_slug == "demografia":
                 for linha in linhas_macrotema:
                     _percentuais_pequenos_com_casas(linha)
+                    _contagens_indigenas_como_numero(linha)
 
             if dados_rua:
                 for linha in linhas_macrotema:
