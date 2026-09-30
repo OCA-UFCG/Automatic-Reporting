@@ -1,6 +1,7 @@
 -- relatorios_auto.ambiente: percentuais de aridez e de ASD na mesma base,
 -- separador de milhar nas variações e "Área Marinha" fora da lista de biomas.
--- NÃO APLICADO ainda (revisão de Meio Ambiente, 30/09/2026). Rollback em
+-- APLICADO no banco do beta (oca_db) em 2026-09-30; prod não (revisão de Meio
+-- Ambiente, 30/09/2026). Rollback em
 -- 2026-09-30-ambiente.rollback.sql (definição lida do beta em 30/09, antes
 -- desta mudança).
 --
