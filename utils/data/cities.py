@@ -59,6 +59,17 @@ def filtrar_linhas_por_cidade(df: pd.DataFrame, cidade: str) -> pd.DataFrame:
     matched = df[mascara_sem_uf]
     if matched.empty:
         return matched
+    # As planilhas dos temas trazem nm_mun sem "(UF)" e o estado em sigla_uf. Sem
+    # olhar essa coluna, "Santa Luzia (PB)" casava MA, PB e BA, e a primeira linha
+    # (MA) decidia o nome e a UF das buscas no banco (Desenvolvimento Social,
+    # 29/09/2026). Só filtra se achar a UF pedida: coluna vazia ou em outro formato
+    # cai no caminho antigo, em vez de virar 404.
+    if uf_informada and "sigla_uf" in df.columns:
+        mascara_coluna_uf = (
+            matched["sigla_uf"].astype(str).str.strip().str.upper() == uf_informada
+        )
+        if mascara_coluna_uf.any():
+            return matched[mascara_coluna_uf]
     # UF de cada linha casada, extraída do próprio nm_mun ("" quando a planilha
     # não anota o estado nessa linha — não dá pra confiar cegamente nela).
     uf_das_linhas = serie_cidades[mascara_sem_uf].str.extract(r"\(([A-Za-z]{2})\)\s*$")[0].fillna("").str.upper()

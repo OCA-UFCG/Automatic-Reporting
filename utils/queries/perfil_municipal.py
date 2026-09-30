@@ -12,6 +12,13 @@ VIEW_POR_MACROTEMA = {
     "saneamento": "vw_perfil_infraestrutura_municipal",
     "hidraulica": "vw_seguranca_hidrica",
     "meio-ambiente": "ambiente",
+    # Até 30/09/2026 o tema lia a linha base só do CSV e a view entrava por cima
+    # (buscar_perfil_desenvolvimento_social). Um município fora da planilha dava 404
+    # mesmo com a linha na view: Assú e Arez, renomeados no banco com os nomes do
+    # IBGE e ainda "Açu"/"Arês" na planilha. A view é leve (~0,05 s por município).
+    # O enriquecimento continua depois, com os campos derivados (nm_datastory2,
+    # cat_idhm_1991_2010).
+    "desenvolvimento-social": "vw_perfil_desen_social_municipal",
 }
 
 
