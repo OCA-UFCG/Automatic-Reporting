@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+import plotting.saude as saude_plot
 from plotting import ESCALA_FONTE, iniciar_card_grafico
 from plotting.saude import (
     _deslocamento_minimo_para_rotulos,
@@ -183,3 +184,63 @@ def test_deslocamento_minimo_para_rotulos_cresce_com_texto_largo(tmp_path: Path)
 
     assert deslocamento_curto == pytest.approx(deslocamento_base)
     assert deslocamento_longo > deslocamento_curto
+
+
+def _capturar_figura(monkeypatch):
+    capturadas = []
+    monkeypatch.setattr(
+        saude_plot, "salvar_card_grafico", lambda fig, arquivo: capturadas.append(fig)
+    )
+    return capturadas
+
+
+def test_cobertura_vacinal_mostra_meta_so_quando_existe(tmp_path: Path, monkeypatch):
+    figuras = _capturar_figura(monkeypatch)
+    cidade = {
+        "cobertura_vacinal_serie": [
+            {"vacina": "BCG", "cobertura_vacinal": 101.92, "meta": 90},
+            {"vacina": "Hepatite B (até 1 dia de vida)", "cobertura_vacinal": 50.51, "meta": None},
+            {"vacina": "Varicela", "cobertura_vacinal": 15.03, "meta": 93.05},
+        ]
+    }
+
+    gerar_grafico_cobertura_vacinal(cidade, tmp_path, "cidade_meta")
+
+    textos = [t.get_text() for t in figuras[0].axes[0].texts]
+    assert textos == ["101,92% (Meta: 90%)", "50,51%", "15,03% (Meta: 93%)"]
+
+
+def test_cobertura_vacinal_sem_linha_tracejada_de_100(tmp_path: Path, monkeypatch):
+    figuras = _capturar_figura(monkeypatch)
+
+    gerar_grafico_cobertura_vacinal(_cidade_cobertura_vacinal(), tmp_path, "cidade_sem_linha")
+
+    assert len(figuras[0].axes[0].lines) == 0
+
+
+def test_cobertura_vacinal_rotulo_mais_longo_cabe_no_eixo(tmp_path: Path, monkeypatch):
+    figuras = _capturar_figura(monkeypatch)
+    cidade = {
+        "cobertura_vacinal_serie": [
+            {"vacina": "BCG", "cobertura_vacinal": 101.92, "meta": 90},
+            {"vacina": "Varicela", "cobertura_vacinal": 71.14, "meta": 95},
+        ]
+    }
+
+    gerar_grafico_cobertura_vacinal(cidade, tmp_path, "cidade_cabe")
+
+    fig = figuras[0]
+    ax = fig.axes[0]
+    fig.canvas.draw()
+    limite_px = ax.get_window_extent().x1
+    for texto in ax.texts:
+        assert texto.get_window_extent().x1 <= limite_px
+
+
+def test_legenda_do_grafico_etario_chama_metas_de_doses_aplicadas(tmp_path: Path, monkeypatch):
+    figuras = _capturar_figura(monkeypatch)
+
+    gerar_grafico_publico_etario(_cidade_publico_etario(), tmp_path, "cidade_legenda")
+
+    rotulos = [t.get_text() for t in figuras[0].axes[0].get_legend().get_texts()]
+    assert rotulos == ["Metas de doses aplicadas", "Doses aplicadas"]

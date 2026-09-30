@@ -1,4 +1,12 @@
+import pytest
+
 from utils.queries import saude
+
+
+@pytest.fixture(autouse=True)
+def _sem_banco_para_metas(monkeypatch):
+    # As metas vêm de uma consulta à parte; sem isto os testes tentariam o banco.
+    monkeypatch.setattr(saude, "executar_query_dict", lambda *a, **k: None)
 
 
 def _linha_perfil_saude(**overrides: object) -> tuple:
@@ -77,8 +85,8 @@ def test_perfil_saude_usa_as_19_colunas_de_vacina_na_serie(monkeypatch):
 
     serie = dados["cobertura_vacinal_serie"]
     assert len(serie) == 19
-    assert {"vacina": "Pneumo 10", "cobertura_vacinal": 94.38} in serie
-    assert {"vacina": "Varicela", "cobertura_vacinal": 71.14} in serie
+    assert {"vacina": "Pneumo 10", "cobertura_vacinal": 94.38, "meta": None} in serie
+    assert {"vacina": "Varicela", "cobertura_vacinal": 71.14, "meta": None} in serie
     # Os antigos destaques (vacina_maior/menor) não devem virar itens da série.
     nomes = {item["vacina"] for item in serie}
     assert "Polio Injetável VIP, reforço" not in nomes
@@ -135,5 +143,33 @@ def test_perfil_saude_rotula_dtp_e_hepatite_b_como_o_texto(monkeypatch):
 
     serie = saude.buscar_perfil_saude_municipal("Feliz Deserto", "AL")["cobertura_vacinal_serie"]
 
-    assert {"vacina": "DTP (1º reforço)", "cobertura_vacinal": 80.41} in serie
-    assert {"vacina": "Hepatite B (até 2 dias de vida)", "cobertura_vacinal": 63.84} in serie
+    assert {"vacina": "DTP (1º reforço)", "cobertura_vacinal": 80.41, "meta": None} in serie
+    assert {"vacina": "Hepatite B (até 2 dias de vida)", "cobertura_vacinal": 63.84, "meta": None} in serie
+
+
+def test_perfil_saude_anexa_meta_a_cada_vacina_na_serie(monkeypatch):
+    monkeypatch.setattr(saude, "executar_query", lambda *a, **k: _linha_perfil_saude())
+    monkeypatch.setattr(
+        saude,
+        "executar_query_dict",
+        lambda *a, **k: {"meta_bcg": 90, "meta_penta": 95},
+    )
+
+    serie = saude.buscar_perfil_saude_municipal("Feliz Deserto", "AL")["cobertura_vacinal_serie"]
+    por_vacina = {item["vacina"]: item["meta"] for item in serie}
+
+    assert por_vacina["BCG"] == 90
+    assert por_vacina["Pentavalente"] == 95
+    # Hepatite B de até 1 e 2 dias não tem meta; sem coluna, fica None.
+    assert por_vacina["Hepatite B (até 1 dia de vida)"] is None
+    assert por_vacina["Varicela"] is None
+
+
+def test_perfil_saude_sem_metas_mantem_a_serie(monkeypatch):
+    # Se a consulta de metas falhar (coluna ausente em outro banco), o perfil segue.
+    monkeypatch.setattr(saude, "executar_query", lambda *a, **k: _linha_perfil_saude())
+
+    serie = saude.buscar_perfil_saude_municipal("Feliz Deserto", "AL")["cobertura_vacinal_serie"]
+
+    assert len(serie) == 19
+    assert all(item["meta"] is None for item in serie)
