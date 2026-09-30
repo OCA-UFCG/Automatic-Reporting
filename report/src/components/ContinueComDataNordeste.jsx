@@ -59,7 +59,7 @@ export default function ContinueComDataNordeste() {
           <ContinueCtaCard
             icon={<IconCatalogoDados />}
             titulo="Catálogo de dados"
-            descricao="Explore todos os indicadores e bases usados neste relatório"
+            descricao="Explore todos os indicadores e bases usados neste relatório."
             texto_botao="Acessar catálogo"
             href={LINK_CATALOGO_DADOS}
             qrCode={QR_CODE_CATALOGO_DADOS}
@@ -68,7 +68,7 @@ export default function ContinueComDataNordeste() {
           <ContinueCtaCard
             icon={<IconMonteRelatorio />}
             titulo="Monte seu relatório"
-            descricao="Escolha o município e gere um relatório como este"
+            descricao="Escolha o município e gere um relatório como este."
             texto_botao="Criar relatório"
             href={LINK_MONTE_RELATORIO}
             qrCode={QR_CODE_MONTE_RELATORIO}
