@@ -59,7 +59,7 @@ export default function ContinueComDataNordeste() {
           <ContinueCtaCard
             icon={<IconCatalogoDados />}
             titulo="Catálogo de dados"
-            descricao="Explore todos os indicadores e bases usadas neste painel"
+            descricao="Explore todos os indicadores e bases usados neste relatório"
             texto_botao="Acessar catálogo"
             href={LINK_CATALOGO_DADOS}
             qrCode={QR_CODE_CATALOGO_DADOS}
