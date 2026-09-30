@@ -148,6 +148,43 @@ def test_afixo_monetario_percentual_e_de_area_vem_da_unidade():
     ] == "590,55 km²"
 
 
+def test_cards_de_meio_ambiente_com_os_textos_reais_da_view():
+    # Quartetos copiados de mv_indicadores (São José de Mipibu) depois de
+    # db/2026-09-30-vw_indicadores.sql. Antes, `unid_` era "Extensão
+    # territorial" e os cards saíam sem unidade; o fixture acima usa "km²",
+    # que a view nunca mandou, e por isso não pegava o problema.
+    contexto = {
+        "nm_asd": "Área suscetível à desertificação",
+        "valor_asd": "35.92",
+        "fonte_asd": "Xavier et al. (2020) e OCA",
+        "unid_asd": "Extensão territorial em km²",
+        "nm_asd_avanço": "Variação da área suscetível à desertificação no município",
+        "valor_asd_avanço": "-49.99",
+        "fonte_asd_avanço": "Xavier et al. (2020) e OCA",
+        "unid_asd_avanço": "Diferença entre 1991 e 2021, em km²",
+        "nm_uc": "Quantidade de unidades de conservação",
+        "valor_uc": "1",
+        "fonte_uc": "CNUC (2025)",
+        "unid_uc": "Unidade(s)",
+        "nm_uc_area": "Área das unidades de conservação",
+        "valor_uc_area": "42470.09",
+        "fonte_uc_area": "CNUC (2025)",
+        "unid_uc_area": "Extensão territorial (ha)",
+    }
+
+    cards = {
+        item["nome"]: item
+        for item in montar_indicadores_macrotema("meio-ambiente", contexto)
+    }
+
+    assert cards["Área suscetível à desertificação"]["valor"] == "35,92 km²"
+    assert cards[
+        "Variação da área suscetível à desertificação no município"
+    ]["valor"] == "-49,99 km²"
+    assert cards["Área das unidades de conservação"]["valor"] == "42.470,09 ha"
+    assert cards["Quantidade de unidades de conservação"]["rodape"] == "Unidade(s)"
+
+
 def test_educacao_le_o_valor_em_per_e_o_resto_do_quarteto_normalmente():
     # Regressão da quebra que motivou esta branch: os cards de educação
     # apontavam para `sem_instrucao_fund_incomp_per` & cia., nomes que a view
