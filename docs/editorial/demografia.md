@@ -50,6 +50,12 @@ Em 2022, não foram encontrados registros de pessoas indígenas e quilombolas em
 
 Outro grupo relevante para a caracterização da população municipal é o de pessoas em situação de rua. Em 2026, demografia.$nm\_mun registra demografia.$pop\_rua\_2026 pessoas nessa condição, frente a demografia.$pop\_rua\_2022 em 2022, evidenciando um demografia.$var\_pop\_rua\_analise de demografia.$var\_pop\_rua\_abs no período. Entre as famílias em situação de rua, demografia.$pop\_rua\_pobreza (demografia.$pop\_rua\_pobreza\_per)% estavam em situação de pobreza, demografia.$pop\_rua\_br (demografia.$pop\_rua\_br\_per)% eram classificadas como de baixa renda e demografia.$pop\_rua\_acima\_br (demografia.$pop\_rua\_acima\_br\_per)% possuíam renda acima de meio salário mínimo. Além disso, demografia.$pop\_rua\_bolsaf\_2026 famílias em situação de rua eram beneficiárias do Bolsa Família, número que também demografia.$pop\_rua\_bolsaf\_analise em relação a 2022, quando eram  demografia.$pop\_rua\_bolsaf\_2022. 
 
+> **Nota de renderização:** no Doc, as três condicionais de Centro POP ficam em blocos
+> separados, mas no relatório a frase escolhida é colada no fim do último parágrafo de
+> situação de rua que apareceu (famílias, pessoas ou o texto de "não foram encontrados
+> registros"), formando um parágrafo só. Não é preciso repetir o Centro POP dentro de
+> cada combinação de rua. Isso vale só para o `centro_pop`.
+
 **Para demografia.$centro\_pop for igual a 0:**
 
 O município não contava com um Centro de Referência Especializado para a População em Situação de Rua (Centro POP). Esses indicadores ajudam a dimensionar esse grupo populacional e sua situação socioeconômica, oferecendo informações relevantes para o planejamento de ações de assistência social e de outras políticas públicas relacionadas.
