@@ -58,6 +58,8 @@
   box-sizing: border-box;
   text-align: center;
   break-inside: avoid;
+  display: flex;
+  flex-direction: column;
 }
 
 .continue-cta-icon-wrap {
@@ -85,6 +87,8 @@
 }
 
 .continue-cta-description {
+  /* flex: 1 absorbe a diferença de linhas entre as descrições, mantendo QR e botão alinhados entre os cards */
+  flex: 1 1 auto;
   margin: 0 0 21.33px;
   color: #292829;
   font-family: "Inter", var(--font-sans);
