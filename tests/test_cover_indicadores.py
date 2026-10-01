@@ -400,3 +400,22 @@ def test_score_usa_fallback_quando_coluna_ausente():
 
     assert score["valor"] == "3,66"
     assert score["maximo"] == "5"
+
+
+def test_percentual_sem_marcador_na_unidade_ganha_sufixo():
+    # Rótulos reais da view (db/2026-09-30-vw_indicadores.sql), sem "(%)".
+    contexto = {
+        "nm_fundamental_incom": "Fundamental incompleto ou sem instrução",
+        "per_fundamental_incom": "44.58",
+        "unid_fundamental_incom": "Percentual da população",
+        "nm_esgotamento": "Domicílios ligados à rede geral ou pluvial",
+        "valor_esgotamento": "86.62",
+        "unid_esgotamento": "Percentual de domicílios",
+    }
+
+    assert _por_nome(montar_indicadores_macrotema("educacao", contexto))[
+        "Fundamental incompleto ou sem instrução"
+    ] == "44,58%"
+    assert _por_nome(montar_indicadores_macrotema("saneamento", contexto))[
+        "Domicílios ligados à rede geral ou pluvial"
+    ] == "86,62%"
