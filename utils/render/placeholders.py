@@ -885,6 +885,8 @@ _PRECISAO_PADRAO_POR_NAMESPACE: dict[str, tuple[tuple[re.Pattern, int], ...]] = 
         (re.compile(r"(?i)^gini(?:_|$)"), 2),
         (re.compile(r"(?i)^renda_\d{4}$"), 2),
     ),
+    # Sem isso, valor inteiro saía "88%" na mesma frase de "62,85%".
+    "educacao": ((re.compile(r"(?i)^\w+_per(?:_\d{4})?$"), 2),),
 }
 
 

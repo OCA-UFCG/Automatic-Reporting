@@ -1,6 +1,9 @@
 from decimal import Decimal
 
-from utils.render.placeholders import interpretar_blocos_condicionais
+from utils.render.placeholders import (
+    _precisao_padrao_editorial,
+    interpretar_blocos_condicionais,
+)
 from utils.render.renderer import (
     render_descricao_tema_html,
     reset_figura_contador,
@@ -991,6 +994,68 @@ def test_sufixo_no_doc_ainda_vence_a_precisao_padrao_do_gini():
     assert substituir_placeholders(
         "desen_social.$gini_2010:3", contexto, namespace="desenvolvimento-social"
     ) == "0,542"
+
+
+def test_percentual_inteiro_de_educacao_mantem_duas_casas_na_mesma_frase():
+    contexto = {
+        "sem_instr_per_2000": "88.00",
+        "sem_instr_per_2022": "62.85",
+        "sup_comp_per_2000": "0.00",
+        "sup_comp_per": "9.60",
+    }
+    texto = (
+        "passou de educacao.$sem_instr_per_2000% para "
+        "educacao.$sem_instr_per_2022%, e de educacao.$sup_comp_per_2000% "
+        "para educacao.$sup_comp_per%"
+    )
+
+    assert substituir_placeholders(texto, contexto, namespace="educacao") == (
+        "passou de 88,00% para 62,85%, e de 0,00% para 9,60%"
+    )
+
+
+def test_precisao_de_percentual_de_educacao_nao_pega_contagem_nem_unidade():
+    contexto = {
+        "pri_nivel_pop": Decimal(1449),
+        "comp_fund_br_per": Decimal("3.00"),
+        "comp_fund_br_per_unid": "pontos percentuais",
+    }
+    texto = (
+        "educacao.$pri_nivel_pop pessoas; educacao.$comp_fund_br_per "
+        "educacao.$comp_fund_br_per_unid"
+    )
+
+    assert substituir_placeholders(texto, contexto, namespace="educacao") == (
+        "1.449 pessoas; 3,00 pontos percentuais"
+    )
+
+
+def test_precisao_de_percentual_de_educacao_nao_vaza_pra_demografia():
+    assert substituir_placeholders(
+        "demo.$pop_qui_per%", {"pop_qui_per": 40}, namespace="demografia"
+    ) == "40%"
+
+
+def test_regra_de_percentual_de_educacao_casa_so_os_campos_de_percentual():
+    assert _precisao_padrao_editorial("educacao", "sem_instr_per_2000") == 2
+    assert _precisao_padrao_editorial("educacao", "comp_alfab_pne_per") == 2
+    assert _precisao_padrao_editorial("educacao", "comp_fund_br_per_unid") is None
+    assert _precisao_padrao_editorial("educacao", "comp_fund_br_per_dado") is None
+    assert _precisao_padrao_editorial("educacao", "pri_nivel_pop") is None
+
+
+def test_sufixo_no_doc_ainda_vence_a_precisao_padrao_de_educacao():
+    assert substituir_placeholders(
+        "educacao.$fund_comp_per:1%", {"fund_comp_per": Decimal("14.00")},
+        namespace="educacao",
+    ) == "14,0%"
+
+
+def test_percentual_de_educacao_sem_dados_continua_como_texto():
+    assert substituir_placeholders(
+        "educacao.$tend_sem_instr_per", {"tend_sem_instr_per": "sem dados"},
+        namespace="educacao",
+    ) == "sem dados"
 
 
 def test_social_development_gini_condition_accepts_para_prefix_and_ou_wording():
