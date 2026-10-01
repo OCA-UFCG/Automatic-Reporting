@@ -6,6 +6,7 @@ import unicodedata
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 from fastapi.responses import HTMLResponse
@@ -604,7 +605,9 @@ async def gerar_relatorio_handler(
         # meio deste; como global de módulo, os dois somavam no mesmo contador
         # (Recife com as figuras 1, 7…11).
         reset_figura_contador()
-        gerado_em = datetime.now().astimezone()
+        # Fuso fixo, como em services/handlers.py: o container roda em UTC e, a
+        # partir das 21h de Brasília, o rodapé já saía com a data do dia seguinte.
+        gerado_em = datetime.now(ZoneInfo("America/Fortaleza"))
 
         linhas = None
         cover = None
