@@ -400,40 +400,30 @@ def montar_capa_relatorio(
             "descricao_paragrafos": [],
         },
         "score": montar_score_macrotema(linha),
+        # Rótulo, fonte e legenda dos cards de Características Gerais vêm do
+        # quarteto nm_/valor_/fonte_/unid_ de vw_indicadores, como os cards de
+        # macrotema. Os fallbacks cobrem o município ausente da view.
         "metricas": [
             {
-                "rotulo": "Área territorial",
+                "rotulo": primeiro_valor("nm_area_municipio", fallback="Área territorial"),
+                # 2 casas, igual ao placeholder $area do texto narrativo.
                 "valor": numero_formatado(
-                    "area_territorial", "area", "area_km2", decimais=2
+                    "valor_area_municipio", "area_territorial", decimais=2
                 ),
-                "sufixo": "Km²",
-                "fonte": "Censo demográfico 2022",
-                "caption": "Tamanho do território",
+                # unid_area_municipio é legenda ("Extensão territorial"), não
+                # unidade: a view não diz km².
+                "sufixo": "km²",
+                "fonte": primeiro_valor("fonte_area_municipio", fallback=""),
+                "caption": primeiro_valor("unid_area_municipio", fallback=""),
                 "icone": "area",
             },
             {
-                "rotulo": "População",
-                "valor": numero_formatado("pop_total", fallback="N/D"),
+                "rotulo": primeiro_valor("nm_pop_residente", fallback="População"),
+                "valor": numero_formatado("valor_pop_residente", "pop_total"),
                 "sufixo": "",
-                "fonte": "Censo demográfico 2022",
-                "caption": "Número de residentes",
+                "fonte": primeiro_valor("fonte_pop_residente", fallback=""),
+                "caption": primeiro_valor("unid_pop_residente", fallback=""),
                 "icone": "populacao",
-            },
-            {
-                "rotulo": "Região geográfica imediata",
-                "valor": primeiro_valor("rgi", "regiao_imediata", "nome_rgi"),
-                "sufixo": "",
-                "fonte": "IBGE 2017",
-                "caption": "Região geográfica imediata",
-                "icone": "rgi",
-            },
-            {
-                "rotulo": "Criação do município",
-                "valor": primeiro_valor("instalacao", "data_instalacao", "ano_instalacao"),
-                "sufixo": "",
-                "fonte": "IBGE",
-                "caption": "Lei Provincial nº 11",
-                "icone": "criacao",
             },
         ],
     }
