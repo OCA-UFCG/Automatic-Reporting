@@ -202,7 +202,7 @@ def _afixos_da_unidade(unidade: str) -> tuple[str, str]:
     unidade padronizada (código em vez de rótulo), trocar por um de/para.
     """
     unidade = unidade.strip()
-    if "(%)" in unidade or unidade == "%":
+    if "(%)" in unidade or unidade == "%" or unidade.startswith("Percentual"):
         return "", "%"
     if unidade.startswith("R$"):
         return "R$ ", ""
