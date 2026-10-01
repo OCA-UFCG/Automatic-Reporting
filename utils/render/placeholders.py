@@ -1128,4 +1128,30 @@ def substituir_placeholders(texto: str, contexto: dict, namespace: str = "demogr
     )
 
     resultado = re.sub(rf"[ \t]*{_CAMPO_VAZIO}(?=[),.;])", "", resultado)
-    return resultado.replace(_CAMPO_VAZIO, "")
+    resultado = resultado.replace(_CAMPO_VAZIO, "")
+    if namespace.lower() == "saude":
+        resultado = _contrastar_mortalidade_com_media_nacional(resultado)
+    return resultado
+
+
+# Síntese de Saúde: o Doc liga tendência e posição frente ao Brasil com "e"
+# fixo. Quando as duas apontam em sentidos opostos (piorou mas segue abaixo,
+# melhorou mas segue acima), a revisão editorial pediu "mas ainda" (Fortaleza,
+# 01/10/2026).
+_MORTALIDADE_SEM_CONTRASTE = re.compile(
+    r"(?P<tendencia>(?P<aumentou>aumentou)|diminuiu)(?P<meio> no período recente),? e ficou "
+    r"(?P<posicao>(?P<abaixo>abaixo)|acima)(?= d[ao] média nacional)",
+    re.IGNORECASE,
+)
+
+
+def _contrastar_mortalidade_com_media_nacional(texto: str) -> str:
+    def _trocar(match: re.Match) -> str:
+        if bool(match.group("aumentou")) != bool(match.group("abaixo")):
+            return match.group(0)
+        return (
+            f"{match.group('tendencia')}{match.group('meio')}, "
+            f"mas ainda ficou {match.group('posicao')}"
+        )
+
+    return _MORTALIDADE_SEM_CONTRASTE.sub(_trocar, texto)

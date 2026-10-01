@@ -2290,3 +2290,25 @@ def test_travessao_e_hifen_colado_nao_viram_lista():
     # que começa com travessão continuam parágrafo.
     html = texto_para_html("-5% em relação a 2010.\n\n– Uma fala entre travessões.", {})
     assert "<li>" not in html
+
+
+def test_sintese_saude_usa_mas_ainda_quando_tendencia_e_media_nacional_se_opoem():
+    texto = (
+        "A taxa de mortalidade infantil saude.$analise_mortalidade no período recente "
+        "e ficou saude$.analise_nacional_mortalidade da média Nacional."
+    )
+
+    def renderizar(tendencia, posicao):
+        contexto = {"analise_mortalidade": tendencia, "analise_nacional_mortalidade": posicao}
+        return substituir_placeholders(texto, contexto, "saude")
+
+    assert renderizar("aumentou", "abaixo") == (
+        "A taxa de mortalidade infantil aumentou no período recente, "
+        "mas ainda ficou abaixo da média Nacional."
+    )
+    assert renderizar("diminuiu", "acima") == (
+        "A taxa de mortalidade infantil diminuiu no período recente, "
+        "mas ainda ficou acima da média Nacional."
+    )
+    assert renderizar("aumentou", "acima").endswith("recente e ficou acima da média Nacional.")
+    assert renderizar("diminuiu", "abaixo").endswith("recente e ficou abaixo da média Nacional.")
