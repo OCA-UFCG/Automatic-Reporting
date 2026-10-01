@@ -11,6 +11,9 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Sem setEncoding, cada Buffer vira string separado e um caractere multibyte
+  // cortado na fronteira do chunk vira U+FFFD.
+  req.setEncoding('utf8');
   let body = '';
   for await (const chunk of req) body += chunk;
 
