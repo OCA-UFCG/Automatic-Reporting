@@ -6,8 +6,6 @@ from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 from plotting import (
     ESCALA_FONTE,
-    FONTE_ROTULO_VALOR,
-    FONTE_TICK,
     iniciar_card_grafico,
     reusar_grafico,
     salvar_card_grafico,
@@ -121,6 +119,13 @@ def _percentuais_cor_raca(cidade: dict) -> list[tuple[str, float]]:
     ]
 
 
+# O renderer limita este card a 350px de largura (utils/render/renderer.py), e
+# o PNG de 6,4" encolhe para ~76%: com os 11pt padrão, os rótulos saíam com ~8px
+# no PDF e a revisão de Humberto de Campos (MA) leu "3,90%" como "3,00%"
+# (01/10/2026). Fontes maiores compensam a redução.
+_FONTE_COR_RACA = 15.0
+
+
 def gerar_grafico_composicao_cor_raca(
     cidade: dict,
     OUTPUT_DIR: pathlib.Path,
@@ -153,13 +158,13 @@ def gerar_grafico_composicao_cor_raca(
             f"{percentual:.2f}%".replace(".", ","),
             ha="left",
             va="center",
-            fontsize=FONTE_ROTULO_VALOR*ESCALA_FONTE,
+            fontsize=_FONTE_COR_RACA*ESCALA_FONTE,
             fontweight=600,
             color="#292829",
         )
 
     ax.set_yticks(y)
-    ax.set_yticklabels(labels, fontsize=FONTE_TICK*ESCALA_FONTE, fontweight=600, color="#292829")
+    ax.set_yticklabels(labels, fontsize=_FONTE_COR_RACA*ESCALA_FONTE, fontweight=600, color="#292829")
     ax.set_xticks([])
     ax.tick_params(axis="y", length=0, pad=10)
     for borda in ax.spines.values():
