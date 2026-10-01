@@ -35,6 +35,11 @@ def formatar_data_hora_extenso(data: datetime) -> str:
 # cortados, então 0,770 vira "0,77" e 0,467 continua "0,467".
 _DECIMAIS_VIEW = 3
 
+# Percentuais saem sempre com 2 casas, sem cortar zeros: a revisão editorial
+# padronizou duas casas, e a view já arredonda com round(..., 2). Cortar o zero
+# deixava "90,8%" e "0%" ao lado de "32,62%" no mesmo bloco.
+_DECIMAIS_PERCENTUAL = 2
+
 # A view é consistente no padrão nm_/valor_/fonte_/unid_ com uma exceção: o
 # rótulo da população feminina é `nm_pop_feminina`, enquanto valor_, fonte_ e
 # unid_ usam `pop_feminino` (compare com `pop_masculina`, regular nas quatro).
@@ -166,13 +171,18 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[str, ...]] = {
 
 
 def _formatar_valor_indicador(
-    valor: object, decimais: int, prefixo: str = "", sufixo: str = ""
+    valor: object,
+    decimais: int,
+    prefixo: str = "",
+    sufixo: str = "",
+    cortar_zeros: bool = True,
 ) -> str | None:
     """Formata o valor de um indicador em pt-BR, cortando zeros à direita.
 
     `decimais` é um teto, não um piso: 0.770 vira "0,77" e 0.443 vira "0,443".
     Isso evita tanto a precisão falsa ("0,770") quanto o arredondamento que
-    achataria índices vizinhos. Retorna None quando não há valor a exibir — o
+    achataria índices vizinhos. Com `cortar_zeros=False`, `decimais` vira casas
+    fixas (percentuais: 90.80 continua "90,80"). Retorna None quando não há valor a exibir — o
     card é omitido em vez de mostrar "N/D".
     """
     if valor is None:
@@ -183,7 +193,7 @@ def _formatar_valor_indicador(
         return None
 
     texto = formatar_numero_ptbr(valor, decimais=decimais)
-    if decimais and "," in texto:
+    if cortar_zeros and decimais and "," in texto:
         texto = texto.rstrip("0").rstrip(",")
 
     return f"{prefixo}{texto}{sufixo}"
@@ -229,11 +239,13 @@ def _card_da_view(
     valor_bruto = contexto.get(f"valor_{base}")
     if valor_bruto is None:
         valor_bruto = contexto.get(f"per_{base}")
+    percentual = sufixo == "%"
     valor = _formatar_valor_indicador(
         valor_bruto,
-        decimais=_DECIMAIS_VIEW,
+        decimais=_DECIMAIS_PERCENTUAL if percentual else _DECIMAIS_VIEW,
         prefixo=prefixo,
         sufixo=sufixo,
+        cortar_zeros=not percentual,
     )
     if valor is None:
         return None

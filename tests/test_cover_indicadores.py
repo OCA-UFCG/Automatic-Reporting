@@ -197,9 +197,38 @@ def test_educacao_le_o_valor_em_per_e_o_resto_do_quarteto_normalmente():
 
     assert cards["Fundamental incompleto ou sem instrução"]["valor"] == "32,62%"
     assert cards["Superior completo"]["valor"] == "20,85%"
-    assert cards["População indígena alfabetizada"]["valor"] == "90,8%"
+    assert cards["População indígena alfabetizada"]["valor"] == "90,80%"
     # A fonte é a da view, não uma string montada no código.
     assert cards["Superior completo"]["fonte"] == "IBGE (2022)"
+
+
+def test_percentual_do_card_sempre_com_duas_casas():
+    # Regressão: a view manda "90.80", "5.50" e "0.00" (round(..., 2)), mas o
+    # card cortava o zero e saía "90,8%", "5,5%" e "0%" ao lado de "32,62%".
+    valores = _por_nome(
+        montar_indicadores_macrotema(
+            "educacao",
+            {
+                **CONTEXTO,
+                "per_fundamental_incom": "5.50",
+                "per_superior_com": "0.00",
+            },
+        )
+    )
+    assert valores["Fundamental incompleto ou sem instrução"] == "5,50%"
+    assert valores["Superior completo"] == "0,00%"
+    assert valores["População indígena alfabetizada"] == "90,80%"
+
+
+def test_indice_sem_unidade_continua_cortando_zeros():
+    # Só percentuais ganham casas fixas: o IDHM segue com até 3 casas, sem
+    # precisão falsa (0.770 -> "0,77").
+    valores = _por_nome(
+        montar_indicadores_macrotema(
+            "desenvolvimento-social", {**CONTEXTO, "valor_idhm": "0.770"}
+        )
+    )
+    assert valores[CONTEXTO["nm_idhm"]] == "0,77"
 
 
 def test_alfabetizacao_some_quando_o_grupo_nao_existe_no_municipio():
