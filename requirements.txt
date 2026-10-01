@@ -7,3 +7,4 @@ geopandas
 weasyprint
 dotenv
 psycopg2-binary
+tzdata

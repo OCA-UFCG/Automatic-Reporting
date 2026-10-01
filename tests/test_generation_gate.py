@@ -70,6 +70,7 @@ def test_gate_miss_por_ttl_regenera(tmp_path, monkeypatch):
     # cache. Provamos pelo caminho percorrido — o pipeline envenenado tem que
     # estourar, em vez de o handler devolver o HTML de disco.
     monkeypatch.setattr(generation, "OUTPUT_DIR", tmp_path)
+    monkeypatch.setattr(cache, "OUTPUT_DIR", tmp_path)
     monkeypatch.setattr(cache, "DATA_VERSION_FILE", tmp_path / ".data_version")
     monkeypatch.setattr(generation, "REPORT_CACHE_TTL_S", 300)
 
@@ -120,6 +121,7 @@ def test_lista_de_cidades_vazia_nao_bloqueia(tmp_path, monkeypatch):
     # cities.json ausente devolve [] — degradar, não transformar em 404 geral
     # (guarda do CLAUDE.md). Sem lista, segue pro pipeline.
     monkeypatch.setattr(generation, "OUTPUT_DIR", tmp_path)
+    monkeypatch.setattr(cache, "OUTPUT_DIR", tmp_path)
     monkeypatch.setattr(cache, "DATA_VERSION_FILE", tmp_path / ".data_version")
     monkeypatch.setattr(generation, "carregar_cidades", list)
 

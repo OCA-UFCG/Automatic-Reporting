@@ -54,21 +54,34 @@ def test_cover_does_not_use_lorem_ipsum_when_diagnostic_is_missing():
     assert cover["macrotema"]["resumo"] == ""
 
 
-def test_area_territorial_no_card_bate_com_o_texto_narrativo():
-    # O placeholder `$area` do texto usa 2 casas decimais (default de
-    # `_formatar_valor` em utils/render/placeholders.py); o card precisa
-    # arredondar igual, senão o card e o texto mostram números diferentes
-    # para o mesmo `area_territorial` (ex.: "218,8" vs "218,84").
+def test_cards_caracteristicas_vem_da_view_com_area_em_duas_casas():
+    # Rótulo, fonte e legenda vêm do quarteto de vw_indicadores. A área da view
+    # tem 3 casas ("218.843"), mas o card usa 2, como o placeholder `$area` do
+    # texto (default de `_formatar_valor` em utils/render/placeholders.py) —
+    # senão card e texto mostram números diferentes para o mesmo município.
     cover = montar_capa_relatorio(
-        {"nm_mun": "Recife (PE)", "area_territorial": 218.84},
+        {
+            "nm_mun": "Recife (PE)",
+            "nm_area_municipio": "Área do município",
+            "valor_area_municipio": "218.843",
+            "fonte_area_municipio": "IBGE",
+            "unid_area_municipio": "Extensão territorial",
+            "nm_pop_residente": "População residente",
+            "valor_pop_residente": "1488920",
+            "fonte_pop_residente": "Censo demográfico (IBGE, 2022)",
+            "unid_pop_residente": "Pessoas residentes",
+        },
         datetime(2026, 1, 1, tzinfo=timezone.utc),
         "Meio Ambiente",
         "meio-ambiente",
     )
 
-    area = next(
-        metrica
-        for metrica in cover["metricas"]
-        if metrica["rotulo"] == "Área territorial"
+    area, pop = cover["metricas"]
+    assert (area["rotulo"], area["valor"], area["sufixo"]) == (
+        "Área do município", "218,84", "km²"
     )
-    assert area["valor"] == "218,84"
+    assert (area["fonte"], area["caption"]) == ("IBGE", "Extensão territorial")
+    assert (pop["rotulo"], pop["valor"]) == ("População residente", "1.488.920")
+    assert (pop["fonte"], pop["caption"]) == (
+        "Censo demográfico (IBGE, 2022)", "Pessoas residentes"
+    )
