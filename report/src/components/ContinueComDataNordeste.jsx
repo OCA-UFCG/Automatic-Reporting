@@ -52,7 +52,7 @@ export default function ContinueComDataNordeste() {
             Continue com o <span className="continue-cta-heading-highlight">Data Nordeste</span>
           </p>
           <p className="continue-cta-subtitle">
-            Explore mais dados ou monte o seu próprio relatório personalizado
+            Explore mais dados ou monte o seu próprio relatório personalizado.
           </p>
         </div>
         <div className="continue-cta-grid">
