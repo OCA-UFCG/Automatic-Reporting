@@ -1,16 +1,21 @@
 from utils.queries.base import executar_query
 
+# A tabela de cisternas só tem cd_mun (recriada em 30/09/2026, sem nm_mun/
+# sigla_uf): nome e UF vêm de carac_mun, como no PIB. Ela já tem 2026, mas o
+# Doc e a legenda do gráfico vão "até 2025": o último parâmetro é o ano limite.
 TECNOLOGIAS_ACESSO_AGUA = """
     SELECT
-        ano,
-        tot_cisternas,
-        i_agua_total,
-        ii_agua,
-        escolares
-    FROM hidr_cisternas.final_tecnologias_sociais_de_acesso_a_agua
-    WHERE LOWER(nm_mun) = LOWER(%s)
-      AND sigla_uf = %s
-    ORDER BY ano
+        t.ano,
+        t.tot_cisternas,
+        t.i_agua_total,
+        t.ii_agua,
+        t.escolares
+    FROM hidr_cisternas.final_tecnologias_sociais_de_acesso_a_agua t
+    JOIN carac_mun.caracteristicas_municipais c ON c.cd_mun::int = t.cd_mun::int
+    WHERE LOWER(c.nm_mun) = LOWER(%s)
+      AND c.sigla_uf = %s
+      AND t.ano <= %s
+    ORDER BY t.ano
 """
 
 _DECADAS_SERIE_HISTORICA = (2010, 2020, 2025)
@@ -125,7 +130,7 @@ def buscar_tecnologias_acesso_agua(
 ) -> dict[str, object] | None:
     linhas = executar_query(
         TECNOLOGIAS_ACESSO_AGUA,
-        (nome_municipio, sigla_uf),
+        (nome_municipio, sigla_uf, _DECADAS_SERIE_HISTORICA[-1]),
         f"tecnologias sociais de acesso à água de '{nome_municipio} ({sigla_uf})'",
         buscar_todas=True,
     )
