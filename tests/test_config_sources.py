@@ -85,3 +85,11 @@ def test_cards_caracteristicas_vem_da_view_com_area_em_duas_casas():
     assert (pop["fonte"], pop["caption"]) == (
         "Censo demográfico (IBGE, 2022)", "Pessoas residentes"
     )
+
+
+def test_area_sem_dado_nao_ganha_km2():
+    for linha in ({"nm_mun": "Recife (PE)"}, {"nm_mun": "Recife (PE)", "valor_area_municipio": "Não há dados"}):
+        cover = montar_capa_relatorio(
+            linha, datetime(2026, 1, 1, tzinfo=timezone.utc), "Meio Ambiente", "meio-ambiente"
+        )
+        assert cover["metricas"][0]["sufixo"] == ""
