@@ -202,9 +202,10 @@ def test_educacao_le_o_valor_em_per_e_o_resto_do_quarteto_normalmente():
     assert cards["Superior completo"]["fonte"] == "IBGE (2022)"
 
 
-def test_percentual_do_card_sempre_com_duas_casas():
-    # Regressão: a view manda "90.80", "5.50" e "0.00" (round(..., 2)), mas o
-    # card cortava o zero e saía "90,8%", "5,5%" e "0%" ao lado de "32,62%".
+def test_percentual_do_card_com_duas_casas_e_inteiro_sem_zeros():
+    # A view manda "90.80", "5.50" e "0.00" (round(..., 2)). Como no texto, o
+    # percentual sai com 2 casas ("5,50%", não "5,5%"), e o que termina em ,00
+    # sai inteiro ("0%", "88%").
     valores = _por_nome(
         montar_indicadores_macrotema(
             "educacao",
@@ -216,7 +217,7 @@ def test_percentual_do_card_sempre_com_duas_casas():
         )
     )
     assert valores["Fundamental incompleto ou sem instrução"] == "5,50%"
-    assert valores["Superior completo"] == "0,00%"
+    assert valores["Superior completo"] == "0%"
     assert valores["População indígena alfabetizada"] == "90,80%"
 
 
