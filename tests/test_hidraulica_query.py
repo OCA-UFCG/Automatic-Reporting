@@ -141,3 +141,24 @@ def test_buscar_tecnologias_acesso_agua_so_escolares_nao_e_empate(monkeypatch):
 def test_buscar_tecnologias_acesso_agua_sem_dados_retorna_none(monkeypatch):
     monkeypatch.setattr(hidraulica, "executar_query", lambda *args, **kwargs: [])
     assert hidraulica.buscar_tecnologias_acesso_agua("Cidade X", "PB") is None
+
+
+def test_consulta_casa_por_cd_mun_e_limita_ano(monkeypatch):
+    # Em 30/09 a tabela de cisternas foi recriada só com cd_mun (sem nm_mun/
+    # sigla_uf); o nome/UF vêm de carac_mun, como no PIB. A tabela passou a ter
+    # 2026, mas o Doc e a legenda dizem "até 2025".
+    capturado = {}
+
+    def falso(sql, params, *args, **kwargs):
+        capturado["sql"], capturado["params"] = sql, params
+        return [(2025, 20, 10, 10, 0)]
+
+    monkeypatch.setattr(hidraulica, "executar_query", falso)
+    hidraulica.buscar_tecnologias_acesso_agua("Assú", "RN")
+
+    sql = " ".join(capturado["sql"].split())
+    assert "JOIN carac_mun.caracteristicas_municipais c ON c.cd_mun::int = t.cd_mun::int" in sql
+    assert "LOWER(c.nm_mun) = LOWER(%s)" in sql and "c.sigla_uf = %s" in sql
+    assert "t.nm_mun" not in sql and "t.sigla_uf" not in sql
+    assert "t.ano <= %s" in sql
+    assert capturado["params"] == ("Assú", "RN", 2025)
