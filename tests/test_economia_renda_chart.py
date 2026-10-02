@@ -105,6 +105,8 @@ def test_rotulo_do_vab_usa_bilhao_no_singular_abaixo_de_2(tmp_path: Path, monkey
 
     def _capturar(fig, chart_file, dpi=180):
         textos.extend(texto.get_text() for ax in fig.axes for texto in ax.texts)
+        # Setor estreito demais pro rótulo vai pra legenda abaixo do treemap.
+        textos.extend(texto.get_text() for texto in fig.texts)
 
     monkeypatch.setattr("plotting.economia_renda.salvar_card_grafico", _capturar)
     cidade = {
@@ -118,7 +120,8 @@ def test_rotulo_do_vab_usa_bilhao_no_singular_abaixo_de_2(tmp_path: Path, monkey
 
     gerar_grafico_vab(cidade, tmp_path, "vab_singular")
 
-    # A linha fina junta nome e valor ("Indústria — R$\n1,20 milhão").
+    # A linha fina junta nome e valor ("Agropecuária — R$ 300,00 milhões");
+    # Indústria (1,20 mi) não cabe nem assim e vai pra legenda externa.
     rotulos = " ".join(textos).replace("\n", " ")
     assert "R$ 1,76 bilhão" in rotulos
     assert "R$ 2,50 bilhões" in rotulos
@@ -190,3 +193,30 @@ def test_escala_do_grafico_usa_a_mesma_unidade_do_texto(valor):
     _, unidade_grafico = _escolher_unidade(valor)
 
     assert unidade_grafico == unidade_texto
+
+
+def test_setor_estreito_demais_vai_pra_legenda_externa(tmp_path: Path, monkeypatch):
+    # Rosário do Catete/SE: Agropecuária é ~1,3% do VAB e a célula ficava
+    # estreita demais — "Agropecuária" e o valor saíam cortados na borda.
+    textos_eixo: list[str] = []
+    textos_legenda: list[str] = []
+
+    def _capturar(fig, chart_file, dpi=180):
+        textos_eixo.extend(texto.get_text() for ax in fig.axes for texto in ax.texts)
+        textos_legenda.extend(texto.get_text() for texto in fig.texts)
+
+    monkeypatch.setattr("plotting.economia_renda.salvar_card_grafico", _capturar)
+    cidade = {
+        "vab_setores_2021": {
+            "agropecuaria": 5_410_000.0,
+            "industria": 231_059_000.0,
+            "servicos": 85_912_000.0,
+            "adm_publica": 88_131_000.0,
+        }
+    }
+
+    gerar_grafico_vab(cidade, tmp_path, "rosario_do_catete_se")
+
+    assert not any("Agropecu" in texto for texto in textos_eixo)
+    assert "Agropecuária — R$ 5,41 milhões" in textos_legenda
+    assert "Serviços" in textos_eixo

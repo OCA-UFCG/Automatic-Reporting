@@ -55,6 +55,46 @@ def _atribuir_cores_por_ranking(
     return dict(zip(ordenados, _CORES_POR_RANKING))
 
 
+def _adicionar_legenda_externa(fig, ax, celulas: list[dict], cores: dict[str, str]) -> None:
+    # Reserva uma faixa na base do card (encolhendo o eixo por cima, como em
+    # `_reservar_espaco_rotulo_x`) e escreve ali, alinhado à direita, um
+    # quadradinho com a cor da célula + "Nome — R$ valor" de cada setor que
+    # não coube dentro do próprio retângulo.
+    _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas=0.42)
+    posicao = ax.get_position()
+    altura_fig = fig.get_size_inches()[1]
+    y_legenda = posicao.y0 - 0.21 / altura_fig
+    x_direita = posicao.x1
+    largura_fig_px = fig.get_size_inches()[0] * fig.dpi
+    renderer = fig.canvas.get_renderer()
+    for celula in reversed(celulas):
+        texto = fig.text(
+            x_direita,
+            y_legenda,
+            f"{celula['nome']} — {celula['texto_valor_str']}",
+            ha="right",
+            va="center",
+            fontsize=10 * ESCALA_FONTE,
+            color="#3A2A1A",
+        )
+        largura_texto = texto.get_window_extent(renderer=renderer).width / largura_fig_px
+        lado_quadrado = 0.14 / fig.get_size_inches()[0]
+        x_quadrado = x_direita - largura_texto - 0.06 / fig.get_size_inches()[0] - lado_quadrado
+        fig.patches.append(
+            Rectangle(
+                (x_quadrado, y_legenda - 0.07 / altura_fig),
+                lado_quadrado,
+                0.14 / altura_fig,
+                transform=fig.transFigure,
+                figure=fig,
+                facecolor=cores[celula["chave"]],
+                edgecolor="#C9B8A6",
+                linewidth=0.6,
+            )
+        )
+        x_direita = x_quadrado - 0.3 / fig.get_size_inches()[0]
+
+
 def _escolher_unidade(valor: float) -> tuple[float, str]:
     _, unidade = _escalar_valor(valor)
     divisor = {"bilhões": 1e9, "milhões": 1e6, "mil": 1e3}.get(unidade, 1)
@@ -247,7 +287,7 @@ def gerar_grafico_fob(
         cidade.get("importacao_paises") or [],
         OUTPUT_DIR / f"grafico_fob_{safe_city}.png",
         "Dados de países de importação não disponíveis.",
-        "Origens das importações ordenadas pelo valor líquido FOB",
+        "Origem(ns) das importações pelo valor líquido FOB",
     )
 
 
@@ -345,6 +385,7 @@ def gerar_grafico_vab(
             textos_por_largura.append((texto_valor, largura_disponivel))
             celulas.append(
                 {
+                    "chave": chave,
                     "texto_nome": texto_nome,
                     "texto_valor": texto_valor,
                     "texto_valor_str": texto_valor_str,
@@ -388,6 +429,65 @@ def gerar_grafico_vab(
                 largura_linha += 1
                 linhas_quebradas = textwrap.wrap(texto, width=largura_linha)
             texto_obj.set_text("\n".join(linhas_quebradas))
+
+    # Setor com fatia muito pequena (ex.: Agropecuária em Rosário do Catete/SE,
+    # ~1% do VAB) vira uma célula estreita onde nem o nome cabe na fonte
+    # mínima — o texto saía cortado na borda. Aumentar o figsize não resolve:
+    # o PNG entra no relatório com largura fixa, então a célula continua com a
+    # mesma fração da largura. Nesses casos o rótulo sai da célula e vai pra
+    # uma legenda abaixo do treemap, identificada pela cor.
+    celulas_externas = []
+    for celula in celulas:
+        if celula["largura_disponivel"] <= 0:
+            celulas_externas.append(celula)
+            continue
+        largura_disponivel_px = (
+            ax.transData.transform((celula["largura_disponivel"], 0))[0] - origem_px
+        )
+        texto_nome = celula["texto_nome"]
+        largura_nome_minima_px = (
+            texto_nome.get_window_extent(renderer=renderer).width
+            * _FONTE_MINIMA
+            / texto_nome.get_fontsize()
+        )
+        # Mesmo raciocínio na vertical: linha do treemap tão baixa que nem
+        # uma linha de texto na fonte mínima cabe (o texto fundido abaixo
+        # vazaria pra fora da faixa, por cima da borda do card).
+        altura_linha_px = abs(
+            ax.transData.transform((0, celula["altura_linha"]))[1]
+            - ax.transData.transform((0, 0))[1]
+        )
+        altura_nome_minima_px = (
+            texto_nome.get_window_extent(renderer=renderer).height
+            * _FONTE_MINIMA
+            / texto_nome.get_fontsize()
+        )
+        if (
+            largura_nome_minima_px > largura_disponivel_px
+            or altura_nome_minima_px > altura_linha_px
+        ):
+            celulas_externas.append(celula)
+
+    ids_externos = {id(celula) for celula in celulas_externas}
+    for celula in celulas_externas:
+        celula["texto_nome"].remove()
+        celula["texto_valor"].remove()
+    celulas = [celula for celula in celulas if id(celula) not in ids_externos]
+    textos_externos = {
+        id(texto)
+        for celula in celulas_externas
+        for texto in (celula["texto_nome"], celula["texto_valor"])
+    }
+    textos_por_largura = [
+        (texto, largura)
+        for texto, largura in textos_por_largura
+        if id(texto) not in textos_externos
+    ]
+
+    if celulas_externas:
+        _adicionar_legenda_externa(fig, ax, celulas_externas, cores)
+        fig.canvas.draw()
+        origem_px = ax.transData.transform((0, 0))[0]
 
     for texto_obj, largura_disponivel in textos_por_largura:
         if largura_disponivel <= 0:
@@ -437,7 +537,20 @@ def gerar_grafico_vab(
         largura_disponivel_px = (
             ax.transData.transform((celula["largura_disponivel"], 0))[0] - origem_px
         )
+        # 85% da faixa: folga pro texto não encostar nas bordas da célula.
+        altura_linha_px = 0.85 * abs(
+            ax.transData.transform((0, celula["altura_linha"]))[1] - origem_y_px
+        )
         fig.canvas.draw()
+        altura_fundido_px = texto_fundido.get_window_extent(renderer=renderer).height
+        if altura_fundido_px > altura_linha_px:
+            texto_fundido.set_fontsize(
+                max(
+                    texto_fundido.get_fontsize() * altura_linha_px / altura_fundido_px,
+                    _FONTE_MINIMA,
+                )
+            )
+            fig.canvas.draw()
         _encolher_para_largura(texto_fundido, largura_disponivel_px)
 
     salvar_card_grafico(fig, chart_file)
