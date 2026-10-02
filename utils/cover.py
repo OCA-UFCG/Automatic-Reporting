@@ -35,9 +35,10 @@ def formatar_data_hora_extenso(data: datetime) -> str:
 # cortados, então 0,770 vira "0,77" e 0,467 continua "0,467".
 _DECIMAIS_VIEW = 3
 
-# Percentuais saem sempre com 2 casas, sem cortar zeros: a revisão editorial
+# Percentuais saem com 2 casas, sem cortar zeros: a revisão editorial
 # padronizou duas casas, e a view já arredonda com round(..., 2). Cortar o zero
-# deixava "90,8%" e "0%" ao lado de "32,62%" no mesmo bloco.
+# deixava "90,8%" ao lado de "32,62%" no mesmo bloco. O que termina em ,00 sai
+# inteiro ("88%", "0%"), como no texto (_formatar_valor).
 _DECIMAIS_PERCENTUAL = 2
 
 # A view é consistente no padrão nm_/valor_/fonte_/unid_ com uma exceção: o
@@ -174,6 +175,10 @@ def _tem_numero(texto: str) -> bool:
     return any(c.isdigit() for c in texto)
 
 
+def _sem_zeros_inteiros(texto: str) -> str:
+    return texto.removesuffix(",00")
+
+
 def _formatar_valor_indicador(
     valor: object,
     decimais: int,
@@ -186,7 +191,7 @@ def _formatar_valor_indicador(
     `decimais` é um teto, não um piso: 0.770 vira "0,77" e 0.443 vira "0,443".
     Isso evita tanto a precisão falsa ("0,770") quanto o arredondamento que
     achataria índices vizinhos. Com `cortar_zeros=False`, `decimais` vira casas
-    fixas (percentuais: 90.80 continua "90,80"). Retorna None quando não há valor a exibir — o
+    fixas (percentuais: 90.80 continua "90,80"), menos o ,00 (88.00 vira "88"). Retorna None quando não há valor a exibir — o
     card é omitido em vez de mostrar "N/D".
     """
     if valor is None:
@@ -201,6 +206,8 @@ def _formatar_valor_indicador(
         return texto
     if cortar_zeros and decimais and "," in texto:
         texto = texto.rstrip("0").rstrip(",")
+    else:
+        texto = _sem_zeros_inteiros(texto)
 
     return f"{prefixo}{texto}{sufixo}"
 
@@ -385,7 +392,9 @@ def montar_capa_relatorio(
             return formatar_numero_ptbr(valor, decimais=decimais)
         return fallback
 
-    area = numero_formatado("valor_area_municipio", "area_territorial", decimais=2)
+    area = _sem_zeros_inteiros(
+        numero_formatado("valor_area_municipio", "area_territorial", decimais=2)
+    )
 
     return {
         "data_extenso": formatar_data_extenso(gerado_em),

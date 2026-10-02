@@ -93,3 +93,12 @@ def test_area_sem_dado_nao_ganha_km2():
             linha, datetime(2026, 1, 1, tzinfo=timezone.utc), "Meio Ambiente", "meio-ambiente"
         )
         assert cover["metricas"][0]["sufixo"] == ""
+
+
+def test_area_inteira_sai_sem_zeros():
+    # Mesma regra do texto: ,00 não aparece.
+    cover = montar_capa_relatorio(
+        {"nm_mun": "Recife (PE)", "valor_area_municipio": "218.00"},
+        datetime(2026, 1, 1, tzinfo=timezone.utc), "Meio Ambiente", "meio-ambiente",
+    )
+    assert (cover["metricas"][0]["valor"], cover["metricas"][0]["sufixo"]) == ("218", "km²")
