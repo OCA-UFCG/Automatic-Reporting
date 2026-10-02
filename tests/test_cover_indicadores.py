@@ -314,6 +314,21 @@ def test_saude_le_os_seis_indicadores_da_view():
     assert cards["Mortalidade infantil"]["fonte"] == "DATASUS (2025)"
 
 
+def test_sexto_card_de_saude_le_clinicas_da_view():
+    contexto = {
+        "nm_clinica_centro_especialidade": "Clínicas ou Centros de especialidade",
+        "valor_clinica_centro_especialidade": "210",
+        "fonte_clinica_centro_especialidade": "CNES (2025)",
+        "unid_clinica_centro_especialidade": "Unidade(s)",
+    }
+
+    cards = montar_indicadores_macrotema("saude", contexto)
+
+    assert [c["nome"] for c in cards] == ["Clínicas ou Centros de especialidade"]
+    assert cards[0]["valor"] == "210"
+    assert cards[0]["fonte"] == "CNES (2025)"
+
+
 def test_economia_renda_nao_mostra_renda_capita_nem_gini():
     # O Doc de economia pede só 6 indicadores (PIB, PIB per capita, Receita
     # tributária, Exportação, Importação, Balança comercial); Renda per capita
@@ -448,3 +463,16 @@ def test_percentual_sem_marcador_na_unidade_ganha_sufixo():
     assert _por_nome(montar_indicadores_macrotema("saneamento", contexto))[
         "Domicílios ligados à rede geral ou pluvial"
     ] == "86,62%"
+
+
+def test_card_sem_dado_nao_ganha_unidade():
+    contexto = {
+        "nm_asd": "Área suscetível à desertificação",
+        "valor_asd": "Não há dados",
+        "fonte_asd": "Xavier et al. (2020) e OCA",
+        "unid_asd": "Extensão territorial em km²",
+    }
+
+    cards = montar_indicadores_macrotema("meio-ambiente", contexto)
+
+    assert cards[0]["valor"] == "Não há dados"

@@ -89,7 +89,7 @@ _ICONE_POR_BASE = {
     "doses": "vacinas",
     "estabelecimento": "numero_estabelecimentos",
     "unidade_basica": "unidades_basicas",
-    "posto_saude": "posto_saude",
+    "clinica_centro_especialidade": "posto_saude",
     "exportacao": "exportacao",
     "importacao": "importacao",
     "balanca": "balanca",
@@ -127,7 +127,7 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[str, ...]] = {
         "doses",
         "estabelecimento",
         "unidade_basica",
-        "posto_saude",
+        "clinica_centro_especialidade",
     ),
     # Os 6 que o Doc de economia pede (PR #126). Renda per capita e Gini saíram
     # daqui e ficam só em `desenvolvimento-social`, para não repetir o mesmo
@@ -170,6 +170,10 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[str, ...]] = {
 }
 
 
+def _tem_numero(texto: str) -> bool:
+    return any(c.isdigit() for c in texto)
+
+
 def _formatar_valor_indicador(
     valor: object,
     decimais: int,
@@ -193,6 +197,8 @@ def _formatar_valor_indicador(
         return None
 
     texto = formatar_numero_ptbr(valor, decimais=decimais)
+    if not _tem_numero(texto):
+        return texto
     if cortar_zeros and decimais and "," in texto:
         texto = texto.rstrip("0").rstrip(",")
 
@@ -379,6 +385,8 @@ def montar_capa_relatorio(
             return formatar_numero_ptbr(valor, decimais=decimais)
         return fallback
 
+    area = numero_formatado("valor_area_municipio", "area_territorial", decimais=2)
+
     return {
         "data_extenso": formatar_data_extenso(gerado_em),
         "data_hora_extenso": formatar_data_hora_extenso(gerado_em),
@@ -419,12 +427,10 @@ def montar_capa_relatorio(
             {
                 "rotulo": primeiro_valor("nm_area_municipio", fallback="Área territorial"),
                 # 2 casas, igual ao placeholder $area do texto narrativo.
-                "valor": numero_formatado(
-                    "valor_area_municipio", "area_territorial", decimais=2
-                ),
+                "valor": area,
                 # unid_area_municipio é legenda ("Extensão territorial"), não
                 # unidade: a view não diz km².
-                "sufixo": "km²",
+                "sufixo": "km²" if _tem_numero(area) else "",
                 "fonte": primeiro_valor("fonte_area_municipio", fallback=""),
                 "caption": primeiro_valor("unid_area_municipio", fallback=""),
                 "icone": "area",
