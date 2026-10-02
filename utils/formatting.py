@@ -1,4 +1,5 @@
 import math
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 
 def coerce_para_float(valor: object, default: float | None = 0.0) -> float | None:
@@ -48,5 +49,12 @@ def formatar_numero_ptbr(valor: object, decimais: int = 0) -> str:
             numero = float(texto_valor.replace(".", "").replace(",", "."))
         except ValueError:
             return texto_valor
+    if math.isfinite(numero):
+        # Pelo repr, não pelo float: 1141.165 é 1141.16499… em binário.
+        exato = valor if isinstance(valor, Decimal) else Decimal(repr(numero))
+        try:
+            numero = exato.quantize(Decimal(1).scaleb(-decimais), rounding=ROUND_HALF_UP)
+        except InvalidOperation:
+            pass
     texto = f"{numero:,.{decimais}f}"
     return texto.replace(",", "_").replace(".", ",").replace("_", ".")

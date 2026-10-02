@@ -942,7 +942,7 @@ def _formatar_valor(valor: object, decimais: int | None = None, campo: str = "")
             decimais = 0 if numero == int(numero) else 2
         if campo.lower() in _CAMPOS_ANO and decimais == 0:
             return str(int(numero))
-        return formatar_numero_ptbr(numero, decimais=decimais)
+        return formatar_numero_ptbr(valor, decimais=decimais)
     return str(valor)
 
 
