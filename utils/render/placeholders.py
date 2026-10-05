@@ -555,6 +555,9 @@ _E_DE_CAMPO = re.compile(r"\s+e\s+(?=(?:[A-Za-z_][\w-]*\.)?\$|\(|n[ãa]o(?:\s|$)
 _NAO = re.compile(r"n[ãa]o(?:\s+|$)")
 
 
+_FECHO_DA_REGRA = re.compile(r"[\s,]*ent[ãa]o\s*$")
+
+
 def _profundidades(expressao: str) -> list[int] | None:
     """Profundidade de parênteses antes de cada caractere, ou None se não
     fecharem em par."""
@@ -633,6 +636,10 @@ def _avaliar_expressao(expressao: str, contexto: dict, folha=_avaliar_folha) -> 
         and len(_dividir_no_topo(expressao, _E_DE_GRUPO)) == 1
     ):
         return folha(expressao, contexto)
+    # O fecho da regra (", então") fica colado no último fator: depois de um ")"
+    # ele impediria o grupo de ser reconhecido. Os avaliadores de folha o
+    # ignoram sozinhos, então só a árvore precisa tirá-lo.
+    expressao = _FECHO_DA_REGRA.sub("", expressao)
     if _profundidades(expressao) is None:
         _registrar_problema("parênteses sem par, a regra nunca vale")
         return False
