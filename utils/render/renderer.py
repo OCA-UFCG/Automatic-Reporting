@@ -721,6 +721,49 @@ def _unir_grafico_e_legenda(html: str) -> str:
     )
 
 
+_MARCADOR_GRAFICO_LINHA = re.compile(r"(?:%%|\*)\w+(?:\+\w+)*")
+_LEGENDA_LINHA = re.compile(r"(?i)^figura\s+([A-Za-z])\s*[–-]")
+# Namespaces em que o gráfico só sai se o texto renderizado o cita.
+_NAMESPACES_GRAFICO_SO_COM_MENCAO = frozenset({"saude"})
+
+
+def remover_graficos_sem_mencao(texto: str) -> str:
+    """Tira marcador e legenda de gráfico que nenhuma linha do texto cita.
+
+    Roda depois de interpretar_blocos_condicionais: o marcador sobrevive a
+    qualquer condição (ele pertence à seção inteira), então, quando a condição
+    escolhe um parágrafo sem "(Figura Z)", o gráfico aparecia sem citação. A
+    legenda "Figura Z - ..." casa com a menção pela letra. Marcador sem legenda
+    de uma letra fica como está, pois não há com o que casar.
+    """
+    linhas = texto.splitlines()
+    remover: set[int] = set()
+
+    for i, linha in enumerate(linhas):
+        if not _MARCADOR_GRAFICO_LINHA.fullmatch(linha.strip()):
+            continue
+        j = i + 1
+        while j < len(linhas) and not linhas[j].strip():
+            j += 1
+        legenda = _LEGENDA_LINHA.match(linhas[j].strip()) if j < len(linhas) else None
+        if not legenda:
+            continue
+        mencao = re.compile(rf"(?i)\bfigura\s+\[?{legenda.group(1)}\]?\b")
+        citado = any(
+            mencao.search(outra)
+            for k, outra in enumerate(linhas)
+            if k != j and not _LEGENDA_LINHA.match(outra.strip())
+        )
+        if not citado:
+            remover.update(range(i, j + 1))
+
+    if not remover:
+        return texto
+    return "\n".join(l for k, l in enumerate(linhas) if k not in remover) + (
+        "\n" if texto.endswith("\n") else ""
+    )
+
+
 def _render_descricao_tema_partes(
     descricao_tema: str,
     contexto: dict,
@@ -729,6 +772,8 @@ def _render_descricao_tema_partes(
     graficos_por_placeholder: dict[str, str] | None,
 ) -> list[str]:
     descricao_tema = interpretar_blocos_condicionais(descricao_tema, contexto)
+    if namespace in _NAMESPACES_GRAFICO_SO_COM_MENCAO:
+        descricao_tema = remover_graficos_sem_mencao(descricao_tema)
     descricao_tema = _rotular_linhas_de_fonte(descricao_tema)
     partes = []
     intro_ja_inserida = False
