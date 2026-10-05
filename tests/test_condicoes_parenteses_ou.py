@@ -251,3 +251,43 @@ def test_conferir_condicoes_avisa_da_comparacao_nao_entendida_sob_nao():
     avisos = conferir_condicoes("Para quando não $a for bonito:\nTrecho.\n")
     assert len(avisos) == 1
     assert "$a" in avisos[0]
+
+
+# O Doc fecha a regra com ", então" (ver docs/editorial); ele vem depois do ")".
+
+_MORTALIDADE_ZERADA = (
+    "saude.$mortalidade_2024 for igual a 0 e saude.$mortalidade_2025 for igual a 0 e "
+    "(saude.$mortalidade_2010 for diferente de 0 ou saude.$mortalidade_2020 for diferente de  0 "
+    "ou saude.$mortalidade_2021 for diferente de 0 ou saude.$mortalidade_2022 for diferente de  0 "
+    "ou saude.$mortalidade_2023 for diferente de 0)"
+)
+_ANOS = (2010, 2020, 2021, 2022, 2023, 2024, 2025)
+
+
+@pytest.mark.parametrize("fecho", ["", ", então", " então", ", ENTÃO"])
+@pytest.mark.parametrize(
+    ("diferentes_de_zero", "esperado"),
+    [
+        ({2022}, True),
+        ({2010}, True),
+        (set(), False),
+        ({2022, 2024}, False),
+        ({2025}, False),
+    ],
+)
+def test_regra_de_mortalidade_com_grupo_de_ou_e_entao_no_fim(fecho, diferentes_de_zero, esperado):
+    contexto = {f"mortalidade_{ano}": int(ano in diferentes_de_zero) for ano in _ANOS}
+    assert _vale(_MORTALIDADE_ZERADA + fecho, contexto) is esperado
+
+
+@pytest.mark.parametrize(
+    "expressao",
+    [
+        f"$a {_UM} ou $b {_UM}, então",
+        f"($a {_UM} ou $b {_UM}), então",
+        f"não ($a {_UM} ou $b {_UM}), então",
+    ],
+)
+def test_entao_no_fim_nao_atrapalha_ou_nem_parenteses(expressao):
+    assert conferir_condicoes(f"Para quando {expressao}:\nTrecho.\n") == []
+    assert _vale(expressao, _ctx(b=1)) is (not expressao.startswith("não"))
