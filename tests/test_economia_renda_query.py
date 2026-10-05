@@ -209,3 +209,43 @@ def test_processar_pib_evolucao_e_indicadores_reaproveitam_a_mesma_consulta(monk
         {"ano": 2023, "pib_total": 12_945_093_200.0},
     ]
     assert dados_indicadores["pib_unid_2010"] == "milhões"
+
+
+def test_nome_do_setor_vem_da_view_com_preposicao():
+    # Regressão: o nome local ("Serviços") sobrescrevia o da view ("de Serviços")
+    # e o Doc, que escreve "setor economia.$setor2021_maior1" sem o "de", saía
+    # "setor Serviços" (revisão de Economia, Rosário do Catete, 05/10/2026).
+    from services.generation import _setores_economia_da_view
+
+    local = {
+        "setor2021_maior1": "Serviços",
+        "setor2021_maior1_vab": 9.5,
+        "setor2021_maior1unid": "milhões",
+        "setor2021_maior2": "Administração Pública",
+        "setor2021_maior3": "Indústria",
+        "pib_2023": 12.3,
+    }
+    view = {
+        "setor2021_maior1": "de Serviços",
+        "setor2021_maior1unid": "milhões",
+        "setor2021_maior2": "da Administração pública",
+        "setor2021_maior3": "da Indústria",
+    }
+
+    linha = dict(view)
+    linha.update(_setores_economia_da_view(local, view))
+
+    assert linha["setor2021_maior1"] == "de Serviços"
+    assert linha["setor2021_maior2"] == "da Administração pública"
+    assert linha["setor2021_maior3"] == "da Indústria"
+    # valor e unidade continuam do cálculo local
+    assert linha["setor2021_maior1_vab"] == 9.5
+    assert linha["pib_2023"] == 12.3
+
+
+def test_sem_view_nome_local_do_setor_vale():
+    # Fallback CSV (PR #91): sem linha da view, o nome local continua saindo.
+    from services.generation import _setores_economia_da_view
+
+    local = {"setor2021_maior1": "Serviços", "setor2021_maior1_vab": 9.5}
+    assert _setores_economia_da_view(local, None) == local

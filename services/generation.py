@@ -468,6 +468,31 @@ def _indigena_sem_sobrescrever_view(
     }
 
 
+_SETORES_MAIORES_ECONOMIA = ("setor2021_maior1", "setor2021_maior2", "setor2021_maior3")
+
+
+def _setores_economia_da_view(
+    dados_indicadores_economia: dict[str, object], perfil_db: dict | None
+) -> dict[str, object]:
+    """O que de processar_indicadores_economia entra na linha do relatório.
+
+    O nome do setor vem da view: ela já traz a preposição ("da Indústria", "de
+    Serviços", "da Administração pública"), e o Doc passou a escrever só "setor
+    economia.$setor2021_maior1" contando com isso. O nome local ("Serviços")
+    sobrescrevia a view e o texto saía "setor Serviços" (revisão de Economia,
+    Rosário do Catete, 05/10/2026). Só o nome: valor e unidade continuam do
+    cálculo local, que é o mesmo ranking da view (conferido nos 2074 municípios
+    em 05/10/2026), então nome e valor seguem pareados.
+    """
+    if not perfil_db:
+        return dados_indicadores_economia
+    return {
+        chave: valor
+        for chave, valor in dados_indicadores_economia.items()
+        if chave not in _SETORES_MAIORES_ECONOMIA or perfil_db.get(chave) is None
+    }
+
+
 _ORDINAIS_COR_RACA = ("pri", "seg", "ter", "quar", "quin")
 
 
@@ -841,8 +866,13 @@ async def gerar_relatorio_handler(
                     linha.update(dados_pib)
 
             if "economia-renda" in macrotema_slugs and dados_indicadores_economia:
+                dados_economia_mescla = (
+                    _setores_economia_da_view(dados_indicadores_economia, perfil_db)
+                    if macrotema_slug == "economia-renda"
+                    else dados_indicadores_economia
+                )
                 for linha in linhas_macrotema:
-                    linha.update(dados_indicadores_economia)
+                    linha.update(dados_economia_mescla)
 
             if "economia-renda" in macrotema_slugs and dados_importacao:
                 for linha in linhas_macrotema:
