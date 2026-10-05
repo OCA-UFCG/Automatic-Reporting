@@ -468,10 +468,19 @@ def _indigena_sem_sobrescrever_view(
     }
 
 
-_SETORES_MAIORES_ECONOMIA = ("setor2021_maior1", "setor2021_maior2", "setor2021_maior3")
+# Campos que a view já entrega prontos para o Doc; o cálculo local só vale sem ela.
+_CAMPOS_ECONOMIA_DA_VIEW = (
+    "setor2021_maior1",
+    "setor2021_maior2",
+    "setor2021_maior3",
+    "analise1_pib",
+    "diferenca_pib_2010_2023",
+    "diferenca_pib_2010_2023unid",
+    "pib_per_2010_2023",
+)
 
 
-def _setores_economia_da_view(
+def _economia_sem_sobrescrever_view(
     dados_indicadores_economia: dict[str, object], perfil_db: dict | None
 ) -> dict[str, object]:
     """O que de processar_indicadores_economia entra na linha do relatório.
@@ -483,13 +492,19 @@ def _setores_economia_da_view(
     Rosário do Catete, 05/10/2026). Só o nome: valor e unidade continuam do
     cálculo local, que é o mesmo ranking da view (conferido nos 2074 municípios
     em 05/10/2026), então nome e valor seguem pareados.
+
+    A variação do PIB 2010–2023 também vem da view: ela traz o valor em módulo,
+    com unidade, e o sentido na palavra ("uma diminuição"/"um crescimento"). O
+    cálculo local tem sinal e, negativo, sai sem escala — o Doc dizia "houve
+    redução nominal de R$ -224.929.200 … redução de -36,47%" nos 5 municípios
+    com PIB em queda (Rosário do Catete, 05/10/2026).
     """
     if not perfil_db:
         return dados_indicadores_economia
     return {
         chave: valor
         for chave, valor in dados_indicadores_economia.items()
-        if chave not in _SETORES_MAIORES_ECONOMIA or perfil_db.get(chave) is None
+        if chave not in _CAMPOS_ECONOMIA_DA_VIEW or perfil_db.get(chave) is None
     }
 
 
@@ -867,7 +882,7 @@ async def gerar_relatorio_handler(
 
             if "economia-renda" in macrotema_slugs and dados_indicadores_economia:
                 dados_economia_mescla = (
-                    _setores_economia_da_view(dados_indicadores_economia, perfil_db)
+                    _economia_sem_sobrescrever_view(dados_indicadores_economia, perfil_db)
                     if macrotema_slug == "economia-renda"
                     else dados_indicadores_economia
                 )

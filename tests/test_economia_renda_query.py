@@ -215,7 +215,7 @@ def test_nome_do_setor_vem_da_view_com_preposicao():
     # Regressão: o nome local ("Serviços") sobrescrevia o da view ("de Serviços")
     # e o Doc, que escreve "setor economia.$setor2021_maior1" sem o "de", saía
     # "setor Serviços" (revisão de Economia, Rosário do Catete, 05/10/2026).
-    from services.generation import _setores_economia_da_view
+    from services.generation import _economia_sem_sobrescrever_view
 
     local = {
         "setor2021_maior1": "Serviços",
@@ -233,7 +233,7 @@ def test_nome_do_setor_vem_da_view_com_preposicao():
     }
 
     linha = dict(view)
-    linha.update(_setores_economia_da_view(local, view))
+    linha.update(_economia_sem_sobrescrever_view(local, view))
 
     assert linha["setor2021_maior1"] == "de Serviços"
     assert linha["setor2021_maior2"] == "da Administração pública"
@@ -245,7 +245,37 @@ def test_nome_do_setor_vem_da_view_com_preposicao():
 
 def test_sem_view_nome_local_do_setor_vale():
     # Fallback CSV (PR #91): sem linha da view, o nome local continua saindo.
-    from services.generation import _setores_economia_da_view
+    from services.generation import _economia_sem_sobrescrever_view
 
     local = {"setor2021_maior1": "Serviços", "setor2021_maior1_vab": 9.5}
-    assert _setores_economia_da_view(local, None) == local
+    assert _economia_sem_sobrescrever_view(local, None) == local
+
+
+def test_variacao_do_pib_vem_da_view_sem_sinal():
+    # Regressão: a variação local, com sinal, sobrescrevia a da view e o Doc saía
+    # "houve redução nominal de R$ -224.929.200 … redução de -36,47%" (Rosário do
+    # Catete, 05/10/2026). A view traz módulo + unidade e o sentido na palavra.
+    from services.generation import _economia_sem_sobrescrever_view
+
+    local = {
+        "analise1_pib": "redução",
+        "diferenca_pib_2010_2023": -224_929_200.0,
+        "diferenca_pib_2010_2023unid": "",
+        "pib_per_2010_2023": -36.47,
+        "pib_2010": 616.81,
+    }
+    view = {
+        "analise1_pib": "uma diminuição",
+        "diferenca_pib_2010_2023": 224.93,
+        "diferenca_pib_2010_2023unid": "milhões",
+        "pib_per_2010_2023": 36.47,
+    }
+
+    linha = dict(view)
+    linha.update(_economia_sem_sobrescrever_view(local, view))
+
+    assert linha["analise1_pib"] == "uma diminuição"
+    assert linha["diferenca_pib_2010_2023"] == 224.93
+    assert linha["diferenca_pib_2010_2023unid"] == "milhões"
+    assert linha["pib_per_2010_2023"] == 36.47
+    assert linha["pib_2010"] == 616.81
