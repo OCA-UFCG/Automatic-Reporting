@@ -60,6 +60,12 @@ de dado velho (staleness) e um objeto de schema a manter.
   `mv_perfil_saude_municipal`, `mv_perfil_educacional_municipal`).
 - **Índice único obrigatório** em `(nm_mun, sigla_uf)` — é o que habilita
   `REFRESH ... CONCURRENTLY` (refresh sem bloquear as leituras).
+- **Exceção: `mv_comex_municipal_mensal`** (05/10/2026). Não é perfil de tema: é o comércio
+  exterior somado por município/mês que a própria `vw_perfil_economia` lê, no lugar das
+  21 mi de linhas de `impexp_completa` (117 s → ~2 s). Sem chave única, então entra em
+  `SEM_CONCURRENTLY` no `refresh_matviews.sh` e roda **antes** de `mv_perfil_economia`.
+  Seus índices repetem as expressões de período da view; se a view mudar essas
+  expressões, o índice deixa de ser usado. Ver `db/2026-10-05-mv_comex_municipal_mensal.sql`.
 
 ## Estratégia de refresh
 
