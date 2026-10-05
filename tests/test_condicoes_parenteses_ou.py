@@ -168,3 +168,86 @@ def test_conferir_condicoes_avisa_da_alternativa_nao_entendida():
     avisos = conferir_condicoes("Para quando $a for igual a 1 ou $b for bonito:\nTrecho.\n")
     assert len(avisos) == 1
     assert "$b" in avisos[0]
+
+
+# "não" nega o fator que vem logo depois e liga mais forte que "e" e "ou".
+
+
+@pytest.mark.parametrize(("a", "esperado"), [(1, False), (0, True)])
+def test_nao_nega_uma_comparacao(a, esperado):
+    assert _vale(f"não $a {_UM}", _ctx(a=a)) is esperado
+
+
+def test_nao_aceita_sem_til_e_em_maiuscula():
+    assert _vale(f"NAO $a {_UM}", _ctx(a=0)) is True
+    assert _vale(f"NÃO $a {_UM}", _ctx(a=1)) is False
+
+
+@pytest.mark.parametrize(
+    ("a", "b", "esperado"),
+    [(0, 0, True), (1, 0, False), (0, 1, False), (1, 1, False)],
+)
+def test_nao_nega_o_grupo_entre_parenteses(a, b, esperado):
+    assert _vale(f"não ($a {_UM} ou $b {_UM})", _ctx(a=a, b=b)) is esperado
+
+
+@pytest.mark.parametrize(
+    ("a", "b", "esperado"),
+    [(1, 0, True), (1, 1, False), (0, 0, False), (0, 1, False)],
+)
+def test_e_nao(a, b, esperado):
+    assert _vale(f"$a {_UM} e não $b {_UM}", _ctx(a=a, b=b)) is esperado
+
+
+@pytest.mark.parametrize(
+    ("a", "b", "esperado"),
+    [(0, 0, True), (0, 1, False), (1, 1, True), (1, 0, True)],
+)
+def test_ou_nao(a, b, esperado):
+    assert _vale(f"$a {_UM} ou não $b {_UM}", _ctx(a=a, b=b)) is esperado
+
+
+def test_nao_liga_mais_forte_que_e():
+    # (não a) e b, e não não (a e b)
+    expressao = f"não $a {_UM} e $b {_UM}"
+    assert _vale(expressao, _ctx(a=0, b=1)) is True
+    assert _vale(expressao, _ctx(a=1, b=1)) is False
+    assert _vale(expressao, _ctx(a=0, b=0)) is False
+
+
+def test_nao_duplo_cancela():
+    assert _vale(f"não não $a {_UM}", _ctx(a=1)) is True
+    assert _vale(f"não (não $a {_UM})", _ctx(a=0)) is False
+
+
+def test_nao_dentro_de_grupo_aninhado():
+    expressao = f"($a {_UM} ou não $b {_UM}) e $c {_UM}"
+    assert _vale(expressao, _ctx(a=0, b=0, c=1)) is True
+    assert _vale(expressao, _ctx(a=0, b=1, c=1)) is False
+
+
+def test_nao_com_maior_ou_igual():
+    assert _vale("não $a for maior ou igual a 5", _ctx(a=4)) is True
+    assert _vale("não $a for maior ou igual a 5", _ctx(a=5)) is False
+
+
+def test_nao_sem_dado_nega_a_comparacao_que_nao_vale():
+    # sem dado, "centro_pop igual a 0" não vale; logo "não" dela vale.
+    assert _vale("não $centro_pop for igual a 0", _ctx(centro_pop=None)) is True
+
+
+def test_nao_sem_operando_vira_aviso_e_a_regra_nao_vale():
+    avisos = conferir_condicoes(f"Para quando $a {_UM} e não:\nTrecho.\n")
+    assert len(avisos) == 1
+    assert "não" in avisos[0]
+    assert _vale(f"$a {_UM} e não", _ctx(a=1)) is False
+
+
+def test_conferir_condicoes_aceita_nao_bem_formado():
+    assert conferir_condicoes(f"Para quando $a {_UM} e não ($b {_UM} ou $c {_UM}):\nT.\n") == []
+
+
+def test_conferir_condicoes_avisa_da_comparacao_nao_entendida_sob_nao():
+    avisos = conferir_condicoes("Para quando não $a for bonito:\nTrecho.\n")
+    assert len(avisos) == 1
+    assert "$a" in avisos[0]

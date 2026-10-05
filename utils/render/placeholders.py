@@ -544,10 +544,15 @@ def _avaliar_folha(expressao: str, contexto: dict) -> bool:
 # "ou" que liga condições. "maior ou igual", "menor ou igual" e "maior ou
 # menor" são operadores do Doc, não disjunção (ver _OPERADORES_EDITORIAIS).
 _OU = re.compile(r"\s+ou(?:\s+|$)")
-# "e" só separa fatores quando encosta num grupo: "(A ou B) e C" / "A e (B ou C)".
-# Entre comparações soltas ele continua nos avaliadores de folha, que sabem
-# ler "$a e $b for maior que 0" e "maior e igual a".
-_E_DE_GRUPO = re.compile(r"(?<=\))\s+e\s+|\s+e\s+(?=\()")
+# "e" só separa fatores quando encosta num grupo ("(A ou B) e C" / "A e (B ou C)")
+# ou num "não" ("A e não B"). Entre comparações soltas ele continua nos
+# avaliadores de folha, que sabem ler "$a e $b for maior que 0" e "maior e igual a".
+_E_DE_GRUPO = re.compile(r"(?<=\))\s+e\s+|\s+e\s+(?=\(|n[ãa]o(?:\s|$))")
+# Dentro de um "não", o "e" que abre outra comparação ("não A e B"): o "não"
+# nega só A. Por isso "não" não combina com a forma "$a e $b for ..." (use parênteses).
+_E_DE_CAMPO = re.compile(r"\s+e\s+(?=(?:[A-Za-z_][\w-]*\.)?\$|\(|n[ãa]o(?:\s|$))")
+# "não" no começo de um fator: liga mais forte que "e" e que "ou".
+_NAO = re.compile(r"n[ãa]o(?:\s+|$)")
 
 
 def _profundidades(expressao: str) -> list[int] | None:
@@ -601,14 +606,32 @@ def _avaliar_arvore(expressao: str, contexto: dict, folha) -> bool:
         # Sem curto-circuito: conferir_condicoes precisa ver o problema de
         # todas as partes, não só das até a primeira que decide o resultado.
         return combinar([_avaliar_arvore(parte, contexto, folha) for parte in partes])
+    negado = _NAO.match(expressao)
+    if negado:
+        operando = expressao[negado.end():]
+        if not operando.strip():
+            _registrar_problema('"não" sem condição depois, a regra nunca vale')
+            return False
+        # "não A e B" = "(não A) e B": o "não" fica com o primeiro fator.
+        primeiro, *resto = _dividir_no_topo(operando, _E_DE_CAMPO)
+        resultados = [not _avaliar_arvore(primeiro, contexto, folha)]
+        resultados += [_avaliar_arvore(parte, contexto, folha) for parte in resto]
+        return all(resultados)
     return folha(expressao, contexto)
 
 
 def _avaliar_expressao(expressao: str, contexto: dict, folha=_avaliar_folha) -> bool:
-    """Condição do Doc com "ou" e parênteses. "e" liga mais forte que "ou" (as
-    comparações de um "e" ficam juntas numa folha); parênteses mudam a ordem e
-    podem se aninhar. Sem nenhum dos dois, é a folha direto."""
-    if "(" not in expressao and ")" not in expressao and len(_dividir_no_topo(expressao, _OU)) == 1:
+    """Condição do Doc com "ou", "não" e parênteses. "não" liga mais forte que
+    "e", que liga mais forte que "ou" (as comparações de um "e" ficam juntas numa
+    folha); parênteses mudam a ordem e podem se aninhar. Sem nada disso, é a
+    folha direto."""
+    if (
+        "(" not in expressao
+        and ")" not in expressao
+        and not _NAO.match(expressao.strip())
+        and len(_dividir_no_topo(expressao, _OU)) == 1
+        and len(_dividir_no_topo(expressao, _E_DE_GRUPO)) == 1
+    ):
         return folha(expressao, contexto)
     if _profundidades(expressao) is None:
         _registrar_problema("parênteses sem par, a regra nunca vale")
