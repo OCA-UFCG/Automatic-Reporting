@@ -156,7 +156,7 @@ def _anexar_ao_ultimo_paragrafo(resultado: list[str], texto: str) -> bool:
 def _normalizar_condicao_editorial(linha: str) -> str:
     # A exportação Markdown do Docs intercala negrito e escapa operadores e
     # underscores; o texto obtido diretamente da API já vem sem essas marcas.
-    linha = re.sub(r"\\([_=>])", r"\1", linha.strip())
+    linha = re.sub(r"\\([_=>()])", r"\1", linha.strip())
     return linha.replace("**", "").replace("\u00a0", " ").strip()
 
 
@@ -474,6 +474,14 @@ _CONDICAO_GINI = re.compile(
 )
 
 
+def _avaliar_folha_de_rua(expressao: str, contexto: dict) -> bool:
+    especial = _avaliar_condicao_demografia(expressao, contexto)
+    if especial is not None:
+        return especial
+    matches = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(expressao))
+    return _avaliar_condicao_editorial(matches, expressao, contexto)
+
+
 def _avaliar_condicoes_de_rua(texto: str, contexto: dict) -> tuple[bool, bool]:
     """Pré-varre o Doc por condicionais "Para quando ...pop_rua...:" sem
     alterar o parse principal. Devolve (o Doc tem condicionais próprias pra
@@ -502,20 +510,29 @@ def _avaliar_condicoes_de_rua(texto: str, contexto: dict) -> tuple[bool, bool]:
         ):
             continue
         tem_condicoes = True
-        especial = _avaliar_condicao_demografia(expressao, contexto)
-        atende = (
-            especial
-            if especial is not None
-            else _avaliar_condicao_editorial(matches, expressao, contexto)
-        )
-        if atende:
+        if _avaliar_expressao(expressao, contexto, _avaliar_folha_de_rua):
             alguma_bateu = True
     return tem_condicoes, alguma_bateu
 
 
-def _avaliar_condicao(matches: list[re.Match], expressao: str, contexto: dict) -> bool:
-    """Uma condição "Para quando ...:" com $campo, pelo avaliador que a
-    entende: rua/demografia, vacina, "sem dados" ou o genérico numérico."""
+def _avaliar_folha(expressao: str, contexto: dict) -> bool:
+    """Uma comparação (ou um "e" composto) sem parênteses nem "ou", pelo
+    avaliador que a entende: rua/demografia, vacina, "sem dados" ou o
+    genérico numérico."""
+    matches = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(expressao))
+    if not matches:
+        _registrar_problema(f'"{expressao.strip()}": comparação sem nenhum $campo, a regra nunca vale')
+        return False
+    # Sem dado num campo null-sensível, nenhuma condição sobre ele vale, simples
+    # ou composta. "Sem dado" é não ter número: None da view, NaN do fallback de
+    # CSV (pandas) ou texto como "sem dados". Avaliado por folha: num "ou", o
+    # campo sem dado só derruba a alternativa dele, não as outras.
+    if any(
+        match.group(1) in _CAMPOS_NULL_SENSIVEIS
+        and _numero_do_campo(_resolver_campo_com_alias(contexto, match.group(1))) is None
+        for match in matches
+    ):
+        return False
     especial = _avaliar_condicao_demografia(expressao, contexto)
     if especial is None:
         especial = _avaliar_condicao_vacina(expressao, contexto)
@@ -524,11 +541,109 @@ def _avaliar_condicao(matches: list[re.Match], expressao: str, contexto: dict) -
     return especial if especial is not None else _avaliar_condicao_editorial(matches, expressao, contexto)
 
 
+# "ou" que liga condições. "maior ou igual", "menor ou igual" e "maior ou
+# menor" são operadores do Doc, não disjunção (ver _OPERADORES_EDITORIAIS).
+_OU = re.compile(r"\s+ou(?:\s+|$)")
+# "e" só separa fatores quando encosta num grupo ("(A ou B) e C" / "A e (B ou C)")
+# ou num "não" ("A e não B"). Entre comparações soltas ele continua nos
+# avaliadores de folha, que sabem ler "$a e $b for maior que 0" e "maior e igual a".
+_E_DE_GRUPO = re.compile(r"(?<=\))\s+e\s+|\s+e\s+(?=\(|n[ãa]o(?:\s|$))")
+# Dentro de um "não", o "e" que abre outra comparação ("não A e B"): o "não"
+# nega só A. Por isso "não" não combina com a forma "$a e $b for ..." (use parênteses).
+_E_DE_CAMPO = re.compile(r"\s+e\s+(?=(?:[A-Za-z_][\w-]*\.)?\$|\(|n[ãa]o(?:\s|$))")
+# "não" no começo de um fator: liga mais forte que "e" e que "ou".
+_NAO = re.compile(r"n[ãa]o(?:\s+|$)")
+
+
+def _profundidades(expressao: str) -> list[int] | None:
+    """Profundidade de parênteses antes de cada caractere, ou None se não
+    fecharem em par."""
+    profundidade, resultado = 0, []
+    for caractere in expressao:
+        resultado.append(profundidade)
+        if caractere == "(":
+            profundidade += 1
+        elif caractere == ")":
+            profundidade -= 1
+            if profundidade < 0:
+                return None
+    return resultado if profundidade == 0 else None
+
+
+def _dividir_no_topo(expressao: str, conector: re.Pattern) -> list[str]:
+    profundidades = _profundidades(expressao) or [0] * len(expressao)
+    partes, inicio = [], 0
+    for achado in conector.finditer(expressao):
+        if profundidades[achado.start()] or (
+            conector is _OU and re.search(r"\b(?:maior|menor)$", expressao[: achado.start()])
+        ):
+            continue
+        partes.append(expressao[inicio : achado.start()])
+        inicio = achado.end()
+    partes.append(expressao[inicio:])
+    return partes
+
+
+def _sem_parenteses_externos(expressao: str) -> str:
+    """"((A ou B))" -> "A ou B"; "(A) e (B)" fica como está."""
+    while expressao.startswith("(") and expressao.endswith(")"):
+        profundidades = _profundidades(expressao)
+        if profundidades is None or any(p == 0 for p in profundidades[1:]):
+            break
+        expressao = expressao[1:-1].strip()
+    return expressao
+
+
+def _avaliar_arvore(expressao: str, contexto: dict, folha) -> bool:
+    expressao = _sem_parenteses_externos(expressao.strip())
+    for conector, nome, combinar in ((_OU, "ou", any), (_E_DE_GRUPO, "e", all)):
+        partes = _dividir_no_topo(expressao, conector)
+        if len(partes) == 1:
+            continue
+        if not all(parte.strip() for parte in partes):
+            _registrar_problema(f'alternativa vazia ao lado de "{nome}", a regra nunca vale')
+            return False
+        # Sem curto-circuito: conferir_condicoes precisa ver o problema de
+        # todas as partes, não só das até a primeira que decide o resultado.
+        return combinar([_avaliar_arvore(parte, contexto, folha) for parte in partes])
+    negado = _NAO.match(expressao)
+    if negado:
+        operando = expressao[negado.end():]
+        if not operando.strip():
+            _registrar_problema('"não" sem condição depois, a regra nunca vale')
+            return False
+        # "não A e B" = "(não A) e B": o "não" fica com o primeiro fator.
+        primeiro, *resto = _dividir_no_topo(operando, _E_DE_CAMPO)
+        resultados = [not _avaliar_arvore(primeiro, contexto, folha)]
+        resultados += [_avaliar_arvore(parte, contexto, folha) for parte in resto]
+        return all(resultados)
+    return folha(expressao, contexto)
+
+
+def _avaliar_expressao(expressao: str, contexto: dict, folha=_avaliar_folha) -> bool:
+    """Condição do Doc com "ou", "não" e parênteses. "não" liga mais forte que
+    "e", que liga mais forte que "ou" (as comparações de um "e" ficam juntas numa
+    folha); parênteses mudam a ordem e podem se aninhar. Sem nada disso, é a
+    folha direto."""
+    if (
+        "(" not in expressao
+        and ")" not in expressao
+        and not _NAO.match(expressao.strip())
+        and len(_dividir_no_topo(expressao, _OU)) == 1
+        and len(_dividir_no_topo(expressao, _E_DE_GRUPO)) == 1
+    ):
+        return folha(expressao, contexto)
+    if _profundidades(expressao) is None:
+        _registrar_problema("parênteses sem par, a regra nunca vale")
+        return False
+    return _avaliar_arvore(expressao, contexto, folha)
+
+
 def conferir_condicoes(texto: str) -> list[str]:
     """As regras "Para quando ...:" do Doc que o parser descarta em parte ou lê
     diferente do escrito, uma linha de aviso por problema.
 
-    Passa cada regra pelos mesmos avaliadores do relatório (_avaliar_condicao),
+    Passa cada regra pelos mesmos avaliadores do relatório (_avaliar_expressao),
     com todo campo valendo 1: o valor não importa para saber se a regra foi
     entendida, só para evitar a saída antecipada de "campo sem dado". Chamado
     por scripts/atualizar_docs.py a cada Doc baixado.
@@ -547,7 +662,7 @@ def conferir_condicoes(texto: str) -> list[str]:
         problemas: list[str] = []
         token = _PROBLEMAS_CONDICAO.set(problemas)
         try:
-            _avaliar_condicao(matches, expressao, contexto)
+            _avaliar_expressao(expressao, contexto)
         finally:
             _PROBLEMAS_CONDICAO.reset(token)
         avisos.extend(f"{limpa}\n    → {problema}" for problema in problemas)
@@ -630,19 +745,7 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
             matches = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(expressao))
             if matches:
                 campos = {match.group(1) for match in matches}
-                atende = _avaliar_condicao(matches, expressao, contexto)
-                # Sem dado num campo null-sensível, nenhuma condição sobre ele
-                # vale, simples ou composta. Antes era um ramo à parte, só para
-                # condição de um campo e sem o fim de bloco do ramo comum
-                # (5742bdb): o texto depois do parágrafo herdava a condição.
-                # "Sem dado" é não ter número: None da view, NaN do fallback de
-                # CSV (pandas) ou texto como "sem dados".
-                if any(
-                    campo in _CAMPOS_NULL_SENSIVEIS
-                    and _numero_do_campo(_resolver_campo_com_alias(contexto, campo)) is None
-                    for campo in campos
-                ):
-                    atende = False
+                atende = _avaliar_expressao(expressao, contexto)
                 # Blocos persistentes (indígena/quilombola) guardam vários
                 # parágrafos além do primeiro; conteúdo inline nessa mesma
                 # linha não pode reativar bloco_ativo cedo demais e vazar os
