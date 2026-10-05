@@ -440,7 +440,7 @@ demografia.“$nm_painel1” = https://datanordeste.sudene.gov.br/data-panel/pop
     ) in caixa
     assert (
         '<a class="fonte-badge" href="https://datanordeste.sudene.gov.br/data-panel/populacao">'
-        "<strong>Painel de dados:</strong> População</a>"
+        "População</a>"
     ) in caixa
 
 
@@ -456,7 +456,7 @@ economia.“$boletim1” = https://datanordeste.sudene.gov.br/boletim/4stpvtz
 
     caixa = "".join(render_descricao_tema_html(texto, contexto, namespace="economia-renda"))
 
-    assert "<strong>Painel de dados:</strong> Produto Interno Bruto</a>" in caixa
+    assert "\">Produto Interno Bruto</a>" in caixa
     assert "<strong>Boletim:</strong> Emprego e Renda</a>" in caixa
 
 
