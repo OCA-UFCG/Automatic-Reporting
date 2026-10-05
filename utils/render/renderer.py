@@ -508,9 +508,11 @@ def _renderizar_badge_fonte(rotulo: str, nome: str, url: str) -> str | None:
     rotulo_normalizado = _ROTULOS_BADGE.get(rotulo.casefold(), "Painel")
     nome_limpo = re.sub(r"\s+", " ", nome).strip().strip("\"'“”").strip()
     nome_normalizado = html_module.escape(nome_limpo)
+    # Painel sai só com o nome: o texto da caixa já diz que é um painel de dados.
+    prefixo = "" if rotulo_normalizado == "Painel de dados" else f"<strong>{rotulo_normalizado}:</strong> "
     return (
         f'<a class="fonte-badge" href="{html_module.escape(url)}">'
-        f"<strong>{rotulo_normalizado}:</strong> {nome_normalizado}</a>"
+        f"{prefixo}{nome_normalizado}</a>"
     )
 
 

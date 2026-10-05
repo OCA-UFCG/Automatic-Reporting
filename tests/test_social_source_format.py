@@ -22,7 +22,7 @@ desen\_social.“$nm\_datastory2” =[https://datanordeste.sudene.gov.br/boletim
     contexto = {'nm_painel1': 'IDHM', 'nm_datastory1': 'Desenvolvimento social', 'nm_datastory2': 'Boletim social'}
     html = ''.join(render(texto, contexto, namespace='desenvolvimento-social'))
     assert html.count('class="fonte-badge"') == 3
-    assert '<strong>Painel de dados:</strong> IDHM</a>' in html
+    assert '>IDHM</a>' in html
     assert '<strong>Narrativa de dados:</strong> Desenvolvimento social</a>' in html
     assert '<strong>Boletim:</strong> Boletim social</a>' in html
     assert '<h3 class="fontes-box-heading">Fontes</h3>' in html
