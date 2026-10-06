@@ -765,6 +765,61 @@ def remover_graficos_sem_mencao(texto: str) -> str:
     )
 
 
+_TITULOS_SINTESE = frozenset({"síntese", "sintese"})
+
+
+def unir_paragrafos_da_sintese(texto: str) -> str:
+    """Junta num parágrafo só a prosa que vem depois do título "Síntese".
+
+    Roda depois de interpretar_blocos_condicionais. No Doc, cada versão
+    condicional da Síntese fica separada por linha em branco, e mais de uma
+    pode valer ao mesmo tempo — em Segurança Hídrica, a frase do acumulado
+    (sol_predom_per > 0) e a da expansão (acrescimo_qtd > 0) saíam como dois
+    parágrafos, e a Síntese é sempre um parágrafo (revisão editorial,
+    06/10/2026). Vai até o próximo título, marcador "#!" ou de gráfico. Só cola
+    prosa que fecha frase nos dois lados (mesma regra de
+    _anexar_ao_ultimo_paragrafo): legenda, item de lista ou fragmento ficam
+    como estão.
+    """
+    saida: list[str] = []
+    na_sintese = False
+    # Índice em `saida` da última linha de prosa da Síntese, onde a próxima
+    # é colada; None quando não há onde colar.
+    indice_prosa: int | None = None
+
+    for linha in texto.splitlines():
+        limpa = linha.strip()
+        titulo = limpa[2:].strip() if limpa.startswith("#!") else limpa
+        if (
+            limpa.startswith("#!")
+            or titulo.casefold() in _SECOES_TITULO_ESPECIAL
+            or _MARCADOR_GRAFICO_LINHA.fullmatch(limpa)
+        ):
+            na_sintese = titulo.casefold() in _TITULOS_SINTESE
+            indice_prosa = None
+            saida.append(linha)
+            continue
+
+        if not na_sintese or not limpa:
+            saida.append(linha)
+            continue
+
+        eh_prosa = (
+            _TERMINA_EM_FRASE.search(limpa)
+            and not _LEGENDA_LINHA.match(limpa)
+            and not limpa.startswith(("-", "*", "•"))
+        )
+        if eh_prosa and indice_prosa is not None:
+            del saida[indice_prosa + 1 :]
+            saida[indice_prosa] = f"{saida[indice_prosa].rstrip()} {limpa}"
+            continue
+
+        saida.append(linha)
+        indice_prosa = len(saida) - 1 if eh_prosa else None
+
+    return "\n".join(saida) + ("\n" if texto.endswith("\n") else "")
+
+
 def _render_descricao_tema_partes(
     descricao_tema: str,
     contexto: dict,
@@ -775,6 +830,7 @@ def _render_descricao_tema_partes(
     descricao_tema = interpretar_blocos_condicionais(descricao_tema, contexto)
     if namespace in _NAMESPACES_GRAFICO_SO_COM_MENCAO:
         descricao_tema = remover_graficos_sem_mencao(descricao_tema)
+    descricao_tema = unir_paragrafos_da_sintese(descricao_tema)
     descricao_tema = _rotular_linhas_de_fonte(descricao_tema)
     partes = []
     intro_ja_inserida = False
