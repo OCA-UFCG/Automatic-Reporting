@@ -11,6 +11,10 @@ from utils.queries.base import (
 # schema novo, com importação e exportação na mesma tabela (`tipo_operacao`).
 # mv_perfil_economia já usa esse schema novo para os totais; esta query cobre
 # o detalhamento por país/produto/seção que a matview não tem.
+# desc_sh4 da impexp_completa vem cortado em 255 caracteres ("…de cerâmi") e com
+# grafia de Portugal ("incluídos", "consolas"); o nome do produto sai do mesmo
+# dicionário que a mv_perfil_economia usa, senão o nosso dict, mesclado por cima
+# da view em generation.py, desfaz a correção.
 DADOS_IMPORTACAO_MUNICIPAL = """
     SELECT
         co_ano,
@@ -18,10 +22,12 @@ DADOS_IMPORTACAO_MUNICIPAL = """
         desc_mes,
         desc_pais_portugues,
         desc_secao,
-        desc_sh4,
+        COALESCE(d.desc_corrigida, i.desc_sh4) AS desc_sh4,
         kg_liquido,
         vl_fob
-    FROM eco_comercio_exterior.impexp_completa
+    FROM eco_comercio_exterior.impexp_completa i
+    LEFT JOIN eco_comercio_exterior.dic_sh4_nome_corrigido d
+      ON d.sh4::text = i.sh4
     WHERE tipo_operacao = 'Importação'
       AND LOWER(desc_municipio) = LOWER(%s)
       AND sg_uf_mun = %s
