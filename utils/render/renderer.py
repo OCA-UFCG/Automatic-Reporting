@@ -136,7 +136,6 @@ _CONFIG_GRAFICOS = {
         "largura_maxima": "600px",
     },
     "grafico_composicao_cor_raca": {
-        "largura_maxima": "350px",
         "margem_vertical": "12px",
     },
     "grafico_tecnologias_acesso_agua": {
