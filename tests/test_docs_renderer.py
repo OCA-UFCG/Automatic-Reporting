@@ -6,6 +6,7 @@ from utils.render.renderer import (
     reset_figura_contador,
     substituir_placeholders,
     texto_para_html,
+    unir_paragrafos_da_sintese,
 )
 
 
@@ -2312,3 +2313,50 @@ def test_sintese_saude_usa_mas_ainda_quando_tendencia_e_media_nacional_se_opoem(
     )
     assert renderizar("aumentou", "acima").endswith("recente e ficou acima da média Nacional.")
     assert renderizar("diminuiu", "abaixo").endswith("recente e ficou abaixo da média Nacional.")
+
+
+# Recorte da Síntese do Doc de Segurança Hídrica: uma versão por linha em branco,
+# e a do acumulado e a da expansão valem juntas no caso comum.
+_TEXTO_SINTESE_HIDRICA = """Texto do tema antes da síntese.
+
+Síntese
+
+Para quando seg_hidrica.$total_2025 for igual a 0, então:
+Até o ano de 2025, não foram registradas tecnologias em seg_hidrica.$nm_mun.
+
+Para quando seg_hidrica.$sol_predom_per for maior que 0, então:
+seg_hidrica.$nm_mun acumulava seg_hidrica.$total_2025 tecnologias até 2025.
+
+Para quando seg_hidrica.$acrescimo_qtd for maior que 0, então:
+A expansão dessas tecnologias representa uma resposta à vulnerabilidade hídrica.
+
+#!Fontes
+
+Os dados deste relatório foram extraídos do painel."""
+
+
+def test_sintese_com_varias_versoes_validas_sai_num_paragrafo_so():
+    contexto = {"nm_mun": "Mairi", "total_2025": 120, "sol_predom_per": 70, "acrescimo_qtd": 50}
+    partes = render_descricao_tema_html(_TEXTO_SINTESE_HIDRICA, contexto, namespace="hidraulica")
+    html = "\n".join(partes)
+
+    sintese = html.split("Síntese</h2>", 1)[1].split('<div class="fontes-box-wrap">', 1)[0]
+    assert sintese.count("<p") == 1
+    assert (
+        "Mairi acumulava 120 tecnologias até 2025. "
+        "A expansão dessas tecnologias representa uma resposta à vulnerabilidade hídrica."
+    ) in sintese
+    # O texto antes do título não é Síntese e continua parágrafo próprio.
+    assert "<p" in html.split("Síntese</h2>", 1)[0]
+    assert "Texto do tema antes da síntese.</p>" in html
+
+
+def test_unir_paragrafos_da_sintese_para_no_proximo_titulo_e_nao_cola_legenda():
+    texto = (
+        "Antes.\n\nOutro parágrafo antes.\n\nSíntese\n\nPrimeira.\n\nSegunda.\n"
+        "Figura X – Legenda.\n\nTerceira.\n\n#!Fontes\n\nFonte um.\n\nFonte dois."
+    )
+    assert unir_paragrafos_da_sintese(texto) == (
+        "Antes.\n\nOutro parágrafo antes.\n\nSíntese\n\nPrimeira. Segunda.\n"
+        "Figura X – Legenda.\n\nTerceira.\n\n#!Fontes\n\nFonte um.\n\nFonte dois."
+    )
