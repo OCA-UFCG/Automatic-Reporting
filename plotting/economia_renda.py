@@ -423,11 +423,19 @@ def gerar_grafico_vab(
         largura_texto_px = texto_obj.get_window_extent(renderer=renderer).width
         texto = texto_obj.get_text()
         if largura_texto_px > largura_disponivel_px and " " in texto:
+            # Só quebra entre palavras: o padrão do textwrap corta a palavra no
+            # meio pra caber na largura, e "Administração Pública" saía
+            # "Administraç / ão Pública" no VAB de Recife (PE).
+            def _quebrar(largura: int) -> list[str]:
+                return textwrap.wrap(
+                    texto, width=largura, break_long_words=False, break_on_hyphens=False
+                )
+
             largura_linha = 1
-            linhas_quebradas = textwrap.wrap(texto, width=largura_linha)
+            linhas_quebradas = _quebrar(largura_linha)
             while len(linhas_quebradas) > 2 and largura_linha < len(texto):
                 largura_linha += 1
-                linhas_quebradas = textwrap.wrap(texto, width=largura_linha)
+                linhas_quebradas = _quebrar(largura_linha)
             texto_obj.set_text("\n".join(linhas_quebradas))
 
     # Setor com fatia muito pequena (ex.: Agropecuária em Rosário do Catete/SE,
