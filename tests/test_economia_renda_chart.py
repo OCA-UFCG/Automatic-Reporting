@@ -129,6 +129,29 @@ def test_rotulo_do_vab_usa_bilhao_no_singular_abaixo_de_2(tmp_path: Path, monkey
     assert "R$ 300,00 milhões" in rotulos
 
 
+def test_rotulo_quebrado_do_vab_nao_corta_palavra_no_meio(tmp_path: Path, monkeypatch):
+    # Em Recife (PE) a célula da Administração Pública é estreita e o rótulo
+    # quebra em 2 linhas; saía "Administraç / ão Pública".
+    textos: list[str] = []
+
+    def _capturar(fig, chart_file, dpi=180):
+        textos.extend(texto.get_text() for ax in fig.axes for texto in ax.texts)
+
+    monkeypatch.setattr("plotting.economia_renda.salvar_card_grafico", _capturar)
+    cidade = {
+        "vab_setores_2021": {
+            "servicos": 31_200_000_000.0,
+            "adm_publica": 7_700_000_000.0,
+            "industria": 6_210_000_000.0,
+            "agropecuaria": 60_090_000.0,
+        }
+    }
+
+    gerar_grafico_vab(cidade, tmp_path, "recife_pe_quebra")
+
+    assert "Administração\nPública" in textos
+
+
 def test_gera_grafico_fob_com_paises_do_banco(tmp_path: Path):
     cidade = {
         "importacao_paises": [
