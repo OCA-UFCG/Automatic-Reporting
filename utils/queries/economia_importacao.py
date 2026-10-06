@@ -14,14 +14,15 @@ from utils.queries.base import (
 # desc_sh4 da impexp_completa vem cortado em 255 caracteres ("…de cerâmi") e com
 # grafia de Portugal ("incluídos", "consolas"); o nome do produto sai do mesmo
 # dicionário que a mv_perfil_economia usa, senão o nosso dict, mesclado por cima
-# da view em generation.py, desfaz a correção.
+# da view em generation.py, desfaz a correção. Pelo mesmo motivo, desc_secao
+# repete o replace da view para "Produtos das indútrias alimentares".
 DADOS_IMPORTACAO_MUNICIPAL = """
     SELECT
         co_ano,
         co_mes,
         desc_mes,
         desc_pais_portugues,
-        desc_secao,
+        REPLACE(desc_secao, 'indútrias', 'indústrias') AS desc_secao,
         COALESCE(d.desc_corrigida, i.desc_sh4) AS desc_sh4,
         kg_liquido,
         vl_fob
