@@ -83,6 +83,7 @@ _ICONE_POR_BASE = {
     "asd_avanço": "variacao_area_suscetivel_desertificacao",
     "cisternas": "cisternas",
     "abastecimento_humano": "cisterna_1_agua",
+    "escolares": "cisterna_escolar",
     "irrigacao": "cisterna_2_agua",
     "uc": "unidades_conservacao",
     "uc_pi": "protecao_integral",
@@ -168,8 +169,10 @@ INDICADORES_POR_MACROTEMA: dict[str, tuple[str, ...]] = {
     # isso mata o bug do ano fixo: `total_2025` só existia quando o município
     # tinha dado exatamente de 2025 (ver _DECADAS_SERIE_HISTORICA em
     # utils/queries/hidraulica.py). O card de suscetibilidade à escassez saiu
-    # junto: não há coluna para ele na view.
-    "hidraulica": ("cisternas", "abastecimento_humano", "irrigacao"),
+    # junto: não há coluna para ele na view. `escolares` (cisternas da
+    # atividade escolar) vem por último, na ordem do parágrafo de abertura do
+    # Doc (1ª água, 2ª água, escolares), e não na das colunas da view.
+    "hidraulica": ("cisternas", "abastecimento_humano", "irrigacao", "escolares"),
     "meio-ambiente": ("asd", "asd_avanço", "uc", "uc_area", "uc_pi", "uc_uso"),
 }
 
