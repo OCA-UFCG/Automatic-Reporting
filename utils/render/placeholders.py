@@ -538,7 +538,41 @@ def _avaliar_folha(expressao: str, contexto: dict) -> bool:
         especial = _avaliar_condicao_vacina(expressao, contexto)
     if especial is None:
         especial = _avaliar_condicao_sem_dados(expressao, contexto)
-    return especial if especial is not None else _avaliar_condicao_editorial(matches, expressao, contexto)
+    if especial is not None:
+        return especial
+    fatores = _fatores_com_comparacao_entre_campos(expressao)
+    if fatores is not None:
+        # Avalia todos antes do all(): conferir_condicoes() precisa ver cada fator.
+        resultados = [_avaliar_folha(fator, contexto) for fator in fatores]
+        return all(resultados)
+    return _avaliar_condicao_editorial(matches, expressao, contexto)
+
+
+def _fatores_com_comparacao_entre_campos(expressao: str) -> list[str] | None:
+    """Os fatores de "A for menor que B e A for maior que 0" quando cada um tem
+    o seu operador e algum compara dois campos; None nos outros casos.
+
+    O avaliador numérico só compara campo com campo quando a regra inteira tem
+    dois campos: com três, "menor que $b" era descartado e a regra valia para
+    todo $a > 0 (ASD em queda e ASD estável saíam juntos em 1.219 municípios;
+    revisão editorial de Meio Ambiente, 06/10/2026). "$a e $b for maior que 0"
+    (operador compartilhado) continua no caminho antigo: "$a" não tem operador.
+    """
+    fatores = _E_DE_CAMPO.split(expressao)
+    if len(fatores) < 2:
+        return None
+    algum_entre_campos = False
+    for fator in fatores:
+        campos = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(fator))
+        if len(campos) == 2 and _parse_operador_campo_a_campo(
+            fator[campos[0].end():campos[1].start()].casefold()
+        ) is not None:
+            algum_entre_campos = True
+        elif len(campos) != 1 or _parse_operador_editorial(
+            _resto_do_trecho(fator[campos[0].end():]).casefold()
+        ) is None:
+            return None
+    return fatores if algum_entre_campos else None
 
 
 # "ou" que liga condições. "maior ou igual", "menor ou igual" e "maior ou
