@@ -82,6 +82,10 @@ CONTEXTO = {
     "valor_cisternas": "2038",
     "fonte_cisternas": "SESAN (2025)",
     "unid_cisternas": "Tecnologias sociais",
+    "nm_escolares": "Cisternas destinadas à atividade escolar",
+    "valor_escolares": "14",
+    "fonte_escolares": "SESAN (2025)",
+    "unid_escolares": "Unidade(s)",
     # Educação segue o mesmo quarteto, só que o valor mora em `per_<base>`.
     "nm_fundamental_incom": "Fundamental incompleto ou sem instrução",
     "per_fundamental_incom": "32.62",
@@ -420,7 +424,19 @@ def test_cisternas_tem_icone_por_finalidade():
         "cisternas",
         "cisterna_1_agua",
         "cisterna_2_agua",
+        "cisterna_escolar",
     ]
+
+
+def test_capa_de_hidraulica_inclui_cisternas_escolares():
+    indicadores = montar_indicadores_macrotema(
+        "hidraulica", CONTEXTO, macrotema_icone="wrench"
+    )
+
+    escolar = next(i for i in indicadores if i["valor"] == "14")
+    assert escolar["nome"] == "Cisternas destinadas à atividade escolar"
+    assert escolar["rodape"] == "Unidade(s)"
+    assert escolar["icone"] == "cisterna_escolar"
 
 
 def test_indicador_com_icone_proprio_nao_usa_o_icone_do_macrotema():
