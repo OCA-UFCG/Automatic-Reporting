@@ -326,7 +326,11 @@ def _avaliar_condicao_vacina(expressao: str, contexto: dict) -> bool | None:
 # parágrafo para municípios sem Censo 2000 (esgoto_rede_2000 = "sem dados").
 # As comparações numéricas devolvem falso quando o campo não é número, então
 # sem esta condição nenhuma versão casava e o município ficava sem texto.
-_CONDICAO_SEM_DADOS = re.compile(r"\bfor\s+(?:igual\s+a\s+)?sem\s+dados?\s*(?:,?\s*então)?\s*$")
+# "for diferente de sem dados" é o contrário: as versões para quem tem o dado
+# (Doc de 06/10, que compara 2010 com 2022 e precisa excluir quem não tem 2000).
+_CONDICAO_SEM_DADOS = re.compile(
+    r"\bfor\s+(?:igual\s+a\s+|(?P<diferente>diferente\s+de\s+))?sem\s+dados?\s*(?:,?\s*então)?\s*$"
+)
 
 
 def _campo_sem_dado(valor: object) -> bool:
@@ -351,10 +355,12 @@ def _avaliar_condicao_sem_dados(expressao: str, contexto: dict) -> bool | None:
         matches = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(parte))
         if not matches:
             return None
-        if _CONDICAO_SEM_DADOS.search(parte.strip()):
+        sem_dados = _CONDICAO_SEM_DADOS.search(parte.strip())
+        if sem_dados:
             if len(matches) != 1:
                 return None
-            if not _campo_sem_dado(_resolver_campo_com_alias(contexto, matches[0].group(1))):
+            sem_dado = _campo_sem_dado(_resolver_campo_com_alias(contexto, matches[0].group(1)))
+            if sem_dado == bool(sem_dados.group("diferente")):
                 return False
         elif not _avaliar_condicao_editorial(matches, parte, contexto):
             return False

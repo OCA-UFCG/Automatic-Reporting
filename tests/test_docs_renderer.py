@@ -1,5 +1,7 @@
 from decimal import Decimal
 
+import pytest
+
 from utils.render.placeholders import interpretar_blocos_condicionais
 from utils.render.renderer import (
     render_descricao_tema_html,
@@ -2186,6 +2188,45 @@ def test_sanitation_sem_dados_condition_ignores_municipalities_with_data():
     assert "Sem série histórica." not in com_dados
     assert "Variou." in com_dados
     assert "Igual." not in com_dados
+
+
+# Doc de saneamento de 06/10/2026: as versões com Censo 2000 comparam 2010 com
+# 2022 e excluem quem não tem 2000 com "for diferente de sem dados". Sem
+# entender essa forma, nenhuma versão valia e 2.066 municípios ficavam sem o
+# parágrafo de esgoto e sem a Síntese.
+_TEXTO_ESGOTO_2010_2022 = """Para quando infraestrutura.$esgoto_rede_2010 for diferente de infraestrutura.$esgoto_rede_2022 e infraestrutura.$coleta_2010 for diferente de infraestrutura.$coleta_2022 e infraestrutura.$esgoto_rede_2000 for diferente de sem dados, então:
+Variou.
+
+Para quando infraestrutura.$esgoto_rede_2010 for igual a infraestrutura.$esgoto_rede_2022 e infraestrutura.$coleta_2010 for diferente de infraestrutura.$coleta_2022 e infraestrutura.$esgoto_rede_2000 for diferente de sem dados, então:
+Igual.
+
+Para quando infraestrutura.$esgoto_rede_2000 for igual a sem dados e infraestrutura.$coleta_2010 for diferente de infraestrutura.$coleta_2022, então:
+Sem série histórica."""
+
+
+@pytest.mark.parametrize(
+    ("esgoto_2000", "esgoto_2010", "esperado"),
+    [
+        ("0.0", "34.49", "Variou."),
+        ("0.0", "21.92", "Igual."),
+        ("sem dados", "34.49", "Sem série histórica."),
+        (None, "34.49", "Sem série histórica."),
+    ],
+)
+def test_sanitation_diferente_de_sem_dados_escolhe_uma_versao(esgoto_2000, esgoto_2010, esperado):
+    contexto = {"esgoto_rede_2010": esgoto_2010, "esgoto_rede_2022": "21.92",
+                "coleta_2010": "55.13", "coleta_2022": "67.70"}
+    if esgoto_2000 is not None:
+        contexto["esgoto_rede_2000"] = esgoto_2000
+    resultado = interpretar_blocos_condicionais(_TEXTO_ESGOTO_2010_2022, contexto)
+    versoes = [v for v in ("Variou.", "Igual.", "Sem série histórica.") if v in resultado]
+    assert versoes == [esperado]
+
+
+def test_conferir_condicoes_entende_diferente_de_sem_dados():
+    from utils.render.placeholders import conferir_condicoes
+
+    assert conferir_condicoes(_TEXTO_ESGOTO_2010_2022) == []
 
 
 def test_conferir_condicoes_aponta_regras_que_o_parser_nao_entende():
