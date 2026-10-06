@@ -395,17 +395,32 @@ def test_indicadores_diferem_entre_macrotemas():
 
 
 def test_icone_do_macrotema_e_usado_quando_o_indicador_nao_define_um():
-    # "Cisternas..." não tem ícone próprio no catálogo, então cai no ícone do
-    # macrotema recebido.
+    # "Receita tributária municipal" não tem ícone próprio no catálogo, então
+    # cai no ícone do macrotema recebido.
     indicadores = montar_indicadores_macrotema(
-        "hidraulica", CONTEXTO, macrotema_icone="wrench"
+        "economia-renda", CONTEXTO, macrotema_icone="wrench"
     )
 
     por_nome = {item["nome"]: item for item in indicadores}
-    assert (
-        por_nome["Cisternas e tecnologias sociais de acesso à água"]["icone"]
-        == "wrench"
+    assert por_nome["Receita tributária municipal"]["icone"] == "wrench"
+
+
+def test_cisternas_tem_icone_por_finalidade():
+    contexto = dict(CONTEXTO)
+    for base in ("abastecimento_humano", "irrigacao"):
+        contexto[f"nm_{base}"] = base
+        contexto[f"valor_{base}"] = "10"
+        contexto[f"fonte_{base}"] = "SESAN (2025)"
+        contexto[f"unid_{base}"] = "Unidades"
+    indicadores = montar_indicadores_macrotema(
+        "hidraulica", contexto, macrotema_icone="wrench"
     )
+
+    assert [item["icone"] for item in indicadores] == [
+        "cisternas",
+        "cisterna_1_agua",
+        "cisterna_2_agua",
+    ]
 
 
 def test_indicador_com_icone_proprio_nao_usa_o_icone_do_macrotema():
