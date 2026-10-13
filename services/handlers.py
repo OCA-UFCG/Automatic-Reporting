@@ -1,6 +1,6 @@
 import os
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -58,7 +58,7 @@ def listar_relatorios_handler():
             stat = entrada.stat()
             # use a fixed local timezone to present dates consistently across deployments
             local_tz = ZoneInfo("America/Fortaleza")
-            criado_em = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).astimezone(local_tz)
+            criado_em = datetime.fromtimestamp(stat.st_mtime, tz=UTC).astimezone(local_tz)
             pdf_version = stat.st_mtime_ns
             html_version = html_file.stat().st_mtime_ns if html_file.exists() else None
             mapa_version = mapa_file.stat().st_mtime_ns if mapa_file.exists() else None
@@ -89,7 +89,7 @@ def listar_relatorios_handler():
                 cidade = re.sub(r"_+", " ", slug_cidade).strip().title()
 
             # compute stable timestamps for both UTC and local timezone
-            last_modified_utc = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
+            last_modified_utc = datetime.fromtimestamp(stat.st_mtime, tz=UTC)
             last_modified_local = last_modified_utc.astimezone(local_tz)
 
             relatorios.append({
