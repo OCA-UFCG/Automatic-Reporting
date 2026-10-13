@@ -42,7 +42,7 @@ jobs:
           tags: |
             ${{ vars.DOCKER_IMAGE_GAMMA }}:latest
             ${{ steps.meta.outputs.tags }}
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           build-args: |
             DEFAULT_DOCS_URL=${{ secrets.DEFAULT_DOCS_URL }}
             DEMOGRAFIA_CSV_URL=${{ secrets.DEMOGRAFIA_CSV_URL }}
@@ -61,11 +61,11 @@ jobs:
             DESENVOLVIMENTO_SOCIAL_DOCS_URL=${{ secrets.DESENVOLVIMENTO_SOCIAL_DOCS_URL }}
             MEIO_AMBIENTE_DOCS_URL=${{ secrets.MEIO_AMBIENTE_DOCS_URL }}
             VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
-            UVICORN_WORKERS=2
+            UVICORN_WORKERS=3
 
   push-gamma:
     needs: build-image
-    runs-on: automatic-gamma-runner 
+    runs-on: [self-hosted, datane-gamma-lsd-runner]
 
     steps:
       - name: Checkout repository
@@ -268,7 +268,7 @@ jobs:
           sudo docker run \
             --name ${{ vars.CONTAINER_NAME_GAMMA }} \
             --restart unless-stopped \
-            --cpus=2 \
+            --cpus=3 \
             --memory=3g \
             -p ${{ vars.HOST_PORT_GAMMA }}:${{ vars.CONTAINER_PORT }} \
             -v ${{ vars.VOLUME_NAME }}:/app/output \

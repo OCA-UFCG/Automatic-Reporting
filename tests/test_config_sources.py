@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from config import (
     DESENVOLVIMENTO_SOCIAL_DOCS_URL,
@@ -45,7 +45,7 @@ def test_all_macrothemes_use_the_expected_colors_and_order():
 def test_cover_does_not_use_lorem_ipsum_when_diagnostic_is_missing():
     cover = montar_capa_relatorio(
         {"nm_mun": "Recife (PE)"},
-        datetime(2026, 1, 1, tzinfo=timezone.utc),
+        datetime(2026, 1, 1, tzinfo=UTC),
         "Demografia",
         "demografia",
     )
@@ -71,7 +71,7 @@ def test_cards_caracteristicas_vem_da_view_com_area_em_duas_casas():
             "fonte_pop_residente": "Censo demográfico (IBGE, 2022)",
             "unid_pop_residente": "Pessoas residentes",
         },
-        datetime(2026, 1, 1, tzinfo=timezone.utc),
+        datetime(2026, 1, 1, tzinfo=UTC),
         "Meio Ambiente",
         "meio-ambiente",
     )
@@ -90,7 +90,7 @@ def test_cards_caracteristicas_vem_da_view_com_area_em_duas_casas():
 def test_area_sem_dado_nao_ganha_km2():
     for linha in ({"nm_mun": "Recife (PE)"}, {"nm_mun": "Recife (PE)", "valor_area_municipio": "Não há dados"}):
         cover = montar_capa_relatorio(
-            linha, datetime(2026, 1, 1, tzinfo=timezone.utc), "Meio Ambiente", "meio-ambiente"
+            linha, datetime(2026, 1, 1, tzinfo=UTC), "Meio Ambiente", "meio-ambiente"
         )
         assert cover["metricas"][0]["sufixo"] == ""
 
@@ -99,6 +99,6 @@ def test_area_inteira_sai_sem_zeros():
     # Mesma regra do texto: ,00 não aparece.
     cover = montar_capa_relatorio(
         {"nm_mun": "Recife (PE)", "valor_area_municipio": "218.00"},
-        datetime(2026, 1, 1, tzinfo=timezone.utc), "Meio Ambiente", "meio-ambiente",
+        datetime(2026, 1, 1, tzinfo=UTC), "Meio Ambiente", "meio-ambiente",
     )
     assert (cover["metricas"][0]["valor"], cover["metricas"][0]["sufixo"]) == ("218", "km²")

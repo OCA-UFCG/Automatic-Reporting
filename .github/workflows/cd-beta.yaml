@@ -2,7 +2,7 @@ name: CD Beta
 
 on:
   push:
-    branches: ["main"]
+    tags: ["beta-*"]
 
 jobs:
   build-image:
@@ -241,7 +241,7 @@ jobs:
           fi
 
       - name: Pull the latest beta image
-        run: sudo docker pull ${{ vars.DOCKER_IMAGE_BETA }}:latest
+        run: sudo docker pull ${{ vars.DOCKER_IMAGE_BETA }}:${{ github.ref_name }}
 
       - name: Stop existing container
         run: sudo docker rm -f ${{ vars.CONTAINER_NAME_BETA }} || true
@@ -272,7 +272,7 @@ jobs:
             -e DB_PASSWORD="$DB_PASSWORD" \
             -e DB_PORT="$DB_PORT" \
             -e DB_SSLMODE="$DB_SSLMODE" \
-            -d ${{ vars.DOCKER_IMAGE_BETA }}:latest
+            -d ${{ vars.DOCKER_IMAGE_BETA }}:${{ github.ref_name }}
 
       - name: Validate files inside running container
         shell: bash
