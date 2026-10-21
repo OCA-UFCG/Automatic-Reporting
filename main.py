@@ -18,7 +18,11 @@ from utils.data.macrotemas import (
     TODOS_MACROTEMAS_NOME,
     TODOS_MACROTEMAS_SLUG,
 )
-from utils.queries.painel_pib import buscar_pib_por_uf, montar_painel_pib
+from utils.queries.painel_pib import (
+    RecorteInvalido,
+    buscar_painel_pib,
+    validar_recorte,
+)
 from utils.ssr import start_server as start_ssr_server
 from utils.ssr import stop_server as stop_ssr_server
 
@@ -158,11 +162,15 @@ async def listar_macrotemas():
 # banco não responde: o portal precisa distinguir "sem dados" de "fora do ar"
 # para cair de volta no Power BI.
 @app.get("/paineis/pib")
-def painel_pib():
-    linhas = buscar_pib_por_uf()
-    if linhas is None:
+def painel_pib(area: str | None = None, uf: str | None = None, municipio: str | None = None):
+    try:
+        recorte = validar_recorte(area, uf, municipio)
+    except RecorteInvalido as erro:
+        raise HTTPException(status_code=422, detail=str(erro)) from erro
+    painel = buscar_painel_pib(recorte)
+    if painel is None:
         raise HTTPException(status_code=503, detail="Banco de dados indisponível.")
-    return montar_painel_pib(linhas)
+    return painel
 
 
 @app.get("/relatorios")
