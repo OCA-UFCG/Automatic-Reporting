@@ -30,7 +30,10 @@ SCHEMA="relatorios_auto"
 STMT_TIMEOUT_MS="${STMT_TIMEOUT_MS:-600000}"
 
 # Matviews a atualizar — ADICIONE aqui ao materializar uma nova view.
+# A ordem importa: mv_comex_municipal_mensal alimenta vw_perfil_economia, então
+# vem antes de mv_perfil_economia (db/2026-10-05-mv_comex_municipal_mensal.sql).
 MATVIEWS=(
+  mv_comex_municipal_mensal
   mv_perfil_economia
   mv_perfil_saude_municipal
   mv_perfil_educacional_municipal
@@ -53,11 +56,18 @@ if ! flock -n 9; then
   exit 1
 fi
 
+# Sem chave única natural (soma por 7 colunas descritivas, com NULLs), então
+# não dá CONCURRENTLY: o refresh bloqueia leituras da vw_perfil_economia por
+# alguns minutos, aceitável às 04:00 UTC.
+SEM_CONCURRENTLY=" mv_comex_municipal_mensal "
+
 refresh_um() {
   local mv="$1"
+  local modo="CONCURRENTLY"
+  [[ "$SEM_CONCURRENTLY" == *" ${mv} "* ]] && modo=""
   PGOPTIONS="-c statement_timeout=${STMT_TIMEOUT_MS}" \
     psql -X -v ON_ERROR_STOP=1 -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
-      -c "REFRESH MATERIALIZED VIEW CONCURRENTLY ${SCHEMA}.${mv};"
+      -c "REFRESH MATERIALIZED VIEW ${modo} ${SCHEMA}.${mv};"
 }
 
 log "=== refresh_matviews início (${#MATVIEWS[@]} matviews) ==="
