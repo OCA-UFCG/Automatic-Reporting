@@ -18,6 +18,7 @@ from utils.data.macrotemas import (
     TODOS_MACROTEMAS_NOME,
     TODOS_MACROTEMAS_SLUG,
 )
+from utils.queries.painel_pib import buscar_pib_por_uf, montar_painel_pib
 from utils.ssr import start_server as start_ssr_server
 from utils.ssr import stop_server as stop_ssr_server
 
@@ -150,6 +151,18 @@ async def listar_macrotemas():
         for slug, dados in MACROTEMAS.items()
         ],
     ]
+
+
+# Dados do painel mobile de PIB do portal (data-nordeste-frontend troca o iframe
+# do Power BI por gráficos próprios no celular). 503, não lista vazia, quando o
+# banco não responde: o portal precisa distinguir "sem dados" de "fora do ar"
+# para cair de volta no Power BI.
+@app.get("/paineis/pib")
+def painel_pib():
+    linhas = buscar_pib_por_uf()
+    if linhas is None:
+        raise HTTPException(status_code=503, detail="Banco de dados indisponível.")
+    return montar_painel_pib(linhas)
 
 
 @app.get("/relatorios")
