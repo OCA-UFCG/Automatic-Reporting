@@ -16,7 +16,25 @@ from utils.queries.base import (
 # dicionário que a mv_perfil_economia usa, senão o nosso dict, mesclado por cima
 # da view em generation.py, desfaz a correção. Pelo mesmo motivo, desc_secao
 # repete o replace da view para "Produtos das indútrias alimentares".
-DADOS_IMPORTACAO_MUNICIPAL = """
+#
+# Pré-filtro por co_mun: a view calcula desc_municipio com COALESCE(novos_nomes,
+# municipios), então filtrar só pelo nome não usa o índice
+# idx_fato_comex_co_mun_tipo_ano e varre a fato_comercio_exterior inteira (2,4 GB).
+# Com cache frio isso passava dos 15 s do statement_timeout em todo município, e o
+# bloco de importação saía vazio sem erro (desde b922220, que trocou a tabela antiga
+# por esta view). O nome continua no WHERE, então o resultado é o mesmo: no gamma, em
+# 26/10/2026, 20 municípios deram as mesmas 25.793 linhas, de 15–164 s para 0,04–2,6 s.
+# `= ANY (ARRAY(...))`, e não `IN (...)`: o ARRAY vira um parâmetro calculado antes,
+# que o índice aceita; com IN o planner junta depois de varrer a tabela.
+_CO_MUN_DO_NOME = """ANY (ARRAY(
+          SELECT m.co_mun FROM eco_comercio_exterior.municipios m
+          LEFT JOIN carac_mun.novos_nomes nn ON btrim(m.co_mun::text) = btrim(nn.cd_mun::text)
+          WHERE LOWER(COALESCE(nn.nm_mun::text, m.no_mun_min::text)) = LOWER(%s)
+          UNION
+          SELECT btrim(nn.cd_mun) FROM carac_mun.novos_nomes nn WHERE LOWER(nn.nm_mun) = LOWER(%s)
+      ))"""
+
+DADOS_IMPORTACAO_MUNICIPAL = f"""
     SELECT
         co_ano,
         co_mes,
@@ -31,12 +49,14 @@ DADOS_IMPORTACAO_MUNICIPAL = """
       ON d.sh4::text = i.sh4
     WHERE tipo_operacao = 'Importação'
       AND LOWER(desc_municipio) = LOWER(%s)
+      AND i.co_mun = {_CO_MUN_DO_NOME}
       AND sg_uf_mun = %s
       AND co_ano = (
           SELECT MAX(co_ano)
-          FROM eco_comercio_exterior.impexp_completa
+          FROM eco_comercio_exterior.impexp_completa i2
           WHERE tipo_operacao = 'Importação'
             AND LOWER(desc_municipio) = LOWER(%s)
+            AND i2.co_mun = {_CO_MUN_DO_NOME}
             AND sg_uf_mun = %s
       )
     ORDER BY co_mes::int
@@ -57,7 +77,8 @@ _COLUNAS_LINHA_IMPORTACAO = (
 def buscar_linhas_importacao(nome_municipio: str, sigla_uf: str) -> list[dict]:
     linhas = executar_query(
         DADOS_IMPORTACAO_MUNICIPAL,
-        (nome_municipio, sigla_uf, nome_municipio, sigla_uf),
+        # Por subconsulta: desc_municipio, os dois nomes do pré-filtro e a UF.
+        (nome_municipio, nome_municipio, nome_municipio, sigla_uf) * 2,
         f"dados de importação de '{nome_municipio} ({sigla_uf})'",
         buscar_todas=True,
     )

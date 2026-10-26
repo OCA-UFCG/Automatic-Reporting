@@ -218,3 +218,21 @@ def test_processar_importacao_concorda_unidade_e_poe_de_no_peso():
     assert dados["valor_pais_importado_unid1"] == "milhão"
     assert dados["kg_importado_ultimo_unid"] == "milhões de"
     assert dados["kg_importado_produtounid1"] == "milhões de"
+
+
+def test_buscar_linhas_importacao_pre_filtra_por_co_mun_com_um_parametro_por_placeholder(monkeypatch):
+    # Regressão: sem o pré-filtro por co_mun a consulta varre a fato inteira e estoura o
+    # statement_timeout; com parâmetro sobrando ou faltando, o fail-soft devolve vazio.
+    chamadas = []
+    monkeypatch.setattr(
+        economia_importacao,
+        "executar_query",
+        lambda query, params, *args, **kwargs: chamadas.append((query, params)) or [],
+    )
+
+    economia_importacao.buscar_linhas_importacao("Patos", "PB")
+
+    query, params = chamadas[0]
+    assert query.count("co_mun = ANY (ARRAY(") == 2
+    assert query.count("%s") == len(params)
+    assert params == ("Patos", "Patos", "Patos", "PB") * 2
