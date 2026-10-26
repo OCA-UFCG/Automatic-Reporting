@@ -1,20 +1,22 @@
+import itertools
+import math
 from decimal import Decimal
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import pytest
 
+from plotting import saneamento
 from plotting.saneamento import (
-    _ANGULO_MINIMO_DA_FATIA,
-    _ANGULO_MINIMO_ENTRE_ROTULOS,
     _ANOS_DINAMICA_ESGOTO,
+    _ESPACO_ENTRE_ROTULOS,
     _FONTE_TOTAL_MINIMA,
-    _RAIO_ROTULO,
-    _angulos_de_desenho,
+    _Y_MAXIMO_ROTULO,
+    _angulos_dos_meios,
     _fonte_total_ajustada_ao_buraco,
     _pontos_por_ano,
+    _posicoes_dos_rotulos,
     _quebrar_rotulo_longo,
-    _raios_dos_rotulos,
     gerar_grafico_coleta_lixo,
     gerar_grafico_dinamica_esgoto,
     gerar_grafico_esgotamento_sanitario,
@@ -152,50 +154,69 @@ def test_quebra_rotulo_longo_da_legenda():
     assert "\n" not in _quebrar_rotulo_longo("Fossa séptica ou fossa filtro")
 
 
-def test_angulos_de_desenho_dao_piso_as_fatias_pequenas():
-    # Belém/AL: a fatia de 83,4% é desenhada menor que a proporção real para
-    # as pequenas aparecerem — ajuste puramente visual, o rótulo segue com o
-    # percentual real (ver `gerar_grafico_esgotamento_sanitario`).
-    valores = [123, 10, 1397, 54, 59, 27, 6]
+# Percentuais do exemplo da revisão de Segurança Hídrica: com o piso de 16°
+# por fatia que existia antes, 0,22% e 0,02% eram desenhados do mesmo tamanho
+# e 67,30% ocupava só metade da rosca.
+_EXEMPLO_REVISAO = [67.30, 22.48, 8.23, 0.39, 1.37, 0.22, 0.02]
 
-    angulos = _angulos_de_desenho(valores)
 
-    assert round(sum(angulos), 6) == 360.0
-    assert all(angulo >= 12.0 for angulo in angulos)  # nenhuma fatia invisível
-    assert angulos[2] < 360.0 * 1397 / sum(valores)  # a dominante cede espaço
-    # A ordem das fatias (quem é maior que quem) não muda com o ajuste.
-    assert sorted(range(7), key=lambda i: angulos[i]) == sorted(
-        range(7), key=lambda i: valores[i]
+def test_fatias_sao_desenhadas_na_proporcao_real(tmp_path: Path, monkeypatch):
+    figuras = []
+    monkeypatch.setattr(
+        saneamento, "salvar_card_grafico", lambda fig, _arquivo: figuras.append(fig)
     )
+    cidade = dict(zip((chave for chave, _, _ in saneamento._CATEGORIAS), _EXEMPLO_REVISAO))
+    cidade["esg_total"] = 100
+
+    gerar_grafico_esgotamento_sanitario(cidade, tmp_path, "proporcao_real")
+
+    fatias = [p for p in figuras[0].axes[0].patches if hasattr(p, "theta1")]
+    graus = [(f.theta2 - f.theta1) % 360 for f in fatias]
+    # `ax.pie` normaliza pela soma (os percentuais do exemplo, arredondados,
+    # somam 100,01).
+    soma = sum(_EXEMPLO_REVISAO)
+    for grau, percentual in zip(graus, _EXEMPLO_REVISAO):
+        assert grau == pytest.approx(360.0 * percentual / soma, abs=1e-6)
+    plt.close(figuras[0])
 
 
-def test_categoria_zerada_nao_ganha_fatia():
-    angulos = _angulos_de_desenho([100, 0, 50])
+def test_meio_da_fatia_segue_a_geometria_do_pie():
+    # Começa no topo (90°) e anda no sentido horário.
+    meios = _angulos_dos_meios([50, 0, 50])
 
-    assert angulos[1] == 0.0
-
-
-def test_todos_os_rotulos_cabem_apos_o_ajuste():
-    # Com o piso de ângulo, as sete categorias de Belém/AL são rotuladas.
-    angulos = _angulos_de_desenho([123, 10, 1397, 54, 59, 27, 6])
-
-    assert set(_raios_dos_rotulos(angulos)) == set(range(7))
+    assert meios == {0: 0.0, 2: -180.0}
 
 
-def test_nenhum_rotulo_precisa_do_raio_afastado():
-    # O piso de ângulo é maior que a distância mínima entre rótulos, então
-    # todo rótulo cabe ao lado da sua fatia: o degrau externo — que solta o
-    # texto da fatia — vira só rede de segurança e não deve disparar aqui.
-    assert _ANGULO_MINIMO_DA_FATIA > _ANGULO_MINIMO_ENTRE_ROTULOS
-
-    for valores in (
-        [123, 10, 1397, 54, 59, 27, 6],  # Belém/AL
-        [127454, 7799, 6327, 2060, 1913, 442, 1154],  # Campina Grande/PB
-        [1, 1, 1, 1, 1, 1, 9994],  # seis fatias mínimas coladas
-    ):
-        raios = _raios_dos_rotulos(_angulos_de_desenho(valores))
-        assert set(raios.values()) == {_RAIO_ROTULO}
+def test_categoria_zerada_nao_ganha_rotulo():
+    assert 1 not in _posicoes_dos_rotulos([100, 0, 50])
 
 
 def test_sem_rotulo_quando_nao_ha_total():
-    assert _raios_dos_rotulos([0, 0, 0]) == {}
+    assert _posicoes_dos_rotulos([0, 0, 0]) == {}
+
+
+@pytest.mark.parametrize(
+    "valores",
+    [
+        _EXEMPLO_REVISAO,
+        [123, 10, 1397, 54, 59, 27, 6],  # Belém/AL
+        [127454, 7799, 6327, 2060, 1913, 442, 1154],  # Campina Grande/PB
+        [1, 1, 1, 1, 1, 1, 9994],  # seis fatias mínimas coladas
+    ],
+)
+def test_rotulos_nao_se_sobrepoem_nem_cruzam(valores):
+    posicoes = _posicoes_dos_rotulos(valores)
+    meios = _angulos_dos_meios(valores)
+
+    assert set(posicoes) == {i for i, valor in enumerate(valores) if valor > 0}
+    for lado in (1, -1):
+        coluna = sorted(
+            (i for i, (_, x, _) in posicoes.items() if x * lado > 0),
+            key=lambda i: -posicoes[i][2],
+        )
+        alturas = [posicoes[i][2] for i in coluna]
+        assert all(abs(y) <= _Y_MAXIMO_ROTULO + 1e-9 for y in alturas)
+        for cima, baixo in itertools.pairwise(alturas):
+            assert cima - baixo >= _ESPACO_ENTRE_ROTULOS - 1e-9
+        # Ordem dos rótulos = ordem vertical das fatias: linhas-guia não se cruzam.
+        assert coluna == sorted(coluna, key=lambda i: -math.sin(math.radians(meios[i])))

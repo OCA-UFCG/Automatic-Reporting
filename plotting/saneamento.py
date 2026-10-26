@@ -1,4 +1,3 @@
-import itertools
 import math
 import pathlib
 
@@ -56,84 +55,97 @@ def _quebrar_rotulo_longo(rotulo: str) -> str:
     return f"{rotulo[:corte]}\n{rotulo[corte + 1:]}"
 
 
-# Distância angular mínima, em graus, entre os centros de dois rótulos de
-# percentual vizinhos para que caibam no mesmo raio. Abaixo disso o de fora
-# é empurrado para um raio maior — rede de segurança para distribuições que
-# escapem do ajuste de ângulo abaixo.
-_ANGULO_MINIMO_ENTRE_ROTULOS = 15.0
-# Raio (em frações do raio da rosca) onde os rótulos são escritos: o padrão e
-# o "degrau" usado quando o rótulo vizinho está perto demais.
+# Rótulos de percentual: todos ficam FORA da rosca, em duas colunas (direita
+# e esquerda), ligados à sua fatia por uma linha-guia. As fatias são
+# desenhadas na proporção REAL — a versão anterior (46b4f5e) dava um piso de
+# 16° a cada fatia para os rótulos caberem, e isso fazia 0,02% e 0,22%
+# parecerem iguais e a fatia de 67% parecer metade do círculo (revisão de
+# Segurança Hídrica). Quem abre espaço para os rótulos agora é o
+# posicionamento deles, não o desenho.
+#
+# Distância (em frações do raio da rosca) do texto ao centro, na horizontal.
+_X_COLUNA_ROTULO = 1.30
+# Raio onde cada rótulo "gostaria" de ficar, alinhado ao meio da sua fatia.
 _RAIO_ROTULO = 1.18
-_RAIO_ROTULO_AFASTADO = 1.40
-# Ângulo mínimo de desenho de cada fatia, em graus. AJUSTE VISUAL: a fatia
-# dominante (83,4% em Belém/AL, por exemplo) é desenhada menor que a sua
-# proporção real para as fatias pequenas aparecerem e caberem seus rótulos.
-# Os percentuais escritos continuam sendo os reais — só o desenho é ajustado.
-# Precisa ser maior que `_ANGULO_MINIMO_ENTRE_ROTULOS`: duas fatias no piso
-# ficam a exatamente este ângulo uma da outra, e é essa folga que garante
-# que todo rótulo caiba ao lado da sua fatia, sem ser empurrado para fora.
-_ANGULO_MINIMO_DA_FATIA = 16.0
+# Espaço vertical mínimo entre dois rótulos da mesma coluna — a altura de uma
+# linha de texto em `FONTE_ROTULO_VALOR`, com folga, em unidades do raio.
+_ESPACO_ENTRE_ROTULOS = 0.19
+# Faixa vertical onde os rótulos podem ser empilhados sem sair do eixo.
+_Y_MAXIMO_ROTULO = 1.45
 
 
-def _angulos_de_desenho(valores: list[float]) -> list[float]:
-    """Ângulos usados para DESENHAR as fatias: cada categoria com valor > 0
-    recebe um piso de `_ANGULO_MINIMO_DA_FATIA` e o resto do círculo é
-    repartido proporcionalmente. Mantém a ordem e o ranking das fatias; os
-    percentuais dos rótulos continuam vindo dos valores reais."""
+def _angulos_dos_meios(valores: list[float]) -> dict[int, float]:
+    """Ângulo (graus, convenção matemática) do meio de cada fatia com valor
+    > 0, na mesma geometria de `ax.pie(startangle=90, counterclock=False)`:
+    começa no topo e anda no sentido horário."""
     total = sum(valores)
-    if total <= 0:
-        return list(valores)
-
-    com_valor = [valor > 0 for valor in valores]
-    piso_total = _ANGULO_MINIMO_DA_FATIA * sum(com_valor)
-    # Se os pisos já consomem o círculo (muitas categorias), cai para a
-    # proporção real — melhor um desenho apertado que um sem ordenação.
-    if piso_total >= 360.0:
-        return list(valores)
-
-    restante = 360.0 - piso_total
-    return [
-        (_ANGULO_MINIMO_DA_FATIA + restante * valor / total) if tem else 0.0
-        for valor, tem in zip(valores, com_valor)
-    ]
-
-
-def _raios_dos_rotulos(angulos: list[float]) -> dict[int, float]:
-    """Raio de cada rótulo de percentual, por índice de fatia. Recebe os
-    ângulos de DESENHO (é a geometria do anel que decide se dois rótulos
-    colidem). Quem ficaria colado no vizinho vai para um raio maior."""
-    total = sum(angulos)
     if total <= 0:
         return {}
 
-    raios: dict[int, float] = {}
-    angulo_acumulado = 0.0
-    centro_anterior = None
-    raio_anterior = _RAIO_ROTULO
+    meios: dict[int, float] = {}
+    acumulado = 0.0
+    for indice, valor in enumerate(valores):
+        if valor > 0:
+            meios[indice] = 90.0 - 360.0 * (acumulado + valor / 2) / total
+        acumulado += valor
 
-    for indice, angulo in enumerate(angulos):
-        if angulo <= 0:
-            continue
-        centro = angulo_acumulado + angulo / 2
-        angulo_acumulado += angulo
+    return meios
 
-        perto_do_anterior = (
-            centro_anterior is not None
-            and centro - centro_anterior < _ANGULO_MINIMO_ENTRE_ROTULOS
-        )
-        # Só alterna se o anterior estava no raio de dentro: três rótulos
-        # seguidos e próximos ficam dentro/fora/dentro, nunca dois fora
-        # colados um no outro.
-        raio = (
-            _RAIO_ROTULO_AFASTADO
-            if perto_do_anterior and raio_anterior == _RAIO_ROTULO
-            else _RAIO_ROTULO
-        )
-        raios[indice] = raio
-        centro_anterior = centro
-        raio_anterior = raio
 
-    return raios
+def _blocos_colidem(cima: list[float], baixo: list[float]) -> bool:
+    base_de_cima = cima[0] - _ESPACO_ENTRE_ROTULOS * (cima[1] - 1) / 2
+    topo_de_baixo = baixo[0] + _ESPACO_ENTRE_ROTULOS * (baixo[1] - 1) / 2
+
+    return base_de_cima - topo_de_baixo < _ESPACO_ENTRE_ROTULOS
+
+
+def _espalhar_coluna(ideais: list[float]) -> list[float]:
+    """Alturas finais de uma coluna de rótulos, dadas as alturas ideais em
+    ordem decrescente. Rótulos que se sobrepõem viram um bloco centrado na
+    média das suas alturas ideais (em vez de só empurrar para baixo), e o
+    bloco é contido em ±`_Y_MAXIMO_ROTULO`. Mantém a ordem de entrada."""
+    # Cada bloco: [média das alturas ideais, quantidade de rótulos].
+    blocos: list[list[float]] = []
+    for ideal in ideais:
+        blocos.append([ideal, 1])
+        while len(blocos) > 1 and _blocos_colidem(blocos[-2], blocos[-1]):
+            baixo = blocos.pop()
+            cima = blocos[-1]
+            quantidade = cima[1] + baixo[1]
+            cima[0] = (cima[0] * cima[1] + baixo[0] * baixo[1]) / quantidade
+            cima[1] = quantidade
+
+    alturas: list[float] = []
+    for centro, quantidade in blocos:
+        meia_altura = _ESPACO_ENTRE_ROTULOS * (quantidade - 1) / 2
+        centro = min(centro, _Y_MAXIMO_ROTULO - meia_altura)
+        centro = max(centro, -_Y_MAXIMO_ROTULO + meia_altura)
+        topo = centro + meia_altura
+        alturas.extend(topo - _ESPACO_ENTRE_ROTULOS * i for i in range(int(quantidade)))
+
+    return alturas
+
+
+def _posicoes_dos_rotulos(valores: list[float]) -> dict[int, tuple[float, float, float]]:
+    """(ângulo do meio da fatia, x do texto, y do texto) de cada fatia com
+    valor > 0. Fatias do lado direito vão para a coluna da direita e as do
+    esquerdo para a da esquerda; dentro de cada coluna os rótulos são
+    espalhados na vertical sem se sobrepor e na mesma ordem das fatias —
+    por isso as linhas-guia não se cruzam."""
+    meios = _angulos_dos_meios(valores)
+    posicoes: dict[int, tuple[float, float, float]] = {}
+
+    for lado in (1, -1):
+        indices = [
+            indice for indice, angulo in meios.items()
+            if (math.cos(math.radians(angulo)) >= 0) == (lado == 1)
+        ]
+        indices.sort(key=lambda indice: -math.sin(math.radians(meios[indice])))
+        ideais = [_RAIO_ROTULO * math.sin(math.radians(meios[i])) for i in indices]
+        for indice, y in zip(indices, _espalhar_coluna(ideais)):
+            posicoes[indice] = (meios[indice], lado * _X_COLUNA_ROTULO, y)
+
+    return posicoes
 
 
 def _formatar_total(total: float) -> str:
@@ -180,6 +192,35 @@ def _fonte_total_ajustada_ao_buraco(fig, ax, texto: str, fontsize_max: float) ->
     )
 
 
+# Meia-largura do eixo da rosca, em unidades do raio: cabe a coluna de
+# rótulos (`_X_COLUNA_ROTULO` + o texto) e a pilha até `_Y_MAXIMO_ROTULO`.
+_LIMITE_EIXO_ROSCA = 1.85
+
+
+def _desenhar_rotulo_com_guia(ax, angulo: float, x: float, y: float, percentual: float) -> None:
+    """Escreve o percentual em (x, y) e o liga à borda externa da fatia por
+    uma linha-guia com cotovelo: sai radialmente da fatia e segue até o texto."""
+    rad = math.radians(angulo)
+    borda = (math.cos(rad), math.sin(rad))
+    cotovelo = (1.08 * borda[0], 1.08 * borda[1])
+    lado = 1 if x > 0 else -1
+    ponta = (x - lado * 0.04, y)
+    ax.plot(
+        [borda[0], cotovelo[0], ponta[0]],
+        [borda[1], cotovelo[1], ponta[1]],
+        color="#9A9A9A",
+        linewidth=0.8,
+        solid_capstyle="round",
+    )
+    ax.text(
+        x, y, _formatar_percentual(percentual),
+        ha="left" if lado == 1 else "right",
+        va="center",
+        fontsize=FONTE_ROTULO_VALOR * ESCALA_FONTE,
+        color="#4A4A4A",
+    )
+
+
 def gerar_grafico_esgotamento_sanitario(
     cidade: dict,
     OUTPUT_DIR: pathlib.Path,
@@ -216,45 +257,22 @@ def gerar_grafico_esgotamento_sanitario(
         (posicao.x0, posicao.y0, posicao.width - largura_legenda, posicao.height)
     )
 
-    # AJUSTE VISUAL das fatias: o desenho usa ângulos com piso mínimo (ver
-    # `_angulos_de_desenho`), não a proporção crua — assim as fatias pequenas
-    # aparecem e cada rótulo fica junto da sua fatia. Os percentuais escritos
-    # vêm dos valores REAIS, calculados aqui e não pelo `autopct` do
-    # matplotlib (que os derivaria dos ângulos ajustados).
-    angulos = _angulos_de_desenho(valores)
+    # As fatias são desenhadas na proporção real (ver `_posicoes_dos_rotulos`);
+    # os percentuais são escritos à parte, fora do anel, com linha-guia.
     percentuais_reais = [100.0 * valor / total for valor in valores]
-    raios_rotulos = _raios_dos_rotulos(angulos)
-    indice_fatia = itertools.count()
-
-    def _autopct(_pct_do_desenho: float) -> str:
-        indice = next(indice_fatia)
-        if indice not in raios_rotulos:
-            return ""
-        return f"{percentuais_reais[indice]:.2f}%".replace(".", ",")
-
-    wedges, _textos, autotextos = ax.pie(
-        angulos,
+    wedges, _textos = ax.pie(
+        valores,
         colors=cores,
         startangle=90,
         counterclock=False,
-        autopct=_autopct,
-        pctdistance=_RAIO_ROTULO,
         wedgeprops={"width": 0.42, "edgecolor": "white", "linewidth": 1.5},
     )
-    # `pctdistance` é único para todas as fatias, então o degrau de quem ficou
-    # apertado é aplicado aqui, reposicionando o texto no raio escolhido.
-    for autotexto, raio in zip(
-        autotextos, [raios_rotulos[i] for i in sorted(raios_rotulos)]
-    ):
-        x, y = autotexto.get_position()
-        fator = raio / _RAIO_ROTULO
-        autotexto.set_position((x * fator, y * fator))
-        autotexto.set_fontsize(FONTE_ROTULO_VALOR * ESCALA_FONTE)
-        autotexto.set_color("#4A4A4A")
+    for indice, (angulo, x, y) in _posicoes_dos_rotulos(valores).items():
+        _desenhar_rotulo_com_guia(ax, angulo, x, y, percentuais_reais[indice])
 
-    # Espaço para o degrau externo dos rótulos sem cortá-los na borda do eixo.
-    ax.set_xlim(-1.55, 1.55)
-    ax.set_ylim(-1.55, 1.55)
+    # Espaço para as colunas de rótulos sem cortá-los na borda do eixo.
+    ax.set_xlim(-_LIMITE_EIXO_ROSCA, _LIMITE_EIXO_ROSCA)
+    ax.set_ylim(-_LIMITE_EIXO_ROSCA, _LIMITE_EIXO_ROSCA)
     # Precisa vir antes de medir a largura do buraco: `set_aspect` redefine a
     # escala px/unidade em X (o `ax` não é quadrado), e a medição usaria a
     # escala "auto" ainda vigente, superestimando em ~8% o espaço disponível.
