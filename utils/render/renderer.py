@@ -820,6 +820,22 @@ def unir_paragrafos_da_sintese(texto: str) -> str:
     return "\n".join(saida) + ("\n" if texto.endswith("\n") else "")
 
 
+def paragrafos_do_tema(descricao_tema: str, contexto: dict, namespace: str) -> list[str]:
+    """Parágrafos da seção já interpretados (condições, gráficos sem menção, placeholders)."""
+    descricao_tema = interpretar_blocos_condicionais(descricao_tema, contexto)
+    if namespace in _NAMESPACES_GRAFICO_SO_COM_MENCAO:
+        descricao_tema = remover_graficos_sem_mencao(descricao_tema)
+    descricao_tema = unir_paragrafos_da_sintese(descricao_tema)
+    descricao_tema = _rotular_linhas_de_fonte(descricao_tema)
+    paragrafos = []
+    for paragrafo in re.split(r"\n\s*\n", descricao_tema):
+        paragrafo = paragrafo.strip("\n\r")
+        if not paragrafo:
+            continue
+        paragrafos.append(substituir_placeholders(paragrafo, contexto, namespace))
+    return paragrafos
+
+
 def _render_descricao_tema_partes(
     descricao_tema: str,
     contexto: dict,
@@ -827,11 +843,6 @@ def _render_descricao_tema_partes(
     safe_report: str | None,
     graficos_por_placeholder: dict[str, str] | None,
 ) -> list[str]:
-    descricao_tema = interpretar_blocos_condicionais(descricao_tema, contexto)
-    if namespace in _NAMESPACES_GRAFICO_SO_COM_MENCAO:
-        descricao_tema = remover_graficos_sem_mencao(descricao_tema)
-    descricao_tema = unir_paragrafos_da_sintese(descricao_tema)
-    descricao_tema = _rotular_linhas_de_fonte(descricao_tema)
     partes = []
     intro_ja_inserida = False
     secoes_caixa: dict[str, list[str]] | None = None
@@ -856,13 +867,7 @@ def _render_descricao_tema_partes(
         secoes_caixa = None
         secao_atual = None
 
-    for paragrafo in re.split(r"\n\s*\n", descricao_tema):
-        paragrafo = paragrafo.strip("\n\r")
-        if not paragrafo:
-            continue
-
-        paragrafo = substituir_placeholders(paragrafo, contexto, namespace)
-
+    for paragrafo in paragrafos_do_tema(descricao_tema, contexto, namespace):
         if paragrafo.startswith("#!"):
             titulo = paragrafo[2:].strip()
             if titulo.casefold() in _SECOES_CAIXA_FONTES:

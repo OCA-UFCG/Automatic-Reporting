@@ -4,6 +4,7 @@ import pytest
 
 from utils.render.placeholders import interpretar_blocos_condicionais
 from utils.render.renderer import (
+    paragrafos_do_tema,
     render_descricao_tema_html,
     reset_figura_contador,
     substituir_placeholders,
@@ -2401,3 +2402,18 @@ def test_unir_paragrafos_da_sintese_para_no_proximo_titulo_e_nao_cola_legenda():
         "Antes.\n\nOutro parágrafo antes.\n\nSíntese\n\nPrimeira. Segunda.\n"
         "Figura X – Legenda.\n\nTerceira.\n\n#!Fontes\n\nFonte um.\n\nFonte dois."
     )
+
+
+def test_paragrafos_do_tema_interpreta_condicao_e_substitui():
+    texto = (
+        "Para quando $pop for maior que 10:\nGrande $nm_mun.\n\n"
+        "Para quando $pop for menor ou igual a 10:\nPequena.\n\nFim."
+    )
+    contexto = {"pop": 20, "nm_mun": "X"}
+    assert paragrafos_do_tema(texto, contexto, "demografia") == ["Grande X.", "Fim."]
+
+
+def test_paragrafos_do_tema_tira_grafico_sem_mencao_so_em_saude():
+    texto_figura = "Texto sem citar.\n\n*grafico_x\n\nFigura Z - Legenda.\n"
+    assert not any("grafico_x" in p for p in paragrafos_do_tema(texto_figura, {}, "saude"))
+    assert any("grafico_x" in p for p in paragrafos_do_tema(texto_figura, {}, "demografia"))
