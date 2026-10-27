@@ -1,0 +1,14 @@
+inicio_relatorio = “RELATÓRIO PERSONALIZADO
+caract_mun.$nm_mun (caract_mun.$sigla_uf) EM DADOS” @@
+
+
+
+
+relatorio_geral= “        Este relatório apresenta uma síntese da situação atual do município de caract_mun.$nm_mun, localizado no estado caract_mun.$estado (caract_mun.$sigla_uf), por meio da seleção de temas e de indicadores consolidados que foram coletados nas bases de dados oficiais e organizados na plataforma Data Nordeste. O propósito é que o relatório sirva como base estratégica para o planejamento, a atração de investimentos e a tomada de decisões de gestores, de pesquisadores e de cidadãos.”@@
+
+resumo_cidade= “        O município de caract_mun.$nm_mun (caract_mun.$sigla_uf) está inserido na região caract_mun.$regiao do Brasil (Figura X) e integra a Região Geográfica Imediata de caract_mun.$nm_rgi, conforme a divisão regional estabelecida pelo Instituto Brasileiro de Geografia e Estatística (IBGE). Esse município possui área territorial de caract_mun.$area km² e está inserido caract_mun.$bioma.” @@
+
+
+
+
+Figura X- Localização do município de caract_mun.$nm_mun (caract_mun.$sigla_uf).

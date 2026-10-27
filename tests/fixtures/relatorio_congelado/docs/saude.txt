@@ -1,0 +1,103 @@
+descricao_tema = “As condições de saúde de uma população são determinadas por um conjunto de fatores biológicos, sociais, econômicos e ambientais, bem como pelo acesso e pela qualidade dos serviços de saúde. Nesse contexto, indicadores como a cobertura vacinal, a disponibilidade de estabelecimentos de saúde e a taxa de mortalidade infantil constituem importantes medidas para avaliar a capacidade do sistema de saúde, monitorar as condições de vida e subsidiar a formulação de políticas públicas voltadas à promoção da saúde, à prevenção de doenças e à redução das desigualdades.
+
+
+saude.$nm_mun (saude.$sigla_uf), em 2025, registrou saude.$dose_aplicada doses de vacinas aplicadas para uma população-alvo de saude.$pop_alvo_vacina pessoas. Neste relatório, foram considerados 19 tipos de vacinas, dos quais 17 possuíam meta de cobertura vacinal estabelecida. As outras duas, Hepatite B em crianças com até 1 dia e com até 2 dias de vida, não possuíam meta. Das 17 vacinas com meta, saude.$qtd_vacinas_meta_atingida a meta de cobertura vacinal estabelecida. Além disso, a cobertura apresentou diferenças entre a quantidade de vacinas aplicadas e seus respectivos públicos-alvo (Figura X).
+
+
+   *grafico_publico_etario
+
+
+
+Figura X - Metas e doses aplicadas por público-alvo etário para saude.$nm_mun (saude.$sigla_uf), em 2025.
+
+
+Para quando saude.$vacina_maior1_per for maior que 100, então:
+        Entre as vacinas com meta estabelecida, as maiores coberturas foram registradas para saude.$vacina_maior1 (saude.$vacina_maior1_per%) e saude.$vacina_maior2 (saude.$vacina_maior2_per%), enquanto entre as menores estavam saude.$vacina_menor1 (saude.$vacina_menor1_per%), saude.$vacina_menor2 (saude.$vacina_menor2_per%) e saude.$vacina_menor3 (saude.$vacina_menor3_per%), conforme a Figura Y. As coberturas superiores a 100% indicam que o número de doses consideradas no cálculo foi maior que a população-alvo estimada para essas vacinas. Essa situação pode ocorrer em razão de diferenças entre a população efetivamente vacinada e o denominador utilizado no cálculo, incluindo o atendimento de pessoas não residentes no município e possíveis diferenças entre as estimativas populacionais e a população efetivamente alcançada pela vacinação.
+Para quando saude.$vacina_maior1_per for menor ou igual a 100, então:
+        Entre as vacinas com meta estabelecida, as maiores coberturas foram registradas para saude.$vacina_maior1 (saude.$vacina_maior1_per%) e saude.$vacina_maior2 (saude.$vacina_maior2_per%), enquanto entre as menores estavam saude.$vacina_menor1 (saude.$vacina_menor1_per%), saude.$vacina_menor2  (saude.$vacina_menor2_per%) e saude.$vacina_menor3 (saude.$vacina_menor3_per%), conforme a Figura Y.
+
+*grafico_cobertura_vacinal
+
+
+
+Figura Y - Taxa de cobertura vacinal por tipo de vacina e suas respectivas metas de cobertura vacinal para saude.$nm_mun (saude.$sigla_uf), em 2025.
+Para quando saude.$mortalidade_2024 for igual a 0 e saude.$mortalidade_2025 for igual a 0 e (saude.$mortalidade_2010 for diferente de 0 ou saude.$mortalidade_2020 for diferente de  0 ou saude.$mortalidade_2021 for diferente de 0 ou saude.$mortalidade_2022 for diferente de  0 ou saude.$mortalidade_2023 for diferente de 0), então:
+Em relação à mortalidade infantil, saude.$nm_mun (saude.$sigla_uf) não registrou, em 2025, óbitos de crianças menores de um ano entre os saude.$nascidos nascidos vivos, resultando em taxa de mortalidade infantil igual a zero. Assim, o município ficou abaixo da média dos municípios de mesmo porte populacional (saude.$media_porte_mortalidade por mil nascidos vivos) e da média nacional (saude.$mortalidade_nacional por mil nascidos vivos). Como em 2024 também não houve registro de óbitos de crianças menores de um ano, a taxa se manteve em zero, que foi o menor valor da série histórica apresentada, registrado em saude.$ano_menor_mortalidade (Figura Z).
+
+Para quando saude.$mortalidade_2024 for igual a 0 e saude.$mortalidade_2025 for diferente de 0, então:
+Em relação à mortalidade infantil, saude.$nm_mun (saude.$sigla_uf) registrou, em 2025, saude.$obitos_singular_plural de crianças menores de um ano e saude.$nascidos nascidos vivos, correspondendo a uma taxa de mortalidade infantil de saude.$mortalidade_2025_singular_plural por mil nascidos vivos. Essa taxa foi saude.$analise_porte_mortalidade à média dos municípios de mesmo porte populacional (saude.$media_porte_mortalidade por mil nascidos vivos) e saude.$analise_nacional_mortalidade da média nacional (saude.$mortalidade_nacional por mil nascidos vivos), permitindo situar o desempenho do município em relação a outros territórios. O indicador apresentou saude.$analise_mortalidade_2024_2025 em relação a 2024, quando não houve registro de óbitos de crianças menores de um ano. O menor valor da série histórica apresentada foi registrado em saude.$ano_menor_mortalidade (Figura Z).
+
+Para quando saude.$mortalidade_2024 for diferente de 0 e saude.$mortalidade_2025 for igual a 0, então:
+Em relação à mortalidade infantil, saude.$nm_mun (saude.$sigla_uf) não registrou, em 2025, óbitos de crianças menores de um ano entre os saude.$nascidos nascidos vivos, resultando em taxa de mortalidade infantil igual a zero. Assim, o município ficou abaixo da média dos municípios de mesmo porte populacional (saude.$media_porte_mortalidade por mil nascidos vivos) e da média nacional (saude.$mortalidade_nacional por mil nascidos vivos). Em 2024, a taxa era de saude.$mortalidade_2024_singular_plural por mil nascidos vivos, e a taxa nula registrada em 2025 foi o menor valor da série histórica apresentada, alcançado em saude.$ano_menor_mortalidade (Figura Z).
+
+Para quando saude.$mortalidade_2024 for diferente de 0 e saude.$mortalidade_2025 for diferente de 0 e saude.$var_mortalidade_per for diferente de 0, então:
+Em relação à mortalidade infantil, saude.$nm_mun (saude.$sigla_uf) registrou, em 2025, saude.$obitos_singular_plural de crianças menores de um ano e saude.$nascidos nascidos vivos, correspondendo a uma taxa de mortalidade infantil de saude.$mortalidade_2025_singular_plural por mil nascidos vivos. Essa taxa foi saude.$analise_porte_mortalidade à média dos municípios de mesmo porte populacional (saude.$media_porte_mortalidade por mil nascidos vivos) e saude.$analise_nacional_mortalidade da média nacional (saude.$mortalidade_nacional por mil nascidos vivos), permitindo situar o desempenho do município em relação a outros territórios. O indicador apresentou saude.$analise_mortalidade_2024_2025 em relação a 2024, quando a taxa era de saude.$mortalidade_2024_singular_plural por mil nascidos vivos. O menor valor da série histórica apresentada foi registrado em saude.$ano_menor_mortalidade (Figura Z).
+
+Para quando saude.$mortalidade_2024 for diferente de 0 e saude.$mortalidade_2025 for diferente de 0 e saude.$var_mortalidade_per for igual a 0, então:
+Em relação à mortalidade infantil, saude.$nm_mun (saude.$sigla_uf) registrou, em 2025, saude.$obitos_singular_plural de crianças menores de um ano e saude.$nascidos nascidos vivos, correspondendo a uma taxa de mortalidade infantil de saude.$mortalidade_2025_singular_plural por mil nascidos vivos. Essa taxa foi saude.$analise_porte_mortalidade à média dos municípios de mesmo porte populacional (saude.$media_porte_mortalidade por mil nascidos vivos) e saude.$analise_nacional_mortalidade da média nacional (saude.$mortalidade_nacional por mil nascidos vivos), permitindo situar o desempenho do município em relação a outros territórios.  O indicador manteve o mesmo valor registrado em 2024. O menor valor da série histórica apresentada foi registrado em saude.$ano_menor_mortalidade (Figura Z).
+*grafico_taxa_mortalidade
+
+
+
+Figura Z - Histórico da taxa de mortalidade infantil em saude.$nm_mun (saude.$sigla_uf).
+
+
+Para quando saude.$mortalidade_2010 for igual a 0, saude.$mortalidade_2020 for igual a 0, saude.$mortalidade_2021 for igual a 0, saude.$mortalidade_2022 for igual a 0, saude.$mortalidade_2023 for igual a 0, saude.$mortalidade_2024 for igual a 0 e saude.$mortalidade_2025 for igual a 0, então:
+Em relação à mortalidade infantil, saude.$nm_mun (saude.$sigla_uf) registrou, em 2025, saude.$obitos_singular_plural de crianças menores de um ano e saude.$nascidos nascidos vivos, correspondendo a uma taxa de mortalidade infantil de saude.$mortalidade_2025_singular_plural por mil nascidos vivos. Essa taxa foi saude.$analise_porte_mortalidade à média dos municípios de mesmo porte populacional (saude.$media_porte_mortalidade por mil nascidos vivos) e saude.$analise_nacional_mortalidade da média nacional (saude.$mortalidade_nacional por mil nascidos vivos), permitindo situar o desempenho do município em relação a outros territórios. Esse resultado também foi observado em 2010 e nos anos de 2020 a 2024, quando a taxa de mortalidade infantil permaneceu igual a zero.
+
+
+Para quando saude.$var_estabel_2010_2025 for diferente de 0, então:
+Quanto à rede de estabelecimentos de saúde, saude.$nm_mun (saude.$sigla_uf) possuía, em 2025, saude.$estabelecimento_2025 unidades, ante saude.$estabelecimento_2010 em 2010, o que representava saude.$analise_estabel_2010_2025 de saude.$var_estabel_2010_2025% (Figura Q). Entre os tipos de estabelecimentos cadastrados, em 2025, destacaram-se: saude.$analise_estabelecimento
+
+Para quando saude.$var_estabel_2010_2025 for igual a 0, então:
+Quanto à rede de estabelecimentos de saúde, saude.$nm_mun (saude.$sigla_uf) possuía, em 2025, saude.$estabelecimento_2025 unidades, o mesmo número registrado em 2010 (Figura Q). Entre os tipos de estabelecimentos cadastrados, em 2025, destacaram-se: saude.$analise_estabelecimento
+
+Para quando saude.$ubs_10mil for diferente de 0, então:
+O município dispunha de saude.$ubs_10mil Unidades Básicas de Saúde para cada 10 mil habitantes, considerando a população municipal estimada para o mesmo ano.
+Para quando saude.$ubs_10mil for igual a 0, então:
+Não havia estabelecimentos classificados como Unidades Básicas de Saúde (UBS) cadastrados no município em 2025. Esse resultado não indica, por si só, ausência de atenção básica, que pode ser ofertada em outros tipos de estabelecimento, como os Postos de Saúde.
+
+
+
+
+*grafico_de_estabelecimento
+
+
+Figura Q - Histórico do número de Estabelecimentos de Saúde em saude.$nm_mun (saude.$sigla_uf).
+
+Síntese
+Para quando saude.$vacina_meta for igual a todas, então:
+Em saude.$nm_mun (saude.$sigla_uf), todas as vacinas analisadas que possuíam meta atingiram a cobertura vacinal estabelecida.
+Para quando saude.$vacina_meta for igual a nenhuma, então:
+Em saude.$nm_mun (saude.$sigla_uf), nenhuma das vacinas analisadas que possuíam meta atingiu a cobertura vacinal estabelecida.
+
+Para quando saude.$vacina_meta for diferente de todas e saude.$vacina_meta for diferente de nenhuma, então:
+Em 2025, a cobertura de imunização em saude.$nm_mun (saude.$sigla_uf) variou conforme o público-alvo, com metas atingidas para saude.$vacina_meta, enquanto a cobertura vacinal ficou abaixo das metas estabelecidas para saude.$vacina_nao_meta.
+ Para quando saude.$var_estabel_2010_2025 for diferente de 0, então:
+A taxa de mortalidade infantil saude.$analise_mortalidade no período recente e ficou saude.$analise_nacional_mortalidade da média nacional (saude.$mortalidade_nacional óbitos a cada mil nascidos vivos). O número de estabelecimentos de saúde saude.$var_estabel_analise entre 2010 e 2025 (variação de saude.$var_estabel_2010_2025%). Em conjunto, esses resultados apontam os avanços e os pontos de atenção do município e oferecem informações para diagnósticos, projetos, programas e políticas públicas de saúde.
+
+Para quando saude.$var_estabel_2010_2025 for igual a 0, então:
+A taxa de mortalidade infantil saude.$analise_mortalidade no período recente e ficou saude.$analise_nacional_mortalidade da média nacional (saude.$mortalidade_nacional óbitos a cada mil nascidos vivos). O número de estabelecimentos de saúde manteve-se estável entre 2010 e 2025. Em conjunto, esses resultados apontam os avanços e os pontos de atenção do município e oferecem informações para diagnósticos, projetos, programas e políticas públicas de saúde.”@@
+
+#!Fontes
+
+Os dados deste relatório foram extraídos dos seguintes painéis de dados do Data Nordeste:
+saude.“$nm_painel1” =https://datanordeste.sudene.gov.br/data-panel/estabelecimentos
+saude.“$nm_painel2” = https://datanordeste.sudene.gov.br/data-panel/imunizacao
+saude.“$nm_painel3” =https://datanordeste.sudene.gov.br/data-panel/mortalidade
+
+As informações desses painéis têm origem nas seguintes instituições:
+
+* Ministério da Saúde; e
+* Instituto Brasileiro de Geografia e Estatística (IBGE).
+
+
+Todos os dados estão disponíveis para download no catálogo de dados do Data Nordeste.
+
+
+#!Conteúdos relacionados
+
+Para saber mais sobre este tema, consulte os seguintes conteúdos do Data Nordeste:
+
+saude.“$nm_boletim1” =  https://datanordeste.sudene.gov.br/boletim/5kDxfWbNP97XNiTI97EDzw
+saude.“$nm_boletim2” = https://datanordeste.sudene.gov.br/boletim/5DFbSDVq3pJIyuMxC4Bgqs

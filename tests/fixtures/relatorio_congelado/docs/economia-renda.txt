@@ -1,0 +1,135 @@
+descricao_tema = “Os indicadores econômicos permitem compreender o tamanho, a estrutura da economia de economia.$nm_mun (economia.$sigla_uf) e a sua inserção no comércio internacional. Essas informações podem apoiar decisões relacionadas ao desenvolvimento econômico, à atração de investimentos, à qualificação profissional e ao fortalecimento de atividades produtivas.
+Em 2023, economia.$nm_mun (economia.$sigla_uf) registrou Produto Interno Bruto (PIB) total de R$ economia.$pib_2023 economia.$pib_unid_2023 e um PIB per capita de  R$ economia.$pibcapita_2023 economia.$pibcapita_unid_2023.  A trajetória do PIB demonstrou que houve economia.$analise1_pib nominal de R$ economia.$diferenca_pib_2010_2023 economia.$diferenca_pib_2010_2023unid de 2010 para 2023, considerando que, em 2010, o PIB era de R$ economia.$pib_2010 economia.$pib_unid_2010, representando economia.$analise1_pib de economia.$pib_per_2010_2023% no período (Figura X).
+
+*grafico_pib
+
+
+
+Figura X - Evolução anual do PIB total de economia.$nm_mun (economia.$sigla_uf), 2010 a 2023.
+
+A composição da economia ajuda a identificar quais atividades têm maior participação na geração de riqueza municipal. Em 2021, o setor economia.$setor2021_maior1 apresentou a maior contribuição para a economia de economia.$nm_mun (economia.$sigla_uf), com R$ economia.$setor2021_maior1_vab economia.$setor2021_maior1unid, seguido economia.$setor2021_maior2, com R$ economia.$setor2021_maior2_vab economia.$setor2021_maior2unid, e economia.$setor2021_maior3, com R$ economia.$setor2021_maior3_vab economia.$setor2021_maior3unid, conforme a Figura X.
+
+*grafico_vab
+
+
+Figura X – Valor Adicionado Bruto (VAB) por setor em economia.$nm_mun (economia.$sigla_uf), 2021.
+
+Para quando economia.$valor_pais_importado4 for diferente de 0, então:
+No comércio internacional, em economia.$ultimo_mes_ano, as empresas com domicílio fiscal em economia.$nm_mun (economia.$sigla_uf) importaram aproximadamente US$ economia.$fob_importado_ultimo economia.$fob_importado_ultimo_unid, correspondentes a economia.$kg_importado_ultimo economia.$kg_importado_ultimo_unid kg de produtos. economia.$pais_importado1 (US$ economia.$valor_pais_importado1 economia.$valor_pais_importado_unid1) e economia.$pais_importado2 (US$ economia.$valor_pais_importado2 economia.$valor_pais_importado_unid2) foram as principais origens das importações, seguidas por economia.$pais_importado3 (US$ economia.$valor_pais_importado3 economia.$valor_pais_importado_unid3) e economia.$pais_importado4 (US$ economia.$valor_pais_importado4 economia.$valor_pais_importado_unid4), conforme a Figura X.
+
+Para quando economia.$valor_pais_importado3 for diferente de 0 e economia.$valor_pais_importado4 for igual a 0, então:
+No comércio internacional, em economia.$ultimo_mes_ano, as empresas com domicílio fiscal em economia.$nm_mun (economia.$sigla_uf) importaram aproximadamente US$ economia.$fob_importado_ultimo economia.$fob_importado_ultimo_unid, correspondentes a economia.$kg_importado_ultimo economia.$kg_importado_ultimo_unid kg de produtos. economia.$pais_importado1 (US$ economia.$valor_pais_importado1 economia.$valor_pais_importado_unid1) e economia.$pais_importado2 (US$ economia.$valor_pais_importado2 economia.$valor_pais_importado_unid2) foram as principais origens das importações, seguidas por economia.$pais_importado3 (US$ economia.$valor_pais_importado3 economia.$valor_pais_importado_unid3), conforme Figura X.
+
+Para quando economia.$valor_pais_importado2 for diferente de 0 e economia.$valor_pais_importado3 for igual a 0, então:
+No comércio internacional, em economia.$ultimo_mes_ano, as empresas com domicílio fiscal em economia.$nm_mun (economia.$sigla_uf) importaram aproximadamente US$ economia.$fob_importado_ultimo economia.$fob_importado_ultimo_unid, correspondentes a economia.$kg_importado_ultimo economia.$kg_importado_ultimo_unid kg de produtos. economia.$pais_importado1 (US$ economia.$valor_pais_importado1 economia.$valor_pais_importado_unid1) e economia.$pais_importado2 (US$ economia.$valor_pais_importado2 economia.$valor_pais_importado_unid2) foram as únicas origens registradas das importações (Figura X).
+
+Para quando economia.$valor_pais_importado1 for diferente de 0 e economia.$valor_pais_importado2 for igual a 0, então:
+No comércio internacional, em economia.$ultimo_mes_ano, as empresas com domicílio fiscal em economia.$nm_mun (economia.$sigla_uf) importaram aproximadamente US$ economia.$fob_importado_ultimo economia.$fob_importado_ultimo_unid, correspondentes a economia.$kg_importado_ultimo economia.$kg_importado_ultimo_unid kg de produtos. economia.$pais_importado1 (US$ economia.$valor_pais_importado1 economia.$valor_pais_importado_unid1) foi a única origem registrada das importações (Figura X).
+
+Para quando economia.$valor_secao_importado2 for diferente de 0, então:
+Observando os produtos importados, destacaram-se os grupos de “economia.$secao_importado1”, com cerca de US$ economia.$valor_secao_importado1 economia.$valor_secao_importado_unid1 importados, e de “economia.$secao_importado2”, com US$ economia.$valor_secao_importado2 economia.$valor_secao_importado_unid2.
+
+Para quando economia.$valor_secao_importado1 for diferente de 0 e economia.$valor_secao_importado2 for igual a 0, então:
+Observando os produtos importados, destacou-se o grupo de “economia.$secao_importado1”, com cerca de US$ economia.$valor_secao_importado1 economia.$valor_secao_importado_unid1 importados.
+
+Para quando economia.$fob_importado_ultimo for igual a 0 e economia.$fob_exportado_ultimo for igual a 0, então:
+Em economia.$ultimo_mes_ano, não foram registradas importações e exportações por empresas com domicílio fiscal em economia.$nm_mun (economia.$sigla_uf).
+
+Para quando economia.$fob_importado_ultimo for diferente de 0, então:
+
+
+%%grafico_fob
+
+
+Figura X - Origem(ns) das importações pelo valor líquido FOB (US$) para o município de economia.$nm_mun (economia.$sigla_uf), economia.$ultimo_mes_ano.
+
+Para quando economia.$valor_produto_importado2 for diferente de 0, então:
+Os produtos com maior valor de importação foram “economia.$produto_importado1”, com US$ economia.$valor_produto_importado1 economia.$valor_produto_importadounid1, e “economia.$produto_importado2”, com US$ economia.$valor_produto_importado2 economia.$valor_produto_importadounid2. Quanto ao peso, sobressaíram-se os seguintes produtos: “economia.$produto_importado_kg1”, com economia.$kg_importado_produto1 economia.$kg_importado_produtounid1 kg, e “economia.$produto_importado_kg2”, com economia.$kg_importado_produto2 economia.$kg_importado_produtounid2 kg.
+
+Para quando economia.$valor_produto_importado1 for diferente de 0 e economia.$valor_produto_importado2 for igual a 0, então:
+O único grupo de produtos com valor de importação registrado foi “economia.$produto_importado1”, com US$ economia.$valor_produto_importado1 economia.$valor_produto_importadounid1, correspondentes a economia.$kg_importado_produto1 economia.$kg_importado_produtounid1 kg.
+
+Para quando economia.$valormedio_importado_jan for diferente de 0 e economia.$valormedio_importado_ultimo for diferente de 0, então:
+O valor médio das importações passou de US$ economia.$valormedio_importado_jan economia.$valormedio_importado_janunid por quilograma em janeiro para US$ economia.$valormedio_importado_ultimo economia.$valormedio_importado_ultimounid por quilograma em economia.$ultimo_mes_ano, apresentando economia.$analise_importado_janultimo entre o início e o final do período analisado.
+
+Para quando economia.$fob_exportado_ultimo for diferente de 0, então:
+Do lado da exportação, em economia.$ultimo_mes_ano, economia.$nm_mun (economia.$sigla_uf) exportou aproximadamente US$ economia.$fob_exportado_ultimo economia.$fob_exportado_ultimo_unid, correspondentes a economia.$kg_exportado economia.$kg_exportado_unid kg de produtos. As exportações apresentaram maior concentração na seção de “economia.$secao_exportacao1”, responsável por aproximadamente US$ economia.$valor_exportacao_secao1 economia.$valor_exportacao_secao1unid do valor exportado.
+
+Para quando economia.$valor_pais_exportacao4 for diferente de 0, então:
+As exportações também alcançaram diferentes mercados internacionais. Em economia.$ultimo_mes_ano, economia.$pais_exportacao1 e economia.$pais_exportacao2 foram os dois principais destinos em valor, com US$ economia.$valor_pais_exportacao1 economia.$valor_pais_exportacaounid1 e US$ economia.$valor_pais_exportacao2 economia.$valor_pais_exportacaounid2, respectivamente, seguidos por economia.$pais_exportacao3 (US$ economia.$valor_pais_exportacao3 economia.$valor_pais_exportacaounid3) e economia.$pais_exportacao4 (US$ economia.$valor_pais_exportacao4 economia.$valor_pais_exportacaounid4), conforme a Figura X.
+
+Para quando economia.$valor_pais_exportacao3 for diferente de 0 e economia.$valor_pais_exportacao4 for igual a 0, então:
+As exportações também alcançaram diferentes mercados internacionais. Em economia.$ultimo_mes_ano, economia.$pais_exportacao1 e economia.$pais_exportacao2 foram os dois principais destinos em valor, com US$ economia.$valor_pais_exportacao1 economia.$valor_pais_exportacaounid1 e US$ economia.$valor_pais_exportacao2 economia.$valor_pais_exportacaounid2, respectivamente, seguidos por economia.$pais_exportacao3 (US$ economia.$valor_pais_exportacao3 economia.$valor_pais_exportacaounid3), conforme a Figura X.
+
+Para quando economia.$valor_pais_exportacao2 for diferente de 0 e economia.$valor_pais_exportacao3 for igual a 0, então:
+As exportações alcançaram um número restrito de mercados internacionais. Em economia.$ultimo_mes_ano, economia.$pais_exportacao1 (US$ economia.$valor_pais_exportacao1 economia.$valor_pais_exportacaounid1) e economia.$pais_exportacao2 (US$ economia.$valor_pais_exportacao2 economia.$valor_pais_exportacaounid2) foram os únicos destinos registrados (Figura X). Essa concentração indica uma inserção internacional pouco diversificada.
+
+Para quando economia.$valor_pais_exportacao1 for diferente de 0 e economia.$valor_pais_exportacao2 for igual a 0, então:
+Em economia.$ultimo_mes_ano, as exportações do município tiveram um único destino registrado: economia.$pais_exportacao1 (US$ economia.$valor_pais_exportacao1 economia.$valor_pais_exportacaounid1), conforme a Figura X. A concentração total das vendas externas em um só mercado indica uma inserção internacional muito restrita.
+
+
+
+
+Para quando economia.$fob_exportado_ultimo for diferente de 0, então:
+Ao interpretar esses registros, cabe considerar que, em alguns casos, o Brasil pode aparecer como destino nas estatísticas de exportação, em razão de operações específicas, como exportações sem saída física da mercadoria do território nacional ou fornecimento de produtos para consumo a bordo de embarcações e aeronaves. Considerando essas particularidades, a distribuição dos destinos, associada à composição dos produtos exportados, permite identificar a concentração das exportações registradas em determinados produtos e países.
+
+Para quando economia.$fob_exportado_ultimo  for diferente de 0, então:
+%%grafico_exportacao
+
+
+Figura X - Destinos das exportações ordenados pelo valor líquido FOB (US$) para o município de economia.$nm_mun (economia.$sigla_uf), economia.$ultimo_mes_ano.
+
+Para quando economia.$fob_exportado_ultimo for diferente de 0 e economia.$fob_importado_ultimo for diferente de 0, então:
+Assim, analisando o saldo da balança comercial de economia.$nm_mun (economia.$sigla_uf) no mês de economia.$ultimo_mes_ano, verificou-se um economia.$analise_balanca1  de US$ economia.$valor_balanca1_abs economia.$valor_balanca1unid. Além disso, de economia.$balanca_mes_inicial a economia.$balanca_mes_final de economia.$ultimo_junho, o saldo acumulado na balança comercial foi um economia.$analise_balanca_acumulado de US$ economia.$valor_balanca_acumulado economia.$valor_balanca_acumuladounid (Figura X).
+
+%%grafico_balanca
+
+
+Figura X - Visão mensal da balança comercial de  economia.$nm_mun (economia.$sigla_uf), economia.$balanca_mes_inicial a economia.$balanca_mes_final de economia.$ultimo_junho.
+
+Síntese
+
+Para quando economia.$fob_exportado_ultimo for diferente de 0 e economia.$fob_importado_ultimo for diferente de 0, então:
+Em síntese, os indicadores mostravam que, em 2021, economia.$nm_mun (economia.$sigla_uf) possuía uma economia fortemente baseada no setor economia.$setor2021_maior1, que era o que mais contribuía para a geração de riqueza no município, e registrava PIB de R$ economia.$pib_2023 economia.$pib_unid_2023, em 2023. No comércio exterior, em economia.$ultimo_mes_ano, observou-se um volume de exportações de US$ economia.$fob_exportado_ultimo economia.$fob_exportado_ultimo_unid e de importações de US$ economia.$fob_importado_ultimo economia.$fob_importado_ultimo_unid, resultando em economia.$analise_balanca1 comercial de US$ economia.$valor_balanca1_abs economia.$valor_balanca1unid.
+
+Para quando economia.$fob_exportado_ultimo for igual a 0 e economia.$fob_importado_ultimo for igual a 0, então:
+Em síntese, os indicadores mostravam que  economia.$nm_mun (economia.$sigla_uf) possuía uma economia fortemente baseada no setor  economia.$setor2021_maior1, que era o que mais contribuía para a geração de riqueza no município, e registrava PIB de R$ economia.$pib_2023 economia.$pib_unid_2023, em 2023. Em relação ao comércio exterior, não houve atividades de importação e de exportação registradas no último período considerado.
+
+
+Para quando economia.$fob_exportado_ultimo for igual a 0 e economia.$fob_importado_ultimo for diferente de 0, então:
+Em síntese, os indicadores mostravam que  economia.$nm_mun (economia.$sigla_uf) possuía uma economia fortemente baseada no setor  economia.$setor2021_maior1, que era o que mais contribuía para a geração de riqueza no município, e registrava PIB de R$ economia.$pib_2023 economia.$pib_unid_2023, em 2023. Em relação ao comércio exterior, não houve registros de exportações no município e foram registradas importações no valor de US$ economia.$fob_importado_ultimo economia.$fob_importado_ultimo_unid, em economia.$ultimo_mes_ano.
+
+
+Para quando economia.$fob_exportado_ultimo for diferente de 0 e economia.$fob_importado_ultimo for igual a 0, então:
+Em síntese, os indicadores mostravam que  economia.$nm_mun (economia.$sigla_uf) possuía uma economia fortemente baseada no setor  economia.$setor2021_maior1, que era o que mais contribuía para a geração de riqueza no município, e registrava PIB de R$ economia.$pib_2023 economia.$pib_unid_2023, em 2023. Em relação ao comércio exterior, foram registradas exportações no valor de US$ economia.$fob_exportado_ultimo economia.$fob_exportado_ultimo_unid e não houve registros de importações no município, em economia.$ultimo_mes_ano.
+
+
+
+#!Fontes
+
+Os dados deste relatório foram extraídos dos seguintes painéis de dados do Data Nordeste:
+
+economia.“$painel1” = https://datanordeste.sudene.gov.br/data-panel/importacao_exportacao
+
+economia.“$painel2” = https://datanordeste.sudene.gov.br/data-panel/pib
+
+economia.“$painel3” = https://datanordeste.sudene.gov.br/data-panel/exportacao
+
+economia.“$painel4” = https://datanordeste.sudene.gov.br/data-panel/importacao
+
+As informações desses painéis têm origem nas seguintes instituições:
+
+•         Instituto Brasileiro de Geografia e Estatística (IBGE);
+•         Secretaria do Tesouro Nacional (STN) do Ministério da Fazenda; e
+•         Secretaria de Comércio Exterior (SECEX) do Ministério do Desenvolvimento, Indústria, Comércio e Serviços (MDIC).
+
+Todos os dados estão disponíveis para download no catálogo de dados do Data Nordeste.
+
+
+#!Conteúdos relacionados
+
+Para saber mais sobre este tema, consulte os seguintes conteúdos do Data Nordeste:
+
+economia.“$boletim1” =  https://datanordeste.sudene.gov.br/boletim/4stpvtzkvFG1G5yZTNVz12
+
+economia.“$boletim2” = https://datanordeste.sudene.gov.br/boletim/43EWIrip3GP1CFmpxwkYyC

@@ -1,0 +1,47 @@
+descricao_tema = “Indicadores de desenvolvimento social permitem analisar as condições de vida da população e acompanhar os níveis de desenvolvimento humano nos territórios. O Índice de Desenvolvimento Humano Municipal (IDHM) considera três dimensões, Educação, Longevidade e Renda, e varia de 0 a 1, sendo que valores mais elevados representam melhores condições de desenvolvimento humano.
+Em 2010, último ano disponível para esse dado, desen_social.$nm_mun (desen_social.$sigla_uf) apresentou IDHM de desen_social.$idhm_2010, correspondente à faixa de desen_social.$idhm_classe_2010 desenvolvimento humano. Entre 1991 e 2010, foi registrado desen_social.$analise1_idhm do IDHM de desen_social.$var_idhm_per_1991_2010%, passando de desen_social.$idhm_1991 em 1991 para desen_social.$idhm_2000 em 2000 e desen_social.$idhm_2010 em 2010 (Figura X).
+A análise das dimensões que compõem o IDHM permite identificar diferenças internas no desenvolvimento do município. Nesse contexto, em 2010, a desen_social.$nomesubindice1_2010 apresentou o maior valor entre os três subíndices, com desen_social.$subindice1_2010, seguida pela desen_social.$nomesubindice2_2010, com desen_social.$subindice2_2010, enquanto a desen_social.$nomesubindice3_2010 registrou o menor valor, com desen_social.$subindice3_2010. Dessa forma, a desen_social.$nomesubindice3_2010 aparece como a dimensão com resultado menos favorável entre os três componentes do IDHM, informação que pode contribuir para a identificação de áreas que demandam maior atenção no planejamento de políticas públicas.
+
+
+*grafico_de_desenvolvimento_social
+
+
+
+
+Figura X - Índice de Desenvolvimento Humano Municipal de desen_social.$nm_mun (desen_social.$sigla_uf) para os anos de 1991, 2000 e 2010.
+Além do nível de desenvolvimento humano, a distribuição de renda constitui uma dimensão importante para compreender as condições socioeconômicas do território. Em 2010, desen_social.$nm_mun (desen_social.$sigla_uf) apresentou Índice de Gini de desen_social.$gini_2010, desen_social.$analise_gini em relação ao valor de desen_social.$gini_1991 registrado em 1991. Esse indicador varia de 0 a 1: quanto mais próximo de 0, mais igualitária é a distribuição da renda e quanto mais próximo de 1, maior é a desigualdade. No mesmo ano, a renda per capita do município era de R$ desen_social.$renda_2010.
+Síntese
+Para quando desen_social.$gini_2010 for maior e igual a 0,5, então:
+desen_social.$nm_mun (desen_social.$sigla_uf) alcançou IDHM de desen_social.$idhm_2010 em 2010, após avançar de desen_social.$idhm_1991 em 1991 e desen_social.$idhm_2000 em 2000. Entre as dimensões que compõem o índice, a desen_social.$nomesubindice1_2010 apresentou o resultado mais elevado (desen_social.$subindice1_2010), enquanto a desen_social.$nomesubindice3_2010 registrou o menor (desen_social.$subindice3_2010). Ao mesmo tempo, o Índice de Gini de desen_social.$gini_2010 acrescenta à análise a dimensão da desigualdade de renda. Esse conjunto de resultados evidencia uma desen_social.$analise2_idhm entre 1991 e 2010, além de indicar que a desen_social.$nomesubindice3_2010 e a desigualdade de renda permanecem como os principais desafios do município, devendo orientar a definição de prioridades em projetos, programas e políticas públicas.
+Para quando desen_social.$gini_2010 for menor que 0,5, então:
+desen_social.$nm_mun (desen_social.$sigla_uf) apresentou IDHM de desen_social.$idhm_2010 em 2010, após registrar desen_social.$idhm_1991 em 1991 e desen_social.$idhm_2000 em 2000. Entre as dimensões que compõem o índice, a desen_social.$nomesubindice1_2010 apresentou o resultado mais elevado (desen_social.$subindice1_2010), enquanto a desen_social.$nomesubindice3_2010 registrou o menor (desen_social.$subindice3_2010). Ao mesmo tempo, o Índice de Gini de desen_social.$gini_2010 acrescenta à análise a dimensão da desigualdade de renda. Esse conjunto de resultados evidencia uma desen_social.$analise2_idhm entre 1991 e 2010, além de indicar que a desen_social.$nomesubindice3_2010 permanece como o principal desafio do município, devendo orientar a definição de prioridades em projetos, programas e políticas públicas.
+
+
+#!Fontes
+
+
+Os dados deste relatório foram extraídos do seguinte painel de dados do Data Nordeste:
+
+
+desen_social.”$nm_painel1” = https://datanordeste.sudene.gov.br/data-panel/idhm
+
+
+As informações desse painel têm origem nas seguintes instituições:
+
+
+* Programa das Nações Unidas para o Desenvolvimento (PNUD);
+* Instituto de Pesquisa Econômica Aplicada (Ipea); e
+* Fundação João Pinheiro (FJP).
+
+
+Todos os dados estão disponíveis para download no catálogo de dados do Data Nordeste.
+
+
+#!Conteúdos relacionados
+
+
+Para saber mais sobre este tema, consulte os seguintes conteúdos do Data Nordeste:
+
+
+desen_social.“$nm_datastory1”=https://datanordeste.sudene.gov.br/data-stories/2072ff402a554914b16074fd440e2159
+desen_social.“$nm_datastory2” =https://datanordeste.sudene.gov.br/boletim/4stpvtzkvFG1G5yZTNVz12
