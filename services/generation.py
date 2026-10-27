@@ -3,6 +3,7 @@ import os
 import re
 import tempfile
 import unicodedata
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
@@ -727,6 +728,78 @@ def montar_contexto_tema(
 
 
 
+@dataclass(frozen=True)
+class SecoesTema:
+    resumo_tema: str | None
+    relatorio_geral: str | None
+    resumo_cidade: str | None
+    diagnostico_cidade: str | None
+    descricao_tema: str | None
+    referencias: list[str]
+    resto: str  # o que sobra: caixa de Fontes / Conteúdos relacionados
+
+
+def separar_secoes_do_tema(
+    docs_texto: str, macrotema_slug: str
+) -> tuple[SecoesTema, list[str]]:
+    """Injeta os marcadores de gráfico e fatia o Doc do tema nas seções.
+
+    Devolve as seções e os gráficos cuja legenda não foi achada no Doc.
+    """
+    graficos_sem_legenda: list[str] = []
+    for nome_grafico, legenda_regex in GRAFICOS_AUTO_MARCADOR.get(macrotema_slug, ()):
+        if re.search(rf"(?m)^\s*(?:%%|\*){nome_grafico}\s*$", docs_texto):
+            continue
+        # `legenda_regex` começa com `^\s*Figura`: como `\s` casa quebra de
+        # linha, o `^` pode ancorar numa linha em branco antes da legenda e
+        # engolir as quebras que a separam do parágrafo anterior. Sem a
+        # linha em branco própria do marcador, ele herda o `bloco_ativo`
+        # do bloco condicional anterior em `interpretar_blocos_condicionais`
+        # (que só reativa na primeira linha em branco) e some do relatório
+        # mesmo com a legenda logo abaixo sobrevivendo.
+        docs_texto, n_substituicoes = re.subn(
+            legenda_regex,
+            f"\n\n*{nome_grafico}\n\n\\1",
+            docs_texto,
+            count=1,
+        )
+        if not n_substituicoes:
+            graficos_sem_legenda.append(nome_grafico)
+
+    resumo_tema, docs_texto = extrair_resumo_tema(docs_texto)
+    relatorio_geral, docs_texto = extrair_relatorio_geral(docs_texto)
+
+    # O resumo do relatório é global e vem do documento de Características.
+    # Removemos uma eventual cópia antiga do documento do macrotema para que
+    # ela não seja renderizada nem concorra com a fonte comum.
+    _, docs_texto = extrair_resumo_relatorio(docs_texto)
+
+    referencias, docs_texto = extrair_referencias(docs_texto)
+    docs_texto = remover_titulos_docs(
+        docs_texto,
+        "Apresentação",
+        "Apresentacao",
+        "Aoresentacao",
+        "Referências",
+    )
+
+    resumo_cidade, docs_texto = extrair_resumo_cidade(docs_texto)
+    diagnostico_cidade, docs_texto = extrair_diagnostico_cidade(docs_texto)
+    descricao_tema, docs_texto = extrair_descricao_tema(docs_texto)
+    return (
+        SecoesTema(
+            resumo_tema=resumo_tema,
+            relatorio_geral=relatorio_geral,
+            resumo_cidade=resumo_cidade,
+            diagnostico_cidade=diagnostico_cidade,
+            descricao_tema=descricao_tema,
+            referencias=referencias,
+            resto=docs_texto,
+        ),
+        graficos_sem_legenda,
+    )
+
+
 async def gerar_relatorio_handler(
     cidade: str,
     macrotema: str = "demografia",
@@ -1316,30 +1389,15 @@ async def gerar_relatorio_handler(
             except ValueError as err:
                 raise HTTPException(status_code=400, detail=str(err)) from err
 
-            for nome_grafico, legenda_regex in GRAFICOS_AUTO_MARCADOR.get(macrotema_slug, ()):
-                if re.search(rf"(?m)^\s*(?:%%|\*){nome_grafico}\s*$", docs_texto):
-                    continue
-                # `legenda_regex` começa com `^\s*Figura`: como `\s` casa quebra de
-                # linha, o `^` pode ancorar numa linha em branco antes da legenda e
-                # engolir as quebras que a separam do parágrafo anterior. Sem a
-                # linha em branco própria do marcador, ele herda o `bloco_ativo`
-                # do bloco condicional anterior em `interpretar_blocos_condicionais`
-                # (que só reativa na primeira linha em branco) e some do relatório
-                # mesmo com a legenda logo abaixo sobrevivendo.
-                docs_texto, n_substituicoes = re.subn(
-                    legenda_regex,
-                    f"\n\n*{nome_grafico}\n\n\\1",
-                    docs_texto,
-                    count=1,
+            secoes, graficos_sem_legenda = separar_secoes_do_tema(docs_texto, macrotema_slug)
+            for nome_grafico in graficos_sem_legenda:
+                logger.warning(
+                    "Não foi possível localizar a legenda para inserir o "
+                    "marcador do gráfico '%s' no documento de '%s'. O "
+                    "gráfico foi gerado mas não será exibido no relatório.",
+                    nome_grafico,
+                    safe_report,
                 )
-                if not n_substituicoes:
-                    logger.warning(
-                        "Não foi possível localizar a legenda para inserir o "
-                        "marcador do gráfico '%s' no documento de '%s'. O "
-                        "gráfico foi gerado mas não será exibido no relatório.",
-                        nome_grafico,
-                        safe_report,
-                    )
 
             macrotema_item: dict[str, object] = {
                 "nome": macrotema_dados["nome"],
@@ -1357,7 +1415,7 @@ async def gerar_relatorio_handler(
                 ),
             }
 
-            resumo_tema, docs_texto = extrair_resumo_tema(docs_texto)
+            resumo_tema = secoes.resumo_tema
             if resumo_tema:
                 macrotema_item["resumo"] = substituir_placeholders(
                     resumo_tema, linhas_macrotema[0], macrotema_slug
@@ -1365,7 +1423,7 @@ async def gerar_relatorio_handler(
                 if eh_primeiro and cover is not None:
                     cover["macrotema"]["resumo"] = macrotema_item["resumo"]
 
-            relatorio_geral, docs_texto = extrair_relatorio_geral(docs_texto)
+            relatorio_geral = secoes.relatorio_geral
             if relatorio_geral and eh_primeiro and cover is not None:
                 cover["relatorio_geral_html"] = render_descricao_tema_html(
                     relatorio_geral,
@@ -1377,22 +1435,9 @@ async def gerar_relatorio_handler(
                     relatorio_geral, linhas_macrotema[0], macrotema_slug
                 )
 
-            # O resumo do relatório é global e vem do documento de Características.
-            # Removemos uma eventual cópia antiga do documento do macrotema para que
-            # ela não seja renderizada nem concorra com a fonte comum.
-            _, docs_texto = extrair_resumo_relatorio(docs_texto)
+            referencias.extend(secoes.referencias)
 
-            referencias_macrotema, docs_texto = extrair_referencias(docs_texto)
-            referencias.extend(referencias_macrotema)
-            docs_texto = remover_titulos_docs(
-                docs_texto,
-                "Apresentação",
-                "Apresentacao",
-                "Aoresentacao",
-                "Referências",
-            )
-
-            resumo_cidade, docs_texto = extrair_resumo_cidade(docs_texto)
+            resumo_cidade = secoes.resumo_cidade
             if resumo_cidade and eh_primeiro and cover is not None:
                 cover["resumo_cidade_html"] = render_descricao_tema_html(
                     resumo_cidade,
@@ -1404,7 +1449,7 @@ async def gerar_relatorio_handler(
                     resumo_cidade, linhas_macrotema[0], macrotema_slug
                 )
 
-            diagnostico_cidade, docs_texto = extrair_diagnostico_cidade(docs_texto)
+            diagnostico_cidade = secoes.diagnostico_cidade
             if diagnostico_cidade and eh_primeiro and cover is not None:
                 cover["diagnostico_cidade_html"] = render_descricao_tema_html(
                     diagnostico_cidade,
@@ -1416,7 +1461,7 @@ async def gerar_relatorio_handler(
                     diagnostico_cidade, linhas_macrotema[0], macrotema_slug
                 )
 
-            descricao_tema, docs_texto = extrair_descricao_tema(docs_texto)
+            descricao_tema = secoes.descricao_tema
             if descricao_tema:
                 macrotema_item["descricao"] = substituir_placeholders(
                     descricao_tema, linhas_macrotema[0], macrotema_slug
@@ -1450,7 +1495,7 @@ async def gerar_relatorio_handler(
             # daquele macrotema. Fica presa à própria página do tema — não some
             # num blob global — para fechar o tema antes do próximo começar.
             macrotema_item["fontes_html"] = texto_para_html(
-                docs_texto,
+                secoes.resto,
                 linhas_macrotema[0],
                 namespace=macrotema_slug,
                 graficos_por_placeholder=graficos_por_placeholder,
