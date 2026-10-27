@@ -727,7 +727,6 @@ def montar_contexto_tema(
     return linha
 
 
-
 @dataclass(frozen=True)
 class SecoesTema:
     resumo_tema: str | None
@@ -963,8 +962,8 @@ async def gerar_relatorio_handler(
                 extras = buscar_extras_municipio(nome_cidade_db, uf_db, macrotema_slugs)
 
             linhas_macrotema = [
-                montar_contexto_tema(l, perfil_db, macrotema_slug, macrotema_slugs, extras)
-                for l in linhas_macrotema
+                montar_contexto_tema(linha, perfil_db, macrotema_slug, macrotema_slugs, extras)
+                for linha in linhas_macrotema
             ]
 
             if linhas is None:
