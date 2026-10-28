@@ -17,6 +17,13 @@ def test_desenvolvimento_social_tem_view_primaria():
     )
 
 
+def test_instrumentos_sudene_le_a_view_do_fne():
+    assert (
+        perfil_municipal.VIEW_POR_MACROTEMA["instrumentos-sudene"]
+        == "instrsudene_munic"
+    )
+
+
 def test_busca_normaliza_sufixo_uf_no_nm_mun(monkeypatch):
     # `mv_perfil_educacional_municipal` guarda nm_mun como "Cidade (UF)" em
     # algumas linhas; sem normalizar (regexp_replace), o match por nome digitado

@@ -33,7 +33,8 @@ def test_todos_explicito_colapsa():
     _, a = _safe("Recife (PE)", "todos")
     _, b = _safe("Recife (PE)",
                  "demografia,educacao,saude,economia-renda,hidraulica,"
-                 "desenvolvimento-social,meio-ambiente,saneamento")
+                 "desenvolvimento-social,meio-ambiente,saneamento,"
+                 "instrumentos-sudene")
     assert a == b == "todos__recife_pe_"
 
 

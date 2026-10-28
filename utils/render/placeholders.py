@@ -40,6 +40,7 @@ _ALIASES_NAMESPACE = {
     "saneamento": {"saneamento", "infraestrutura"},
     "meio-ambiente": {"meio-ambiente", "ambiente"},
     "desenvolvimento-social": {"desenvolvimento-social", "desen_social"},
+    "instrumentos-sudene": {"instrumentos-sudene", "instrsudene", "sudene"},
 }
 
 

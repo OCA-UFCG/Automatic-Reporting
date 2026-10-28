@@ -10,6 +10,8 @@ from config import (
     EDUCACAO_DOCS_URL,
     HIDRAULICA_CSV_URL,
     HIDRAULICA_DOCS_URL,
+    INSTRUMENTOS_SUDENE_CSV_URL,
+    INSTRUMENTOS_SUDENE_DOCS_URL,
     MEIO_AMBIENTE_CSV_URL,
     MEIO_AMBIENTE_DOCS_URL,
     SANEAMENTO_CSV_URL,
@@ -102,6 +104,17 @@ MACROTEMAS: dict[str, Macrotema] = {
         "csv_url": SANEAMENTO_CSV_URL,
         "csv_env": "SANEAMENTO_CSV_URL",
     },
+    # Cor e ícone são os que utils/cover.py já usava para "instrumentos"/"sudene"
+    # no caminho sem slug.
+    "instrumentos-sudene": {
+        "nome": "Instrumentos da Sudene",
+        "cor": "#018F39",
+        "icone": "chart",
+        "docs_url": INSTRUMENTOS_SUDENE_DOCS_URL,
+        "docs_env": "INSTRUMENTOS_SUDENE_DOCS_URL",
+        "csv_url": INSTRUMENTOS_SUDENE_CSV_URL,
+        "csv_env": "INSTRUMENTOS_SUDENE_CSV_URL",
+    },
 }
 
 TODOS_MACROTEMAS_SLUG = "todos"
@@ -115,6 +128,7 @@ TODOS_MACROTEMAS_ORDEM = [
     "desenvolvimento-social",
     "meio-ambiente",
     "saneamento",
+    "instrumentos-sudene",
 ]
 
 MACROTEMA_SECOES = {

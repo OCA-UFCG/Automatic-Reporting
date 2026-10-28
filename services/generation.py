@@ -996,6 +996,10 @@ async def gerar_relatorio_handler(
                         "cor": get_macrotema(slug)["cor"],
                     }
                     for slug in macrotema_slugs
+                    # Mesmo critério do `continue` acima: tema sem Doc não vira seção,
+                    # então também não vira tag na capa (ex.: instrumentos-sudene
+                    # dentro de "todos" antes de o secret do Doc existir).
+                    if get_macrotema(slug)["docs_url"]
                 ]
                 # safe_city/safe_report já vêm computados no topo do handler (gate de cache).
 

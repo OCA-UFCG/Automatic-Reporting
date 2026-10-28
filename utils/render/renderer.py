@@ -423,6 +423,7 @@ _LINK_POR_MACROTEMA = {
     "desenvolvimento-social": "https://datanordeste.sudene.gov.br/macrothemes/desenvolvimento-social",
     "meio-ambiente": "https://datanordeste.sudene.gov.br/macrothemes/meio-ambiente",
     "saneamento": "https://datanordeste.sudene.gov.br/macrothemes/infraestrutura-e-saneamento",
+    "instrumentos-sudene": "https://datanordeste.sudene.gov.br/macrothemes/instrumentos-sudene",
 }
 
 

@@ -13,6 +13,7 @@ const MACROTEMAS = [
   { slug: "desenvolvimento-social", nome: "Desenvolvimento Social" },
   { slug: "meio-ambiente", nome: "Meio Ambiente" },
   { slug: "saneamento", nome: "Infraestrutura e Saneamento" },
+  { slug: "instrumentos-sudene", nome: "Instrumentos da Sudene" },
 ]
 
 function App() {
