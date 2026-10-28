@@ -8,13 +8,13 @@ imagem do gamma, que não tem pytest: lá é um `setattr` simples.
 import asyncio
 import json
 from collections.abc import Awaitable, Callable
-from datetime import date, datetime
-from decimal import Decimal
+from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from services import cache, generation
 from services.macrotemas import get_macrotema
+from utils.json_tipado import codificar, decodificar
 from utils.queries.base import limpar_cache_queries
 from utils.ssr import normalizar_para_json
 
@@ -54,42 +54,6 @@ BUSCAS: tuple[str, ...] = (
 )
 
 _AGORA_FIXO = datetime(2026, 10, 26, 10, 0, tzinfo=ZoneInfo("America/Fortaleza"))
-
-
-def codificar(valor):
-    """Valor Python -> JSON com tags, para os tipos voltarem iguais no replay (Decimal,
-    date e tuple seguem ramos diferentes de coerce_para_float e afins)."""
-    if isinstance(valor, Decimal):
-        return {"__decimal__": str(valor)}
-    if isinstance(valor, datetime):  # antes de date: datetime é subclasse de date
-        return {"__datetime__": valor.isoformat()}
-    if isinstance(valor, date):
-        return {"__date__": valor.isoformat()}
-    if isinstance(valor, tuple):
-        return {"__tuple__": [codificar(v) for v in valor]}
-    if isinstance(valor, list):
-        return [codificar(v) for v in valor]
-    if isinstance(valor, dict):
-        return {k: codificar(v) for k, v in valor.items()}
-    return valor
-
-
-def decodificar(valor):
-    if isinstance(valor, list):
-        return [decodificar(v) for v in valor]
-    if isinstance(valor, dict):
-        if len(valor) == 1:
-            (tag, conteudo), = valor.items()
-            if tag == "__decimal__":
-                return Decimal(conteudo)
-            if tag == "__datetime__":
-                return datetime.fromisoformat(conteudo)
-            if tag == "__date__":
-                return date.fromisoformat(conteudo)
-            if tag == "__tuple__":
-                return tuple(decodificar(v) for v in conteudo)
-        return {k: decodificar(v) for k, v in valor.items()}
-    return valor
 
 
 def carregar_dados_gravados() -> dict[str, list[dict]]:
