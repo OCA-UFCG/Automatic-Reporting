@@ -4,6 +4,9 @@ import logging
 import threading
 import time
 from collections import OrderedDict
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from decimal import ROUND_HALF_UP, Decimal
 
 import psycopg2
@@ -22,6 +25,47 @@ logger = logging.getLogger(__name__)
 # concorrente desde já.
 _query_cache: OrderedDict[str, tuple[float, object]] = OrderedDict()
 _query_cache_lock = threading.Lock()
+
+
+# Conexão de um job em lote (snapshot do laboratório): ~26 consultas × 2.074 municípios,
+# e abrir cada conexão custa ~32 ms (SCRAM + SSL) — sem reaproveitar, só conectar somaria
+# ~29 min por rodada. Fora de `conexao_reaproveitada()` nada muda: cada consulta abre e
+# fecha a sua, como sempre. Lista de um item para poder trocar a conexão se ela cair.
+_conexao_do_job: ContextVar[list | None] = ContextVar("conexao_do_job", default=None)
+
+
+def _conexao_de_job():
+    conn = get_connection()  # o statement_timeout vem junto, por consulta
+    # autocommit: sem ele o psycopg2 abre uma transação que o job inteiro herdaria. O
+    # primeiro timeout a deixaria abortada (todas as consultas seguintes falham e o
+    # fail-soft as transforma em None, "sem dados" em silêncio), e ela seguraria lock em
+    # toda view lida até o fim — um DROP/CASCADE da equipe de dados ficaria pendurado e
+    # enfileiraria as consultas do relatório atrás dele.
+    conn.autocommit = True
+    return conn
+
+
+@contextmanager
+def conexao_reaproveitada() -> Iterator[object]:
+    """Uma conexão só para todas as consultas feitas dentro do bloco (job em lote)."""
+    caixa = [_conexao_de_job()]
+    token = _conexao_do_job.set(caixa)
+    try:
+        yield caixa[0]
+    finally:
+        _conexao_do_job.reset(token)
+        caixa[0].close()
+
+
+def _abrir_conexao() -> tuple[object, bool]:
+    """(conexão, fechar_depois). Dentro de um job, reaproveita a conexão dele e reabre
+    se ela tiver caído (`closed` ≠ 0) na consulta anterior."""
+    caixa = _conexao_do_job.get()
+    if caixa is None:
+        return get_connection(), True
+    if caixa[0].closed:
+        caixa[0] = _conexao_de_job()
+    return caixa[0], False
 
 
 def _cache_key(*partes: object) -> str:
@@ -114,7 +158,7 @@ def executar_query(
         return resultado_cacheado
 
     try:
-        conn = get_connection()
+        conn, fechar = _abrir_conexao()
     except psycopg2.Error as err:
         logger.warning("Falha ao conectar ao banco de dados: %s", err)
         return None
@@ -127,7 +171,8 @@ def executar_query(
         logger.warning("Falha ao executar query (%s): %s", contexto_erro, err)
         return None
     finally:
-        conn.close()
+        if fechar:
+            conn.close()
 
     # Só cacheia sucesso não-nulo: um timeout/erro vira None acima (return antecipado,
     # nunca chega aqui) e não deve "congelar" no cache — a próxima chamada tenta de
@@ -146,7 +191,7 @@ def executar_query_dict(query: str, params: tuple, contexto_erro: str) -> dict |
         return resultado_cacheado
 
     try:
-        conn = get_connection()
+        conn, fechar = _abrir_conexao()
     except psycopg2.Error as err:
         logger.warning("Falha ao conectar ao banco de dados: %s", err)
         return None
@@ -163,7 +208,8 @@ def executar_query_dict(query: str, params: tuple, contexto_erro: str) -> dict |
         logger.warning("Falha ao executar query (%s): %s", contexto_erro, err)
         return None
     finally:
-        conn.close()
+        if fechar:
+            conn.close()
 
     # Mesma regra: só o dict resolvido (linha encontrada) entra no cache.
     _cache_put(chave_cache, resultado)

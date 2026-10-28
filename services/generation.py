@@ -581,6 +581,44 @@ def linha_do_perfil(perfil_db: dict, nome_cidade_perfil: str, uf_perfil: str) ->
     return linha_db
 
 
+def linhas_base_do_tema(
+    cidade: str, macrotema_slug: str, macrotema_dados: dict, perfil_db: dict | None
+) -> list[dict]:
+    """Linha base do tema: a da view quando ela tem a cidade, senão as do CSV (fallback,
+    PR #91). Usada pelo handler e pelo snapshot do laboratório, para os dois escolherem a
+    linha do mesmo jeito. Levanta HTTPException 400/404 como o handler sempre fez."""
+    nome_cidade_perfil, uf_perfil = separar_cidade_uf(cidade)
+    if perfil_db:
+        return [linha_do_perfil(perfil_db, nome_cidade_perfil, uf_perfil)]
+
+    if uf_perfil:
+        # Só é fallback de verdade quando o banco foi consultado e não
+        # tinha a cidade; sem UF a view sequer é chamada.
+        logger.warning(
+            "Sem dados no banco para '%s' (%s); usando CSV como fallback.",
+            cidade,
+            macrotema_slug,
+        )
+    csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
+    csv_source = resolve_csv_source(csv_url, csv_env)
+    df = carregar_csv(csv_source)
+    df = normalizar_colunas_macrotema(df, macrotema_slug)
+
+    try:
+        linhas_df = filtrar_linhas_por_cidade(df, cidade)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err))
+
+    linhas_macrotema = linhas_df.to_dict("records")
+
+    if not linhas_macrotema:
+        raise HTTPException(
+            status_code=404, detail=f"Cidade '{cidade}' não encontrada."
+        )
+
+    return linhas_macrotema
+
+
 def buscar_extras_municipio(
     nome_cidade_db: str, uf_db: str, macrotema_slugs: list[str]
 ) -> dict[str, object]:
@@ -924,34 +962,9 @@ async def gerar_relatorio_handler(
                 else None
             )
 
-            if perfil_db:
-                linha_db = linha_do_perfil(perfil_db, nome_cidade_perfil, uf_perfil)
-                linhas_macrotema = [linha_db]
-            else:
-                if uf_perfil:
-                    # Só é fallback de verdade quando o banco foi consultado e não
-                    # tinha a cidade; sem UF a view sequer é chamada.
-                    logger.warning(
-                        "Sem dados no banco para '%s' (%s); usando CSV como fallback.",
-                        cidade,
-                        macrotema_slug,
-                    )
-                csv_url, csv_env = get_csv_config_for_macrotema(macrotema_dados)
-                csv_source = resolve_csv_source(csv_url, csv_env)
-                df = carregar_csv(csv_source)
-                df = normalizar_colunas_macrotema(df, macrotema_slug)
-
-                try:
-                    linhas_df = filtrar_linhas_por_cidade(df, cidade)
-                except ValueError as err:
-                    raise HTTPException(status_code=400, detail=str(err))
-
-                linhas_macrotema = linhas_df.to_dict("records")
-
-                if not linhas_macrotema:
-                    raise HTTPException(
-                        status_code=404, detail=f"Cidade '{cidade}' não encontrada."
-                    )
+            linhas_macrotema = linhas_base_do_tema(
+                cidade, macrotema_slug, macrotema_dados, perfil_db
+            )
 
             for linha in linhas_macrotema:
                 linha["data_relatorio"] = gerado_em.strftime("%d/%m/%Y")
