@@ -1,0 +1,79 @@
+descricao_tema = “A educação é um dos principais determinantes do desenvolvimento social e econômico, pois influencia as oportunidades de inserção no mercado de trabalho, a geração de renda, a qualidade de vida e o exercício da cidadania. Nesse contexto, informações sobre o nível de instrução e a alfabetização da população permitem avaliar as condições educacionais, identificar desigualdades e subsidiar, com base em evidências, o planejamento de políticas públicas voltadas à ampliação do acesso à educação e à redução das disparidades sociais.
+
+
+Para quando educacao.$qtd_niveis_instrucao_maior for igual a 1, então:
+Em 2022, no município de educacao.$nm_mun (educacao.$sigla_uf), o nível de instrução mais frequente entre adultos, com 25 anos ou mais, era educacao.$pri_nivel_classe, abrangendo educacao.$pri_nivel_per:2% dessa população (educacao.$pri_nivel_pop pessoas). Os demais níveis eram educacao.$seg_nivel_classe, com educacao.$seg_nivel_per:2% (educacao.$seg_nivel_pop pessoas); educacao.$ter_nivel_classe, com educacao.$ter_nivel_per:2% (educacao.$ter_nivel_pop pessoas); e educacao.$quar_nivel_classe, com educacao.$quar_nivel_per:2% (educacao.$quar_nivel_pop pessoas), conforme a Figura X. Esses resultados descrevem a distribuição da população adulta entre os diferentes níveis de instrução e permitem identificar sua concentração nos níveis mais baixos e mais elevados de escolaridade.
+
+
+Para quando educacao.$qtd_niveis_instrucao_maior for maior que 1, então:
+Em 2022, no município de educacao.$nm_mun (educacao.$sigla_uf), os níveis de instrução mais frequentes entre adultos, com 25 anos ou mais, eram educacao.$pri_nivel_classe, cada um abrangendo educacao.$pri_nivel_per:2% dessa população (educacao.$pri_nivel_pop pessoas cada). Os demais níveis eram educacao.$ter_nivel_classe, com educacao.$ter_nivel_per:2% (educacao.$ter_nivel_pop pessoas); e educacao.$quar_nivel_classe, com educacao.$quar_nivel_per:2% (educacao.$quar_nivel_pop pessoas). Esses resultados descrevem a distribuição da população adulta entre os diferentes níveis de instrução e permitem identificar sua concentração nos níveis mais baixos e mais elevados de escolaridade.
+
+
+*grafico_nivel_instrucao
+
+
+Figura X - Distribuição da população por nível de instrução, valores absolutos e percentuais de adultos com 25 anos ou mais, para educacao.$nm_mun (educacao.$sigla_uf), em 2022.
+Para quando educacao.$sem_instr_per_2000 for maior que 0, então:
+Os dados dos últimos censos mostram mudanças no perfil educacional do município. Entre 2000 e 2022, a parcela de adultos com 25 anos ou mais, sem instrução ou com ensino fundamental incompleto passou de educacao.$sem_instr_per_2000:2% para educacao.$sem_instr_per_2022:2%, enquanto a parcela com ensino superior completo passou de educacao.$sup_comp_per_2000:2% para educacao.$sup_comp_per:2%.
+Sequência do texto, sem condição:
+
+
+Para quando educacao.$fund_comp_per for igual a 14,02, então:
+Em comparação com os indicadores nacionais, em 2022, educacao.$fund_comp_per:2% dos adultos, com 25 anos ou mais, de educacao.$nm_mun (educacao.$sigla_uf) possuíam ensino fundamental completo, valor igual à referência nacional (14,02%). Já educacao.$sup_comp_per:2% possuíam ensino superior completo, proporção educacao.$comp_sup_br_per:2 educacao.$comp_sup_br_per_unid educacao.$comp_sup_br ao percentual nacional de 18,39%. Também foram observadas diferenças entre adultos homens e mulheres com ensino superior completo no município, sendo educacao.$sup_comp_mulher e educacao.$sup_comp_homem.
+Para quando educacao.$fund_comp_per diferente de 14,02,  então:
+Em comparação com os indicadores nacionais, em 2022, educacao.$fund_comp_per:2% dos adultos, com 25 anos ou mais, de educacao.$nm_mun (educacao.$sigla_uf) possuíam ensino fundamental completo, valor educacao.$comp_fund_br_per:2 educacao.$comp_fund_br_per_unid educacao.$comp_fund_br à referência nacional, de 14,02%. Já educacao.$sup_comp_per:2% possuíam ensino superior completo, proporção educacao.$comp_sup_br_per:2 educacao.$comp_sup_br_per_unid educacao.$comp_sup_br ao percentual nacional de 18,39%. Também foram observadas diferenças entre adultos homens e mulheres com ensino superior completo no município, sendo educacao.$sup_comp_mulher e educacao.$sup_comp_homem.
+Sequência do texto, sem condição:
+Em 2022, educacao.$alfabetizado_per:2% dos residentes do município com 15 anos ou mais eram alfabetizados, valor educacao.$comp_alfab_pne_per:2 educacao.$comp_alfab_pne_per_unid educacao.$comp_alfab_pne à meta estabelecida no Plano Nacional de Educação (PNE), que é erradicar o analfabetismo nessa faixa etária de jovens e adultos. A desagregação dos indicadores por faixa etária e por cor ou raça permite reconhecer diferenças entre grupos populacionais e identificar aqueles que demandam maior atenção das políticas públicas educacionais.
+
+
+Para quando educacao.$qtd_faixas_analf_menor for igual a 1, então:
+Nessa perspectiva, a maior taxa de analfabetismo estava concentrada na faixa etária de educacao.$analf_faixa_maior, enquanto o menor percentual era de educacao.$analf_faixa_menor. Na faixa de educacao.$analf_faixa_maior, também foram observadas diferenças segundo cor ou raça, conforme a Figura Y.
+Para quando educacao.$qtd_faixas_analf_menor for maior que 1, então:
+Nessa perspectiva, a maior taxa de analfabetismo estava concentrada na faixa etária de educacao.$analf_faixa_maior, enquanto os menores percentuais eram observados entre as pessoas de educacao.$analf_faixa_menor. Na faixa de educacao.$analf_faixa_maior, também foram observadas diferenças segundo cor ou raça, conforme a Figura Y.
+
+
+*grafico_cor_faixa_etaria
+
+
+
+Figura Y - Taxa de analfabetismo por cor ou raça e faixa etária para educacao.$nm_mun (educacao.$sigla_uf), em 2022.
+Síntese
+Para quando educacao.$sem_instr_per_2000 for maior que 0, então:
+Em resumo, os indicadores de educação mostram que, em educacao.$nm_mun (educacao.$sigla_uf), a parcela de adultos, com 25 anos ou mais, sem instrução ou com ensino fundamental incompleto passou de educacao.$sem_instr_per_2000:2% em 2000 para educacao.$sem_instr_per_2022:2% em 2022. A taxa de alfabetização, em 2022, era educacao.$comp_alfab_pne em educacao.$comp_alfab_pne_per:2 educacao.$comp_alfab_pne_per_unid à meta estabelecida no Plano Nacional de Educação. Essas informações oferecem subsídios para o planejamento de ações e de políticas públicas voltadas à redução das desigualdades educacionais no município.
+Para quando educacao.$sem_instr_per_2000 for sem dados, então:
+Em resumo, os indicadores de educação mostram que, em educacao.$nm_mun (educacao.$sigla_uf), a taxa de alfabetização em 2022, para o público com 15 anos ou mais, era educacao.$comp_alfab_pne em educacao.$comp_alfab_pne_per:2 educacao.$comp_alfab_pne_per_unid à meta estabelecida no Plano Nacional de Educação. Essa informação pode subsidiar o planejamento de ações e de políticas públicas voltadas à redução das desigualdades educacionais no município.
+
+
+#!Fontes
+
+
+Os dados deste relatório foram extraídos dos seguintes painéis de dados do Data Nordeste:
+educacao.“$nm_painel1” = https://datanordeste.sudene.gov.br/data-panel/niveldeinstrucao
+
+
+educacao.“$nm_painel2” = https://datanordeste.sudene.gov.br/data-panel/analfabetismo
+
+
+educacao.”$nm_painel3” = https://datanordeste.sudene.gov.br/data-panel/alfabetizacao_indigena
+
+
+educacao.”$nm_painel4” = https://datanordeste.sudene.gov.br/data-panel/alfabetizacao_quilombola
+
+
+As informações desses painéis têm origem na seguinte instituição:
+* Instituto Brasileiro de Geografia e Estatística (IBGE).
+
+
+Todos os dados estão disponíveis para download no catálogo de dados do Data Nordeste.
+
+
+#!Conteúdos relacionados
+
+
+Para saber mais sobre este tema, consulte os seguintes conteúdos do Data Nordeste:
+
+
+educacao.“$nm_boletim1” = https://datanordeste.sudene.gov.br/boletim/421MHwS4czMWvBpHDhR6RJ
+
+
+educacao.“$nm_boletim2” = https://datanordeste.sudene.gov.br/boletim/5sPp0jQRba52vrjKhBfKgZ

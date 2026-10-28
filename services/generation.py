@@ -3,6 +3,7 @@ import os
 import re
 import tempfile
 import unicodedata
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
@@ -564,6 +565,240 @@ def _contagens_indigenas_como_numero(linha: dict) -> None:
             linha[campo] = int(valor.strip().replace(".", ""))
 
 
+def linha_do_perfil(perfil_db: dict, nome_cidade_perfil: str, uf_perfil: str) -> dict:
+    """Cópia da linha da view com o `nm_mun` canônico "Nome (UF)"."""
+    linha_db = dict(perfil_db)
+    # Usa o nome canônico da própria view (grafia/acentuação corretas),
+    # nunca o texto digitado pelo usuário — do contrário o
+    # enriquecimento a jusante (características, demografia, saúde…), que
+    # casa nm_mun de forma case-sensitive, não encontra a cidade. Garante
+    # o formato "Cidade (UF)" que resolver_nome_uf/capa/mapas esperam,
+    # removendo antes um sufixo "(UF)" que algumas views já trazem.
+    nome_canonico = re.sub(
+        r"\s*\([^)]*\)\s*$", "", str(perfil_db.get("nm_mun") or nome_cidade_perfil)
+    ).strip()
+    linha_db["nm_mun"] = f"{nome_canonico} ({uf_perfil})"
+    return linha_db
+
+
+def buscar_extras_municipio(
+    nome_cidade_db: str, uf_db: str, macrotema_slugs: list[str]
+) -> dict[str, object]:
+    """Consulta o banco uma vez por relatório; só os temas do relatório são buscados
+    (os demais ficam None). `processar_*` roda aqui."""
+    extras: dict[str, object] = dict.fromkeys(
+        (
+            "caracteristicas", "demografia", "sexo_faixa", "indigena", "quilombola",
+            "publico_etario", "mortalidade_infantil", "estabelecimentos_saude",
+            "perfil_saude", "taxas_educacao", "tecnologias_acesso_agua",
+            "esgotamento", "perfil_desenvolvimento_social", "pib",
+            "indicadores_economia", "importacao", "comercio_exterior", "rua",
+            "indicadores",
+        )
+    )
+    extras["caracteristicas"] = buscar_caracteristicas_municipio(nome_cidade_db, uf_db)
+    if "demografia" in macrotema_slugs:
+        extras["demografia"] = buscar_populacao_demografia(nome_cidade_db, uf_db)
+        extras["sexo_faixa"] = buscar_demografia_sexo_faixa_etaria(nome_cidade_db, uf_db)
+        extras["indigena"] = buscar_populacao_indigena(nome_cidade_db, uf_db)
+        extras["quilombola"] = buscar_populacao_quilombola(nome_cidade_db, uf_db)
+    if "saude" in macrotema_slugs:
+        extras["publico_etario"] = buscar_publico_etario_vacinas(nome_cidade_db, uf_db)
+        extras["mortalidade_infantil"] = buscar_mortalidade_infantil_serie(
+            nome_cidade_db, uf_db
+        )
+        extras["estabelecimentos_saude"] = buscar_estabelecimentos_saude_serie(
+            nome_cidade_db, uf_db
+        )
+        extras["perfil_saude"] = buscar_perfil_saude_municipal(nome_cidade_db, uf_db)
+    if "educacao" in macrotema_slugs:
+        extras["taxas_educacao"] = buscar_taxas_educacao_cor_faixa_etaria(
+            nome_cidade_db, uf_db
+        )
+    if "hidraulica" in macrotema_slugs:
+        extras["tecnologias_acesso_agua"] = buscar_tecnologias_acesso_agua(
+            nome_cidade_db, uf_db
+        )
+    if "saneamento" in macrotema_slugs:
+        extras["esgotamento"] = buscar_esgotamento_sanitario(nome_cidade_db, uf_db)
+    if "desenvolvimento-social" in macrotema_slugs:
+        extras["perfil_desenvolvimento_social"] = buscar_perfil_desenvolvimento_social(
+            nome_cidade_db, uf_db
+        )
+    if "economia-renda" in macrotema_slugs:
+        linhas_pib = buscar_linhas_pib_municipal(nome_cidade_db, uf_db)
+        extras["pib"] = processar_pib_evolucao(linhas_pib)
+        extras["indicadores_economia"] = processar_indicadores_economia(linhas_pib)
+        linhas_importacao = buscar_linhas_importacao(nome_cidade_db, uf_db)
+        extras["importacao"] = processar_importacao(linhas_importacao)
+        extras["comercio_exterior"] = buscar_comercio_exterior_economia(
+            nome_cidade_db, uf_db
+        )
+    extras["rua"] = buscar_populacao_rua(nome_cidade_db, uf_db)
+    # Painel de indicadores da capa: uma única linha em vw_indicadores
+    # cobre todos os macrotemas, então a busca fica fora dos ifs.
+    extras["indicadores"] = buscar_indicadores_municipio(nome_cidade_db, uf_db)
+    return extras
+
+
+def montar_contexto_tema(
+    linha: dict,
+    perfil_db: dict | None,
+    macrotema_slug: str,
+    macrotema_slugs: list[str],
+    extras: dict[str, object],
+) -> dict:
+    """Mescla os extras do município na linha do tema; devolve uma cópia."""
+    linha = dict(linha)
+
+    if extras["caracteristicas"]:
+        linha.update(
+            _caracteristicas_sem_sobrescrever_bioma(extras["caracteristicas"], linha)
+        )
+
+    if macrotema_slug == "meio-ambiente" and "bioma" in linha:
+        linha["bioma"] = _bioma_concordando_com_n_uc(linha["bioma"], linha.get("n_uc"))
+
+    if macrotema_slug == "demografia" and extras["demografia"]:
+        linha.update(_demografia_sem_sobrescrever_view(extras["demografia"], perfil_db))
+
+    if "demografia" in macrotema_slugs and extras["sexo_faixa"]:
+        linha.update(
+            _cor_raca_sem_sobrescrever_view(extras["sexo_faixa"], perfil_db)
+            if macrotema_slug == "demografia"
+            else extras["sexo_faixa"]
+        )
+    if "demografia" in macrotema_slugs and extras["indigena"]:
+        linha.update(
+            _indigena_sem_sobrescrever_view(extras["indigena"], perfil_db)
+            if macrotema_slug == "demografia"
+            else extras["indigena"]
+        )
+    if "demografia" in macrotema_slugs and extras["quilombola"]:
+        linha.update(extras["quilombola"])
+    if macrotema_slug == "demografia":
+        _percentuais_pequenos_com_casas(linha)
+        _contagens_indigenas_como_numero(linha)
+
+    if extras["rua"]:
+        linha.update(extras["rua"])
+
+    if extras["indicadores"]:
+        linha.update(extras["indicadores"])
+
+    if "saude" in macrotema_slugs:
+        for chave in (
+            "publico_etario",
+            "mortalidade_infantil",
+            "estabelecimentos_saude",
+            "perfil_saude",
+        ):
+            if extras[chave]:
+                linha.update(extras[chave])
+
+    if "educacao" in macrotema_slugs and extras["taxas_educacao"]:
+        linha.update(extras["taxas_educacao"])
+
+    if "hidraulica" in macrotema_slugs and extras["tecnologias_acesso_agua"]:
+        linha.update(extras["tecnologias_acesso_agua"])
+
+    if "saneamento" in macrotema_slugs and extras["esgotamento"]:
+        linha.update(extras["esgotamento"])
+
+    if macrotema_slug == "desenvolvimento-social" and extras["perfil_desenvolvimento_social"]:
+        linha.update(extras["perfil_desenvolvimento_social"])
+
+    if "economia-renda" in macrotema_slugs and extras["pib"]:
+        linha.update(extras["pib"])
+
+    if "economia-renda" in macrotema_slugs and extras["indicadores_economia"]:
+        linha.update(
+            _economia_sem_sobrescrever_view(extras["indicadores_economia"], perfil_db)
+            if macrotema_slug == "economia-renda"
+            else extras["indicadores_economia"]
+        )
+
+    if "economia-renda" in macrotema_slugs and extras["importacao"]:
+        linha.update(extras["importacao"])
+
+    if "economia-renda" in macrotema_slugs and extras["comercio_exterior"]:
+        linha.update(extras["comercio_exterior"])
+
+    return linha
+
+
+@dataclass(frozen=True)
+class SecoesTema:
+    resumo_tema: str | None
+    relatorio_geral: str | None
+    resumo_cidade: str | None
+    diagnostico_cidade: str | None
+    descricao_tema: str | None
+    referencias: list[str]
+    resto: str  # o que sobra: caixa de Fontes / Conteúdos relacionados
+
+
+def separar_secoes_do_tema(
+    docs_texto: str, macrotema_slug: str
+) -> tuple[SecoesTema, list[str]]:
+    """Injeta os marcadores de gráfico e fatia o Doc do tema nas seções.
+
+    Devolve as seções e os gráficos cuja legenda não foi achada no Doc.
+    """
+    graficos_sem_legenda: list[str] = []
+    for nome_grafico, legenda_regex in GRAFICOS_AUTO_MARCADOR.get(macrotema_slug, ()):
+        if re.search(rf"(?m)^\s*(?:%%|\*){nome_grafico}\s*$", docs_texto):
+            continue
+        # `legenda_regex` começa com `^\s*Figura`: como `\s` casa quebra de
+        # linha, o `^` pode ancorar numa linha em branco antes da legenda e
+        # engolir as quebras que a separam do parágrafo anterior. Sem a
+        # linha em branco própria do marcador, ele herda o `bloco_ativo`
+        # do bloco condicional anterior em `interpretar_blocos_condicionais`
+        # (que só reativa na primeira linha em branco) e some do relatório
+        # mesmo com a legenda logo abaixo sobrevivendo.
+        docs_texto, n_substituicoes = re.subn(
+            legenda_regex,
+            f"\n\n*{nome_grafico}\n\n\\1",
+            docs_texto,
+            count=1,
+        )
+        if not n_substituicoes:
+            graficos_sem_legenda.append(nome_grafico)
+
+    resumo_tema, docs_texto = extrair_resumo_tema(docs_texto)
+    relatorio_geral, docs_texto = extrair_relatorio_geral(docs_texto)
+
+    # O resumo do relatório é global e vem do documento de Características.
+    # Removemos uma eventual cópia antiga do documento do macrotema para que
+    # ela não seja renderizada nem concorra com a fonte comum.
+    _, docs_texto = extrair_resumo_relatorio(docs_texto)
+
+    referencias, docs_texto = extrair_referencias(docs_texto)
+    docs_texto = remover_titulos_docs(
+        docs_texto,
+        "Apresentação",
+        "Apresentacao",
+        "Aoresentacao",
+        "Referências",
+    )
+
+    resumo_cidade, docs_texto = extrair_resumo_cidade(docs_texto)
+    diagnostico_cidade, docs_texto = extrair_diagnostico_cidade(docs_texto)
+    descricao_tema, docs_texto = extrair_descricao_tema(docs_texto)
+    return (
+        SecoesTema(
+            resumo_tema=resumo_tema,
+            relatorio_geral=relatorio_geral,
+            resumo_cidade=resumo_cidade,
+            diagnostico_cidade=diagnostico_cidade,
+            descricao_tema=descricao_tema,
+            referencias=referencias,
+            resto=docs_texto,
+        ),
+        graficos_sem_legenda,
+    )
+
+
 async def gerar_relatorio_handler(
     cidade: str,
     macrotema: str = "demografia",
@@ -658,25 +893,7 @@ async def gerar_relatorio_handler(
         resumo_relatorio_parts: list[str] = []
         referencias: list[str] = []
 
-        db_consultado = False
-        dados_caracteristicas_db = None
-        dados_demografia_db = None
-        dados_sexo_faixa = None
-        dados_indigena = None
-        dados_quilombola = None
-        dados_rua = None
-        dados_publico_etario = None
-        dados_mortalidade_infantil = None
-        dados_estabelecimentos_saude = None
-        dados_perfil_saude = None
-        dados_taxas_educacao = None
-        dados_tecnologias_acesso_agua = None
-        dados_esgotamento = None
-        dados_perfil_desenvolvimento_social = None
-        dados_pib = None
-        dados_indicadores_economia = None
-        dados_importacao = None
-        dados_indicadores = None
+        extras: dict[str, object] | None = None
 
         for macrotema_slug in macrotema_slugs:
             try:
@@ -708,17 +925,7 @@ async def gerar_relatorio_handler(
             )
 
             if perfil_db:
-                linha_db = dict(perfil_db)
-                # Usa o nome canônico da própria view (grafia/acentuação corretas),
-                # nunca o texto digitado pelo usuário — do contrário o
-                # enriquecimento a jusante (características, demografia, saúde…), que
-                # casa nm_mun de forma case-sensitive, não encontra a cidade. Garante
-                # o formato "Cidade (UF)" que resolver_nome_uf/capa/mapas esperam,
-                # removendo antes um sufixo "(UF)" que algumas views já trazem.
-                nome_canonico = re.sub(
-                    r"\s*\([^)]*\)\s*$", "", str(perfil_db.get("nm_mun") or nome_cidade_perfil)
-                ).strip()
-                linha_db["nm_mun"] = f"{nome_canonico} ({uf_perfil})"
+                linha_db = linha_do_perfil(perfil_db, nome_cidade_perfil, uf_perfil)
                 linhas_macrotema = [linha_db]
             else:
                 if uf_perfil:
@@ -750,152 +957,14 @@ async def gerar_relatorio_handler(
                 linha["data_relatorio"] = gerado_em.strftime("%d/%m/%Y")
                 linha["hora_relatorio"] = gerado_em.strftime("%H:%M")
 
-            if not db_consultado:
+            if extras is None:
                 nome_cidade_db, uf_db = resolver_nome_uf(linhas_macrotema[0])
-                dados_caracteristicas_db = buscar_caracteristicas_municipio(nome_cidade_db, uf_db)
-                if "demografia" in macrotema_slugs:
-                    dados_demografia_db = buscar_populacao_demografia(nome_cidade_db, uf_db)
-                    dados_sexo_faixa = buscar_demografia_sexo_faixa_etaria(nome_cidade_db, uf_db)
-                    dados_indigena = buscar_populacao_indigena(nome_cidade_db, uf_db)
-                    dados_quilombola = buscar_populacao_quilombola(nome_cidade_db, uf_db)
-                if "saude" in macrotema_slugs:
-                    dados_publico_etario = buscar_publico_etario_vacinas(nome_cidade_db, uf_db)
-                    dados_mortalidade_infantil = buscar_mortalidade_infantil_serie(
-                        nome_cidade_db, uf_db
-                    )
-                    dados_estabelecimentos_saude = buscar_estabelecimentos_saude_serie(
-                        nome_cidade_db, uf_db
-                    )
-                    dados_perfil_saude = buscar_perfil_saude_municipal(
-                        nome_cidade_db, uf_db
-                    )
-                if "educacao" in macrotema_slugs:
-                    dados_taxas_educacao = buscar_taxas_educacao_cor_faixa_etaria(nome_cidade_db, uf_db)
-                if "hidraulica" in macrotema_slugs:
-                    dados_tecnologias_acesso_agua = buscar_tecnologias_acesso_agua(
-                        nome_cidade_db, uf_db
-                    )
-                if "saneamento" in macrotema_slugs:
-                    dados_esgotamento = buscar_esgotamento_sanitario(nome_cidade_db, uf_db)
-                if "desenvolvimento-social" in macrotema_slugs:
-                    dados_perfil_desenvolvimento_social = (
-                        buscar_perfil_desenvolvimento_social(nome_cidade_db, uf_db)
-                    )
-                if "economia-renda" in macrotema_slugs:
-                    linhas_pib = buscar_linhas_pib_municipal(nome_cidade_db, uf_db)
-                    dados_pib = processar_pib_evolucao(linhas_pib)
-                    dados_indicadores_economia = processar_indicadores_economia(linhas_pib)
-                    linhas_importacao = buscar_linhas_importacao(nome_cidade_db, uf_db)
-                    dados_importacao = processar_importacao(linhas_importacao)
-                    dados_comercio_exterior = buscar_comercio_exterior_economia(
-                        nome_cidade_db, uf_db
-                    )
-                dados_rua = buscar_populacao_rua(nome_cidade_db, uf_db)
-                # Painel de indicadores da capa: uma única linha em vw_indicadores
-                # cobre todos os macrotemas, então a busca fica fora dos ifs.
-                dados_indicadores = buscar_indicadores_municipio(nome_cidade_db, uf_db)
-                db_consultado = True
+                extras = buscar_extras_municipio(nome_cidade_db, uf_db, macrotema_slugs)
 
-            if dados_caracteristicas_db:
-                for linha in linhas_macrotema:
-                    linha.update(
-                        _caracteristicas_sem_sobrescrever_bioma(dados_caracteristicas_db, linha)
-                    )
-
-            if macrotema_slug == "meio-ambiente":
-                for linha in linhas_macrotema:
-                    if "bioma" in linha:
-                        linha["bioma"] = _bioma_concordando_com_n_uc(
-                            linha["bioma"], linha.get("n_uc")
-                        )
-
-            if macrotema_slug == "demografia" and dados_demografia_db:
-                dados_mescla = _demografia_sem_sobrescrever_view(dados_demografia_db, perfil_db)
-                for linha in linhas_macrotema:
-                    linha.update(dados_mescla)
-
-            if "demografia" in macrotema_slugs and dados_sexo_faixa:
-                dados_sexo_mescla = (
-                    _cor_raca_sem_sobrescrever_view(dados_sexo_faixa, perfil_db)
-                    if macrotema_slug == "demografia"
-                    else dados_sexo_faixa
-                )
-                for linha in linhas_macrotema:
-                    linha.update(dados_sexo_mescla)
-            if "demografia" in macrotema_slugs and dados_indigena:
-                dados_indigena_mescla = (
-                    _indigena_sem_sobrescrever_view(dados_indigena, perfil_db)
-                    if macrotema_slug == "demografia"
-                    else dados_indigena
-                )
-                for linha in linhas_macrotema:
-                    linha.update(dados_indigena_mescla)
-            if "demografia" in macrotema_slugs and dados_quilombola:
-                for linha in linhas_macrotema:
-                    linha.update(dados_quilombola)
-            if macrotema_slug == "demografia":
-                for linha in linhas_macrotema:
-                    _percentuais_pequenos_com_casas(linha)
-                    _contagens_indigenas_como_numero(linha)
-
-            if dados_rua:
-                for linha in linhas_macrotema:
-                    linha.update(dados_rua)
-
-            if dados_indicadores:
-                for linha in linhas_macrotema:
-                    linha.update(dados_indicadores)
-
-            if "saude" in macrotema_slugs:
-                for dados_saude in (
-                    dados_publico_etario,
-                    dados_mortalidade_infantil,
-                    dados_estabelecimentos_saude,
-                    dados_perfil_saude,
-                ):
-                    if dados_saude:
-                        for linha in linhas_macrotema:
-                            linha.update(dados_saude)
-
-            if "educacao" in macrotema_slugs and dados_taxas_educacao:
-                for linha in linhas_macrotema:
-                    linha.update(dados_taxas_educacao)
-
-            if "hidraulica" in macrotema_slugs and dados_tecnologias_acesso_agua:
-                for linha in linhas_macrotema:
-                    linha.update(dados_tecnologias_acesso_agua)
-
-            if "saneamento" in macrotema_slugs and dados_esgotamento:
-                for linha in linhas_macrotema:
-                    linha.update(dados_esgotamento)
-
-            if (
-                macrotema_slug == "desenvolvimento-social"
-                and dados_perfil_desenvolvimento_social
-            ):
-                for linha in linhas_macrotema:
-                    linha.update(dados_perfil_desenvolvimento_social)
-
-            if "economia-renda" in macrotema_slugs and dados_pib:
-                for linha in linhas_macrotema:
-                    linha.update(dados_pib)
-
-            if "economia-renda" in macrotema_slugs and dados_indicadores_economia:
-                dados_economia_mescla = (
-                    _economia_sem_sobrescrever_view(dados_indicadores_economia, perfil_db)
-                    if macrotema_slug == "economia-renda"
-                    else dados_indicadores_economia
-                )
-                for linha in linhas_macrotema:
-                    linha.update(dados_economia_mescla)
-
-            if "economia-renda" in macrotema_slugs and dados_importacao:
-                for linha in linhas_macrotema:
-                    linha.update(dados_importacao)
-
-            if "economia-renda" in macrotema_slugs and dados_comercio_exterior:
-                for linha in linhas_macrotema:
-                    linha.update(dados_comercio_exterior)
+            linhas_macrotema = [
+                montar_contexto_tema(linha, perfil_db, macrotema_slug, macrotema_slugs, extras)
+                for linha in linhas_macrotema
+            ]
 
             if linhas is None:
                 linhas = linhas_macrotema
@@ -925,7 +994,7 @@ async def gerar_relatorio_handler(
                     # caract_mun.$nm_mun permanecerem sem resolução, especialmente
                     # quando o relatório era iniciado por Economia e Renda.
                     contexto_caracteristicas = _contexto_caracteristicas(
-                        linhas_macrotema[0], dados_caracteristicas_db
+                        linhas_macrotema[0], extras["caracteristicas"]
                     )
                     try:
                         caracteristicas_texto = await carregar_texto_do_docs(
@@ -1319,30 +1388,15 @@ async def gerar_relatorio_handler(
             except ValueError as err:
                 raise HTTPException(status_code=400, detail=str(err)) from err
 
-            for nome_grafico, legenda_regex in GRAFICOS_AUTO_MARCADOR.get(macrotema_slug, ()):
-                if re.search(rf"(?m)^\s*(?:%%|\*){nome_grafico}\s*$", docs_texto):
-                    continue
-                # `legenda_regex` começa com `^\s*Figura`: como `\s` casa quebra de
-                # linha, o `^` pode ancorar numa linha em branco antes da legenda e
-                # engolir as quebras que a separam do parágrafo anterior. Sem a
-                # linha em branco própria do marcador, ele herda o `bloco_ativo`
-                # do bloco condicional anterior em `interpretar_blocos_condicionais`
-                # (que só reativa na primeira linha em branco) e some do relatório
-                # mesmo com a legenda logo abaixo sobrevivendo.
-                docs_texto, n_substituicoes = re.subn(
-                    legenda_regex,
-                    f"\n\n*{nome_grafico}\n\n\\1",
-                    docs_texto,
-                    count=1,
+            secoes, graficos_sem_legenda = separar_secoes_do_tema(docs_texto, macrotema_slug)
+            for nome_grafico in graficos_sem_legenda:
+                logger.warning(
+                    "Não foi possível localizar a legenda para inserir o "
+                    "marcador do gráfico '%s' no documento de '%s'. O "
+                    "gráfico foi gerado mas não será exibido no relatório.",
+                    nome_grafico,
+                    safe_report,
                 )
-                if not n_substituicoes:
-                    logger.warning(
-                        "Não foi possível localizar a legenda para inserir o "
-                        "marcador do gráfico '%s' no documento de '%s'. O "
-                        "gráfico foi gerado mas não será exibido no relatório.",
-                        nome_grafico,
-                        safe_report,
-                    )
 
             macrotema_item: dict[str, object] = {
                 "nome": macrotema_dados["nome"],
@@ -1360,7 +1414,7 @@ async def gerar_relatorio_handler(
                 ),
             }
 
-            resumo_tema, docs_texto = extrair_resumo_tema(docs_texto)
+            resumo_tema = secoes.resumo_tema
             if resumo_tema:
                 macrotema_item["resumo"] = substituir_placeholders(
                     resumo_tema, linhas_macrotema[0], macrotema_slug
@@ -1368,7 +1422,7 @@ async def gerar_relatorio_handler(
                 if eh_primeiro and cover is not None:
                     cover["macrotema"]["resumo"] = macrotema_item["resumo"]
 
-            relatorio_geral, docs_texto = extrair_relatorio_geral(docs_texto)
+            relatorio_geral = secoes.relatorio_geral
             if relatorio_geral and eh_primeiro and cover is not None:
                 cover["relatorio_geral_html"] = render_descricao_tema_html(
                     relatorio_geral,
@@ -1380,22 +1434,9 @@ async def gerar_relatorio_handler(
                     relatorio_geral, linhas_macrotema[0], macrotema_slug
                 )
 
-            # O resumo do relatório é global e vem do documento de Características.
-            # Removemos uma eventual cópia antiga do documento do macrotema para que
-            # ela não seja renderizada nem concorra com a fonte comum.
-            _, docs_texto = extrair_resumo_relatorio(docs_texto)
+            referencias.extend(secoes.referencias)
 
-            referencias_macrotema, docs_texto = extrair_referencias(docs_texto)
-            referencias.extend(referencias_macrotema)
-            docs_texto = remover_titulos_docs(
-                docs_texto,
-                "Apresentação",
-                "Apresentacao",
-                "Aoresentacao",
-                "Referências",
-            )
-
-            resumo_cidade, docs_texto = extrair_resumo_cidade(docs_texto)
+            resumo_cidade = secoes.resumo_cidade
             if resumo_cidade and eh_primeiro and cover is not None:
                 cover["resumo_cidade_html"] = render_descricao_tema_html(
                     resumo_cidade,
@@ -1407,7 +1448,7 @@ async def gerar_relatorio_handler(
                     resumo_cidade, linhas_macrotema[0], macrotema_slug
                 )
 
-            diagnostico_cidade, docs_texto = extrair_diagnostico_cidade(docs_texto)
+            diagnostico_cidade = secoes.diagnostico_cidade
             if diagnostico_cidade and eh_primeiro and cover is not None:
                 cover["diagnostico_cidade_html"] = render_descricao_tema_html(
                     diagnostico_cidade,
@@ -1419,7 +1460,7 @@ async def gerar_relatorio_handler(
                     diagnostico_cidade, linhas_macrotema[0], macrotema_slug
                 )
 
-            descricao_tema, docs_texto = extrair_descricao_tema(docs_texto)
+            descricao_tema = secoes.descricao_tema
             if descricao_tema:
                 macrotema_item["descricao"] = substituir_placeholders(
                     descricao_tema, linhas_macrotema[0], macrotema_slug
@@ -1453,7 +1494,7 @@ async def gerar_relatorio_handler(
             # daquele macrotema. Fica presa à própria página do tema — não some
             # num blob global — para fechar o tema antes do próximo começar.
             macrotema_item["fontes_html"] = texto_para_html(
-                docs_texto,
+                secoes.resto,
                 linhas_macrotema[0],
                 namespace=macrotema_slug,
                 graficos_por_placeholder=graficos_por_placeholder,

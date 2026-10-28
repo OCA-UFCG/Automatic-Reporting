@@ -1,0 +1,117 @@
+descricao_tema = “As condições ambientais de um município podem indicar vulnerabilidades que demandam a atenção do poder público e influenciam o planejamento e as possibilidades de desenvolvimento local. Conhecer essas condições permite identificar áreas que necessitam de ações de conservação, de preservação, de proteção ou de adaptação, além de incorporar as características ambientais à elaboração de projetos e de políticas públicas.
+
+Para quando ambiente.$asd_per_1991 for sem dados, então:
+Nessa perspectiva, a condição de aridez é um aspecto relevante para a caracterização ambiental do território e está relacionada à disponibilidade hídrica, medida pela razão entre a precipitação pluvial e a evapotranspiração potencial. No entanto, em ambiente.$nm_mun (ambiente.$sigla_uf) não havia dados, de modo que não é possível inferir sobre esse território quanto às Áreas Suscetíveis à Desertificação (ASD), as quais incluem apenas as zonas hiperáridas, áridas, semiáridas e subúmidas secas.
+
+
+
+
+Para quando ambiente.$asd_per_2021 for igual a 0 e ambiente.$asd_per_1991 for igual a 0 e ambiente.$asd_per_1991 for diferente de sem dados, então:
+Nessa perspectiva, a condição de aridez é um aspecto relevante para a caracterização ambiental do território e está relacionada à disponibilidade hídrica, medida pela razão entre a precipitação pluvial e a evapotranspiração potencial. Dessa forma, o município de ambiente.$nm_mun (ambiente.$sigla_uf) apresentou condição úmida em 1991, mantendo a mesma classificação de aridez em 2021. Sendo assim, em 2021, nenhuma porção do território estava inserida em Área Suscetível à Desertificação (ASD), as quais incluem apenas as zonas hiperáridas, áridas, semiáridas e subúmidas secas (Figura X).
+
+
+Para quando ambiente.$asd_per_2021 for igual a 0 e ambiente.$asd_per_1991 for maior que 0, então:
+Nessa perspectiva, a condição de aridez é um aspecto relevante para a caracterização ambiental do território e está relacionada à disponibilidade hídrica, medida pela razão entre a precipitação pluvial e a evapotranspiração potencial. Em ambiente.$nm_mun (ambiente.$sigla_uf), a parcela do território em condições suscetíveis à desertificação diminuiu entre 1991 e 2021, até deixar de existir. ambiente.$aridez_texto_condicao1991
+ambiente.$aridez_texto_condicao2021 O fim das áreas suscetíveis no território é uma mudança favorável à disponibilidade hídrica do município.
+Em 2021, nenhuma parte do território municipal estava inserida em Área Suscetível à Desertificação (ASD), que compreende as zonas hiperáridas, áridas, semiáridas e subúmidas secas (Figura X). Em 1991, essa parcela era de ambiente.$asd_per_1991%.
+
+
+Para quando ambiente.$asd_per_2021 for maior que ambiente.$asd_per_1991, então:
+Nessa perspectiva, a condição de aridez constitui um aspecto relevante para a caracterização ambiental do território e está relacionada à disponibilidade hídrica, considerando a razão entre a precipitação pluvial e a evapotranspiração potencial. Em ambiente.$nm_mun (ambiente.$sigla_uf), entre 1991 e 2021, observou-se a distribuição do território municipal entre diferentes classes de aridez. ambiente.$aridez_texto_condicao1991
+ambiente.$aridez_texto_condicao2021 O avanço da aridez sobre áreas anteriormente classificadas em condições menos secas pode aumentar a vulnerabilidade do território à degradação da terra, especialmente em contextos de maior pressão sobre os recursos naturais.
+Em 2021, ambiente.$asd_per_2021_txt% do território municipal (ambiente.$asd_2021 km²) estava inserido em Área Suscetível à Desertificação (ASD), o que inclui as zonas hiperáridas, áridas, semiáridas e subúmidas secas (Figura X). Em 1991, essa parcela era de ambiente.$asd_per_1991%. A presença de ASD no território reforça a importância de considerar as características de aridez no planejamento territorial, na gestão dos recursos hídricos e na definição de ações voltadas à prevenção e à redução da degradação da terra.
+
+
+Para quando (ambiente.$asd_per_2021 for menor que ambiente.$asd_per_1991) e (ambiente.$asd_per_2021 for maior que 0), então:
+Nessa perspectiva, a condição de aridez constitui um aspecto relevante para a caracterização ambiental do território e está relacionada à disponibilidade hídrica, considerando a razão entre a precipitação pluvial e a evapotranspiração potencial. Em ambiente.$nm_mun (ambiente.$sigla_uf), entre 1991 e 2021, observou-se a distribuição do território municipal entre diferentes classes de aridez. ambiente.$aridez_texto_condicao1991
+ambiente.$aridez_texto_condicao2021 Essa mudança na distribuição das classes indica uma melhora das condições de aridez no território municipal, caracterizada pela redução da área submetida a condições mais secas. Esse resultado representa uma mudança favorável em relação à disponibilidade hídrica e pode contribuir para a redução da exposição do território a condições climáticas associadas à maior aridez.
+Em 2021, ambiente.$asd_per_2021_txt% do território municipal (ambiente.$asd_2021 km²) estava inserido em Área Suscetível à Desertificação (ASD), o que inclui as zonas hiperáridas, áridas, semiáridas e subúmidas secas (Figura X). Em 1991, essa parcela era de ambiente.$asd_per_1991%. Apesar dessa redução, a presença de áreas suscetíveis à desertificação no território deve ser considerada no planejamento territorial, na gestão dos recursos hídricos e nas ações de prevenção da degradação da terra.
+
+
+Para quando (ambiente.$asd_per_2021 for igual a ambiente.$asd_per_1991) e (ambiente.$asd_per_2021 for maior que 0), então:
+Nessa perspectiva, a condição de aridez é um aspecto relevante para a caracterização ambiental do território e está relacionada à disponibilidade hídrica, medida pela razão entre a precipitação pluvial e a evapotranspiração potencial. Em ambiente.$nm_mun (ambiente.$sigla_uf), a parcela do território em condições suscetíveis à desertificação foi a mesma em 1991 e em 2021. ambiente.$aridez_texto_condicao1991
+ambiente.$aridez_texto_condicao2021
+Em 2021, ambiente.$asd_per_2021_txt% do território municipal (ambiente.$asd_2021 km²) estava inserido em Área Suscetível à Desertificação (ASD), que compreende as zonas hiperáridas, áridas, semiáridas e subúmidas secas (Figura X), o mesmo percentual de 1991. A permanência dessa condição deve ser considerada no planejamento territorial, na gestão dos recursos hídricos e nas ações de prevenção da degradação da terra.
+
+
+Para quando ambiente.$area_sem_dados2021_per for maior ou igual a 5, então:
+Ao todo, ambiente.$area_sem_dados2021_per% do território municipal não apresentava classificação de aridez, porque a base de dados utilizada no cálculo do índice não cobre toda a extensão do município, situação mais comum na faixa litorânea. Os percentuais apresentados referem-se à área total do município, incluindo a parte sem classificação.
+
+
+
+
+Figura X - Classificação das condições de aridez em ambiente.$nm_mun (ambiente.$sigla_uf) para o ano de 2021.
+
+
+
+Para quando ambiente.$n_uc for igual a 0, então:
+Em ambiente.$nm_mun (ambiente.$sigla_uf) não há registro de Unidade de Conservação (UC).
+
+Para quando ambiente.$n_uc for igual a 1, então:
+Em ambiente.$nm_mun (ambiente.$sigla_uf), até dezembro de 2025, foi registrada ambiente.$n_uc Unidade de Conservação (UC), ambiente.$nome_uc, com área de ambiente.$area_total_uc hectares, ambiente.$bioma. Criada em ambiente.$ano_criacao_uc1, a unidade pertence à esfera ambiente.$esfera_1uc, está enquadrada na categoria ambiente.$categoria_uc1 e integra o grupo de ambiente.$grupo_uc1. A área informada corresponde à extensão total da unidade, que pode ultrapassar os limites do município.
+
+Para quando ambiente.$n_uc for de 2 a 4 e ambiente.$n_protecao_us for igual a 0, então:
+Em ambiente.$nm_mun (ambiente.$sigla_uf), até dezembro de 2025, havia ambiente.$n_uc Unidades de Conservação (UC), totalizando ambiente.$area_total_uc hectares, ambiente.$bioma. A área informada corresponde à extensão total das unidades, que pode ultrapassar os limites do município. As UCs presentes no município são: ambiente.$nome_uc. Todas as unidades estão enquadradas no grupo de Proteção Integral.
+
+Para quando ambiente.$n_uc for de 2 a 4 e ambiente.$n_protecao_pi for igual a 0, então:
+Em ambiente.$nm_mun (ambiente.$sigla_uf), até dezembro de 2025, havia ambiente.$n_uc Unidades de Conservação (UC), totalizando ambiente.$area_total_uc hectares, ambiente.$bioma. A área informada corresponde à extensão total das unidades, que pode ultrapassar os limites do município. As UCs presentes no município são: ambiente.$nome_uc. Todas as unidades estão enquadradas no grupo de Uso Sustentável.
+
+Para quando ambiente.$n_uc for de 2 a 4 e ambiente.$n_protecao_pi for diferente de 0 e ambiente.$n_protecao_us for diferente de 0, então:
+Em ambiente.$nm_mun (ambiente.$sigla_uf), até dezembro de 2025, havia ambiente.$n_uc Unidades de Conservação (UC), totalizando ambiente.$area_total_uc hectares, ambiente.$bioma. A área informada corresponde à extensão total das unidades, que pode ultrapassar os limites do município. As UCs presentes no município são: ambiente.$nome_uc. Dessas unidades, o grupo de Proteção Integral reúne ambiente.$n_protecao_pi, e o de Uso Sustentável, ambiente.$n_protecao_us.
+
+Para quando ambiente.$n_uc for maior ou igual a 5 e ambiente.$n_protecao_us for igual a 0, então:
+Em ambiente.$nm_mun (ambiente.$sigla_uf), até dezembro de 2025, havia ambiente.$n_uc Unidades de Conservação (UC), totalizando ambiente.$area_total_uc hectares, ambiente.$bioma. A área informada corresponde à extensão total das unidades, que pode ultrapassar os limites do município. Todas as unidades estão enquadradas no grupo de Proteção Integral. As UCs presentes no município são: ambiente.$nome_uc.
+
+Para quando ambiente.$n_uc for maior ou igual a 5 e ambiente.$n_protecao_pi for igual a 0, então:
+Em ambiente.$nm_mun (ambiente.$sigla_uf), até dezembro de 2025, havia ambiente.$n_uc Unidades de Conservação (UC), totalizando ambiente.$area_total_uc hectares, ambiente.$bioma. A área informada corresponde à extensão total das unidades, que pode ultrapassar os limites do município. Todas as unidades estão enquadradas no grupo de Uso Sustentável. As UCs presentes no município são: ambiente.$nome_uc.
+
+Para quando ambiente.$n_uc for maior ou igual a 5 e ambiente.$n_protecao_pi for diferente de 0 e ambiente.$n_protecao_us for diferente de 0, então:
+Em ambiente.$nm_mun (ambiente.$sigla_uf), até dezembro de 2025, havia ambiente.$n_uc Unidades de Conservação (UC), totalizando ambiente.$area_total_uc hectares, ambiente.$bioma. A área informada corresponde à extensão total das unidades, que pode ultrapassar os limites do município. Dessas unidades, o grupo de Proteção Integral reúne ambiente.$n_protecao_pi, e o de Uso Sustentável, ambiente.$n_protecao_us. As UCs presentes no município são: ambiente.$nome_uc.
+
+Síntese
+
+
+Para quando ambiente.$n_uc for igual a 0 e ambiente.$asd_per_2021 for igual a 0 e ambiente.$asd_per_1991 for diferente de sem dados, então:
+Os dados ambientais de ambiente.$nm_mun (ambiente.$sigla_uf) indicam elementos relevantes para o planejamento local. O município não possuía Unidades de Conservação registradas até dezembro de 2025 e, em 2021, o território não se encontrava inserido em Área Suscetível à Desertificação.
+
+
+Para quando ambiente.$n_uc for igual a 0 e ambiente.$asd_per_2021 for maior que 0, então:
+Os dados ambientais de ambiente.$nm_mun (ambiente.$sigla_uf) indicam elementos relevantes para o planejamento local. O município não possuía Unidades de Conservação registradas até dezembro de 2025 e, em 2021, tinha ambiente.$asd_per_2021_txt% do seu território inserido em Área Suscetível à Desertificação, ante ambiente.$asd_per_1991% em 1991.
+
+
+Para quando ambiente.$n_uc for igual a 1 e ambiente.$asd_per_2021 for igual a 0 e ambiente.$asd_per_1991 for diferente de sem dados, então:
+Os dados ambientais de ambiente.$nm_mun (ambiente.$sigla_uf) indicam elementos relevantes para o planejamento local. O município possuía 1 Unidade de Conservação registrada até dezembro de 2025 e, em 2021, o território não se encontrava inserido em Área Suscetível à Desertificação.
+
+Para quando ambiente.$n_uc for igual a 1 e ambiente.$asd_per_2021 for maior que 0, então:
+Os dados ambientais de ambiente.$nm_mun (ambiente.$sigla_uf) indicam elementos relevantes para o planejamento local. O município possuía 1 Unidade de Conservação registrada até dezembro de 2025 e, em 2021, tinha ambiente.$asd_per_2021_txt% do seu território inserido em Área Suscetível à Desertificação, ante ambiente.$asd_per_1991% em 1991.
+
+Para quando ambiente.$n_uc for maior que 1 e ambiente.$asd_per_2021 for igual a 0 e ambiente.$asd_per_1991 for diferente de sem dados, então:
+Os dados ambientais de ambiente.$nm_mun (ambiente.$sigla_uf) indicam elementos relevantes para o planejamento local. O município possuía ambiente.$n_uc Unidades de Conservação registradas até dezembro de 2025 e, em 2021, o território não se encontrava inserido em Área Suscetível à Desertificação.
+Para quando ambiente.$n_uc for maior que 1 e ambiente.$asd_per_1991 for sem dados, então:
+Os dados ambientais de ambiente.$nm_mun (ambiente.$sigla_uf) indicam elementos relevantes para o planejamento local. O município possuía ambiente.$n_uc Unidades de Conservação registradas até dezembro de 2025, mas não havia dados de aridez para o seu território, de modo que não é possível afirmar se ele estava inserido em Área Suscetível à Desertificação.
+
+Para quando ambiente.$n_uc for maior que 1 e ambiente.$asd_per_2021 for maior que 0, então:
+Os dados ambientais de ambiente.$nm_mun (ambiente.$sigla_uf) indicam elementos relevantes para o planejamento local. O município possuía ambiente.$n_uc Unidades de Conservação registradas até dezembro de 2025 e, em 2021, tinha ambiente.$asd_per_2021_txt% do seu território inserido em Área Suscetível à Desertificação, ante ambiente.$asd_per_1991% em 1991.”@@
+
+
+#!Fontes
+
+Os dados deste relatório foram extraídos dos seguintes painéis de dados do Data Nordeste:
+
+ambiente."$painel2" = https://datanordeste.sudene.gov.br/data-panel/unidades_conservacao
+
+
+ambiente."$painel1" = https://datanordeste.sudene.gov.br/data-panel/aridez
+
+As informações desses painéis têm origem nas seguintes instituições:
+
+●   Cadastro Nacional de Unidades de Conservação (CNUC) do Ministério do Meio Ambiente e Mudança do Clima (MMA); e
+● Observatório da Caatinga e Desertificação (OCA) da Universidade Federal de Campina Grande (UFCG).
+
+Todos os dados estão disponíveis para download no catálogo de dados do Data Nordeste.
+
+#!Conteúdos relacionados
+
+Para saber mais sobre este tema, consulte os seguintes conteúdos do Data Nordeste:
+
+ambiente."$boletim1" = https://datanordeste.sudene.gov.br/boletim/7tbxR9sivkEzXGk7b5t8vu

@@ -1,0 +1,83 @@
+descricao_tema = O acesso aos serviços de saneamento está diretamente relacionado às condições de saúde, qualidade de vida e desenvolvimento dos municípios. Nesse contexto, indicadores relacionados ao esgotamento sanitário e à destinação dos resíduos sólidos permitem avaliar a cobertura desses serviços, acompanhar sua evolução e identificar situações que podem demandar maior atenção do poder público.
+
+
+Para quando infraestrutura.$esgoto_rede_2010 for diferente de infraestrutura.$esgoto_rede_2022 e infraestrutura.$esgoto_rede_2000 for diferente de sem dados, então:
+infraestrutura.$nm_mun (infraestrutura.$sigla_uf), em 2022, possuía infraestrutura.$esgoto_rede_2022% dos seus domicílios conectados à rede geral de esgoto ou à rede pluvial. O indicador apresentou infraestrutura.$tend_esgoto de infraestrutura.$var_esgoto_pp entre 2010 e 2022, passando de infraestrutura.$esgoto_rede_2000% em 2000 para infraestrutura.$esgoto_rede_2010% em 2010 e infraestrutura.$esgoto_rede_2022% em 2022 (Figura X). Essa dinâmica evidencia a infraestrutura.$evol_esgoto da proporção de domicílios conectados à rede geral de esgoto ou pluvial no município e permite dimensionar a parcela que utiliza outras formas de esgotamento sanitário.
+
+
+Para quando infraestrutura.$esgoto_rede_2010 for igual a infraestrutura.$esgoto_rede_2022 e infraestrutura.$esgoto_rede_2000 for diferente de sem dados, então:
+infraestrutura.$nm_mun (infraestrutura.$sigla_uf), em 2022, possuía infraestrutura.$esgoto_rede_2022% dos seus domicílios conectados à rede geral de esgoto ou à rede pluvial. Ao comparar os anos de 2010 e 2022, verificou-se que o município manteve a mesma proporção de domicílios conectados à rede geral de esgoto ou à rede pluvial (Figura X).
+
+
+Para quando infraestrutura.$esgoto_rede_2000 for igual a sem dados, então:
+infraestrutura.$nm_mun (infraestrutura.$sigla_uf), em 2022, possuía infraestrutura.$esgoto_rede_2022% dos seus domicílios conectados à rede geral de esgoto ou à rede pluvial, frente a infraestrutura.$esgoto_rede_2010% em 2010. O dado de 2000 não está disponível para o município (Figura X). Essa informação permite dimensionar a parcela que utiliza outras formas de esgotamento sanitário.
+
+
+
+
+
+
+*grafico_domicilio
+
+
+Figura X – Dinâmica do percentual de domicílios conectados à rede geral de esgoto ou à rede pluvial em infraestrutura.$nm_mun (infraestrutura.$sigla_uf).
+Além da rede geral ou pluvial, os domicílios do município utilizavam outras formas de esgotamento sanitário, como fossa séptica ou fossa filtro, fossa rudimentar ou buraco, vala, rio, lago, córrego ou mar e outras formas (Figura Y). A distribuição entre essas alternativas complementa a análise da cobertura da rede de esgotamento sanitário, permitindo identificar as principais soluções adotadas pelos domicílios que não estão conectados à rede.
+
+
+*grafico_domicilio_por_tipo_esgosto
+
+
+Figura Y – Domicílios por tipo de esgotamento sanitário em infraestrutura.$nm_mun (infraestrutura.$sigla_uf), em 2022.
+Para quando infraestrutura.$sem_banheiro_2022per for maior que 0, então:
+Outro indicador relacionado às condições sanitárias é a existência de banheiro ou sanitário. Esse indicador permite identificar situações de maior vulnerabilidade habitacional e complementa a análise das condições de saneamento do município. Nesse contexto, em 2022, infraestrutura.$sem_banheiro_2022txt em infraestrutura.$nm_mun (infraestrutura.$sigla_uf).
+Para quando infraestrutura.$sem_banheiro_2022per for igual a 0, então:
+Outro indicador relacionado às condições sanitárias é a existência de banheiro ou sanitário. Esse indicador permite identificar situações de maior vulnerabilidade habitacional e complementa a análise das condições de saneamento do município. Nesse contexto, em 2022, todos os domicílios de infraestrutura.$nm_mun (infraestrutura.$sigla_uf) possuíam banheiro ou sanitário.
+Para quando infraestrutura.$var_coleta_pp for diferente de 0 ponto percentual, então:
+Em relação aos resíduos sólidos domiciliares, infraestrutura.$coleta_2022% dos domicílios de infraestrutura.$nm_mun (infraestrutura.$sigla_uf) contavam com coleta de lixo em 2022, frente a infraestrutura.$coleta_2010% em 2010, o que representa infraestrutura.$var_coleta de infraestrutura.$var_coleta_pp no período (Figura Z). Diante das diferentes formas de destinação, infraestrutura.$coleta_domicilio_2022per% dos domicílios tinham o lixo coletado no próprio domicílio por serviço de limpeza. Os demais utilizavam outras formas de destinação, como depósito em caçamba do serviço de limpeza, queima ou enterramento na propriedade, descarte em terreno baldio, encosta ou área pública, entre outras.
+Para quando infraestrutura.$var_coleta_pp for igual a 0 ponto percentual, então:
+Em relação aos resíduos sólidos domiciliares, infraestrutura.$coleta_2022% dos domicílios de infraestrutura.$nm_mun (infraestrutura.$sigla_uf) contavam com coleta de lixo em 2022, valor igual ao registrado em 2010 (Figura Z). Diante das diferentes formas de destinação, infraestrutura.$coleta_domicilio_2022per% dos domicílios tinham o lixo coletado no próprio domicílio por serviço de limpeza. Os demais utilizavam outras formas de destinação, como depósito em caçamba do serviço de limpeza, queima ou enterramento na propriedade, descarte em terreno baldio, encosta ou área pública, entre outras.
+*grafico_coleta_lixo
+
+
+
+
+
+
+Figura Z – Evolução do percentual de domicílios com coleta de lixo em infraestrutura.$nm_mun (infraestrutura.$sigla_uf).
+Para quando infraestrutura.$descarte_irregular_2022per for maior que 0, então:
+Entre essas formas de destinação, infraestrutura.$descarte_irregular_2022per% dos domicílios realizavam o descarte do lixo em terreno baldio, encosta ou área pública em 2022. A análise dessas formas de destinação complementa o indicador geral de coleta, permitindo identificar práticas que podem representar pontos de atenção para a limpeza urbana, a saúde da população e as condições ambientais do município.
+Para quando infraestrutura.$descarte_irregular_2022per for igual a 0, então:
+Entre essas formas de destinação, nenhum dos domicílios realizava o descarte do lixo em terreno baldio, encosta ou área pública em 2022. A análise dessas formas de destinação complementa o indicador geral de coleta, permitindo identificar práticas que podem representar pontos de atenção para a limpeza urbana, a saúde da população e as condições ambientais do município.
+Síntese
+Para quando infraestrutura.$esgoto_rede_2010 for diferente de infraestrutura.$esgoto_rede_2022 e infraestrutura.$coleta_2010 for diferente de infraestrutura.$coleta_2022 e infraestrutura.$esgoto_rede_2000 for diferente de sem dados, então:
+Em síntese, em 2022, infraestrutura.$esgoto_rede_2022% dos domicílios de infraestrutura.$nm_mun (infraestrutura.$sigla_uf) estavam conectados à rede geral de esgoto ou pluvial e infraestrutura.$coleta_2022% contavam com coleta de lixo, enquanto a proporção de domicílios sem banheiro e/ou sanitário era de infraestrutura.$sem_banheiro_2022per% e a de domicílios que descartavam o lixo em terreno baldio, encosta ou área pública era de infraestrutura.$descarte_irregular_2022per%. Os dados também evidenciam infraestrutura.$evol_esgoto ao longo do tempo na conexão dos domicílios à rede geral ou pluvial, passando de infraestrutura.$esgoto_rede_2010% em 2010 para infraestrutura.$esgoto_rede_2022% em 2022. Já a coleta de lixo passou de infraestrutura.$coleta_2010% em 2010 para infraestrutura.$coleta_2022% em 2022. Esses indicadores permitem dimensionar a cobertura dos serviços, acompanhar sua evolução e identificar aspectos que podem orientar o planejamento e a priorização de ações de saneamento no município.
+Para quando infraestrutura.$esgoto_rede_2010 for igual a infraestrutura.$esgoto_rede_2022 e infraestrutura.$coleta_2010 for diferente de infraestrutura.$coleta_2022 e infraestrutura.$esgoto_rede_2000 for diferente de sem dados, então:
+Em síntese, em 2022, infraestrutura.$esgoto_rede_2022% dos domicílios de infraestrutura.$nm_mun (infraestrutura.$sigla_uf) estavam conectados à rede geral de esgoto ou pluvial e infraestrutura.$coleta_2022% contavam com coleta de lixo, enquanto a proporção de domicílios sem banheiro e/ou sanitário era de infraestrutura.$sem_banheiro_2022per% e a de domicílios que descartavam o lixo em terreno baldio, encosta ou área pública era de infraestrutura.$descarte_irregular_2022per%. Ao comparar os anos de 2010 e 2022, verificou-se que o município manteve a mesma proporção de domicílios conectados à rede geral de esgoto ou à rede pluvial. Em relação à coleta de lixo, a cobertura passou de infraestrutura.$coleta_2010% em 2010 para infraestrutura.$coleta_2022% em 2022. Esses indicadores permitem dimensionar a cobertura dos serviços, acompanhar sua evolução e identificar aspectos que podem orientar o planejamento e a priorização de ações de saneamento no município.
+Para quando infraestrutura.$esgoto_rede_2010 for diferente de infraestrutura.$esgoto_rede_2022 e infraestrutura.$coleta_2010 for igual a infraestrutura.$coleta_2022 e infraestrutura.$esgoto_rede_2000 for diferente de sem dados, então:
+Em síntese, em 2022, infraestrutura.$esgoto_rede_2022% dos domicílios de infraestrutura.$nm_mun (infraestrutura.$sigla_uf) estavam conectados à rede geral de esgoto ou pluvial e infraestrutura.$coleta_2022% contavam com coleta de lixo, enquanto a proporção de domicílios sem banheiro e/ou sanitário era de infraestrutura.$sem_banheiro_2022per% e a de domicílios que descartavam o lixo em terreno baldio, encosta ou área pública era de infraestrutura.$descarte_irregular_2022per%. Os dados também evidenciam infraestrutura.$evol_esgoto ao longo do tempo na conexão dos domicílios à rede geral ou pluvial, passando de infraestrutura.$esgoto_rede_2010% em 2010 para infraestrutura.$esgoto_rede_2022% em 2022. Em relação à coleta de lixo, observou-se a manutenção da mesma proporção de domicílios atendidos pelo serviço entre 2010 e 2022. Esses indicadores permitem dimensionar a cobertura dos serviços, acompanhar sua evolução e identificar aspectos que podem orientar o planejamento e a priorização de ações de saneamento no município.
+Para quando infraestrutura.$esgoto_rede_2010 for igual a infraestrutura.$esgoto_rede_2022 e infraestrutura.$coleta_2010 for igual a infraestrutura.$coleta_2022 e infraestrutura.$esgoto_rede_2000 for diferente de sem dados, então:
+Em síntese, em 2022, infraestrutura.$esgoto_rede_2022% dos domicílios de infraestrutura.$nm_mun (infraestrutura.$sigla_uf) estavam conectados à rede geral de esgoto ou pluvial e infraestrutura.$coleta_2022% contavam com coleta de lixo, enquanto a proporção de domicílios sem banheiro e/ou sanitário era de infraestrutura.$sem_banheiro_2022per% e a de domicílios que descartavam o lixo em terreno baldio, encosta ou área pública era de infraestrutura.$descarte_irregular_2022per%. Ao comparar entre 2010 e 2022, observou-se a manutenção da proporção de domicílios conectados à rede geral de esgoto ou à rede pluvial, assim como da proporção de domicílios atendidos pela coleta de lixo. Esses indicadores permitem dimensionar a cobertura dos serviços, acompanhar sua evolução e identificar aspectos que podem orientar o planejamento e a priorização de ações de saneamento no município.
+Para quando infraestrutura.$esgoto_rede_2000 for igual a sem dados e infraestrutura.$coleta_2010 for diferente de infraestrutura.$coleta_2022, então:
+Em síntese, em 2022, infraestrutura.$esgoto_rede_2022% dos domicílios de infraestrutura.$nm_mun (infraestrutura.$sigla_uf) estavam conectados à rede geral de esgoto ou pluvial e infraestrutura.$coleta_2022% contavam com coleta de lixo, enquanto a proporção de domicílios sem banheiro e/ou sanitário era de infraestrutura.$sem_banheiro_2022per% e a de domicílios que descartavam o lixo em terreno baldio, encosta ou área pública era de infraestrutura.$descarte_irregular_2022per%. Não há dado de 2000 para a conexão à rede; em 2010 o percentual era de infraestrutura.$esgoto_rede_2010%. Já a coleta de lixo passou de infraestrutura.$coleta_2010% em 2010 para infraestrutura.$coleta_2022% em 2022. Esses indicadores permitem dimensionar a cobertura dos serviços, acompanhar sua evolução e identificar aspectos que podem orientar o planejamento e a priorização de ações de saneamento no município.
+Para quando infraestrutura.$esgoto_rede_2000 for igual a sem dados e infraestrutura.$coleta_2010 for igual a infraestrutura.$coleta_2022, então:
+Em síntese, em 2022, infraestrutura.$esgoto_rede_2022% dos domicílios de infraestrutura.$nm_mun (infraestrutura.$sigla_uf) estavam conectados à rede geral de esgoto ou pluvial e infraestrutura.$coleta_2022% contavam com coleta de lixo, enquanto a proporção de domicílios sem banheiro e/ou sanitário era de infraestrutura.$sem_banheiro_2022per% e a de domicílios que descartavam o lixo em terreno baldio, encosta ou área pública era de infraestrutura.$descarte_irregular_2022per%. Não há dado de 2000 para a conexão à rede; em 2010 o percentual era de infraestrutura.$esgoto_rede_2010%. Em relação à coleta de lixo, observou-se a manutenção da mesma proporção de domicílios atendidos pelo serviço entre 2010 e 2022. Esses indicadores permitem dimensionar a cobertura dos serviços, acompanhar sua evolução e identificar aspectos que podem orientar o planejamento e a priorização de ações de saneamento no município. @@
+
+
+#!Fontes
+
+
+Os dados deste relatório foram extraídos dos seguintes painéis de dados do Data Nordeste:
+infraestrutura.“$nm_painel1” = https://datanordeste.sudene.gov.br/data-panel/saneamento
+infraestrutura.“$nm_painel2” = https://datanordeste.sudene.gov.br/data-panel/lixo
+
+
+As informações desses painéis têm origem nas seguintes instituições:
+* Instituto Brasileiro de Geografia e Estatística (IBGE).
+Todos os dados estão disponíveis para download no catálogo de dados do Data Nordeste.
+
+
+#!Conteúdos relacionados
+
+
+Para saber mais sobre este tema, consulte os seguintes conteúdos do Data Nordeste:
+infraestrutura.“$nm_boletim1” = https://datanordeste.sudene.gov.br/boletim/2uLi66i4yISOg9bjzuH6WG

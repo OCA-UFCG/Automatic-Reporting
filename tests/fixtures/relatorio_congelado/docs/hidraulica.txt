@@ -1,0 +1,106 @@
+descricao_tema = “As tecnologias sociais de acesso à água são soluções desenvolvidas ou adaptadas às características locais para ampliar o acesso, o armazenamento e o uso sustentável da água, especialmente em regiões onde sua disponibilidade é limitada ou irregular. Entre essas tecnologias estão cisternas, barragens subterrâneas, barreiros de trincheira, microaçudes, microssistemas de abastecimento de água e sistemas de tratamento e reuso de água.
+
+
+Para quando seg_hidrica.$total_2025 for igual a 0, então:
+Até o ano de 2025, seg_hidrica.$nm_mun (seg_hidrica.$sigla_uf) não contabilizava cisternas (Figura X).
+
+
+Para quando seg_hidrica.$primeira_agua_qtd for maior que 0 e seg_hidrica.$segunda_agua_qtd for maior que 0 e seg_hidrica.$escolares_qtd for maior que 0, então:
+Até o ano de 2025, seg_hidrica.$nm_mun (seg_hidrica.$sigla_uf) contabilizava seg_hidrica.$total_2025 seg_hidrica.$total_cisterna_txt. Desse total, seg_hidrica.$primeira_agua_qtd (seg_hidrica.$primeira_agua_per%) seg_hidrica.$primeira_agua_verbo ao abastecimento humano (1ª água), seg_hidrica.$segunda_agua_qtd (seg_hidrica.$segunda_agua_per%) à irrigação e à dessedentação de animais (2ª água) e seg_hidrica.$escolares_qtd (seg_hidrica.$escolares_per%) às atividades escolares.
+Para quando seg_hidrica.$primeira_agua_qtd for maior que 0 e seg_hidrica.$segunda_agua_qtd for maior que 0 e seg_hidrica.$escolares_qtd for igual a 0, então:
+Até o ano de 2025, seg_hidrica.$nm_mun (seg_hidrica.$sigla_uf) contabilizava seg_hidrica.$total_2025 seg_hidrica.$total_cisterna_txt. Desse total, seg_hidrica.$primeira_agua_qtd (seg_hidrica.$primeira_agua_per%) seg_hidrica.$primeira_agua_verbo ao abastecimento humano (1ª água) e seg_hidrica.$segunda_agua_qtd (seg_hidrica.$segunda_agua_per%) à irrigação e à dessedentação de animais (2ª água).
+Para quando seg_hidrica.$primeira_agua_qtd for igual a 0 e seg_hidrica.$segunda_agua_qtd for maior que 0 e seg_hidrica.$escolares_qtd for maior que 0, então:
+Até o ano de 2025, seg_hidrica.$nm_mun (seg_hidrica.$sigla_uf) contabilizava seg_hidrica.$total_2025 seg_hidrica.$total_cisterna_txt. Desse total, seg_hidrica.$segunda_agua_qtd (seg_hidrica.$segunda_agua_per%) seg_hidrica.$segunda_agua_verbo à irrigação e à dessedentação de animais (2ª água) e seg_hidrica.$escolares_qtd (seg_hidrica.$escolares_per%) às atividades escolares.
+Para quando seg_hidrica.$primeira_agua_qtd for maior que 0 e seg_hidrica.$segunda_agua_qtd for igual a 0 e seg_hidrica.$escolares_qtd for maior que 0, então:
+Até o ano de 2025, seg_hidrica.$nm_mun (seg_hidrica.$sigla_uf) contabilizava seg_hidrica.$total_2025 seg_hidrica.$total_cisterna_txt. Desse total, seg_hidrica.$primeira_agua_qtd (seg_hidrica.$primeira_agua_per%) seg_hidrica.$primeira_agua_verbo ao abastecimento humano (1ª água) e seg_hidrica.$escolares_qtd (seg_hidrica.$escolares_per%) às atividades escolares.
+Para quando seg_hidrica.$primeira_agua_qtd for maior que 0 e seg_hidrica.$segunda_agua_qtd for igual a 0 e seg_hidrica.$escolares_qtd for igual a 0, então:
+Até o ano de 2025, seg_hidrica.$nm_mun (seg_hidrica.$sigla_uf) contabilizava seg_hidrica.$total_2025 seg_hidrica.$total_cisterna_txt com a finalidade de abastecimento humano (1ª água), correspondendo a 100% do total.
+Para quando seg_hidrica.$primeira_agua_qtd for igual a 0 e seg_hidrica.$segunda_agua_qtd for maior que 0 e seg_hidrica.$escolares_qtd for igual a 0, então:
+Até o ano de 2025, seg_hidrica.$nm_mun (seg_hidrica.$sigla_uf) contabilizava seg_hidrica.$total_2025 seg_hidrica.$total_cisterna_txt com a finalidade de irrigação e dessedentação de animais (2ª água), correspondendo a 100% do total.
+Para quando seg_hidrica.$primeira_agua_qtd for igual a 0 e seg_hidrica.$segunda_agua_qtd for igual a 0 e seg_hidrica.$total_2025 for maior que 0, então:
+Até o ano de 2025, seg_hidrica.$nm_mun (seg_hidrica.$sigla_uf) contabilizava seg_hidrica.$total_2025 seg_hidrica.$total_cisterna_txt. Todas essas cisternas eram destinadas às atividades escolares.
+
+
+Para quando seg_hidrica.$total_2010 for diferente de seg_hidrica.$total_2020 e seg_hidrica.$total_2020 for diferente de seg_hidrica.$total_2025, então:
+O número acumulado de cisternas passou de seg_hidrica.$total_2010 em 2010 para seg_hidrica.$total_2020 em 2020, alcançando seg_hidrica.$total_2025 em 2025 (Figura X). No período de 2010 a 2025, foram acrescentadas seg_hidrica.$acrescimo_qtd cisternas.
+Para quando seg_hidrica.$total_2010 for diferente de seg_hidrica.$total_2020 e seg_hidrica.$total_2020 for igual a seg_hidrica.$total_2025, então:
+O número acumulado de cisternas passou de seg_hidrica.$total_2010 em 2010 para seg_hidrica.$total_2020 em 2020, mantendo-se nesse mesmo patamar até 2025 (Figura X).
+
+
+Para quando seg_hidrica.$total_2010 for igual a seg_hidrica.$total_2020 e seg_hidrica.$total_2020 for diferente de seg_hidrica.$total_2025, então:
+Entre 2010 e 2020, o número acumulado de cisternas permaneceu estável em seg_hidrica.$total_2010, passando para seg_hidrica.$total_2025 em 2025 (Figura X).
+Para quando seg_hidrica.$acrescimo_qtd for igual a 0 e seg_hidrica.$total_2025 for maior que 0, então:
+O número acumulado de cisternas manteve-se em seg_hidrica.$total_2025 desde 2010, sem novos registros no período (Figura X).
+
+
+*grafico_tecnologias_acesso_agua
+
+
+
+
+
+
+Figura X – Número acumulado de cisternas entregues em seg_hidrica.$nm_mun (seg_hidrica.$sigla_uf), de 2010 a 2025.
+
+
+Síntese
+
+
+Para quando seg_hidrica.$total_2025 for igual a 0, então:
+Até o ano de 2025, não foram registradas cisternas em seg_hidrica.$nm_mun (seg_hidrica.$sigla_uf).
+
+
+
+
+Para quando seg_hidrica.$sol_predom_per for igual a 100 e seg_hidrica.$empate_finalidade for igual a 0, então:
+seg_hidrica.$nm_mun (seg_hidrica.$sigla_uf) acumulava seg_hidrica.$total_2025 (100%) seg_hidrica.$total_cisterna_txt, até 2025, para seg_hidrica.$sol_predom.
+
+
+
+
+Para quando seg_hidrica.$sol_predom_per for maior que 0 e seg_hidrica.$sol_predom_per for menor que 100 e seg_hidrica.$total_2025 for maior que 1 e seg_hidrica.$empate_finalidade for igual a 0, então:
+seg_hidrica.$nm_mun (seg_hidrica.$sigla_uf) acumulava seg_hidrica.$total_2025 seg_hidrica.$total_cisterna_txt até 2025, com predominância de seg_hidrica.$total_cisterna_txt para seg_hidrica.$sol_predom, que respondia por seg_hidrica.$sol_predom_per% do total.
+
+
+Para quando seg_hidrica.$empate_finalidade for igual a 1, então:
+seg_hidrica.$nm_mun (seg_hidrica.$sigla_uf) acumulava seg_hidrica.$total_2025 cisternas até 2025, divididas igualmente entre abastecimento humano (1ª água) e irrigação e dessedentação de animais (2ª água).
+
+
+
+
+Para quando seg_hidrica.$primeira_agua_qtd for igual a 0 e seg_hidrica.$segunda_agua_qtd for igual a 0 e seg_hidrica.$total_2025 for maior que 0, então:
+seg_hidrica.$nm_mun (seg_hidrica.$sigla_uf) acumulava o total de seg_hidrica.$total_2025 seg_hidrica.$total_cisterna_txt, até 2025, destinado para atividades escolares.
+
+
+Para quando seg_hidrica.$acrescimo_qtd for maior que 0, então:
+O número de cisternas representa uma resposta à vulnerabilidade hídrica do território, e a evolução do ritmo de implantação oferece um indicador útil para o planejamento de novas ações de segurança hídrica.
+
+
+
+
+Para quando seg_hidrica.$acrescimo_qtd for igual a 0 e seg_hidrica.$total_2025 for maior que 0, então:
+Como não houve novos registros desde 2010, a ampliação da quantidade de cisternas pode ser considerada no planejamento de novas ações de segurança hídrica.”@@
+
+
+#!Fontes
+
+
+Os dados deste relatório foram extraídos do seguinte painel de dados do Data Nordeste:
+
+
+seg_hidrica.“$nm_painel1” = https://datanordeste.sudene.gov.br/data-panel/cisternas
+
+
+As informações desse painel têm origem na seguinte instituição:
+
+
+* Secretaria Nacional de Segurança Alimentar e Nutricional (SESAN).
+
+
+Todos os dados estão disponíveis para download no catálogo de dados do Data Nordeste.
+
+
+#!Conteúdos relacionados
+
+
+seg_hidrica.“$nm_boletim1” = https://datanordeste.sudene.gov.br/boletim/7tbxR9sivkEzXGk7b5t8vu
