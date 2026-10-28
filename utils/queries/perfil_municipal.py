@@ -22,6 +22,14 @@ VIEW_POR_MACROTEMA = {
 }
 
 
+def chave_municipio_sql(expr: str) -> str:
+    """Expressão SQL da chave que casa um município com a linha da view: o nome sem o
+    "(UF)" final, sem caixa (a `sigla_uf` entra à parte). Única fonte da regra, usada
+    pelo WHERE de `buscar_perfil_municipal` e pelo índice do snapshot do laboratório —
+    calculada sempre no Postgres, para não existir uma cópia em Python que divirja."""
+    return f"LOWER(regexp_replace({expr}, '\\s*\\([^)]*\\)\\s*$', ''))"
+
+
 def buscar_perfil_municipal(
     macrotema_slug: str, nome_municipio: str, sigla_uf: str
 ) -> dict | None:
@@ -41,8 +49,8 @@ def buscar_perfil_municipal(
     # linha existindo na view (bug real: Recife (PE) em saúde).
     query = f"""
         SELECT * FROM relatorios_auto.{view}
-        WHERE LOWER(regexp_replace(nm_mun, '\\s*\\([^)]*\\)\\s*$', '')) =
-              LOWER(regexp_replace(%s, '\\s*\\([^)]*\\)\\s*$', ''))
+        WHERE {chave_municipio_sql("nm_mun")} =
+              {chave_municipio_sql("%s")}
           AND sigla_uf = %s
         LIMIT 1
     """
