@@ -4,14 +4,22 @@ O texto passa inteiro, município a município, pelo mesmo caminho do relatório
 (texto_final_do_tema), com o contexto do snapshot. Avaliar condição por condição
 divergiria do relatório: interpretar_blocos_condicionais tem estado entre linhas
 (spec do laboratório, "Conferência pelo gerador"). Nada aqui escreve em banco, Doc
-ou cache.
+ou cache; só o estado das conferências, em output/laboratorio/conferencias/.
 """
 
+import fcntl
+import json
 import logging
+import os
 import re
+import threading
+import time
+import uuid
 from collections.abc import Callable
+from pathlib import Path
 
 from services.generation import separar_secoes_do_tema
+from services.laboratorio_snapshot import SNAPSHOT_DIR, carregar_snapshot
 from utils.render.placeholders import conferir_condicoes, registrar_versoes
 from utils.render.renderer import texto_final_do_tema
 
@@ -108,3 +116,98 @@ def conferir_doc(
     conferencia["condicoes_sem_efeito"] = _CONDICAO_NO_TEXTO.findall(secoes.resumo_tema or "")
     conferencia["graficos_sem_legenda"] = graficos_sem_legenda
     return conferencia
+
+
+# --- Conferência em segundo plano (decisão do André, 29/10/2026) ---
+# O tema inteiro leva ~25 s (demografia, local; ~40 s estimados no gamma), demais para
+# uma requisição: a conferência roda numa thread e a tela acompanha o progresso. O
+# estado vai para arquivo, e não para a memória, porque o gamma tem 3 workers do
+# uvicorn e o polling pode cair em outro processo. O flock deixa uma conferência por
+# vez na máquina inteira (1 núcleo; o banco divide o host): a segunda espera na fila.
+CONFERENCIAS_DIR = SNAPSHOT_DIR / "conferencias"
+_LOCK = CONFERENCIAS_DIR / ".lock"
+_ID_VALIDO = re.compile(r"^[0-9a-f]{32}$")
+_GRAVAR_A_CADA = 50
+_VALIDADE_S = 24 * 3600
+
+
+def _caminho(id_conferencia: str) -> Path:
+    return CONFERENCIAS_DIR / f"{id_conferencia}.json"
+
+
+def _gravar(id_conferencia: str, estado: dict) -> None:
+    temporario = _caminho(id_conferencia).with_suffix(".tmp")
+    temporario.write_text(json.dumps(estado, ensure_ascii=False), encoding="utf-8")
+    os.replace(temporario, _caminho(id_conferencia))  # quem lê nunca vê pela metade
+
+
+def ler_conferencia(id_conferencia: str) -> dict | None:
+    if not _ID_VALIDO.match(id_conferencia):  # o id vira nome de arquivo
+        return None
+    try:
+        return json.loads(_caminho(id_conferencia).read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+
+
+def _apagar_antigas() -> None:
+    limite = time.time() - _VALIDADE_S
+    for arquivo in CONFERENCIAS_DIR.glob("*.json"):
+        if arquivo.stat().st_mtime < limite:
+            arquivo.unlink(missing_ok=True)
+
+
+def _rodar(id_conferencia: str, slug: str, doc_texto: str) -> None:
+    with open(_LOCK, "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)  # espera a conferência anterior acabar
+        try:
+            snapshot = carregar_snapshot(slug)
+            if snapshot is None:
+                _gravar(id_conferencia, {"estado": "erro", "erro": "tema sem snapshot"})
+                return
+            contextos = {cidade: m["contexto"] for cidade, m in snapshot["municipios"].items()}
+
+            def progresso(feitos: int, total: int) -> None:
+                if feitos % _GRAVAR_A_CADA == 0:
+                    _gravar(id_conferencia, {"estado": "rodando", "feitos": feitos, "total": total})
+
+            _gravar(id_conferencia, {"estado": "rodando", "feitos": 0, "total": len(contextos)})
+            resultado = conferir_doc(doc_texto, slug, contextos, progresso)
+            _gravar(id_conferencia, {
+                "estado": "pronta",
+                "feitos": len(contextos),
+                "total": len(contextos),
+                "snapshot_gerado_em": snapshot["gerado_em"],
+                "resultado": resultado,
+            })
+        except Exception as err:  # a tela precisa saber que acabou, mesmo com erro
+            logger.exception("conferência %s (%s) falhou", id_conferencia, slug)
+            _gravar(id_conferencia, {"estado": "erro", "erro": f"{type(err).__name__}: {err}"})
+
+
+def iniciar_conferencia(slug: str, doc_texto: str) -> str:
+    CONFERENCIAS_DIR.mkdir(parents=True, exist_ok=True)
+    _apagar_antigas()
+    id_conferencia = uuid.uuid4().hex
+    _gravar(id_conferencia, {"estado": "na_fila"})
+    threading.Thread(
+        target=_rodar, args=(id_conferencia, slug, doc_texto),
+        name=f"conferencia:{slug}", daemon=True,
+    ).start()
+    return id_conferencia
+
+
+def texto_do_municipio(slug: str, doc_texto: str, cidade: str) -> dict | None:
+    """Texto final do tema numa cidade, para "texto pronto numa cidade" e "ler com
+    cada valor". None se o tema não tem snapshot ou a cidade não está nele.
+
+    ponytail: lê o snapshot inteiro a cada chamada (~0,5 s local). Cache por processo
+    custaria ~100 MB × 3 workers num host que já sofreu com memória; cachear se a
+    tela ficar lenta.
+    """
+    snapshot = carregar_snapshot(slug)
+    municipio = (snapshot or {}).get("municipios", {}).get(cidade)
+    if municipio is None:
+        return None
+    secoes, _ = separar_secoes_do_tema(doc_texto, slug)
+    return conferir_municipio(secoes.descricao_tema or "", municipio["contexto"], slug)

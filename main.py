@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -167,6 +168,50 @@ async def gerar_relatorio(
     cidade: str, macrotema: str = "demografia", aguardar: str = "sim"
 ):
     return await gerar_relatorio_handler(cidade, macrotema, aguardar=aguardar != "nao")
+
+
+# Laboratório de Temas: as rotas só existem com a flag ligada, e ela só é setada no
+# gamma (-e no cd-gamma.yaml). Promover o código para beta/prod não liga nada (spec do
+# laboratório, "Acesso"). Antes do mount do frontend, que responde por "/".
+if os.getenv("LABORATORIO_HABILITADO") == "1":
+    from pydantic import BaseModel, Field
+
+    from services.laboratorio import (
+        iniciar_conferencia,
+        ler_conferencia,
+        texto_do_municipio,
+    )
+    from services.laboratorio_snapshot import caminho_snapshot
+
+    class TextoDoTema(BaseModel):
+        # Os Docs de hoje têm até ~30 kB; o teto só barra abuso.
+        texto: str = Field(max_length=500_000)
+
+    class TextoNaCidade(TextoDoTema):
+        cidade: str
+
+    def _tema_com_snapshot(tema: str) -> str:
+        if tema not in MACROTEMAS or not caminho_snapshot(tema).exists():
+            raise HTTPException(status_code=404, detail=f"tema sem snapshot: {tema}")
+        return tema
+
+    @app.post("/laboratorio/{tema}/conferencias")
+    def laboratorio_conferir(tema: str, corpo: TextoDoTema):
+        return {"id": iniciar_conferencia(_tema_com_snapshot(tema), corpo.texto)}
+
+    @app.get("/laboratorio/conferencias/{id_conferencia}")
+    def laboratorio_conferencia(id_conferencia: str):
+        estado = ler_conferencia(id_conferencia)
+        if estado is None:
+            raise HTTPException(status_code=404, detail="conferência não encontrada")
+        return estado
+
+    @app.post("/laboratorio/{tema}/municipio")
+    def laboratorio_municipio(tema: str, corpo: TextoNaCidade):
+        resultado = texto_do_municipio(_tema_com_snapshot(tema), corpo.texto, corpo.cidade)
+        if resultado is None:
+            raise HTTPException(status_code=404, detail=f"cidade fora do snapshot: {corpo.cidade}")
+        return resultado
 
 
 # If the frontend has been built (e.g., via Docker), serve it from the same app.
