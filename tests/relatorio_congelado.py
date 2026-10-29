@@ -111,8 +111,11 @@ def instalar_ambiente(
 
     # Sem isso, no CI todo docs_url é vazio, o handler pula todos os temas e o teste
     # passaria vazio para sempre.
+    # Tema sem Doc gravado (ex.: instrumentos-sudene, mais novo que a gravação) fica
+    # sem docs_url e é pulado, como em produção quando o secret do Doc não existe.
     def macrotema_congelado(slug: str):
-        return {**get_macrotema(slug), "docs_url": f"fixture:{slug}"}
+        gravado = (FIXTURES / "docs" / f"{slug}.txt").exists()
+        return {**get_macrotema(slug), "docs_url": f"fixture:{slug}" if gravado else None}
 
     patch(generation, "get_macrotema", macrotema_congelado)
     patch(generation, "CARACTERISTICAS_DOCS_URL", "fixture:caracteristicas")

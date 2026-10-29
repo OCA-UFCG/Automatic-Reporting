@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 from config import (
     DESENVOLVIMENTO_SOCIAL_DOCS_URL,
+    INSTRUMENTOS_SUDENE_DOCS_URL,
     MEIO_AMBIENTE_DOCS_URL,
     resolve_csv_source,
 )
@@ -22,6 +23,7 @@ def test_google_drive_csv_download_is_not_rewritten_as_google_sheets():
 def test_new_macrothemes_use_their_configured_docs_sources():
     assert MACROTEMAS["desenvolvimento-social"]["docs_url"] == DESENVOLVIMENTO_SOCIAL_DOCS_URL
     assert MACROTEMAS["meio-ambiente"]["docs_url"] == MEIO_AMBIENTE_DOCS_URL
+    assert MACROTEMAS["instrumentos-sudene"]["docs_url"] == INSTRUMENTOS_SUDENE_DOCS_URL
 
 
 def test_all_macrothemes_use_the_expected_colors_and_order():
@@ -34,6 +36,7 @@ def test_all_macrothemes_use_the_expected_colors_and_order():
         ("desenvolvimento-social", "#7C46E1"),
         ("meio-ambiente", "#B0CC41"),
         ("saneamento", "#001A72"),
+        ("instrumentos-sudene", "#018F39"),
     ]
 
     assert get_macrotema_slugs_para_relatorio("todos") == [slug for slug, _ in expected]

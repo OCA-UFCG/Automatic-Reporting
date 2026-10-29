@@ -19,6 +19,10 @@ VIEW_POR_MACROTEMA = {
     # O enriquecimento continua depois, com os campos derivados (nm_datastory2,
     # cat_idhm_1991_2010).
     "desenvolvimento-social": "vw_perfil_desen_social_municipal",
+    # Linha plana por município (FNE 2021–2025), leve (~0,8 s por município). Em
+    # 28/10/2026 só existe no banco do Gamma; o Beta ainda não tem o schema
+    # instrsudene_fne, então lá o tema cai no fallback de CSV.
+    "instrumentos-sudene": "instrsudene_munic",
 }
 
 

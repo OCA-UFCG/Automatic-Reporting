@@ -2417,3 +2417,15 @@ def test_paragrafos_do_tema_tira_grafico_sem_mencao_so_em_saude():
     texto_figura = "Texto sem citar.\n\n*grafico_x\n\nFigura Z - Legenda.\n"
     assert not any("grafico_x" in p for p in paragrafos_do_tema(texto_figura, {}, "saude"))
     assert any("grafico_x" in p for p in paragrafos_do_tema(texto_figura, {}, "demografia"))
+
+
+def test_instrumentos_sudene_aceita_os_namespaces_do_doc():
+    # O Doc do tema escreve "instrsudene.$campo" no texto e "sudene.$painel1"
+    # nas Fontes; os dois resolvem contra o contexto do próprio tema.
+    texto = "Em instrsudene.$nm_mun (instrsudene.$sigla_uf), painel sudene.$painel1."
+    contexto = {"nm_mun": "Recife (PE)", "sigla_uf": "PE", "painel1": "FNE"}
+
+    assert (
+        substituir_placeholders(texto, contexto, namespace="instrumentos-sudene")
+        == "Em Recife (PE) (PE), painel FNE."
+    )
