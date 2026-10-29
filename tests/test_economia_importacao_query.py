@@ -3,10 +3,14 @@ from utils.queries import economia_importacao
 
 def test_buscar_linhas_importacao_mapeia_colunas_da_consulta(monkeypatch):
     linhas_banco = [
-        (2026, "06", "junho", "País A", "Seção X", "Produto 1", 1000.0, 40000.0),
+        (2026, "06", "junho", "País A", "Seção X", "Produto 1", 1000.0, 40000.0, "0101"),
     ]
     monkeypatch.setattr(
-        economia_importacao, "executar_query", lambda *args, **kwargs: linhas_banco
+        economia_importacao,
+        "executar_query",
+        lambda query, *args, **kwargs: (
+            [("9999", "Outro")] if query == economia_importacao.DICIONARIO_SH4 else linhas_banco
+        ),
     )
 
     linhas = economia_importacao.buscar_linhas_importacao("Fortaleza", "CE")
@@ -235,4 +239,40 @@ def test_buscar_linhas_importacao_pre_filtra_por_co_mun_com_um_parametro_por_pla
     query, params = chamadas[0]
     assert query.count("co_mun = ANY (ARRAY(") == 2
     assert query.count("%s") == len(params)
-    assert params == ("Patos", "Patos", "Patos", "PB") * 2
+    pre_filtro = ("Patos", "PB", "Patos", "PB")
+    assert params == ("Patos", *pre_filtro, "PB", *pre_filtro, "PB")
+    # a UF no pré-filtro: só pelo nome, Belém (AL) lia as linhas de Belém (PA)
+    assert query.count("m.sg_uf = %s") == 4
+
+
+def _dublar_banco(monkeypatch, linhas_banco, dicionario):
+    def executar_query(query, *args, **kwargs):
+        return dicionario if query == economia_importacao.DICIONARIO_SH4 else linhas_banco
+
+    monkeypatch.setattr(economia_importacao, "executar_query", executar_query)
+
+
+def test_buscar_linhas_importacao_aplica_o_dicionario_do_sh4(monkeypatch):
+    # Regressão: o dicionário saiu do JOIN para o Python (timeouts no snapshot do laboratório);
+    # sem ele o nome cortado da impexp_completa ("…de cerâmi") voltaria ao texto.
+    linha = (2026, "06", "junho", "País A", "Seção X", "Obras de cerâmi", 1.0, 2.0)
+    _dublar_banco(
+        monkeypatch,
+        [linha + ("6914",), linha + ("0101",), linha + ("0202",)],
+        [("6914", "Obras de cerâmica"), ("0101", None)],
+    )
+
+    linhas = economia_importacao.buscar_linhas_importacao("Maceió", "AL")
+
+    # como o COALESCE: corrigido quando há, cru quando o dicionário tem NULL ou não tem
+    assert [linha["desc_sh4"] for linha in linhas] == [
+        "Obras de cerâmica", "Obras de cerâmi", "Obras de cerâmi"
+    ]
+    assert "sh4" not in linhas[0]
+
+
+def test_buscar_linhas_importacao_sem_dicionario_sai_vazia(monkeypatch):
+    linha = (2026, "06", "junho", "País A", "Seção X", "Obras de cerâmi", 1.0, 2.0, "6914")
+    _dublar_banco(monkeypatch, [linha], None)
+
+    assert economia_importacao.buscar_linhas_importacao("Maceió", "AL") == []

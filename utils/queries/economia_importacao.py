@@ -26,12 +26,20 @@ from utils.queries.base import (
 # 26/10/2026, 20 municípios deram as mesmas 25.793 linhas, de 15–164 s para 0,04–2,6 s.
 # `= ANY (ARRAY(...))`, e não `IN (...)`: o ARRAY vira um parâmetro calculado antes,
 # que o índice aceita; com IN o planner junta depois de varrer a tabela.
+# A UF também entra no pré-filtro: só pelo nome, Belém (AL) trazia o co_mun de Belém (PA)
+# e o índice lia as ~35 mil linhas dele para o sg_uf_mun descartar depois (13 mil páginas;
+# com cache frio passava dos 15 s, assim como Campo Grande (AL),
+# Ouro Branco (AL) e Cascavel (CE)). Um código sem linha em municipios não tem como ter
+# a UF conferida aqui e continua passando: o sg_uf_mun da consulta decide.
 _CO_MUN_DO_NOME = """ANY (ARRAY(
           SELECT m.co_mun FROM eco_comercio_exterior.municipios m
           LEFT JOIN carac_mun.novos_nomes nn ON btrim(m.co_mun::text) = btrim(nn.cd_mun::text)
           WHERE LOWER(COALESCE(nn.nm_mun::text, m.no_mun_min::text)) = LOWER(%s)
+            AND m.sg_uf = %s
           UNION
-          SELECT btrim(nn.cd_mun) FROM carac_mun.novos_nomes nn WHERE LOWER(nn.nm_mun) = LOWER(%s)
+          SELECT btrim(nn.cd_mun) FROM carac_mun.novos_nomes nn
+          LEFT JOIN eco_comercio_exterior.municipios m ON btrim(m.co_mun::text) = btrim(nn.cd_mun)
+          WHERE LOWER(nn.nm_mun) = LOWER(%s) AND (m.sg_uf = %s OR m.co_mun IS NULL)
       ))"""
 
 DADOS_IMPORTACAO_MUNICIPAL = f"""
@@ -41,25 +49,36 @@ DADOS_IMPORTACAO_MUNICIPAL = f"""
         desc_mes,
         desc_pais_portugues,
         REPLACE(desc_secao, 'indútrias', 'indústrias') AS desc_secao,
-        COALESCE(d.desc_corrigida, i.desc_sh4) AS desc_sh4,
+        i.desc_sh4,
         kg_liquido,
-        vl_fob
+        vl_fob,
+        i.sh4
     FROM eco_comercio_exterior.impexp_completa i
-    LEFT JOIN eco_comercio_exterior.dic_sh4_nome_corrigido d
-      ON d.sh4::text = i.sh4
     WHERE tipo_operacao = 'Importação'
       AND LOWER(desc_municipio) = LOWER(%s)
       AND i.co_mun = {_CO_MUN_DO_NOME}
       AND sg_uf_mun = %s
       AND co_ano = (
-          SELECT MAX(co_ano)
-          FROM eco_comercio_exterior.impexp_completa i2
-          WHERE tipo_operacao = 'Importação'
-            AND LOWER(desc_municipio) = LOWER(%s)
-            AND i2.co_mun = {_CO_MUN_DO_NOME}
-            AND sg_uf_mun = %s
+          SELECT MAX(f.co_ano)
+          FROM eco_comercio_exterior.fato_comercio_exterior f
+          JOIN eco_comercio_exterior.areadeinteresse ain
+            ON ain.cd_mun::text = f.co_mun::text AND ain.sudene::text = 'Sim'
+          WHERE f.tipo_operacao = 'Importação'
+            AND f.co_mun = {_CO_MUN_DO_NOME}
+            AND f.sg_uf_mun = %s
       )
     ORDER BY co_mes::int
+"""
+
+# O dicionário vai para o Python (1.232 linhas, sh4 único): no JOIN dentro da consulta o
+# planner estimava 2 linhas e fazia nested loop, ~9 M comparações (2,8 s dos 3,5 s em
+# Maceió). Com a view também no MAX(co_ano), os maiores importadores passaram dos 15 s
+# do statement_timeout com o banco carregado (municípios de AL/BA/CE no snapshot do
+# laboratório). O MAX sai direto da fato pelo idx_fato_comex_co_mun_tipo_ano,
+# com os filtros que a view aplica (sudene = 'Sim' e a UF); o nome já vem do pré-filtro.
+DICIONARIO_SH4 = """
+    SELECT sh4::text, desc_corrigida
+    FROM eco_comercio_exterior.dic_sh4_nome_corrigido
 """
 
 _COLUNAS_LINHA_IMPORTACAO = (
@@ -75,16 +94,33 @@ _COLUNAS_LINHA_IMPORTACAO = (
 
 
 def buscar_linhas_importacao(nome_municipio: str, sigla_uf: str) -> list[dict]:
+    pre_filtro = (nome_municipio, sigla_uf) * 2  # um (nome, UF) por ramo do UNION
     linhas = executar_query(
         DADOS_IMPORTACAO_MUNICIPAL,
-        # Por subconsulta: desc_municipio, os dois nomes do pré-filtro e a UF.
-        (nome_municipio, nome_municipio, nome_municipio, sigla_uf) * 2,
+        # Linhas: desc_municipio, o pré-filtro e a UF; MAX: o pré-filtro e a UF.
+        (nome_municipio, *pre_filtro, sigla_uf, *pre_filtro, sigla_uf),
         f"dados de importação de '{nome_municipio} ({sigla_uf})'",
         buscar_todas=True,
     )
     if not linhas:
         return []
-    return [dict(zip(_COLUNAS_LINHA_IMPORTACAO, linha)) for linha in linhas]
+    # Sem o dicionário, o bloco sai vazio como numa falha da consulta: o nome cru da
+    # impexp_completa vem cortado em 255 caracteres e não pode ir para o texto.
+    dicionario = executar_query(
+        DICIONARIO_SH4, (), "dicionário de nomes do sh4", buscar_todas=True
+    )
+    if not dicionario:
+        return []
+    corrigido = dict(dicionario)
+    resultado = []
+    for *valores, sh4 in linhas:
+        linha = dict(zip(_COLUNAS_LINHA_IMPORTACAO, valores))
+        # `is not None`, como o COALESCE(d.desc_corrigida, i.desc_sh4) que estava no SQL.
+        desc_corrigida = corrigido.get(sh4)
+        if desc_corrigida is not None:
+            linha["desc_sh4"] = desc_corrigida
+        resultado.append(linha)
+    return resultado
 
 
 def _somar_por_chave(linhas: list[dict], chave: str, campo_valor: str) -> dict[str, float]:
