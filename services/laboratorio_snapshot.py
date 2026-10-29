@@ -179,7 +179,8 @@ def gerar_snapshot_tema(slug: str, cidades: list[str] | None = None) -> Path | N
             municipios: dict[str, dict] = {}
             ausentes: list[str] = []
             csv_varias_linhas: list[str] = []
-            for cidade in cidades:
+
+            def montar(cidade: str) -> None:
                 contador.cidade = cidade
                 chave = chaves.get(cidade)
                 perfil_db = indice.get(chave) if chave else None
@@ -188,14 +189,30 @@ def gerar_snapshot_tema(slug: str, cidades: list[str] | None = None) -> Path | N
                 except Exception:  # um município quebrado não derruba o tema
                     logger.exception("snapshot %s: erro ao montar %s", slug, cidade)
                     contador.por_cidade[cidade] += 1
-                    continue
+                    return
                 if resultado is None:
                     ausentes.append(cidade)
-                    continue
+                    return
                 fonte, contexto, n_linhas = resultado
                 if n_linhas > 1:
                     csv_varias_linhas.append(cidade)
                 municipios[cidade] = {"fonte": fonte, "contexto": contexto}
+
+            for cidade in cidades:
+                montar(cidade)
+            # Uma segunda tentativa para quem falhou: com o banco carregado, os timeouts da
+            # importação de economia caem juntos, e justo nos maiores importadores; abaixo do
+            # portão de 1%, o arquivo sairia sem o bloco deles. Refaz o
+            # município inteiro (o cache LRU de executar_query já pode ter descartado as
+            # consultas dele que deram certo): são poucos, custa segundos.
+            # ponytail: uma repetição só, logo em seguida; espera entre tentativas se não bastar.
+            repetidos = list(contador.por_cidade)
+            for cidade in repetidos:
+                del contador.por_cidade[cidade]
+                for lista in (ausentes, csv_varias_linhas):
+                    if cidade in lista:
+                        lista.remove(cidade)
+                montar(cidade)
             contador.cidade = None
     finally:
         logging.getLogger("utils.queries.base").removeHandler(contador)
@@ -208,6 +225,7 @@ def gerar_snapshot_tema(slug: str, cidades: list[str] | None = None) -> Path | N
         "csv_varias_linhas": csv_varias_linhas,
         "chaves_repetidas": repetidas,
         "falhas_de_consulta": dict(contador.por_cidade),
+        "recuperados_na_repeticao": [c for c in repetidos if c not in contador.por_cidade],
     }
 
     motivo = _motivo_para_abortar(metadados, len(cidades), _metadados_anteriores(slug))

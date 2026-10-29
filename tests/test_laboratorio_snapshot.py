@@ -62,7 +62,7 @@ _CIDADES = [f"Cidade {i} (PB)" for i in range(200)]
 def rodada(monkeypatch, tmp_path):
     """Dubla o banco: todas as cidades na view, contexto com Decimal. Devolve o estado
     que cada teste mexe para provocar o caso."""
-    estado = {"indice": None, "falhar_em": set(), "erro_view": False}
+    estado = {"indice": None, "falhar_em": set(), "falhar_uma_vez": set(), "erro_view": False}
 
     @contextmanager
     def conexao():
@@ -77,6 +77,12 @@ def rodada(monkeypatch, tmp_path):
         return indice, []
 
     def contexto(cidade, _slug, _dados, perfil_db):
+        if cidade in estado["falhar_uma_vez"]:
+            estado["falhar_uma_vez"].discard(cidade)
+            logging.getLogger("utils.queries.base").warning(
+                "Falha ao executar query (%s): timeout", cidade
+            )
+            return "view", {"nm_mun": cidade, "sem_o_bloco": True}, 1
         if cidade in estado["falhar_em"]:
             logging.getLogger("utils.queries.base").warning(
                 "Falha ao executar query (%s): timeout", cidade
@@ -140,6 +146,16 @@ def test_falha_abaixo_do_limiar_grava_e_registra(rodada):
     assert _gerar() is not None
     metadados = laboratorio_snapshot.carregar_snapshot("saude")["metadados"]
     assert metadados["falhas_de_consulta"] == {"Cidade 3 (PB)": 1}
+
+
+def test_falha_passageira_e_refeita_no_fim_do_tema(rodada):
+    # Timeouts com o banco carregado, abaixo do portão, seriam gravados sem o bloco
+    rodada["falhar_uma_vez"] = set(_CIDADES[:3])  # 1,5%: sem a repetição, abortaria
+    assert _gerar() is not None
+    snapshot = laboratorio_snapshot.carregar_snapshot("saude")
+    assert snapshot["metadados"]["falhas_de_consulta"] == {}
+    assert snapshot["metadados"]["recuperados_na_repeticao"] == _CIDADES[:3]
+    assert "sem_o_bloco" not in snapshot["municipios"]["Cidade 0 (PB)"]["contexto"]
 
 
 def test_carregar_sem_arquivo_devolve_none(monkeypatch, tmp_path):
