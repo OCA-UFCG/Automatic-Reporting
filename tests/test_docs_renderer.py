@@ -8,6 +8,7 @@ from utils.render.renderer import (
     render_descricao_tema_html,
     reset_figura_contador,
     substituir_placeholders,
+    texto_final_do_tema,
     texto_para_html,
     unir_paragrafos_da_sintese,
 )
@@ -2429,3 +2430,17 @@ def test_instrumentos_sudene_aceita_os_namespaces_do_doc():
         substituir_placeholders(texto, contexto, namespace="instrumentos-sudene")
         == "Em Recife (PE) (PE), painel FNE."
     )
+
+
+def test_texto_final_do_tema_sai_como_no_relatorio():
+    # O que paragrafos_do_tema não faz (review do #234, achado 2): numerar a figura,
+    # trocar o marcador pelo gráfico, desfazer a lista e tirar o título órfão.
+    texto = (
+        "Texto de $nm_mun (Figura X).\n\n%%grafico_x\n\nFigura X – Legenda.\n\n"
+        "* um\n* dois\n\n#!Síntese\n\nPara quando $pop for maior que 10:\nGrande.\n"
+    )
+    assert texto_final_do_tema(texto, {"nm_mun": "Recife (PE)", "pop": 5}, "demografia") == [
+        "Texto de Recife (PE) (Figura 2).",
+        "[gráfico: grafico_x]\nFigura 2 – Legenda.",
+        "- um\n- dois",
+    ]
