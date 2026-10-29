@@ -174,14 +174,18 @@ async def gerar_relatorio(
 # gamma (-e no cd-gamma.yaml). Promover o código para beta/prod não liga nada (spec do
 # laboratório, "Acesso"). Antes do mount do frontend, que responde por "/".
 if os.getenv("LABORATORIO_HABILITADO") == "1":
+    from datetime import UTC, datetime
+
     from pydantic import BaseModel, Field
 
     from services.laboratorio import (
+        abrir_doc,
         iniciar_conferencia,
         ler_conferencia,
         texto_do_municipio,
+        valores_das_colunas,
     )
-    from services.laboratorio_snapshot import caminho_snapshot
+    from services.laboratorio_snapshot import caminho_snapshot, carregar_snapshot
 
     class TextoDoTema(BaseModel):
         # Os Docs de hoje têm até ~30 kB; o teto só barra abuso.
@@ -194,6 +198,40 @@ if os.getenv("LABORATORIO_HABILITADO") == "1":
         if tema not in MACROTEMAS or not caminho_snapshot(tema).exists():
             raise HTTPException(status_code=404, detail=f"tema sem snapshot: {tema}")
         return tema
+
+    @app.get("/laboratorio/temas")
+    def laboratorio_temas():
+        # O SPA também usa esta rota para saber se o laboratório está ligado (spec).
+        # A hora do arquivo, e não o "gerado_em" de dentro dele: ler 8 snapshots
+        # inteiros custaria segundos. O arquivo é gravado no fim da rodada.
+        def gerado_em(slug: str) -> str | None:
+            caminho = caminho_snapshot(slug)
+            if not caminho.exists():
+                return None
+            return datetime.fromtimestamp(caminho.stat().st_mtime, UTC).isoformat(timespec="seconds")
+
+        return [
+            {"slug": slug, "nome": dados["nome"], "snapshot_gerado_em": gerado_em(slug)}
+            for slug, dados in MACROTEMAS.items()
+        ]
+
+    @app.get("/laboratorio/{tema}/doc")
+    async def laboratorio_doc(tema: str):
+        if tema not in MACROTEMAS:
+            raise HTTPException(status_code=404, detail=f"tema desconhecido: {tema}")
+        try:
+            doc = await abrir_doc(tema)
+        except ValueError as err:  # Google fora do ar ou Doc sem acesso público
+            raise HTTPException(status_code=502, detail=str(err)) from err
+        if doc is None:
+            raise HTTPException(status_code=404, detail=f"tema sem Doc configurado: {tema}")
+        return doc
+
+    @app.get("/laboratorio/{tema}/colunas")
+    def laboratorio_colunas(tema: str):
+        snapshot = carregar_snapshot(_tema_com_snapshot(tema))
+        contextos = {cidade: m["contexto"] for cidade, m in snapshot["municipios"].items()}
+        return {"snapshot_gerado_em": snapshot["gerado_em"], "colunas": valores_das_colunas(contextos)}
 
     @app.post("/laboratorio/{tema}/conferencias")
     def laboratorio_conferir(tema: str, corpo: TextoDoTema):

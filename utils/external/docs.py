@@ -317,6 +317,19 @@ async def baixar_e_salvar_doc(link_ou_id: str) -> str:
     acontecia. E mesmo que acontecesse, economizaria só o corpo — medido, 14KB
     custam 60ms dos 670ms da chamada; o resto é RTT + render do lado do Google.
     """
+    texto_limpo = await baixar_doc(link_ou_id)
+    _salvar_no_cache(extrair_doc_id(link_ou_id), texto_limpo)
+    return texto_limpo
+
+
+async def baixar_doc(link_ou_id: str) -> str:
+    """Exporta o Doc do Google e limpa, SEM gravar no cache.
+
+    Separado de baixar_e_salvar_doc para o Laboratório de Temas: ele abre sempre a
+    versão mais recente do Doc, mas abrir o laboratório não pode mudar o texto que
+    o relatório usa — quem atualiza o cache continua sendo o atualizar_docs.py
+    (spec do laboratório, "Texto: abrir o Doc").
+    """
     doc_id = extrair_doc_id(link_ou_id)
     export_url = f"https://docs.google.com/document/d/{doc_id}/export?format=txt"
 
@@ -339,9 +352,7 @@ async def baixar_e_salvar_doc(link_ou_id: str) -> str:
     except (httpx.HTTPError, TimeoutError) as err:
         raise ValueError("Não foi possível acessar o Google Docs. Verifique a conexão, o link e as permissões.") from err
 
-    texto_limpo = limpar_texto_exportado_docs(texto)
-    _salvar_no_cache(doc_id, texto_limpo)
-    return texto_limpo
+    return limpar_texto_exportado_docs(texto)
 
 
 async def carregar_texto_do_docs(link_ou_id: str) -> str:

@@ -8,6 +8,7 @@ ou cache; só o estado das conferências, em output/laboratorio/conferencias/.
 """
 
 import fcntl
+import hashlib
 import json
 import logging
 import os
@@ -15,12 +16,20 @@ import re
 import threading
 import time
 import uuid
+from collections import Counter
 from collections.abc import Callable
+from decimal import Decimal
 from pathlib import Path
 
 from services.generation import separar_secoes_do_tema
 from services.laboratorio_snapshot import SNAPSHOT_DIR, carregar_snapshot
-from utils.render.placeholders import conferir_condicoes, registrar_versoes
+from services.macrotemas import get_macrotema
+from utils.external.docs import baixar_doc
+from utils.render.placeholders import (
+    _numero_do_campo,
+    conferir_condicoes,
+    registrar_versoes,
+)
 from utils.render.renderer import texto_final_do_tema
 
 logger = logging.getLogger(__name__)
@@ -129,6 +138,10 @@ _LOCK = CONFERENCIAS_DIR / ".lock"
 _ID_VALIDO = re.compile(r"^[0-9a-f]{32}$")
 _GRAVAR_A_CADA = 50
 _VALIDADE_S = 24 * 3600
+# Worker morto no meio (oomd, deploy) deixa o arquivo parado em "rodando" ou
+# "na_fila" para sempre. Rodando, ele é regravado a cada 50 municípios (segundos);
+# na fila, espera uma conferência inteira (~40 s no gamma) por vez à frente.
+_PARADA_MAX_S = {"rodando": 120, "na_fila": 900}
 
 
 def _caminho(id_conferencia: str) -> Path:
@@ -144,10 +157,15 @@ def _gravar(id_conferencia: str, estado: dict) -> None:
 def ler_conferencia(id_conferencia: str) -> dict | None:
     if not _ID_VALIDO.match(id_conferencia):  # o id vira nome de arquivo
         return None
+    caminho = _caminho(id_conferencia)
     try:
-        return json.loads(_caminho(id_conferencia).read_text(encoding="utf-8"))
+        estado = json.loads(caminho.read_text(encoding="utf-8"))
+        parada = time.time() - caminho.stat().st_mtime
     except FileNotFoundError:
         return None
+    if parada > _PARADA_MAX_S.get(estado["estado"], float("inf")):
+        return {"estado": "erro", "erro": "conferência interrompida (o servidor reiniciou?)"}
+    return estado
 
 
 def _apagar_antigas() -> None:
@@ -211,3 +229,72 @@ def texto_do_municipio(slug: str, doc_texto: str, cidade: str) -> dict | None:
         return None
     secoes, _ = separar_secoes_do_tema(doc_texto, slug)
     return conferir_municipio(secoes.descricao_tema or "", municipio["contexto"], slug)
+
+
+async def abrir_doc(slug: str) -> dict | None:
+    """O Doc do tema, sempre fresco e sem gravar no cache do relatório, com o hash que
+    o rascunho guarda para saber se o Doc mudou depois. None se o tema não tem Doc."""
+    docs_url = get_macrotema(slug).get("docs_url")
+    if not docs_url:
+        return None
+    texto = await baixar_doc(docs_url)
+    return {"texto": texto, "hash": hashlib.sha256(texto.encode()).hexdigest()}
+
+
+# "Ler com cada valor": o protótipo mostrava até 40 valores por coluna.
+_MAX_VALORES = 40
+
+
+def _como_numero(valor: object) -> float | None:
+    """O número de um valor do contexto, lido como o avaliador de condições lê
+    (_numero_do_campo: "62.39", "0,566", "12,2 pontos percentuais"), ou None."""
+    if isinstance(valor, int | float | Decimal | str) and not isinstance(valor, bool):
+        return _numero_do_campo(valor)
+    return None
+
+
+def _valores_mais_comuns(preenchidos: list[tuple[str, object]]) -> dict:
+    contagem = Counter(str(v) for _, v in preenchidos)
+    exemplo: dict[str, str] = {}
+    for cidade, v in preenchidos:
+        exemplo.setdefault(str(v), cidade)
+    return {"distintos": len(contagem), "valores": [
+        {"valor": v, "municipios": n, "exemplo": exemplo[v]}
+        for v, n in contagem.most_common(_MAX_VALORES)
+    ]}
+
+
+def valores_das_colunas(contextos: dict[str, dict]) -> list[dict]:
+    """Para cada coluna do contexto, quantos municípios têm o campo vazio e:
+    - número (maioria conversível): mínimo, máximo, zeros, e os valores que não são
+      número ("sem dados" e afins) com a contagem;
+    - texto: os valores mais comuns, com a contagem e um município de exemplo, que a
+      tela usa no "ler com cada valor";
+    - outro (listas `*_serie`): só os vazios.
+
+    Sem descrição em português: nenhuma view de tema tem COMMENT ON COLUMN no gamma
+    (0 de ~600 colunas, 29/10/2026); a tela mostra o nome técnico (spec, "Valores de
+    uma coluna").
+    """
+    colunas: dict[str, list[tuple[str, object]]] = {}
+    for cidade, contexto in contextos.items():
+        for coluna, valor in contexto.items():
+            colunas.setdefault(coluna, []).append((cidade, valor))
+
+    saida = []
+    for coluna, pares in sorted(colunas.items()):
+        preenchidos = [(cidade, v) for cidade, v in pares if v is not None and v != ""]
+        # Município sem a chave no contexto conta como vazio também.
+        info: dict = {"coluna": coluna, "vazios": len(contextos) - len(preenchidos)}
+        numeros = [n for _, v in preenchidos if (n := _como_numero(v)) is not None]
+        if preenchidos and len(numeros) * 2 >= len(preenchidos):
+            nao_numeros = [(c, v) for c, v in preenchidos if _como_numero(v) is None]
+            info |= {"tipo": "numero", "min": min(numeros), "max": max(numeros),
+                     "zeros": sum(1 for n in numeros if n == 0),
+                     "nao_numeros": _valores_mais_comuns(nao_numeros)["valores"]}
+        elif preenchidos and all(isinstance(v, str) for _, v in preenchidos):
+            info |= {"tipo": "texto", **_valores_mais_comuns(preenchidos)}
+        else:
+            info["tipo"] = "outro"
+        saida.append(info)
+    return saida
