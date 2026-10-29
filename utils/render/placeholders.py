@@ -1,5 +1,7 @@
 import math
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
 from contextvars import ContextVar
 from decimal import Decimal
 
@@ -20,6 +22,30 @@ def _registrar_problema(motivo: str) -> None:
     problemas = _PROBLEMAS_CONDICAO.get()
     if problemas is not None and motivo not in problemas:
         problemas.append(motivo)
+
+
+# Qual versão ("Para quando ...:" ou a variante do Gini) liberou o próprio bloco,
+# na ordem em que aparecem no texto. Mesmo esquema de _PROBLEMAS_CONDICAO: só o
+# laboratório liga a coleta (registrar_versoes), o relatório não paga nada.
+_VERSOES: ContextVar[list[tuple[str, bool]] | None] = ContextVar("_VERSOES", default=None)
+
+
+@contextmanager
+def registrar_versoes() -> Iterator[list[tuple[str, bool]]]:
+    """Coleta (condição, disparou) de cada versão que interpretar_blocos_condicionais
+    avaliar dentro do `with`."""
+    versoes: list[tuple[str, bool]] = []
+    token = _VERSOES.set(versoes)
+    try:
+        yield versoes
+    finally:
+        _VERSOES.reset(token)
+
+
+def _registrar_versao(condicao: str, disparou: bool) -> None:
+    versoes = _VERSOES.get()
+    if versoes is not None:
+        versoes.append((condicao, disparou))
 
 
 def _resto_do_trecho(trecho: str) -> str:
@@ -810,6 +836,7 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                     aguardando_fim_de_bloco_simples = True
                     bloco_simples_teve_conteudo = False
                     bloco_e_persistente = False
+                _registrar_versao(limpa, bloco_ativo)
                 anexar_ao_anterior = (
                     atende
                     and not bloco_e_persistente
@@ -840,6 +867,7 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                 bloco_ativo = gini_numero < limite
             else:
                 bloco_ativo = gini_numero >= limite
+            _registrar_versao(limpa, bloco_ativo)
             aguardando_fim_de_bloco_simples = True
             continue
 
