@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
-import { agruparEmBlocos, exportar, lerDoc } from './modelo.js'
+import { agruparEmBlocos, condicaoDoItem, exportar, lerDoc } from './modelo.js'
 
 const FIXTURES = new URL('../../../tests/fixtures/relatorio_congelado/docs/', import.meta.url)
 const TEMAS = ['demografia', 'educacao', 'saude', 'economia-renda', 'hidraulica',
@@ -53,4 +53,24 @@ test('versão que não testa nenhum $campo das anteriores começa outro bloco', 
     'Para quando $b for igual a 1 e $a for igual a 2:\nB.\n\nPara quando $c for igual a 1:\nC.\n'
   const blocos = agruparEmBlocos(lerDoc(doc)).map((g) => g.versoes)
   assert.deepEqual(blocos, [[0, 2, 4], [6]])
+})
+
+test('a editora corta e junta blocos por cima da regra automática', () => {
+  const doc =
+    'Para quando $a for igual a 1:\nA.\n\nPara quando $a for igual a 2 e $b for igual a 1:\nB.\n\n' +
+    'Para quando $c for igual a 1:\nC.\n'
+  const itens = lerDoc(doc)
+  const blocos = (ajustes) => agruparEmBlocos(itens, ajustes).map((g) => g.versoes)
+  assert.deepEqual(blocos(undefined), [[0, 2], [4]])
+  assert.deepEqual(blocos({ cortes: new Set([2]), juncoes: new Set() }), [[0], [2], [4]])
+  assert.deepEqual(blocos({ cortes: new Set(), juncoes: new Set([4]) }), [[0, 2, 4]])
+})
+
+test('a condição acompanha a edição da versão', () => {
+  const itens = lerDoc('Para quando $a for igual a 1:\nA.\n')
+  assert.equal(condicaoDoItem(itens[0]), 'Para quando $a for igual a 1:')
+  itens[0].editado = 'Para quando $a for maior que 5:\nA.\n'
+  assert.equal(condicaoDoItem(itens[0]), 'Para quando $a for maior que 5:')
+  itens[0].editado = 'Sem condição.\n'
+  assert.equal(condicaoDoItem(itens[0]), null)
 })

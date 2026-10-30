@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { agruparEmBlocos, exportar, lerDoc } from './modelo.js'
+import { agruparEmBlocos, condicaoDoItem, exportar, lerDoc, textoDoItem } from './modelo.js'
 
 // Mesma origem quando servido pela API; no dev do Vite, VITE_API_BASE_URL.
 const API_BASE = import.meta.env.VITE_API_BASE_URL || window.location.origin
@@ -43,30 +43,74 @@ function estatisticasDoBloco(posicoes, versoesPorMunicipio) {
   return { sem, varias }
 }
 
-function Versao({ item, contagem, naCidade }) {
-  const corpo = item.original.split('\n').slice(1).join('\n')
-  const classe = naCidade === undefined ? '' : naCidade ? ' dispara' : ' apagada'
+// O textarea mostra o miolo; o espaço em volta (linhas em branco do Doc) volta igual.
+function separarEspacos(texto) {
+  const [, antes, miolo, depois] = texto.match(/^(\s*)([\s\S]*?)(\s*)$/)
+  return { antes, miolo, depois }
+}
+
+function Versao({ item, contagem, naCidade, podeSeparar, acoes }) {
+  const texto = textoDoItem(item)
+  // Versão recém-criada já abre em edição, com o modelo no textarea.
+  const [editando, setEditando] = useState(item.original === '' && item.editado !== undefined)
+  const [rascunho, setRascunho] = useState(() => separarEspacos(texto).miolo)
+  const condicao = condicaoDoItem(item)
+  const removida = texto === ''
+  const estado = item.original === '' ? 'nova' : removida ? 'removida' : item.editado !== undefined ? 'alterada' : null
+
+  function abrirEdicao() {
+    setRascunho(separarEspacos(texto).miolo)
+    setEditando(true)
+  }
+  function salvar() {
+    const { antes, depois } = separarEspacos(texto)
+    acoes.salvar(antes + rascunho.trim() + (depois || '\n'))
+    setEditando(false)
+  }
+
+  if (editando) {
+    return (
+      <div className="versao editando">
+        <textarea value={rascunho} onChange={(e) => setRascunho(e.target.value)} rows={Math.max(4, rascunho.split('\n').length + 1)} autoFocus />
+        <div className="acoes">
+          <button className="btn pri sm" onClick={salvar}>Pronto</button>
+          <button className="btn sm" onClick={() => (item.original === '' && !item.editado.trim() ? acoes.desfazer() : setEditando(false))}>Cancelar</button>
+        </div>
+      </div>
+    )
+  }
+
+  const classe = removida ? ' removida' : naCidade === undefined ? '' : naCidade ? ' dispara' : ' apagada'
+  const corpo = separarEspacos(texto).miolo.split('\n').slice(1).join('\n')
   return (
     <div className={`versao${classe}`}>
       <div className="linha-condicao">
-        <span className="condicao">{item.condicao}</span>
-        {contagem !== undefined && (
+        <span className={`condicao${condicao || removida ? '' : ' quebrada'}`}>
+          {removida ? item.condicao : condicao ?? 'A 1ª linha não é mais uma condição: o gerador vai ler isto como texto fixo'}
+        </span>
+        {estado && <span className={`chip ${estado === 'removida' ? 'ruim' : 'atencao'}`}>{estado}</span>}
+        {contagem !== undefined && !removida && (
           <span className={`chip ${contagem ? '' : 'ruim'}`}>
             {contagem ? `aparece em ${municipios(contagem)}` : 'não aparece em nenhum município'}
           </span>
         )}
-        {naCidade && <span className="chip bom">vale nesta cidade</span>}
+        {naCidade && !removida && <span className="chip bom">vale nesta cidade</span>}
+        <span className="spacer" />
+        {estado && <button className="btn ghost sm" onClick={acoes.desfazer}>desfazer</button>}
+        {!removida && <button className="btn ghost sm" onClick={abrirEdicao}>editar</button>}
+        {!removida && podeSeparar && <button className="btn ghost sm" onClick={acoes.separar} title="Esta versão e as de baixo passam a ser outro bloco">separar daqui</button>}
+        {!removida && <button className="btn ghost sm" onClick={acoes.remover}>remover</button>}
       </div>
-      <div className="corpo">{paraTela(corpo)}</div>
+      {!removida && <div className="corpo">{paraTela(corpo)}</div>}
     </div>
   )
 }
 
 function Texto({ item }) {
-  return <div className="card texto"><div className="cbody">{paraTela(item.original)}</div></div>
+  return <div className="card texto"><div className="cbody">{paraTela(textoDoItem(item))}</div></div>
 }
 
-function Bloco({ numero: n, versoes, estatisticas }) {
+function Bloco({ numero: n, versoes, estatisticas, juntar, novaVersao }) {
   return (
     <div className="card">
       <div className="chead">
@@ -82,18 +126,26 @@ function Bloco({ numero: n, versoes, estatisticas }) {
             </span>
           </>
         )}
+        <span className="spacer" />
+        {juntar && <button className="btn ghost sm" onClick={juntar}>juntar com o de cima</button>}
       </div>
       {estatisticas && (estatisticas.sem.length > 0 || estatisticas.varias.length > 0) && (
         <div className="bloco-detalhe">
           {estatisticas.varias.length > 0 && (
-            <div><b>Sai com 2+ trechos em:</b> <Nomes nomes={estatisticas.varias.slice(0, MAX_NOMES)} total={estatisticas.varias.length} /></div>
+            <div>
+              <b>Sai com 2+ trechos em:</b> <Nomes nomes={estatisticas.varias.slice(0, MAX_NOMES)} total={estatisticas.varias.length} />
+              <div className="muted">Se são parágrafos seguidos que devem sair juntos, não é erro: use "separar daqui" na versão que começa o outro assunto.</div>
+            </div>
           )}
           {estatisticas.sem.length > 0 && (
             <div><b>Fica de fora em:</b> <Nomes nomes={estatisticas.sem.slice(0, MAX_NOMES)} total={estatisticas.sem.length} /></div>
           )}
         </div>
       )}
-      <div className="cbody">{versoes}</div>
+      <div className="cbody">
+        {versoes}
+        <button className="btn ghost sm nova" onClick={novaVersao}>+ nova versão</button>
+      </div>
     </div>
   )
 }
@@ -143,7 +195,10 @@ export default function Laboratorio() {
   const [cidades, setCidades] = useState([])
   const [cidade, setCidade] = useState('')
   const [naCidade, setNaCidade] = useState(null)
+  const [ajustes, setAjustes] = useState({ cortes: new Set(), juncoes: new Set() })
+  const [textoConferido, setTextoConferido] = useState(null)
   const temaVivo = useRef('')
+  const proximoId = useRef(0)
 
   useEffect(() => {
     pedir('/laboratorio/temas')
@@ -165,12 +220,15 @@ export default function Laboratorio() {
     setErro('')
     setConferencia(null)
     setNaCidade(null)
+    setAjustes({ cortes: new Set(), juncoes: new Set() })
     if (!slug) return
     setCarregando(true)
     try {
       const aberto = await pedir(`/laboratorio/${slug}/doc`)
       setDoc({ ...aberto, aberto_em: new Date().toISOString() })
-      setItens(lerDoc(aberto.texto))
+      const lidos = lerDoc(aberto.texto)
+      proximoId.current = lidos.length
+      setItens(lidos)
     } catch (err) {
       setErro(err.message)
     } finally {
@@ -182,8 +240,10 @@ export default function Laboratorio() {
     const slug = tema
     setErro('')
     setConferencia({ estado: 'na_fila' })
+    const texto = exportar(itens)
+    setTextoConferido(texto)
     try {
-      const { id } = await postarJson(`/laboratorio/${slug}/conferencias`, { texto: exportar(itens) })
+      const { id } = await postarJson(`/laboratorio/${slug}/conferencias`, { texto })
       for (;;) {
         await new Promise((r) => setTimeout(r, INTERVALO_MS))
         if (temaVivo.current !== slug) return // trocou de tema no meio
@@ -197,22 +257,56 @@ export default function Laboratorio() {
     }
   }
 
-  async function escolherCidade(nome) {
+  async function escolherCidade(nome, comItens = itens) {
     setCidade(nome)
     setNaCidade(null)
     if (!tema || !cidades.includes(nome)) return
     try {
-      setNaCidade({ cidade: nome, ...(await postarJson(`/laboratorio/${tema}/municipio`, { texto: exportar(itens), cidade: nome })) })
+      setNaCidade({ cidade: nome, ...(await postarJson(`/laboratorio/${tema}/municipio`, { texto: exportar(comItens), cidade: nome })) })
     } catch (err) {
       setErro(err.message)
     }
   }
 
-  const grupos = useMemo(() => agruparEmBlocos(itens), [itens])
-  // Posição de cada versão na ordem do texto: é assim que o backend devolve as contagens.
+  // Toda mudança no texto passa por aqui: o "ver numa cidade" acompanha na hora (1
+  // chamada); a conferência inteira, não (~25 s), e a tela avisa que ficou velha.
+  function mudarItens(novos) {
+    setItens(novos)
+    if (naCidade) escolherCidade(cidade, novos)
+  }
+  const acoesDaVersao = (id) => ({
+    salvar: (texto) =>
+      mudarItens(itens.map((i) => (i.id !== id ? i : texto === i.original ? { ...i, editado: undefined } : { ...i, editado: texto }))),
+    remover: () => mudarItens(itens.map((i) => (i.id === id ? { ...i, editado: '' } : i))),
+    desfazer: () =>
+      mudarItens(itens.flatMap((i) => (i.id !== id ? [i] : i.original === '' ? [] : [{ ...i, editado: undefined }]))),
+    separar: () =>
+      setAjustes(({ cortes, juncoes }) => ({ cortes: new Set(cortes).add(id), juncoes: new Set([...juncoes].filter((j) => j !== id)) })),
+  })
+  function juntarComOdeCima(id) {
+    setAjustes(({ cortes, juncoes }) => ({ cortes: new Set([...cortes].filter((c) => c !== id)), juncoes: new Set(juncoes).add(id) }))
+  }
+  function novaVersao(depoisDoId) {
+    const prefixo = tema.split('-')[0]
+    const nova = {
+      id: proximoId.current++,
+      tipo: 'versao',
+      original: '',
+      editado: `\nPara quando ${prefixo}.$campo for igual a 0, então:\nTexto desta versão.\n`,
+      condicao: null,
+    }
+    const posicaoNoTexto = itens.findIndex((i) => i.id === depoisDoId) + 1
+    // Fica no bloco onde foi criada, mesmo antes de a editora trocar o $campo do modelo.
+    setAjustes(({ cortes, juncoes }) => ({ cortes, juncoes: new Set(juncoes).add(nova.id) }))
+    mudarItens([...itens.slice(0, posicaoNoTexto), nova, ...itens.slice(posicaoNoTexto)])
+  }
+
+  const grupos = useMemo(() => agruparEmBlocos(itens, ajustes), [itens, ajustes])
+  // Posição de cada versão (que ainda é condição) na ordem do texto: é assim que o
+  // backend devolve as contagens.
   const posicao = useMemo(() => {
     const mapa = new Map()
-    itens.forEach((item, indice) => item.tipo === 'versao' && mapa.set(indice, mapa.size))
+    itens.forEach((item, indice) => item.tipo === 'versao' && condicaoDoItem(item) && mapa.set(indice, mapa.size))
     return mapa
   }, [itens])
 
@@ -220,7 +314,8 @@ export default function Laboratorio() {
   const casaComOTexto =
     resultado &&
     resultado.versoes.length === posicao.size &&
-    [...posicao].every(([indice, k]) => resultado.versoes[k].condicao === itens[indice].condicao)
+    [...posicao].every(([indice, k]) => resultado.versoes[k].condicao === condicaoDoItem(itens[indice]))
+  const conferenciaVelha = resultado && textoConferido !== exportar(itens)
   const temaAtual = temas?.find((t) => t.slug === tema)
   let numeroBloco = 0
 
@@ -287,7 +382,10 @@ export default function Laboratorio() {
             {resultado.versoes.filter((v) => !v.municipios).length} versões não aparecem em nenhum município.
           </div>
         )}
-        {resultado && !casaComOTexto && (
+        {conferenciaVelha && (
+          <div className="banner atencao">O texto mudou desde a conferência: os números abaixo são do texto anterior. Clique em Conferir de novo.</div>
+        )}
+        {resultado && !casaComOTexto && !conferenciaVelha && (
           <div className="banner atencao">As versões do texto não batem com as da conferência. Confira de novo.</div>
         )}
         {resultado && <Avisos resultado={resultado} />}
@@ -305,21 +403,32 @@ export default function Laboratorio() {
           </div>
         )}
         {grupos.map((grupo, i) => {
-          if (grupo.tipo !== 'bloco') return <Texto key={i} item={itens[grupo.indice]} />
-          const posicoes = grupo.versoes.map((indice) => posicao.get(indice))
+          // Chaves com prefixo: id de texto e id de versão são números da mesma sequência,
+          // e "b-3" e "t-3" não podem colidir (o React reaproveitaria o cartão errado).
+          if (grupo.tipo !== 'bloco') return <Texto key={`t-${itens[grupo.indice].id}`} item={itens[grupo.indice]} />
+          const posicoes = grupo.versoes.map((indice) => posicao.get(indice)).filter((k) => k !== undefined)
+          const contaCom = casaComOTexto && !conferenciaVelha
+          const primeiro = itens[grupo.versoes[0]]
           return (
             <Bloco
-              key={i}
+              key={`b-${primeiro.id}`}
               numero={++numeroBloco}
-              estatisticas={casaComOTexto ? estatisticasDoBloco(posicoes, resultado.versoes_por_municipio) : null}
-              versoes={grupo.versoes.map((indice, j) => (
-                <Versao
-                  key={indice}
-                  item={itens[indice]}
-                  contagem={casaComOTexto ? resultado.versoes[posicoes[j]].municipios : undefined}
-                  naCidade={naCidade ? naCidade.versoes[posicoes[j]]?.[1] : undefined}
-                />
-              ))}
+              estatisticas={contaCom ? estatisticasDoBloco(posicoes, resultado.versoes_por_municipio) : null}
+              juntar={grupos[i - 1]?.tipo === 'bloco' ? () => juntarComOdeCima(primeiro.id) : null}
+              novaVersao={() => novaVersao(itens[grupo.versoes.at(-1)].id)}
+              versoes={grupo.versoes.map((indice, j) => {
+                const k = posicao.get(indice)
+                return (
+                  <Versao
+                    key={itens[indice].id}
+                    item={itens[indice]}
+                    contagem={contaCom && k !== undefined ? resultado.versoes[k].municipios : undefined}
+                    naCidade={naCidade && k !== undefined ? naCidade.versoes[k]?.[1] : undefined}
+                    podeSeparar={j > 0}
+                    acoes={acoesDaVersao(itens[indice].id)}
+                  />
+                )
+              })}
             />
           )
         })}

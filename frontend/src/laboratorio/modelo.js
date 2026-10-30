@@ -45,7 +45,7 @@ export function lerDoc(texto) {
   const itens = []
   let texto_ = ''
   const fecharTexto = () => {
-    if (texto_) itens.push({ tipo: 'texto', original: texto_ })
+    if (texto_) itens.push({ id: itens.length, tipo: 'texto', original: texto_ })
     texto_ = ''
   }
 
@@ -79,6 +79,7 @@ export function lerDoc(texto) {
       }
     }
     itens.push({
+      id: itens.length,
       tipo: 'versao',
       original: trecho,
       condicao: normalizarCondicao(semMarcadorDeBloco(semFimDeLinha(trecho.split('\n')[0]))),
@@ -89,7 +90,15 @@ export function lerDoc(texto) {
 }
 
 export function exportar(itens) {
-  return itens.map((item) => item.editado ?? item.original).join('')
+  return itens.map(textoDoItem).join('')
+}
+
+export const textoDoItem = (item) => item.editado ?? item.original
+
+// A condição de uma versão depois de editada (null se a 1ª linha deixou de ser condição).
+export function condicaoDoItem(item) {
+  const primeira = semFimDeLinha(textoDoItem(item).replace(/^\s*\n/, '').split('\n')[0])
+  return lerCondicao(primeira) ? normalizarCondicao(semMarcadorDeBloco(primeira)) : null
 }
 
 // Os $campos que a condição testa (sem o prefixo do tema).
@@ -102,24 +111,30 @@ export function camposDaCondicao(condicao) {
 // dessa sequência, uma versão que não testa nenhum $campo das anteriores começa outro
 // bloco (ex.: demografia, faixa etária × diferença 0–9 / 60+). Dividir pelas versões
 // que disparam juntas zeraria o "2+ versões" por construção, que é o alerta que importa.
-export function agruparEmBlocos(itens) {
+//
+// `ajustes` vem da editora: `cortes` (id de versão que começa bloco novo) e `juncoes`
+// (id de versão que fica no bloco de cima), por cima da regra automática. Por id, e
+// não pela posição: inserir uma versão desloca as posições.
+export function agruparEmBlocos(itens, ajustes = { cortes: new Set(), juncoes: new Set() }) {
   const grupos = []
   let bloco = null
   itens.forEach((item, indice) => {
     if (item.tipo === 'versao') {
-      const campos = camposDaCondicao(item.condicao)
+      // Versão removida ou sem condição agrupa pela condição original.
+      const campos = camposDaCondicao(condicaoDoItem(item) ?? item.condicao ?? '')
       const compartilha = bloco && [...campos].some((c) => bloco.campos.has(c))
-      if (!compartilha) {
+      const fica = bloco && !ajustes.cortes.has(item.id) && (compartilha || ajustes.juncoes.has(item.id))
+      if (!fica) {
         bloco = { tipo: 'bloco', versoes: [], campos: new Set() }
         grupos.push(bloco)
       }
       bloco.versoes.push(indice)
       campos.forEach((c) => bloco.campos.add(c))
-    } else if (item.original.trim() === '' && bloco) {
+    } else if (textoDoItem(item).trim() === '' && bloco) {
       // linha em branco entre versões: continua o bloco
     } else {
       bloco = null
-      if (item.original.trim()) grupos.push({ tipo: 'texto', indice })
+      if (textoDoItem(item).trim()) grupos.push({ tipo: 'texto', indice })
     }
   })
   return grupos.map(({ campos: _campos, ...grupo }) => grupo)

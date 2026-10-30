@@ -58,3 +58,11 @@ input.cidade { border: 1px solid var(--line); background: var(--panel); padding:
 .cidade-texto summary { cursor: pointer; list-style: none; }
 .cidade-texto { border-color: var(--ok); }
 .cidade-texto .cbody { max-height: 40vh; overflow: auto; }
+.btn.sm { padding: 2px 8px; font-size: 12.5px; border-radius: 6px; }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--ink2); }
+.btn.ghost:hover:not(:disabled) { color: var(--accent); border-color: var(--line); }
+.btn.nova { margin-top: 10px; }
+.versao.removida .condicao { text-decoration: line-through; opacity: .6; }
+.condicao.quebrada { color: var(--bad); background: var(--bad-bg); font-family: inherit; }
+.versao.editando textarea { width: 100%; border: 1px solid var(--accent); border-radius: 8px; padding: 8px 10px; background: var(--panel); resize: vertical; font: 13px/1.5 var(--mono); }
+.acoes { display: flex; gap: 6px; margin-top: 6px; }
