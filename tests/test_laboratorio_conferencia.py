@@ -98,8 +98,11 @@ def snapshot_falso(monkeypatch, tmp_path):
 
 @pytest.mark.parametrize("flag", [None, "0"])
 def test_sem_a_flag_as_rotas_do_laboratorio_nao_existem(flag, monkeypatch):
+    # Pela lista de rotas, e não só pelo status: com o frontend buildado, o mount do
+    # SPA em "/" responde 405 (e não 404) a um POST numa rota que não existe.
     cliente = _app(monkeypatch, flag)
-    assert cliente.post("/laboratorio/demografia/conferencias", json={"texto": "x"}).status_code == 404
+    rotas = [getattr(rota, "path", "") for rota in cliente.app.routes]
+    assert not [rota for rota in rotas if rota.startswith("/laboratorio")]
     assert cliente.get("/laboratorio/conferencias/" + "0" * 32).status_code == 404
 
 

@@ -34,3 +34,27 @@ main { max-width: 1180px; margin: 0 auto; padding: 18px 16px; }
 .cbody { padding: 10px 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .versao + .versao { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
 .condicao { font-family: var(--mono); font-size: 12.5px; color: var(--cond); background: var(--cond-bg); border-radius: 6px; padding: 4px 8px; display: inline-block; margin-bottom: 6px; }
+.btn { border: 1px solid var(--line); background: var(--panel); padding: 5px 11px; border-radius: 7px; cursor: pointer; white-space: nowrap; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
+input.cidade { border: 1px solid var(--line); background: var(--panel); padding: 5px 8px; border-radius: 7px; width: 240px; max-width: 100%; }
+.progresso { position: relative; height: 26px; background: var(--panel2); border-top: 1px solid var(--line); font-size: 12.5px; }
+.progresso .barra { position: absolute; inset: 0 auto 0 0; background: var(--accent-soft); transition: width .4s; }
+.progresso span { position: relative; padding: 0 18px; line-height: 26px; color: var(--ink2); }
+.banner.atencao { background: var(--warn-bg); color: var(--warn); }
+.resumo { margin-bottom: 12px; color: var(--ink2); }
+.resumo b { color: var(--ink); }
+.chip { font-size: 12px; border-radius: 999px; padding: 1px 9px; background: var(--panel2); color: var(--ink2); border: 1px solid var(--line); white-space: nowrap; }
+.chip.bom { background: var(--ok-bg); color: var(--ok); border-color: transparent; }
+.chip.atencao { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
+.chip.ruim { background: var(--bad-bg); color: var(--bad); border-color: transparent; }
+.linha-condicao { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; }
+.linha-condicao .condicao { margin-bottom: 0; }
+.versao.dispara { border-left: 3px solid var(--ok); padding-left: 10px; }
+.versao.apagada { opacity: .45; }
+.bloco-detalhe { padding: 8px 12px; background: var(--panel2); border-bottom: 1px solid var(--line); font-size: 12.5px; display: grid; gap: 4px; }
+.nomes { color: var(--ink2); }
+.cidade-texto summary { cursor: pointer; list-style: none; }
+.cidade-texto { border-color: var(--ok); }
+.cidade-texto .cbody { max-height: 40vh; overflow: auto; }

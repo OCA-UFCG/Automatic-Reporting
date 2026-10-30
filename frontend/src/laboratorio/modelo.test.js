@@ -46,3 +46,11 @@ test('só o item editado muda na exportação', () => {
 test('"Para efeito de análise:" sem $campo não é condição', () => {
   assert.deepEqual(lerDoc('Para efeito de análise: nada.\n').map((i) => i.tipo), ['texto'])
 })
+
+test('versão que não testa nenhum $campo das anteriores começa outro bloco', () => {
+  const doc =
+    'Para quando $a for igual a 1:\nA1.\n\nPara quando $a for igual a 2:\nA2.\n\n' +
+    'Para quando $b for igual a 1 e $a for igual a 2:\nB.\n\nPara quando $c for igual a 1:\nC.\n'
+  const blocos = agruparEmBlocos(lerDoc(doc)).map((g) => g.versoes)
+  assert.deepEqual(blocos, [[0, 2, 4], [6]])
+})

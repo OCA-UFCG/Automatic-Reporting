@@ -92,18 +92,29 @@ export function exportar(itens) {
   return itens.map((item) => item.editado ?? item.original).join('')
 }
 
+// Os $campos que a condição testa (sem o prefixo do tema).
+export function camposDaCondicao(condicao) {
+  return new Set([...condicao.matchAll(new RegExp(CAMPO, 'g'))].map((m) => m[1]))
+}
+
 // Blocos são só leitura de tela (o gerador não tem esse conceito): versões seguidas,
-// separadas no máximo por linhas em branco, até um texto fixo ou de estrutura.
+// separadas no máximo por linhas em branco, até um texto fixo ou de estrutura. Dentro
+// dessa sequência, uma versão que não testa nenhum $campo das anteriores começa outro
+// bloco (ex.: demografia, faixa etária × diferença 0–9 / 60+). Dividir pelas versões
+// que disparam juntas zeraria o "2+ versões" por construção, que é o alerta que importa.
 export function agruparEmBlocos(itens) {
   const grupos = []
   let bloco = null
   itens.forEach((item, indice) => {
     if (item.tipo === 'versao') {
-      if (!bloco) {
-        bloco = { tipo: 'bloco', versoes: [] }
+      const campos = camposDaCondicao(item.condicao)
+      const compartilha = bloco && [...campos].some((c) => bloco.campos.has(c))
+      if (!compartilha) {
+        bloco = { tipo: 'bloco', versoes: [], campos: new Set() }
         grupos.push(bloco)
       }
       bloco.versoes.push(indice)
+      campos.forEach((c) => bloco.campos.add(c))
     } else if (item.original.trim() === '' && bloco) {
       // linha em branco entre versões: continua o bloco
     } else {
@@ -111,5 +122,5 @@ export function agruparEmBlocos(itens) {
       if (item.original.trim()) grupos.push({ tipo: 'texto', indice })
     }
   })
-  return grupos
+  return grupos.map(({ campos: _campos, ...grupo }) => grupo)
 }
