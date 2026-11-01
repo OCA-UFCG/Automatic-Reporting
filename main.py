@@ -183,6 +183,7 @@ if os.getenv("LABORATORIO_HABILITADO") == "1":
         iniciar_conferencia,
         ler_com_cada_valor,
         ler_conferencia,
+        ler_csv,
         texto_do_municipio,
         valores_das_colunas,
     )
@@ -191,6 +192,13 @@ if os.getenv("LABORATORIO_HABILITADO") == "1":
     class TextoDoTema(BaseModel):
         # Os Docs de hoje têm até ~30 kB; o teto só barra abuso.
         texto: str = Field(max_length=500_000)
+        # Linhas do CSV que a editora subiu, por cidade (POST /laboratorio/{tema}/csv).
+        # Vêm do navegador em cada pedido: o servidor não guarda o CSV (spec).
+        csv: dict[str, dict] | None = None
+
+    class ArquivoCsv(BaseModel):
+        # Uma view inteira em CSV tem ~1–3 MB; o teto só barra abuso.
+        csv: str = Field(max_length=20_000_000)
 
     class TextoNaCidade(TextoDoTema):
         cidade: str
@@ -234,15 +242,22 @@ if os.getenv("LABORATORIO_HABILITADO") == "1":
         contextos = {cidade: m["contexto"] for cidade, m in snapshot["municipios"].items()}
         return {"snapshot_gerado_em": snapshot["gerado_em"], "colunas": valores_das_colunas(contextos)}
 
+    @app.post("/laboratorio/{tema}/csv")
+    def laboratorio_csv(tema: str, corpo: ArquivoCsv):
+        try:
+            return ler_csv(_tema_com_snapshot(tema), corpo.csv)
+        except ValueError as err:
+            raise HTTPException(status_code=400, detail=str(err)) from err
+
     @app.post("/laboratorio/{tema}/cada-valor")
     def laboratorio_cada_valor(tema: str, corpo: TextoDoTema):
         # Rota própria, e não N chamadas a /municipio (que relê o snapshot a cada
         # uma, ~0,5 s): um parágrafo de saúde com as vacinas passa de 80 valores.
-        return {"colunas": ler_com_cada_valor(_tema_com_snapshot(tema), corpo.texto) or []}
+        return {"colunas": ler_com_cada_valor(_tema_com_snapshot(tema), corpo.texto, corpo.csv) or []}
 
     @app.post("/laboratorio/{tema}/conferencias")
     def laboratorio_conferir(tema: str, corpo: TextoDoTema):
-        return {"id": iniciar_conferencia(_tema_com_snapshot(tema), corpo.texto)}
+        return {"id": iniciar_conferencia(_tema_com_snapshot(tema), corpo.texto, corpo.csv)}
 
     @app.get("/laboratorio/conferencias/{id_conferencia}")
     def laboratorio_conferencia(id_conferencia: str):
@@ -253,7 +268,7 @@ if os.getenv("LABORATORIO_HABILITADO") == "1":
 
     @app.post("/laboratorio/{tema}/municipio")
     def laboratorio_municipio(tema: str, corpo: TextoNaCidade):
-        resultado = texto_do_municipio(_tema_com_snapshot(tema), corpo.texto, corpo.cidade)
+        resultado = texto_do_municipio(_tema_com_snapshot(tema), corpo.texto, corpo.cidade, corpo.csv)
         if resultado is None:
             raise HTTPException(status_code=404, detail=f"cidade fora do snapshot: {corpo.cidade}")
         return resultado

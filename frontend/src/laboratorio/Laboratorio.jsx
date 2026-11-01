@@ -272,19 +272,20 @@ function comDestaque(texto, valor) {
 
 // "Ler com cada valor": o trecho pronto num município de cada valor das colunas de
 // texto que ele usa, só onde o trecho sai no relatório (decisão do André, 01/11).
-function LerComCadaValor({ tema, texto, colunas }) {
+function LerComCadaValor({ tema, texto, colunas, csv }) {
   const trecho = trechoParaLer(texto)
   const [lido, setLido] = useState(null)
   const usadas = [...camposDaCondicao(trecho)].filter((c) => comparavel(colunas?.get(c)))
   if (!usadas.length) return null
-  const atual = lido?.trecho === trecho ? lido : null // texto editado: a leitura antiga não vale
+  // Texto editado ou CSV trocado: a leitura antiga não vale.
+  const atual = lido?.trecho === trecho && lido.csv === csv ? lido : null
 
   async function ler() {
-    setLido({ trecho, carregando: true })
+    setLido({ trecho, csv, carregando: true })
     try {
-      setLido({ trecho, ...(await postarJson(`/laboratorio/${tema}/cada-valor`, { texto: trecho })) })
+      setLido({ trecho, csv, ...(await postarJson(`/laboratorio/${tema}/cada-valor`, { texto: trecho, csv: csv?.linhas })) })
     } catch (err) {
-      setLido({ trecho, erro: err.message })
+      setLido({ trecho, csv, erro: err.message })
     }
   }
 
@@ -350,7 +351,7 @@ function separarEspacos(texto) {
   return { antes, miolo, depois }
 }
 
-function Versao({ item, contagem, naCidade, podeSeparar, acoes, tema, colunas, prefixo }) {
+function Versao({ item, contagem, naCidade, podeSeparar, acoes, tema, colunas, prefixo, csv }) {
   const texto = textoDoItem(item)
   // Versão recém-criada já abre em edição, com o modelo no textarea.
   const [editando, setEditando] = useState(item.original === '' && item.editado !== undefined)
@@ -413,16 +414,16 @@ function Versao({ item, contagem, naCidade, podeSeparar, acoes, tema, colunas, p
         {!removida && <button className="btn ghost sm" onClick={acoes.remover}>remover</button>}
       </div>
       {!removida && <div className="corpo"><ComCampos texto={paraTela(corpo)} colunas={colunas} /></div>}
-      {!removida && <LerComCadaValor tema={tema} texto={texto} colunas={colunas} />}
+      {!removida && <LerComCadaValor tema={tema} texto={texto} colunas={colunas} csv={csv} />}
     </div>
   )
 }
 
-function Texto({ item, tema, colunas }) {
+function Texto({ item, tema, colunas, csv }) {
   return (
     <div className="card texto">
       <div className="cbody"><ComCampos texto={paraTela(textoDoItem(item))} colunas={colunas} /></div>
-      <LerComCadaValor tema={tema} texto={textoDoItem(item)} colunas={colunas} />
+      <LerComCadaValor tema={tema} texto={textoDoItem(item)} colunas={colunas} csv={csv} />
     </div>
   )
 }
@@ -569,6 +570,10 @@ export default function Laboratorio() {
   const [hashBase, setHashBase] = useState(null) // hash do Doc em que o texto da tela se baseia
   const [copiado, setCopiado] = useState(null)
   const [paraCopiar, setParaCopiar] = useState(null)
+  // CSV que a editora subiu: só nesta aba, na memória (spec: o servidor não guarda, e
+  // uma view inteira tem MBs demais para o localStorage). {nome, linhas, casados, ...}
+  const [csv, setCsv] = useState(null)
+  const [lendoCsv, setLendoCsv] = useState(false)
   const temaVivo = useRef('')
   const proximoId = useRef(0)
 
@@ -595,11 +600,10 @@ export default function Laboratorio() {
     setAjustes({ cortes: new Set(), juncoes: new Set() })
     setColunas(null)
     setRascunho(null)
+    setCsv(null)
     if (!slug) return
     // Em paralelo com o Doc: sem as colunas, a tela funciona, só sem a ajuda.
-    pedir(`/laboratorio/${slug}/colunas`)
-      .then((r) => temaVivo.current === slug && setColunas(new Map(r.colunas.map((c) => [c.coluna, c]))))
-      .catch((err) => temaVivo.current === slug && setErro(`Colunas do tema: ${err.message}`))
+    carregarColunas(slug)
     setCarregando(true)
     try {
       const aberto = await pedir(`/laboratorio/${slug}/doc`)
@@ -620,6 +624,43 @@ export default function Laboratorio() {
     } finally {
       setCarregando(false)
     }
+  }
+
+  function carregarColunas(slug) {
+    pedir(`/laboratorio/${slug}/colunas`)
+      .then((r) => temaVivo.current === slug && setColunas(new Map(r.colunas.map((c) => [c.coluna, c]))))
+      .catch((err) => temaVivo.current === slug && setErro(`Colunas do tema: ${err.message}`))
+  }
+
+  // O arquivo vem em UTF-8 ou, se exportado do Excel, em Windows-1252: o UTF-8 de um
+  // arquivo Windows-1252 sai com "�", e aí ele é lido de novo (como no protótipo).
+  async function usarCsv(arquivo) {
+    if (!arquivo) return
+    const slug = tema
+    setErro('')
+    setLendoCsv(true)
+    try {
+      let texto = await arquivo.text()
+      if (texto.includes('\uFFFD')) texto = new TextDecoder('windows-1252').decode(await arquivo.arrayBuffer())
+      const lido = await postarJson(`/laboratorio/${slug}/csv`, { csv: texto })
+      if (temaVivo.current !== slug) return
+      trocarCsv({ ...lido, nome: arquivo.name })
+      setColunas(new Map(lido.colunas.map((c) => [c.coluna, c])))
+    } catch (err) {
+      setErro(`CSV: ${err.message}`)
+    } finally {
+      setLendoCsv(false)
+    }
+  }
+  function tirarCsv() {
+    trocarCsv(null)
+    carregarColunas(tema)
+  }
+  // Dados novos: a conferência anterior não vale mais, e o texto numa cidade é refeito.
+  function trocarCsv(novo) {
+    setCsv(novo)
+    setConferencia(null)
+    if (naCidade) escolherCidade(cidade, itens, novo)
   }
 
   function aplicarRascunho(salvo) {
@@ -668,7 +709,7 @@ export default function Laboratorio() {
     const texto = exportar(itens)
     setTextoConferido(texto)
     try {
-      const { id } = await postarJson(`/laboratorio/${slug}/conferencias`, { texto })
+      const { id } = await postarJson(`/laboratorio/${slug}/conferencias`, { texto, csv: csv?.linhas })
       for (;;) {
         await new Promise((r) => setTimeout(r, INTERVALO_MS))
         if (temaVivo.current !== slug) return // trocou de tema no meio
@@ -682,12 +723,16 @@ export default function Laboratorio() {
     }
   }
 
-  async function escolherCidade(nome, comItens = itens) {
+  async function escolherCidade(nome, comItens = itens, comCsv = csv) {
     setCidade(nome)
     setNaCidade(null)
-    if (!tema || !cidades.includes(nome)) return
+    const soNoCsv = comCsv?.so_no_csv.includes(nome)
+    if (!tema || !(cidades.includes(nome) || soNoCsv)) return
+    // Só a linha desta cidade: o CSV inteiro a cada edição pesaria na conexão.
+    const linha = comCsv?.linhas[nome]
     try {
-      setNaCidade({ cidade: nome, ...(await postarJson(`/laboratorio/${tema}/municipio`, { texto: exportar(comItens), cidade: nome })) })
+      const corpo = { texto: exportar(comItens), cidade: nome, csv: linha ? { [nome]: linha } : undefined }
+      setNaCidade({ cidade: nome, ...(await postarJson(`/laboratorio/${tema}/municipio`, corpo)) })
     } catch (err) {
       setErro(err.message)
     }
@@ -786,12 +831,26 @@ export default function Laboratorio() {
             onChange={(e) => escolherCidade(e.target.value)}
             disabled={!doc}
           />
-          <datalist id="cidades">{cidades.map((c) => <option key={c} value={c} />)}</datalist>
+          <datalist id="cidades">{[...cidades, ...(csv?.so_no_csv ?? [])].map((c) => <option key={c} value={c} />)}</datalist>
+          <label className={`btn${!doc || rodando || lendoCsv ? ' desligado' : ''}`} title="Testar com um CSV de uma view que ainda não existe: as colunas dele entram por cima dos dados do tema">
+            {lendoCsv ? 'lendo o CSV…' : csv ? 'trocar o CSV' : 'usar um CSV'}
+            <input
+              type="file"
+              accept=".csv,.txt,text/csv"
+              hidden
+              disabled={!doc || rodando || lendoCsv}
+              onChange={(e) => {
+                usarCsv(e.target.files[0])
+                e.target.value = '' // o mesmo arquivo de novo também dispara
+              }}
+            />
+          </label>
           <datalist id="lista-colunas">{colunas && [...colunas.keys()].map((c) => <option key={c} value={c} />)}</datalist>
           <span className="spacer" />
           {doc && (
             <span className="status">
               Doc aberto às <b>{dataHora(doc.aberto_em)}</b> · dados de <b>{dataHora(temaAtual.snapshot_gerado_em)}</b>
+              {csv && <> + <b>{csv.nome}</b></>}
             </span>
           )}
         </div>
@@ -820,6 +879,18 @@ export default function Laboratorio() {
         )}
         {resultado && !casaComOTexto && !conferenciaVelha && (
           <div className="banner atencao">As versões do texto não batem com as da conferência. Confira de novo.</div>
+        )}
+        {csv && (
+          <div className="banner csv">
+            <b>CSV {csv.nome}</b>: {csv.colunas_do_csv.length} {csv.colunas_do_csv.length === 1 ? 'coluna' : 'colunas'}{' '}
+            ({csv.colunas_do_csv.slice(0, 8).map((c) => `$${c}`).join(', ')}{csv.colunas_do_csv.length > 8 ? ', …' : ''}) por cima dos dados
+            do tema em {municipios(csv.casados)}.
+            {csv.so_no_csv.length > 0 && (
+              <> {municipios(csv.so_no_csv.length)} só no CSV, sem os outros dados do tema: <Nomes nomes={csv.so_no_csv.slice(0, MAX_NOMES)} total={csv.so_no_csv.length} />.</>
+            )}{' '}
+            <span className="muted">O CSV fica só nesta aba: recarregar a página tira ele.</span>{' '}
+            <button className="btn sm" onClick={tirarCsv} disabled={rodando}>tirar o CSV</button>
+          </div>
         )}
         {rascunho?.tipo === 'restaurado' && (
           <div className="banner atencao">
@@ -873,7 +944,7 @@ export default function Laboratorio() {
         {grupos.map((grupo, i) => {
           // Chaves com prefixo: id de texto e id de versão são números da mesma sequência,
           // e "b-3" e "t-3" não podem colidir (o React reaproveitaria o cartão errado).
-          if (grupo.tipo !== 'bloco') return <Texto key={`t-${itens[grupo.indice].id}`} item={itens[grupo.indice]} tema={tema} colunas={colunas} />
+          if (grupo.tipo !== 'bloco') return <Texto key={`t-${itens[grupo.indice].id}`} item={itens[grupo.indice]} tema={tema} colunas={colunas} csv={csv} />
           const posicoes = grupo.versoes.map((indice) => posicao.get(indice)).filter((k) => k !== undefined)
           const contaCom = casaComOTexto && !conferenciaVelha
           const primeiro = itens[grupo.versoes[0]]
@@ -902,6 +973,7 @@ export default function Laboratorio() {
                     tema={tema}
                     colunas={colunas}
                     prefixo={prefixo}
+                    csv={csv}
                   />
                 )
               })}

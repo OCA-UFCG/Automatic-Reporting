@@ -18,12 +18,18 @@ import time
 import uuid
 from collections import Counter
 from collections.abc import Callable
+from csv import Error as ErroDeCsv
 from decimal import Decimal
+from io import StringIO
 from pathlib import Path
 
+import pandas as pd
+
+from services.csv_loader import normalizar_colunas_macrotema
 from services.generation import separar_secoes_do_tema
 from services.laboratorio_snapshot import SNAPSHOT_DIR, carregar_snapshot
 from services.macrotemas import get_macrotema
+from utils.data.cities import filtrar_linhas_por_cidade, separar_cidade_uf
 from utils.external.docs import baixar_doc
 from utils.render.placeholders import (
     _numero_do_campo,
@@ -38,6 +44,79 @@ logger = logging.getLogger(__name__)
 _CAMPO_CRU = re.compile(r"(?:\b\w+\.)?\$([A-Za-z_]\w*)")
 # Sem âncora de linha: extrair_resumo_tema junta o resumo numa linha só.
 _CONDICAO_NO_TEXTO = re.compile(r"(?i)\bpara(?:\s+quando)?\s+[^:]*\$\w+[^:]*:")
+
+
+def com_csv(contextos: dict[str, dict], csv: dict[str, dict] | None) -> dict[str, dict]:
+    """As colunas do CSV por cima do contexto do snapshot (spec, "Dados: view ou CSV"):
+    o CSV de uma view que ainda não existe é testado junto com o resto do tema. Cidade
+    só do CSV entra só com as colunas dele. `nm_mun` fica o nome canônico "Cidade (UF)",
+    como o gerador faz antes das buscas (generation.py)."""
+    if not csv:
+        return contextos
+    return {**contextos, **{
+        cidade: {**contextos.get(cidade, {}), **linha, "nm_mun": cidade} for cidade, linha in csv.items()
+    }}
+
+
+def ler_csv(slug: str, texto: str) -> dict | None:
+    """Lê o CSV que a editora subiu e casa cada linha com um município do snapshot,
+    pela mesma regra do fallback de CSV do gerador (filtrar_linhas_por_cidade). Nada
+    é gravado: as linhas voltam para o navegador, que as manda junto em cada pedido.
+
+    Devolve as linhas por cidade, as cidades que só estão no CSV e as colunas do tema
+    já com o CSV por cima (para a ficha e o autocomplete). None sem snapshot; ValueError
+    com a mensagem para a tela se o CSV não serve.
+    """
+    snapshot = carregar_snapshot(slug)
+    if snapshot is None:
+        return None
+    try:
+        # sep=None: o pandas descobre se é vírgula, ponto e vírgula ou tab.
+        df = pd.read_csv(StringIO(texto), sep=None, engine="python")
+    except (pd.errors.ParserError, pd.errors.EmptyDataError, ValueError, ErroDeCsv) as err:
+        raise ValueError(f"Não consegui ler o CSV: {err}") from err
+    df = normalizar_colunas_macrotema(df, slug)
+    if "nm_mun" not in df.columns:
+        raise ValueError("O CSV precisa de uma coluna nm_mun com o nome do município.")
+    df = df.reset_index(drop=True)
+    # Pelo JSON: NaN vira None (o gerador trata os dois como "sem dado") e os tipos do
+    # numpy viram int/float do Python.
+    registros = json.loads(df.to_json(orient="records", force_ascii=False))
+
+    # filtrar_linhas_por_cidade varre o CSV inteiro: 2.074 vezes davam ~9 s. Ela só
+    # casa linhas com o mesmo nome sem "(UF)", em minúsculas; agrupar por essa chave
+    # antes e passar só as candidatas dá o mesmo resultado.
+    chaves = df["nm_mun"].astype(str).str.strip().str.replace(r"\s*\([A-Za-z]{2}\)\s*$", "", regex=True).str.lower()
+    candidatas = {chave: df.loc[indices] for chave, indices in chaves.groupby(chaves).groups.items()}
+    linhas: dict[str, dict] = {}
+    usadas: set[int] = set()
+    for cidade in snapshot["municipios"]:
+        grupo = candidatas.get(separar_cidade_uf(cidade)[0].strip().lower())
+        if grupo is None:
+            continue
+        achadas = filtrar_linhas_por_cidade(grupo, cidade)
+        if len(achadas):
+            linhas[cidade] = registros[achadas.index[0]]
+            usadas.add(achadas.index[0])
+    so_no_csv = []
+    for indice, registro in enumerate(registros):
+        if indice in usadas:
+            continue
+        nome = str(registro["nm_mun"]).strip()
+        uf = str(registro.get("sigla_uf") or "").strip().upper()
+        cidade = f"{nome} ({uf})" if uf and not nome.endswith(")") else nome
+        if cidade not in linhas:
+            linhas[cidade] = registro
+            so_no_csv.append(cidade)
+
+    contextos = com_csv({c: m["contexto"] for c, m in snapshot["municipios"].items()}, linhas)
+    return {
+        "linhas": linhas,
+        "casados": len(linhas) - len(so_no_csv),
+        "so_no_csv": so_no_csv,
+        "colunas_do_csv": [c for c in df.columns if c != "nm_mun"],
+        "colunas": valores_das_colunas(contextos),
+    }
 
 
 def conferir_municipio(descricao_tema: str, contexto: dict, slug: str) -> dict:
@@ -175,7 +254,7 @@ def _apagar_antigas() -> None:
             arquivo.unlink(missing_ok=True)
 
 
-def _rodar(id_conferencia: str, slug: str, doc_texto: str) -> None:
+def _rodar(id_conferencia: str, slug: str, doc_texto: str, csv: dict[str, dict] | None) -> None:
     with open(_LOCK, "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)  # espera a conferência anterior acabar
         try:
@@ -183,7 +262,7 @@ def _rodar(id_conferencia: str, slug: str, doc_texto: str) -> None:
             if snapshot is None:
                 _gravar(id_conferencia, {"estado": "erro", "erro": "tema sem snapshot"})
                 return
-            contextos = {cidade: m["contexto"] for cidade, m in snapshot["municipios"].items()}
+            contextos = com_csv({cidade: m["contexto"] for cidade, m in snapshot["municipios"].items()}, csv)
 
             def progresso(feitos: int, total: int) -> None:
                 if feitos % _GRAVAR_A_CADA == 0:
@@ -203,19 +282,21 @@ def _rodar(id_conferencia: str, slug: str, doc_texto: str) -> None:
             _gravar(id_conferencia, {"estado": "erro", "erro": f"{type(err).__name__}: {err}"})
 
 
-def iniciar_conferencia(slug: str, doc_texto: str) -> str:
+def iniciar_conferencia(slug: str, doc_texto: str, csv: dict[str, dict] | None = None) -> str:
     CONFERENCIAS_DIR.mkdir(parents=True, exist_ok=True)
     _apagar_antigas()
     id_conferencia = uuid.uuid4().hex
     _gravar(id_conferencia, {"estado": "na_fila"})
     threading.Thread(
-        target=_rodar, args=(id_conferencia, slug, doc_texto),
+        target=_rodar, args=(id_conferencia, slug, doc_texto, csv),
         name=f"conferencia:{slug}", daemon=True,
     ).start()
     return id_conferencia
 
 
-def texto_do_municipio(slug: str, doc_texto: str, cidade: str) -> dict | None:
+def texto_do_municipio(
+    slug: str, doc_texto: str, cidade: str, csv: dict[str, dict] | None = None
+) -> dict | None:
     """Texto final do tema numa cidade, para "texto pronto numa cidade" e "ler com
     cada valor". None se o tema não tem snapshot ou a cidade não está nele.
 
@@ -224,11 +305,14 @@ def texto_do_municipio(slug: str, doc_texto: str, cidade: str) -> dict | None:
     tela ficar lenta.
     """
     snapshot = carregar_snapshot(slug)
-    municipio = (snapshot or {}).get("municipios", {}).get(cidade)
-    if municipio is None:
+    if snapshot is None:
+        return None
+    municipio = snapshot["municipios"].get(cidade)
+    contexto = com_csv({cidade: municipio["contexto"]} if municipio else {}, csv).get(cidade)
+    if contexto is None:
         return None
     secoes, _ = separar_secoes_do_tema(doc_texto, slug)
-    return conferir_municipio(secoes.descricao_tema or "", municipio["contexto"], slug)
+    return conferir_municipio(secoes.descricao_tema or "", contexto, slug)
 
 
 async def abrir_doc(slug: str) -> dict | None:
@@ -303,7 +387,7 @@ def valores_das_colunas(contextos: dict[str, dict]) -> list[dict]:
     return saida
 
 
-def ler_com_cada_valor(slug: str, trecho: str) -> list[dict] | None:
+def ler_com_cada_valor(slug: str, trecho: str, csv: dict[str, dict] | None = None) -> list[dict] | None:
     """"Ler com cada valor" (spec): o trecho (uma versão ou um texto fixo) pronto, por
     um município que tenha cada valor das colunas de texto que ele usa. Pega a
     concordância que serve para um valor e não para outro ("apresentou uma redução" ×
@@ -321,7 +405,7 @@ def ler_com_cada_valor(slug: str, trecho: str) -> list[dict] | None:
     snapshot = carregar_snapshot(slug)
     if snapshot is None:
         return None
-    contextos = {cidade: m["contexto"] for cidade, m in snapshot["municipios"].items()}
+    contextos = com_csv({cidade: m["contexto"] for cidade, m in snapshot["municipios"].items()}, csv)
     usadas = set(_CAMPO_CRU.findall(trecho))
     so_as_usadas = {c: {k: v for k, v in ctx.items() if k in usadas} for c, ctx in contextos.items()}
     colunas = [

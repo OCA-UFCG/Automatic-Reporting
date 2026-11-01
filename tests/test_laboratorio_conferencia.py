@@ -294,3 +294,66 @@ def test_rota_cada_valor(monkeypatch, snapshot_falso):
     assert coluna["coluna"] == "nm_mun"
     assert {v["texto"] for v in coluna["valores"]} == {"Em Grande (PB).", "Em Pequena (PB)."}
     assert cliente.post("/laboratorio/saude/cada-valor", json={"texto": "x"}).status_code == 404
+
+
+# --- 5c-5: CSV de uma view que ainda não existe ---
+
+
+def test_ler_csv_casa_pela_regra_do_gerador_e_junta_por_cima(monkeypatch, snapshot_falso):
+    # Ponto e vírgula, prefixo do tema nas colunas, nome sem "(UF)" + sigla_uf, uma
+    # célula vazia e uma cidade que não está no snapshot.
+    texto = (
+        "nm_mun;sigla_uf;demografia.nova;pop\n"
+        "Grande;PB;12,5;99\n"
+        "Pequena;PB;;7\n"
+        "Nova Cidade;PE;3;1\n"
+    )
+    lido = laboratorio.ler_csv("demografia", texto)
+
+    assert lido["casados"] == 2
+    assert lido["so_no_csv"] == ["Nova Cidade (PE)"]
+    assert lido["colunas_do_csv"] == ["sigla_uf", "nova", "pop"]
+    assert lido["linhas"]["Grande (PB)"] == {"nm_mun": "Grande", "sigla_uf": "PB", "nova": "12,5", "pop": 99}
+    assert lido["linhas"]["Pequena (PB)"]["nova"] is None
+    colunas = {c["coluna"]: c for c in lido["colunas"]}
+    assert colunas["pop"]["max"] == 99  # o CSV por cima do snapshot (pop 20 → 99)
+
+    contextos = laboratorio.com_csv({"Grande (PB)": {"pop": 20, "nm_mun": "Grande (PB)", "x": 1}}, lido["linhas"])
+    assert contextos["Grande (PB)"] == {"pop": 99, "nm_mun": "Grande (PB)", "x": 1, "sigla_uf": "PB", "nova": "12,5"}
+    assert contextos["Nova Cidade (PE)"]["nm_mun"] == "Nova Cidade (PE)"
+
+
+@pytest.mark.parametrize("texto, erro", [
+    ("pop,area\n1,2\n", "nm_mun"),
+    ("", "Não consegui ler"),
+])
+def test_ler_csv_recusa_o_que_nao_serve(texto, erro, monkeypatch, snapshot_falso):
+    with pytest.raises(ValueError, match=erro):
+        laboratorio.ler_csv("demografia", texto)
+
+
+def test_rotas_com_csv(monkeypatch, snapshot_falso):
+    cliente = _app(monkeypatch, "1")
+    lido = cliente.post("/laboratorio/demografia/csv", json={"csv": "nm_mun\tsigla_uf\tpop\nGrande\tPB\t1\nNova\tPE\t50\n"})
+    assert lido.status_code == 200
+    linhas = lido.json()["linhas"]
+
+    doc = "descricao_tema = Para quando $pop for maior que 10:\nGrande.\n@@"
+    # Pelo CSV, Grande tem pop 1: a versão não sai mais nela.
+    so_grande = {"Grande (PB)": linhas["Grande (PB)"]}
+    resposta = cliente.post("/laboratorio/demografia/municipio", json={"texto": doc, "cidade": "Grande (PB)", "csv": so_grande})
+    assert resposta.json()["versoes"][0][1] is False
+    # Cidade só do CSV também tem texto pronto.
+    nova = cliente.post("/laboratorio/demografia/municipio", json={"texto": doc, "cidade": "Nova (PE)", "csv": linhas})
+    assert nova.json()["versoes"][0][1] is True
+
+    id_conferencia = cliente.post("/laboratorio/demografia/conferencias", json={"texto": doc, "csv": linhas}).json()["id"]
+    for _ in range(100):
+        estado = cliente.get(f"/laboratorio/conferencias/{id_conferencia}").json()
+        if estado["estado"] == "pronta":
+            break
+        time.sleep(0.05)
+    assert estado["total"] == 3  # Grande, Pequena e Nova
+    assert estado["resultado"]["versoes"][0]["municipios"] == 1  # só Nova (pop 50)
+
+    assert cliente.post("/laboratorio/demografia/csv", json={"csv": "a,b\n1,2\n"}).status_code == 400

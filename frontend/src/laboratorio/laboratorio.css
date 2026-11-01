@@ -101,3 +101,7 @@ input.cidade { border: 1px solid var(--line); background: var(--panel); padding:
 .copiar-a-mao .card { width: min(900px, 100%); }
 .copiar-a-mao textarea { width: 100%; height: 60vh; border: 0; padding: 10px 12px; font: 13px/1.5 var(--mono); background: var(--panel); resize: none; }
 html { scroll-padding-top: 90px; }
+/* 5c-5: CSV */
+label.btn { display: inline-block; }
+label.btn.desligado { opacity: .5; pointer-events: none; }
+.banner.csv { background: var(--accent-soft); color: var(--ink); }
