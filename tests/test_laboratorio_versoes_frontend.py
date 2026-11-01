@@ -93,3 +93,42 @@ def test_frases_do_formulario_sao_entendidas_pelo_gerador():
         for valor, vale in _ESPERADO[operador].items():
             saiu = "Texto." in interpretar_blocos_condicionais(texto, {"x": valor})
             assert saiu is vale, (frase, valor)
+
+
+# "Remover" a 1ª e a última versão do Doc não pode levar junto o marcador do tema
+# (descricao_tema = “ ... ”@@): sem ele, o backend não acha o texto do tema.
+_SCRIPT_REMOVER = """
+import { readFileSync } from 'node:fs'
+import { lerDoc, exportar } from '%s'
+const [docs, ...temas] = process.argv.slice(1)
+const saida = {}
+for (const tema of temas) {
+  const itens = lerDoc(readFileSync(`${docs}/${tema}.txt`, 'utf-8'))
+  const versoes = itens.filter((i) => i.tipo === 'versao')
+  versoes[0].editado = ''
+  versoes.at(-1).editado = ''
+  saida[tema] = exportar(itens)
+}
+console.log(JSON.stringify(saida))
+"""
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="sem Node")
+def test_remover_a_primeira_e_a_ultima_versao_mantem_o_tema():
+    modelo = (RAIZ / "frontend" / "src" / "laboratorio" / "modelo.js").as_uri()
+    saida = subprocess.run(
+        ["node", "--input-type=module", "-e", _SCRIPT_REMOVER % modelo, str(DOCS), *TEMAS],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    exportados = json.loads(saida)
+
+    for tema in TEMAS:
+        antes = _versoes_do_backend((DOCS / f"{tema}.txt").read_text(), tema)
+        assert _versoes_do_backend(exportados[tema], tema) == antes[1:-1], tema
+
+
+def _versoes_do_backend(texto: str, tema: str) -> list[str]:
+    descricao = separar_secoes_do_tema(texto, tema)[0].descricao_tema
+    with registrar_versoes() as lidas:
+        interpretar_blocos_condicionais(descricao or "", {})
+    return [condicao for condicao, _ in lidas]

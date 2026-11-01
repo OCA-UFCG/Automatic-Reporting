@@ -57,8 +57,13 @@ export function lerDoc(texto) {
       i++
       continue
     }
+    // Os marcadores do bloco do tema (descricao_tema = “ na 1ª versão, ”@@ na última)
+    // ficam fora da versão, como texto: editar, remover ou trocar a condição não os
+    // alcança. Sem eles, o backend não acha o texto do tema.
+    const abertura = linhas[i].match(/^\s*descricao_tema\s*=\s*[“"]?/)?.[0] ?? ''
+    texto_ += abertura
     fecharTexto()
-    let trecho = linhas[i]
+    let trecho = linhas[i].slice(abertura.length)
     i++
     if (!condicao.inline) {
       // A linha em branco entre a condição e o parágrafo pertence à versão.
@@ -78,12 +83,15 @@ export function lerDoc(texto) {
         }
       }
     }
+    const fechamento = trecho.match(/[”"]?\s*@@\s*$/)?.[0] ?? ''
+    trecho = trecho.slice(0, trecho.length - fechamento.length)
     itens.push({
       id: itens.length,
       tipo: 'versao',
       original: trecho,
-      condicao: normalizarCondicao(semMarcadorDeBloco(semFimDeLinha(trecho.split('\n')[0]))),
+      condicao: normalizarCondicao(semFimDeLinha(trecho.split('\n')[0])),
     })
+    texto_ = fechamento
   }
   fecharTexto()
   return itens
@@ -130,11 +138,12 @@ export function agruparEmBlocos(itens, ajustes = { cortes: new Set(), juncoes: n
       }
       bloco.versoes.push(indice)
       campos.forEach((c) => bloco.campos.add(c))
-    } else if (textoDoItem(item).trim() === '' && bloco) {
-      // linha em branco entre versões: continua o bloco
+    } else if (trechoParaLer(textoDoItem(item)) === '' && bloco) {
+      // linha em branco (ou o ”@@ do fim do tema) entre versões: continua o bloco
     } else {
       bloco = null
-      if (textoDoItem(item).trim()) grupos.push({ tipo: 'texto', indice })
+      // O "descricao_tema = “" sozinho, antes da 1ª versão, não vira cartão.
+      if (trechoParaLer(textoDoItem(item))) grupos.push({ tipo: 'texto', indice })
     }
   })
   return grupos.map(({ campos: _campos, ...grupo }) => grupo)
@@ -148,8 +157,8 @@ export function prefixoDoDoc(texto, slug) {
   return [...contagem].sort((a, b) => b[1] - a[1])[0]?.[0] ?? slug
 }
 
-// O trecho como o backend lê: sem o marcador do bloco do tema, que a 1ª e a última
-// versões do Doc carregam ("descricao_tema = “Para quando ..." / "...”@@").
+// O trecho como o backend lê: sem o marcador do bloco do tema ("descricao_tema = “" /
+// "”@@"), que fica no texto antes da 1ª versão e depois da última.
 export const trechoParaLer = (texto) => semMarcadorDeBloco(texto.trim())
 
 // Os operadores que o gerador entende (utils/render/placeholders.py,

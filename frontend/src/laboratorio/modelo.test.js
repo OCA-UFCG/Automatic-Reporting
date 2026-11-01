@@ -84,3 +84,13 @@ test('trecho para ler sai sem o marcador do bloco do tema', () => {
   assert.equal(trechoParaLer('descricao_tema = “Para quando $x for 1, então:\nA.\n'), 'Para quando $x for 1, então:\nA.')
   assert.equal(trechoParaLer('\nFim do tema.”@@\n'), 'Fim do tema.')
 })
+
+test('os marcadores do tema ficam fora das versões', () => {
+  for (const tema of TEMAS) {
+    const versoes = lerDoc(readFileSync(new URL(`${tema}.txt`, FIXTURES), 'utf-8')).filter((i) => i.tipo === 'versao')
+    for (const v of versoes) {
+      assert.doesNotMatch(v.original, /descricao_tema|@@/, tema)
+      assert.match(v.original, /^\s*Para/i, tema)
+    }
+  }
+})
