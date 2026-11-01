@@ -20,8 +20,11 @@ import {
   trechoParaLer,
 } from './modelo.js'
 
-// Mesma origem quando servido pela API; no dev do Vite, VITE_API_BASE_URL.
-const API_BASE = import.meta.env.VITE_API_BASE_URL || window.location.origin
+// Em produção, sempre a mesma origem: atrás do gamma-lab.oca-portal.com, o basic auth
+// do nginx cobre a página e a API juntas. O build do gamma grava um VITE_API_BASE_URL
+// (o do gerador, outro endereço), que mandaria a API para fora do basic auth. Só no dev
+// do Vite, que roda noutra porta, ele vale.
+const API_BASE = import.meta.env.DEV ? import.meta.env.VITE_API_BASE_URL || '' : ''
 const INTERVALO_MS = 1000
 const MAX_NOMES = 8
 const MAX_SUGESTOES = 12

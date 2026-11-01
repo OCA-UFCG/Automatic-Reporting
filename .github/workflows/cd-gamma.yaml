@@ -266,6 +266,10 @@ jobs:
           DB_PORT: ${{ secrets.DB_PORT }}
           DB_SSLMODE: ${{ secrets.DB_SSLMODE }}
         run: |
+          # LABORATORIO_HABILITADO liga as rotas e a página do Laboratório de Temas.
+          # Só aqui, no gamma: beta e prod não setam a flag, e as rotas não existem lá
+          # (spec do laboratório, "Acesso"). O acesso de fora é pelo gamma-lab.oca-portal.com,
+          # com basic auth no nginx do beta.
           sudo docker run \
             --name ${{ vars.CONTAINER_NAME_GAMMA }} \
             --restart unless-stopped \
@@ -283,6 +287,7 @@ jobs:
             -e DB_PASSWORD="$DB_PASSWORD" \
             -e DB_PORT="$DB_PORT" \
             -e DB_SSLMODE="$DB_SSLMODE" \
+            -e LABORATORIO_HABILITADO=1 \
             -d ${{ vars.DOCKER_IMAGE_GAMMA }}:latest
 
       - name: Validate files inside running container
