@@ -243,6 +243,9 @@ async def abrir_doc(slug: str) -> dict | None:
 
 # "Ler com cada valor": o protótipo mostrava até 40 valores por coluna.
 _MAX_VALORES = 40
+# A sigla da UF (11 valores) não muda a concordância da frase e punha o botão em quase
+# todo cartão (André, 01/11). Mesma lista no frontend (Laboratorio.jsx, `comparavel`).
+_FORA_DO_LER_COM_CADA_VALOR = {"sigla_uf"}
 
 
 def _como_numero(valor: object) -> float | None:
@@ -298,3 +301,51 @@ def valores_das_colunas(contextos: dict[str, dict]) -> list[dict]:
             info["tipo"] = "outro"
         saida.append(info)
     return saida
+
+
+def ler_com_cada_valor(slug: str, trecho: str) -> list[dict] | None:
+    """"Ler com cada valor" (spec): o trecho (uma versão ou um texto fixo) pronto, por
+    um município que tenha cada valor das colunas de texto que ele usa. Pega a
+    concordância que serve para um valor e não para outro ("apresentou uma redução" ×
+    "apresentou não houve variação").
+
+    Só colunas de texto com 2 a 40 valores: com 1 não há o que comparar, e acima
+    disso é nome próprio, um por município (nm_mun, nome_uc).
+
+    O exemplo de cada valor é um município onde o trecho sai no relatório (decisão do
+    André, 01/11): mostrar a frase num município em que a condição não vale seria
+    alarme falso. Valor que nunca sai fica com `vale_em` 0 e sem exemplo. Um snapshot
+    lido e o trecho renderizado uma vez por município, pelo mesmo caminho do relatório.
+    None se o tema não tem snapshot.
+    """
+    snapshot = carregar_snapshot(slug)
+    if snapshot is None:
+        return None
+    contextos = {cidade: m["contexto"] for cidade, m in snapshot["municipios"].items()}
+    usadas = set(_CAMPO_CRU.findall(trecho))
+    so_as_usadas = {c: {k: v for k, v in ctx.items() if k in usadas} for c, ctx in contextos.items()}
+    colunas = [
+        c["coluna"] for c in valores_das_colunas(so_as_usadas)
+        if c["tipo"] == "texto" and 2 <= c["distintos"] <= _MAX_VALORES
+        and c["coluna"] not in _FORA_DO_LER_COM_CADA_VALOR
+    ]
+    por_coluna: dict[str, dict[str, dict]] = {coluna: {} for coluna in colunas}
+    for cidade, contexto in contextos.items():
+        valores = {c: str(contexto[c]) for c in colunas if contexto.get(c) not in (None, "")}
+        if not valores:
+            continue
+        # Versão que não vale aqui some do texto final; texto fixo sai sempre.
+        texto = "\n\n".join(conferir_municipio(trecho, contexto, slug)["partes"]).strip()
+        for coluna, valor in valores.items():
+            item = por_coluna[coluna].setdefault(
+                valor, {"valor": valor, "municipios": 0, "vale_em": 0, "cidade": None, "texto": None}
+            )
+            item["municipios"] += 1
+            if texto:
+                item["vale_em"] += 1
+                if item["cidade"] is None:
+                    item |= {"cidade": cidade, "texto": texto}
+    return [
+        {"coluna": c, "valores": sorted(por_coluna[c].values(), key=lambda i: -i["municipios"])}
+        for c in colunas
+    ]

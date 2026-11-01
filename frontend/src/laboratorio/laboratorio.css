@@ -64,5 +64,29 @@ input.cidade { border: 1px solid var(--line); background: var(--panel); padding:
 .btn.nova { margin-top: 10px; }
 .versao.removida .condicao { text-decoration: line-through; opacity: .6; }
 .condicao.quebrada { color: var(--bad); background: var(--bad-bg); font-family: inherit; }
-.versao.editando textarea { width: 100%; border: 1px solid var(--accent); border-radius: 8px; padding: 8px 10px; background: var(--panel); resize: vertical; font: 13px/1.5 var(--mono); }
 .acoes { display: flex; gap: 6px; margin-top: 6px; }
+/* 5c-3b: ajuda com colunas */
+.campo { border-bottom: 1px dotted var(--accent); cursor: help; }
+.campo.desconhecido { border-bottom-color: var(--warn); }
+.editor { position: relative; }
+.editor textarea { width: 100%; border: 1px solid var(--accent); border-radius: 8px; padding: 8px 10px; background: var(--panel); resize: vertical; font: 13px/1.5 var(--mono); }
+.sugestoes { position: absolute; z-index: 10; left: 0; right: 0; top: 100%; max-height: 60vh; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.12); font-size: 12.5px; }
+.sugestoes > div { padding: 5px 10px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sugestoes > div.on { background: var(--accent-soft); }
+.sugestoes b { font-family: var(--mono); font-weight: 600; }
+.form-condicao { margin-top: 8px; padding: 8px 10px; background: var(--panel2); border-radius: 8px; display: grid; gap: 6px; font-size: 13px; white-space: normal; }
+.form-condicao .acoes { flex-wrap: wrap; align-items: center; margin-top: 0; }
+.form-condicao input { border: 1px solid var(--line); background: var(--panel); padding: 3px 7px; border-radius: 6px; width: 220px; }
+.form-condicao input.num { width: 90px; }
+.cada-valor { margin-top: 6px; white-space: normal; }
+.card.texto .cada-valor { padding: 0 12px 10px; }
+.cada-valor details { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; margin-bottom: 6px; background: var(--panel); color: var(--ink); }
+.cada-valor summary { cursor: pointer; font-family: var(--mono); font-size: 12.5px; }
+.cada-valor .valor { padding: 6px 0; border-top: 1px solid var(--line); }
+.cada-valor summary + .valor { margin-top: 6px; }
+.cada-valor .exemplo { margin-top: 4px; white-space: pre-wrap; }
+.cada-valor mark { background: var(--warn-bg); color: inherit; border-radius: 3px; padding: 0 2px; }
+.sugestoes .ficha { position: sticky; bottom: 0; border-top: 1px solid var(--line); background: var(--panel2); padding: 8px 10px; white-space: normal; }
+.ficha b { font-family: var(--mono); font-weight: 600; }
+.ficha .valores { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.ficha .chip { white-space: normal; }

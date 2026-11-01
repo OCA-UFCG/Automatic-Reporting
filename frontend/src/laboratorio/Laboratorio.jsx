@@ -1,10 +1,23 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { agruparEmBlocos, condicaoDoItem, exportar, lerDoc, textoDoItem } from './modelo.js'
+import {
+  OPERADORES,
+  agruparEmBlocos,
+  camposDaCondicao,
+  condicaoDoItem,
+  exportar,
+  fraseDaCondicao,
+  lerDoc,
+  numeroValido,
+  prefixoDoDoc,
+  textoDoItem,
+  trechoParaLer,
+} from './modelo.js'
 
 // Mesma origem quando servido pela API; no dev do Vite, VITE_API_BASE_URL.
 const API_BASE = import.meta.env.VITE_API_BASE_URL || window.location.origin
 const INTERVALO_MS = 1000
 const MAX_NOMES = 8
+const MAX_SUGESTOES = 12
 
 async function pedir(caminho, opcoes) {
   const resposta = await fetch(`${API_BASE}${caminho}`, opcoes)
@@ -23,6 +36,258 @@ const municipios = (n) => `${numero(n)} ${n === 1 ? 'município' : 'municípios'
 
 // Só para a tela: várias linhas em branco seguidas viram uma. A exportação usa o original.
 const paraTela = (texto) => texto.trim().replace(/\n\s*\n(\s*\n)+/g, '\n\n')
+
+// Coluna de texto com 2 a 40 valores, fora a sigla da UF: as que o "ler com cada valor"
+// do backend lê (services/laboratorio.py, _FORA_DO_LER_COM_CADA_VALOR).
+const comparavel = (info) =>
+  info?.tipo === 'texto' && info.distintos >= 2 && info.distintos <= 40 && info.coluna !== 'sigla_uf'
+
+function resumoDaColuna(info) {
+  // Pode ser apelido que o gerador resolve (_resolver_campo_com_alias): quem diz se
+  // sai cru é a conferência.
+  if (!info) return 'não está nas colunas deste tema (se a conferência não acusar, é um apelido)'
+  const vazios = info.vazios ? ` · vazia em ${municipios(info.vazios)}` : ''
+  if (info.tipo === 'numero') {
+    const outros = info.nao_numeros.map((v) => `"${v.valor}" em ${numero(v.municipios)}`).join(', ')
+    return `número de ${numero(info.min)} a ${numero(info.max)} · zero em ${municipios(info.zeros)}${vazios}${outros ? ` · ${outros}` : ''}`
+  }
+  if (info.tipo === 'texto') return `texto, ${numero(info.distintos)} ${info.distintos === 1 ? 'valor' : 'valores'}${vazios}`
+  return `lista${vazios}`
+}
+
+// Os valores de uma coluna de texto, todos (a ideia é ver todas as opções). O backend
+// manda os 40 mais comuns; acima disso é nome próprio (nm_mun, nome_uc).
+function valoresDaColuna(info) {
+  if (info?.tipo !== 'texto') return { valores: [], mais: 0 }
+  return { valores: info.valores, mais: info.distintos - info.valores.length }
+}
+
+// Para o title (passar o mouse): um valor por linha.
+function tituloDaColuna(nome, info) {
+  const { valores, mais } = valoresDaColuna(info)
+  const linhas = valores.map((v) => `• ${v.valor} (${numero(v.municipios)})`)
+  if (mais) linhas.push(`… e mais ${numero(mais)} valores`)
+  return [`$${nome}: ${resumoDaColuna(info)}`, ...linhas].join('\n')
+}
+
+function FichaDaColuna({ nome, info }) {
+  const { valores, mais } = valoresDaColuna(info)
+  return (
+    <div className="ficha">
+      <b>${nome}</b> <span className="muted">{resumoDaColuna(info)}</span>
+      {valores.length > 0 && (
+        <div className="valores">
+          {valores.map((v) => (
+            <span key={v.valor} className="chip">{v.valor} <span className="muted">{numero(v.municipios)}</span></span>
+          ))}
+          {mais > 0 && <span className="muted">… e mais {numero(mais)} valores (nome próprio)</span>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Os $campos do texto com a ficha da coluna ao passar o mouse (spec, "Construir").
+function ComCampos({ texto, colunas }) {
+  if (!colunas) return texto
+  return texto.split(/((?:[A-Za-z_][\w-]*\.)?\$[A-Za-z_]\w*)/).map((parte, i) => {
+    if (i % 2 === 0) return parte
+    const nome = parte.slice(parte.indexOf('$') + 1)
+    const info = colunas.get(nome)
+    return <span key={i} className={`campo${info ? '' : ' desconhecido'}`} title={tituloDaColuna(nome, info)}>{parte}</span>
+  })
+}
+
+// Textarea com autocomplete de $coluna: abre ao digitar "$" (com ou sem "tema.") e
+// troca só o nome depois do "$". A lista fica embaixo do textarea, não no cursor.
+function EditorComColunas({ valor, mudar, colunas }) {
+  const ref = useRef(null)
+  const cursor = useRef(null)
+  const [sugestao, setSugestao] = useState(null)
+  useEffect(() => {
+    if (cursor.current === null) return
+    ref.current.setSelectionRange(cursor.current, cursor.current)
+    cursor.current = null
+  })
+  // A condição mudou (ex.: "trocar a 1ª linha"): mostra o topo, onde ela está.
+  const primeiraLinha = valor.split('\n')[0]
+  useEffect(() => {
+    ref.current.scrollTop = 0
+  }, [primeiraLinha])
+
+  function atualizar(alvo) {
+    const pos = alvo.selectionStart
+    const m = alvo.value.slice(0, pos).match(/\$(\w*)$/)
+    if (!m || !colunas) return setSugestao(null)
+    const q = m[1].toLowerCase()
+    const nomes = [...colunas.keys()]
+    const lista = [
+      ...nomes.filter((c) => c.toLowerCase().startsWith(q)),
+      ...nomes.filter((c) => !c.toLowerCase().startsWith(q) && c.toLowerCase().includes(q)),
+    ].slice(0, MAX_SUGESTOES)
+    if (!lista.length || (lista.length === 1 && lista[0].toLowerCase() === q)) return setSugestao(null)
+    setSugestao({ inicio: pos - m[1].length, fim: pos, lista, sel: 0 })
+  }
+  function escolher(nome) {
+    cursor.current = sugestao.inicio + nome.length
+    mudar(valor.slice(0, sugestao.inicio) + nome + valor.slice(sugestao.fim))
+    setSugestao(null)
+  }
+  function tecla(e) {
+    if (!sugestao) return
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      const passo = e.key === 'ArrowDown' ? 1 : -1
+      setSugestao({ ...sugestao, sel: (sugestao.sel + passo + sugestao.lista.length) % sugestao.lista.length })
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault()
+      escolher(sugestao.lista[sugestao.sel])
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      setSugestao(null)
+    }
+  }
+
+  return (
+    <div className="editor">
+      <textarea
+        ref={ref}
+        value={valor}
+        rows={Math.max(4, valor.split('\n').length + 1)}
+        autoFocus
+        onChange={(e) => {
+          mudar(e.target.value)
+          atualizar(e.target)
+        }}
+        onKeyDown={tecla}
+        onKeyUp={(e) => ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key) && atualizar(e.target)}
+        onClick={(e) => atualizar(e.target)}
+        onBlur={() => setSugestao(null)}
+      />
+      {sugestao && (
+        <div className="sugestoes" role="listbox">
+          {sugestao.lista.map((nome, i) => (
+            <div
+              key={nome}
+              role="option"
+              aria-selected={i === sugestao.sel}
+              className={i === sugestao.sel ? 'on' : ''}
+              onMouseEnter={() => setSugestao({ ...sugestao, sel: i })}
+              onMouseDown={(e) => {
+                e.preventDefault() // sem isso o blur do textarea fecha a lista antes do clique
+                escolher(nome)
+              }}
+            >
+              <b>${nome}</b> <span className="muted">{resumoDaColuna(colunas.get(nome))}</span>
+            </div>
+          ))}
+          <FichaDaColuna nome={sugestao.lista[sugestao.sel]} info={colunas.get(sugestao.lista[sugestao.sel])} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// "Nova condição": coluna / operador / valor que escreve a frase na 1ª linha. Depois
+// disso a linha é só texto (spec, "Construir").
+function FormCondicao({ colunas, prefixo, escrever, fechar }) {
+  const [coluna, setColuna] = useState('')
+  const [operador, setOperador] = useState('igual')
+  const [valor, setValor] = useState('')
+  const [valor2, setValor2] = useState('')
+  const info = colunas?.get(coluna)
+  const operadores = OPERADORES.filter((o) => info?.tipo === 'numero' || o.texto)
+  const op = operadores.find((o) => o.id === operador) ?? operadores[0]
+  const valores = [valor, valor2].slice(0, op.valores)
+  const pronto = info && valores.every(numeroValido)
+
+  return (
+    <div className="form-condicao">
+      <div className="acoes">
+        <span>Para quando</span>
+        <input list="lista-colunas" placeholder="coluna" value={coluna} onChange={(e) => setColuna(e.target.value.replace(/^.*\$/, '').trim())} />
+        <span>for</span>
+        <select value={op.id} onChange={(e) => setOperador(e.target.value)}>
+          {operadores.map((o) => <option key={o.id} value={o.id}>{o.rotulo}</option>)}
+        </select>
+        {op.valores >= 1 && <input className="num" placeholder="número" value={valor} onChange={(e) => setValor(e.target.value)} />}
+        {op.valores === 2 && <><span>e</span><input className="num" placeholder="número" value={valor2} onChange={(e) => setValor2(e.target.value)} /></>}
+        <button className="btn pri sm" disabled={!pronto} onClick={() => escrever(fraseDaCondicao({ prefixo, coluna, operador: op.id, valor, valor2 }))}>
+          trocar a 1ª linha
+        </button>
+        <button className="btn sm" onClick={fechar}>fechar</button>
+      </div>
+      {coluna && <FichaDaColuna nome={coluna} info={info} />}
+      {info?.tipo === 'texto' && (
+        <div className="muted">O gerador só compara números: numa coluna de texto, a condição só pode ser "sem dados" ou "com dados".</div>
+      )}
+      {valores.some((v) => v && !numeroValido(v)) && (
+        <div className="muted">Escreva o número sem sinal, com vírgula ou ponto (ex.: 0,5). O gerador não lê "-1".</div>
+      )}
+    </div>
+  )
+}
+
+// Destaca o valor dentro do texto pronto.
+function comDestaque(texto, valor) {
+  const partes = texto.split(valor)
+  return partes.flatMap((parte, i) => (i ? [<mark key={i}>{valor}</mark>, parte] : [parte]))
+}
+
+// "Ler com cada valor": o trecho pronto num município de cada valor das colunas de
+// texto que ele usa, só onde o trecho sai no relatório (decisão do André, 01/11).
+function LerComCadaValor({ tema, texto, colunas }) {
+  const trecho = trechoParaLer(texto)
+  const [lido, setLido] = useState(null)
+  const usadas = [...camposDaCondicao(trecho)].filter((c) => comparavel(colunas?.get(c)))
+  if (!usadas.length) return null
+  const atual = lido?.trecho === trecho ? lido : null // texto editado: a leitura antiga não vale
+
+  async function ler() {
+    setLido({ trecho, carregando: true })
+    try {
+      setLido({ trecho, ...(await postarJson(`/laboratorio/${tema}/cada-valor`, { texto: trecho })) })
+    } catch (err) {
+      setLido({ trecho, erro: err.message })
+    }
+  }
+
+  if (!atual?.colunas) {
+    return (
+      <div className="cada-valor">
+        <button className="btn ghost sm" onClick={ler} disabled={atual?.carregando}>
+          {atual?.carregando ? 'lendo…' : `ler com cada valor de ${usadas.map((c) => `$${c}`).join(', ')}`}
+        </button>
+        {atual?.erro && <span className="chip ruim">{atual.erro}</span>}
+      </div>
+    )
+  }
+  return (
+    <div className="cada-valor">
+      {atual.colunas.map((c) => (
+        <details key={c.coluna} open={atual.colunas.length === 1}>
+          <summary><b>${c.coluna}</b> <span className="muted">{c.valores.length} valores</span></summary>
+          {c.valores.map((v) => (
+            <div key={v.valor} className="valor">
+              <div>
+                <span className="chip">{v.valor}</span>{' '}
+                <span className="muted">
+                  {municipios(v.municipios)}{v.vale_em < v.municipios ? `, o trecho sai em ${numero(v.vale_em)}` : ''}
+                </span>
+              </div>
+              {v.texto ? (
+                <div className="exemplo"><span className="muted">{v.cidade}:</span> {comDestaque(v.texto, v.valor)}</div>
+              ) : (
+                <div className="muted">Com este valor, o trecho não sai em nenhum município.</div>
+              )}
+            </div>
+          ))}
+        </details>
+      ))}
+      <button className="btn ghost sm" onClick={() => setLido(null)}>fechar</button>
+    </div>
+  )
+}
 
 function Nomes({ nomes, total }) {
   if (!nomes.length) return null
@@ -49,11 +314,12 @@ function separarEspacos(texto) {
   return { antes, miolo, depois }
 }
 
-function Versao({ item, contagem, naCidade, podeSeparar, acoes }) {
+function Versao({ item, contagem, naCidade, podeSeparar, acoes, tema, colunas, prefixo }) {
   const texto = textoDoItem(item)
   // Versão recém-criada já abre em edição, com o modelo no textarea.
   const [editando, setEditando] = useState(item.original === '' && item.editado !== undefined)
   const [rascunho, setRascunho] = useState(() => separarEspacos(texto).miolo)
+  const [formAberto, setFormAberto] = useState(false)
   const condicao = condicaoDoItem(item)
   const removida = texto === ''
   const estado = item.original === '' ? 'nova' : removida ? 'removida' : item.editado !== undefined ? 'alterada' : null
@@ -71,9 +337,18 @@ function Versao({ item, contagem, naCidade, podeSeparar, acoes }) {
   if (editando) {
     return (
       <div className="versao editando">
-        <textarea value={rascunho} onChange={(e) => setRascunho(e.target.value)} rows={Math.max(4, rascunho.split('\n').length + 1)} autoFocus />
+        <EditorComColunas valor={rascunho} mudar={setRascunho} colunas={colunas} />
+        {formAberto && (
+          <FormCondicao
+            colunas={colunas}
+            prefixo={prefixo}
+            escrever={(frase) => setRascunho((r) => [frase, ...r.split('\n').slice(1)].join('\n'))}
+            fechar={() => setFormAberto(false)}
+          />
+        )}
         <div className="acoes">
           <button className="btn pri sm" onClick={salvar}>Pronto</button>
+          {!formAberto && <button className="btn sm" onClick={() => setFormAberto(true)}>nova condição</button>}
           <button className="btn sm" onClick={() => (item.original === '' && !item.editado.trim() ? acoes.desfazer() : setEditando(false))}>Cancelar</button>
         </div>
       </div>
@@ -86,7 +361,7 @@ function Versao({ item, contagem, naCidade, podeSeparar, acoes }) {
     <div className={`versao${classe}`}>
       <div className="linha-condicao">
         <span className={`condicao${condicao || removida ? '' : ' quebrada'}`}>
-          {removida ? item.condicao : condicao ?? 'A 1ª linha não é mais uma condição: o gerador vai ler isto como texto fixo'}
+          {removida ? item.condicao : condicao ? <ComCampos texto={condicao} colunas={colunas} /> : 'A 1ª linha não é mais uma condição: o gerador vai ler isto como texto fixo'}
         </span>
         {estado && <span className={`chip ${estado === 'removida' ? 'ruim' : 'atencao'}`}>{estado}</span>}
         {contagem !== undefined && !removida && (
@@ -101,13 +376,19 @@ function Versao({ item, contagem, naCidade, podeSeparar, acoes }) {
         {!removida && podeSeparar && <button className="btn ghost sm" onClick={acoes.separar} title="Esta versão e as de baixo passam a ser outro bloco">separar daqui</button>}
         {!removida && <button className="btn ghost sm" onClick={acoes.remover}>remover</button>}
       </div>
-      {!removida && <div className="corpo">{paraTela(corpo)}</div>}
+      {!removida && <div className="corpo"><ComCampos texto={paraTela(corpo)} colunas={colunas} /></div>}
+      {!removida && <LerComCadaValor tema={tema} texto={texto} colunas={colunas} />}
     </div>
   )
 }
 
-function Texto({ item }) {
-  return <div className="card texto"><div className="cbody">{paraTela(textoDoItem(item))}</div></div>
+function Texto({ item, tema, colunas }) {
+  return (
+    <div className="card texto">
+      <div className="cbody"><ComCampos texto={paraTela(textoDoItem(item))} colunas={colunas} /></div>
+      <LerComCadaValor tema={tema} texto={textoDoItem(item)} colunas={colunas} />
+    </div>
+  )
 }
 
 function Bloco({ numero: n, versoes, estatisticas, juntar, novaVersao }) {
@@ -197,6 +478,7 @@ export default function Laboratorio() {
   const [naCidade, setNaCidade] = useState(null)
   const [ajustes, setAjustes] = useState({ cortes: new Set(), juncoes: new Set() })
   const [textoConferido, setTextoConferido] = useState(null)
+  const [colunas, setColunas] = useState(null)
   const temaVivo = useRef('')
   const proximoId = useRef(0)
 
@@ -221,7 +503,12 @@ export default function Laboratorio() {
     setConferencia(null)
     setNaCidade(null)
     setAjustes({ cortes: new Set(), juncoes: new Set() })
+    setColunas(null)
     if (!slug) return
+    // Em paralelo com o Doc: sem as colunas, a tela funciona, só sem a ajuda.
+    pedir(`/laboratorio/${slug}/colunas`)
+      .then((r) => temaVivo.current === slug && setColunas(new Map(r.colunas.map((c) => [c.coluna, c]))))
+      .catch((err) => temaVivo.current === slug && setErro(`Colunas do tema: ${err.message}`))
     setCarregando(true)
     try {
       const aberto = await pedir(`/laboratorio/${slug}/doc`)
@@ -287,7 +574,6 @@ export default function Laboratorio() {
     setAjustes(({ cortes, juncoes }) => ({ cortes: new Set([...cortes].filter((c) => c !== id)), juncoes: new Set(juncoes).add(id) }))
   }
   function novaVersao(depoisDoId) {
-    const prefixo = tema.split('-')[0]
     const nova = {
       id: proximoId.current++,
       tipo: 'versao',
@@ -302,6 +588,7 @@ export default function Laboratorio() {
   }
 
   const grupos = useMemo(() => agruparEmBlocos(itens, ajustes), [itens, ajustes])
+  const prefixo = useMemo(() => prefixoDoDoc(doc?.texto ?? '', tema), [doc, tema])
   // Posição de cada versão (que ainda é condição) na ordem do texto: é assim que o
   // backend devolve as contagens.
   const posicao = useMemo(() => {
@@ -355,6 +642,7 @@ export default function Laboratorio() {
             disabled={!doc}
           />
           <datalist id="cidades">{cidades.map((c) => <option key={c} value={c} />)}</datalist>
+          <datalist id="lista-colunas">{colunas && [...colunas.keys()].map((c) => <option key={c} value={c} />)}</datalist>
           <span className="spacer" />
           {doc && (
             <span className="status">
@@ -405,7 +693,7 @@ export default function Laboratorio() {
         {grupos.map((grupo, i) => {
           // Chaves com prefixo: id de texto e id de versão são números da mesma sequência,
           // e "b-3" e "t-3" não podem colidir (o React reaproveitaria o cartão errado).
-          if (grupo.tipo !== 'bloco') return <Texto key={`t-${itens[grupo.indice].id}`} item={itens[grupo.indice]} />
+          if (grupo.tipo !== 'bloco') return <Texto key={`t-${itens[grupo.indice].id}`} item={itens[grupo.indice]} tema={tema} colunas={colunas} />
           const posicoes = grupo.versoes.map((indice) => posicao.get(indice)).filter((k) => k !== undefined)
           const contaCom = casaComOTexto && !conferenciaVelha
           const primeiro = itens[grupo.versoes[0]]
@@ -426,6 +714,9 @@ export default function Laboratorio() {
                     naCidade={naCidade && k !== undefined ? naCidade.versoes[k]?.[1] : undefined}
                     podeSeparar={j > 0}
                     acoes={acoesDaVersao(itens[indice].id)}
+                    tema={tema}
+                    colunas={colunas}
+                    prefixo={prefixo}
                   />
                 )
               })}

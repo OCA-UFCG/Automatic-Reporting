@@ -245,3 +245,52 @@ def test_conferencia_parada_vira_interrompida(estado, idade_s, interrompida, mon
     os.utime(laboratorio._caminho(id_conferencia), (antes, antes))
     lido = laboratorio.ler_conferencia(id_conferencia)
     assert (lido["estado"] == "erro") is interrompida
+
+
+# --- 5c-3b: ler com cada valor ---
+
+
+def _gravar_snapshot(pasta, tema, contextos):
+    municipios = {c: {"fonte": "view", "contexto": ctx} for c, ctx in contextos.items()}
+    with gzip.open(pasta / f"{tema}.json.gz", "wt", encoding="utf-8") as arquivo:
+        json.dump({"gerado_em": "2026-11-01T04:30:00+00:00", "municipios": codificar(municipios)}, arquivo)
+
+
+def test_ler_com_cada_valor_so_da_exemplo_onde_o_trecho_sai(monkeypatch, tmp_path):
+    monkeypatch.setattr(laboratorio_snapshot, "SNAPSHOT_DIR", tmp_path)
+    _gravar_snapshot(tmp_path, "demografia", {
+        "A (PB)": {"dado": 1, "analise": "uma redução", "fonte": "IBGE", "sigla_uf": "PB"},
+        "B (PB)": {"dado": 2, "analise": "um aumento", "fonte": "IBGE", "sigla_uf": "PE"},
+        "C (PB)": {"dado": 0, "analise": "não houve variação", "fonte": "IBGE"},
+        "D (PB)": {"dado": 3, "analise": "um aumento", "fonte": "IBGE"},
+    })
+    versao = "Para quando $dado for diferente de 0, então:\nApresentou $analise segundo $fonte ($sigla_uf).\n"
+
+    colunas = laboratorio.ler_com_cada_valor("demografia", versao)
+
+    # $dado é número, $fonte tem um valor só e $sigla_uf fica de fora: nada a comparar.
+    assert [c["coluna"] for c in colunas] == ["analise"]
+    valores = {v["valor"]: v for v in colunas[0]["valores"]}
+    assert valores["um aumento"] == {
+        "valor": "um aumento", "municipios": 2, "vale_em": 2,
+        "cidade": "B (PB)", "texto": "Apresentou um aumento segundo IBGE (PE).",
+    }
+    # O único município com este valor tem $dado 0: a versão nunca sai com ele.
+    assert valores["não houve variação"] == {
+        "valor": "não houve variação", "municipios": 1, "vale_em": 0, "cidade": None, "texto": None,
+    }
+    assert colunas[0]["valores"][0]["valor"] == "um aumento"  # mais comum primeiro
+
+    fixo = laboratorio.ler_com_cada_valor("demografia", "O grupo $analise.")
+    assert all(v["vale_em"] == v["municipios"] for v in fixo[0]["valores"])
+    assert laboratorio.ler_com_cada_valor("saude", "O grupo $analise.") is None
+
+
+def test_rota_cada_valor(monkeypatch, snapshot_falso):
+    cliente = _app(monkeypatch, "1")
+    resposta = cliente.post("/laboratorio/demografia/cada-valor", json={"texto": "Em $nm_mun."})
+    assert resposta.status_code == 200
+    (coluna,) = resposta.json()["colunas"]
+    assert coluna["coluna"] == "nm_mun"
+    assert {v["texto"] for v in coluna["valores"]} == {"Em Grande (PB).", "Em Pequena (PB)."}
+    assert cliente.post("/laboratorio/saude/cada-valor", json={"texto": "x"}).status_code == 404

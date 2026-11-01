@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
-import { agruparEmBlocos, condicaoDoItem, exportar, lerDoc } from './modelo.js'
+import { agruparEmBlocos, condicaoDoItem, exportar, lerDoc, prefixoDoDoc, trechoParaLer } from './modelo.js'
 
 const FIXTURES = new URL('../../../tests/fixtures/relatorio_congelado/docs/', import.meta.url)
 const TEMAS = ['demografia', 'educacao', 'saude', 'economia-renda', 'hidraulica',
@@ -73,4 +73,14 @@ test('a condição acompanha a edição da versão', () => {
   assert.equal(condicaoDoItem(itens[0]), 'Para quando $a for maior que 5:')
   itens[0].editado = 'Sem condição.\n'
   assert.equal(condicaoDoItem(itens[0]), null)
+})
+
+test('prefixo do tema: o que o Doc mais usa, ou o slug', () => {
+  assert.equal(prefixoDoDoc('ambiente.$a e ambiente.$b e meio-ambiente.$c', 'meio-ambiente'), 'ambiente')
+  assert.equal(prefixoDoDoc('sem campo nenhum', 'meio-ambiente'), 'meio-ambiente')
+})
+
+test('trecho para ler sai sem o marcador do bloco do tema', () => {
+  assert.equal(trechoParaLer('descricao_tema = “Para quando $x for 1, então:\nA.\n'), 'Para quando $x for 1, então:\nA.')
+  assert.equal(trechoParaLer('\nFim do tema.”@@\n'), 'Fim do tema.')
 })

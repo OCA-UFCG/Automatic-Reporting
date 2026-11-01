@@ -181,6 +181,7 @@ if os.getenv("LABORATORIO_HABILITADO") == "1":
     from services.laboratorio import (
         abrir_doc,
         iniciar_conferencia,
+        ler_com_cada_valor,
         ler_conferencia,
         texto_do_municipio,
         valores_das_colunas,
@@ -232,6 +233,12 @@ if os.getenv("LABORATORIO_HABILITADO") == "1":
         snapshot = carregar_snapshot(_tema_com_snapshot(tema))
         contextos = {cidade: m["contexto"] for cidade, m in snapshot["municipios"].items()}
         return {"snapshot_gerado_em": snapshot["gerado_em"], "colunas": valores_das_colunas(contextos)}
+
+    @app.post("/laboratorio/{tema}/cada-valor")
+    def laboratorio_cada_valor(tema: str, corpo: TextoDoTema):
+        # Rota própria, e não N chamadas a /municipio (que relê o snapshot a cada
+        # uma, ~0,5 s): um parágrafo de saúde com as vacinas passa de 80 valores.
+        return {"colunas": ler_com_cada_valor(_tema_com_snapshot(tema), corpo.texto) or []}
 
     @app.post("/laboratorio/{tema}/conferencias")
     def laboratorio_conferir(tema: str, corpo: TextoDoTema):
