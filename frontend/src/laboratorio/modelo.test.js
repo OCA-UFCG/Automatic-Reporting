@@ -134,3 +134,12 @@ test('rascunho: ida e volta, e formato desconhecido é ignorado', () => {
   assert.equal(doRascunho(json.replace('"formato":1', '"formato":0')), null)
   assert.equal(doRascunho('não é json'), null)
 })
+
+test('copiar o último bloco editado leva o ”@@ da linha do Doc', () => {
+  const itens = lerDoc('descricao_tema = “Para quando $x for 1, então:\nA.\n\nPara quando $x for 2, então:\nB.”@@\n')
+  const versoes = itens.flatMap((i, k) => (i.tipo === 'versao' ? [k] : []))
+  itens[versoes[1]].editado = 'Para quando $x for 2, então:\nB editado.\n'
+  const copia = textoDoBloco(itens, versoes)
+  assert.ok(copia.startsWith('descricao_tema = “Para quando $x for 1'))
+  assert.ok(copia.endsWith('B editado.\n”@@'))
+})

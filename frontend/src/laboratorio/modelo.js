@@ -197,9 +197,21 @@ const itensDoBloco = (itens, versoes) => itens.slice(versoes[0], versoes.at(-1) 
 
 export const blocoAlterado = (itens, versoes) => itensDoBloco(itens, versoes).some(editado)
 
-// O texto do bloco para colar no Doc por cima do mesmo trecho: o que não foi editado
-// volta idêntico; só as pontas em branco saem.
-export const textoDoBloco = (itens, versoes) => itensDoBloco(itens, versoes).map(textoDoItem).join('').trim()
+// O texto do bloco para colar no Doc por cima das mesmas linhas: o que não foi editado
+// volta idêntico; só as pontas em branco saem. Linhas inteiras do Doc: na 1ª e na última
+// versão do tema, o marcador (descricao_tema = “ / ”@@) está na mesma linha do texto, e
+// colar sem ele apagaria o tema do relatório.
+export function textoDoBloco(itens, versoes) {
+  const antes = itens.slice(0, versoes[0]).map(textoDoItem).join('')
+  const bloco = itensDoBloco(itens, versoes).map(textoDoItem).join('')
+  const depois = itens.slice(versoes.at(-1) + 1).map(textoDoItem).join('')
+  const comecoDaLinha = antes.slice(antes.lastIndexOf('\n') + 1)
+  // Pelo original, que é o que está no Doc: editar a versão pode pôr uma quebra no fim
+  // dela, mas no Doc a linha continua com o ”@@.
+  const original = itensDoBloco(itens, versoes).map((i) => i.original).join('')
+  const restoDaLinha = original.endsWith('\n') ? '' : depois.split('\n')[0]
+  return (comecoDaLinha + bloco + restoDaLinha).trim()
+}
 
 // Avisos que a tela vê sozinha, antes de copiar. Os do gerador (campo cru, condição
 // não entendida) vêm da conferência.

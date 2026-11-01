@@ -429,7 +429,7 @@ function Texto({ item, tema, colunas, csv }) {
   )
 }
 
-function Bloco({ numero: n, versoes, estatisticas, juntar, novaVersao, alterado, avisos, copiar, copiado }) {
+function Bloco({ numero: n, versoes, estatisticas, juntar, novaVersao, alterado, avisos, dica, copiar, copiado }) {
   return (
     <div className="card" id={`bloco-${n}`}>
       <div className="chead">
@@ -452,6 +452,7 @@ function Bloco({ numero: n, versoes, estatisticas, juntar, novaVersao, alterado,
           {copiado ? 'copiado ✓' : 'copiar bloco'}
         </button>
       </div>
+      {alterado && dica && <div className="bloco-detalhe">{dica}</div>}
       {avisos.length > 0 && (
         <div className="bloco-detalhe avisos">
           {avisos.map((a) => <div key={a}>⚠ {a}</div>)}
@@ -476,6 +477,16 @@ function Bloco({ numero: n, versoes, estatisticas, juntar, novaVersao, alterado,
       </div>
     </div>
   )
+}
+
+// O 1º e o último bloco do tema levam o marcador junto (textoDoBloco): a editora
+// precisa selecionar no Doc a linha inteira, com ele.
+function dicaDeColar(texto) {
+  const abre = texto.startsWith('descricao_tema')
+  const fecha = texto.endsWith('@@')
+  if (!abre && !fecha) return null
+  const marcas = [abre && 'começa com "descricao_tema = “"', fecha && 'termina com "”@@"'].filter(Boolean).join(' e ')
+  return `Este bloco ${marcas}, que marca o tema no Doc. Selecione no Doc as linhas inteiras do bloco, com essa marca: ela vai junto na cópia.`
 }
 
 // Resumo para levar ao Doc (spec, "Exportar"): copiar por bloco é o caminho
@@ -801,6 +812,7 @@ export default function Laboratorio() {
     numero: i + 1,
     alterado: blocoAlterado(itens, g.versoes),
     avisos: g.versoes.flatMap((indice) => avisosDaVersao(itens[indice], colunas)),
+    dica: dicaDeColar(textoDoBloco(itens, g.versoes)),
   }))
   const editou = temEdicao(itens)
   let numeroBloco = 0
@@ -964,6 +976,7 @@ export default function Laboratorio() {
               numero={bloco.numero}
               alterado={bloco.alterado}
               avisos={bloco.avisos}
+              dica={bloco.dica}
               copiar={() => copiar(textoDoBloco(itens, grupo.versoes), `b-${primeiro.id}`)}
               copiado={copiado === `b-${primeiro.id}`}
               estatisticas={contaCom ? estatisticasDoBloco(posicoes, resultado.versoes_por_municipio) : null}
