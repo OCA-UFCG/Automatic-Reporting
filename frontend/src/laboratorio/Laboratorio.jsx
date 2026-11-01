@@ -2,13 +2,20 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   OPERADORES,
   agruparEmBlocos,
+  avisosDaVersao,
+  blocoAlterado,
   camposDaCondicao,
+  chaveDoRascunho,
   condicaoDoItem,
+  doRascunho,
   exportar,
   fraseDaCondicao,
   lerDoc,
   numeroValido,
+  paraRascunho,
   prefixoDoDoc,
+  temEdicao,
+  textoDoBloco,
   textoDoItem,
   trechoParaLer,
 } from './modelo.js'
@@ -28,6 +35,32 @@ async function pedir(caminho, opcoes) {
 
 const postarJson = (caminho, corpo) =>
   pedir(caminho, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) })
+
+// localStorage pode faltar (aba anônima, dados bloqueados) ou lançar: a página
+// funciona sem ele, só sem rascunho (spec, "Rascunho").
+const armazem = {
+  ler(chave) {
+    try {
+      return localStorage.getItem(chave)
+    } catch {
+      return null
+    }
+  },
+  gravar(chave, valor) {
+    try {
+      localStorage.setItem(chave, valor)
+    } catch {
+      // sem rascunho
+    }
+  },
+  apagar(chave) {
+    try {
+      localStorage.removeItem(chave)
+    } catch {
+      // nada a apagar
+    }
+  },
+}
 
 const dataHora = (iso) =>
   new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
@@ -391,12 +424,13 @@ function Texto({ item, tema, colunas }) {
   )
 }
 
-function Bloco({ numero: n, versoes, estatisticas, juntar, novaVersao }) {
+function Bloco({ numero: n, versoes, estatisticas, juntar, novaVersao, alterado, avisos, copiar, copiado }) {
   return (
-    <div className="card">
+    <div className="card" id={`bloco-${n}`}>
       <div className="chead">
         <span className="ctag">Bloco {n}</span>
         <span className="muted">{versoes.length} {versoes.length === 1 ? 'versão' : 'versões'}</span>
+        <span className={`chip ${alterado ? 'atencao' : ''}`}>{alterado ? 'alterado' : 'igual ao Doc'}</span>
         {estatisticas && (
           <>
             <span className={`chip ${estatisticas.sem.length ? 'atencao' : 'bom'}`}>
@@ -409,7 +443,15 @@ function Bloco({ numero: n, versoes, estatisticas, juntar, novaVersao }) {
         )}
         <span className="spacer" />
         {juntar && <button className="btn ghost sm" onClick={juntar}>juntar com o de cima</button>}
+        <button className={`btn sm${alterado ? ' pri' : ''}`} onClick={copiar} title="Copia o bloco para colar no Doc, por cima do mesmo trecho">
+          {copiado ? 'copiado ✓' : 'copiar bloco'}
+        </button>
       </div>
+      {avisos.length > 0 && (
+        <div className="bloco-detalhe avisos">
+          {avisos.map((a) => <div key={a}>⚠ {a}</div>)}
+        </div>
+      )}
       {estatisticas && (estatisticas.sem.length > 0 || estatisticas.varias.length > 0) && (
         <div className="bloco-detalhe">
           {estatisticas.varias.length > 0 && (
@@ -426,6 +468,47 @@ function Bloco({ numero: n, versoes, estatisticas, juntar, novaVersao }) {
       <div className="cbody">
         {versoes}
         <button className="btn ghost sm nova" onClick={novaVersao}>+ nova versão</button>
+      </div>
+    </div>
+  )
+}
+
+// Resumo para levar ao Doc (spec, "Exportar"): copiar por bloco é o caminho
+// principal; copiar o tema inteiro é o secundário, porque colar o Doc inteiro apaga
+// comentários e formatação que o editorial tenha nele.
+function PainelExportar({ alterados, conferencia, avisosLocais, copiarTudo, copiado }) {
+  return (
+    <div className="card exportar">
+      <div className="chead"><span className="ctag">Para levar ao Doc</span></div>
+      <div className="cbody">
+        <div>
+          {alterados.length
+            ? <>Blocos alterados: {alterados.map((n, i) => <span key={n}>{i ? ', ' : ''}<a href={`#bloco-${n}`}>Bloco {n}</a></span>)}. Copie cada um e cole no Doc por cima do mesmo trecho.</>
+            : 'Nenhum bloco alterado: as mudanças estão em texto fora dos blocos.'}
+        </div>
+        <div className={conferencia === 'ok' ? 'muted' : 'aviso-exportar'}>
+          {conferencia === 'ok' && '✓ Conferido depois da última mudança (os avisos do gerador, se houver, estão acima).'}
+          {conferencia === 'velha' && '⚠ O texto mudou desde a última conferência: clique em Conferir antes de colar.'}
+          {conferencia === 'nunca' && '⚠ Ainda não conferido: clique em Conferir antes de colar.'}
+        </div>
+        {avisosLocais > 0 && <div className="aviso-exportar">⚠ {avisosLocais === 1 ? '1 aviso' : `${avisosLocais} avisos`} nos blocos (veja em cada bloco).</div>}
+        <div className="acoes">
+          <button className="btn sm" onClick={copiarTudo}>{copiado ? 'copiado ✓' : 'copiar o Doc inteiro'}</button>
+          <span className="muted">Só se for substituir o Doc todo: colar por cima apaga comentários e formatação do Doc.</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Sem permissão de área de transferência (http, navegador antigo): o texto fica
+// selecionado num campo para Ctrl+C.
+function CopiarAMao({ texto, fechar }) {
+  return (
+    <div className="copiar-a-mao">
+      <div className="card">
+        <div className="chead"><span className="ctag">Copie com Ctrl+C</span><span className="spacer" /><button className="btn sm" onClick={fechar}>fechar</button></div>
+        <textarea readOnly value={texto} autoFocus onFocus={(e) => e.target.select()} />
       </div>
     </div>
   )
@@ -479,6 +562,10 @@ export default function Laboratorio() {
   const [ajustes, setAjustes] = useState({ cortes: new Set(), juncoes: new Set() })
   const [textoConferido, setTextoConferido] = useState(null)
   const [colunas, setColunas] = useState(null)
+  const [rascunho, setRascunho] = useState(null) // {tipo: restaurado | doc_mudou | antigo, ...}
+  const [hashBase, setHashBase] = useState(null) // hash do Doc em que o texto da tela se baseia
+  const [copiado, setCopiado] = useState(null)
+  const [paraCopiar, setParaCopiar] = useState(null)
   const temaVivo = useRef('')
   const proximoId = useRef(0)
 
@@ -504,6 +591,7 @@ export default function Laboratorio() {
     setNaCidade(null)
     setAjustes({ cortes: new Set(), juncoes: new Set() })
     setColunas(null)
+    setRascunho(null)
     if (!slug) return
     // Em paralelo com o Doc: sem as colunas, a tela funciona, só sem a ajuda.
     pedir(`/laboratorio/${slug}/colunas`)
@@ -516,10 +604,57 @@ export default function Laboratorio() {
       const lidos = lerDoc(aberto.texto)
       proximoId.current = lidos.length
       setItens(lidos)
+      setHashBase(aberto.hash)
+      const salvo = doRascunho(armazem.ler(chaveDoRascunho(slug)) ?? '')
+      if (salvo && salvo.hash === aberto.hash) {
+        aplicarRascunho(salvo)
+        setRascunho({ tipo: 'restaurado', salvo_em: salvo.salvo_em })
+      } else if (salvo) {
+        setRascunho({ tipo: 'doc_mudou', salvo })
+      }
     } catch (err) {
       setErro(err.message)
     } finally {
       setCarregando(false)
+    }
+  }
+
+  function aplicarRascunho(salvo) {
+    setItens(salvo.itens)
+    setAjustes(salvo.ajustes)
+    proximoId.current = salvo.proximoId
+    setHashBase(salvo.hash)
+  }
+  function descartarRascunho() {
+    if (!window.confirm('Descartar o rascunho? As edições somem e o texto volta ao Doc atual.')) return
+    armazem.apagar(chaveDoRascunho(tema))
+    const lidos = lerDoc(doc.texto)
+    proximoId.current = lidos.length
+    setAjustes({ cortes: new Set(), juncoes: new Set() })
+    setHashBase(doc.hash)
+    setRascunho(null)
+    mudarItens(lidos)
+  }
+
+  // O rascunho acompanha cada mudança; sem edição nenhuma, não há rascunho. Enquanto a
+  // editora não escolhe entre o rascunho antigo e o Doc atual, nada é gravado (senão o
+  // Doc atual, sem edição, apagaria o rascunho).
+  useEffect(() => {
+    if (!doc || !tema || rascunho?.tipo === 'doc_mudou') return
+    if (temEdicao(itens)) {
+      armazem.gravar(chaveDoRascunho(tema), paraRascunho({ hash: hashBase, itens, ajustes, proximoId: proximoId.current }))
+    } else {
+      armazem.apagar(chaveDoRascunho(tema))
+    }
+  }, [itens, ajustes])
+
+  async function copiar(texto, rotulo) {
+    try {
+      await navigator.clipboard.writeText(texto)
+      setCopiado(rotulo)
+      setTimeout(() => setCopiado((atual) => (atual === rotulo ? null : atual)), 2500)
+    } catch {
+      setParaCopiar(texto)
     }
   }
 
@@ -604,6 +739,13 @@ export default function Laboratorio() {
     [...posicao].every(([indice, k]) => resultado.versoes[k].condicao === condicaoDoItem(itens[indice]))
   const conferenciaVelha = resultado && textoConferido !== exportar(itens)
   const temaAtual = temas?.find((t) => t.slug === tema)
+  const blocos = grupos.filter((g) => g.tipo === 'bloco').map((g, i) => ({
+    ...g,
+    numero: i + 1,
+    alterado: blocoAlterado(itens, g.versoes),
+    avisos: g.versoes.flatMap((indice) => avisosDaVersao(itens[indice], colunas)),
+  }))
+  const editou = temEdicao(itens)
   let numeroBloco = 0
 
   if (desligado) {
@@ -676,6 +818,41 @@ export default function Laboratorio() {
         {resultado && !casaComOTexto && !conferenciaVelha && (
           <div className="banner atencao">As versões do texto não batem com as da conferência. Confira de novo.</div>
         )}
+        {rascunho?.tipo === 'restaurado' && (
+          <div className="banner atencao">
+            Rascunho de <b>{dataHora(rascunho.salvo_em)}</b> restaurado (o Doc não mudou desde então).{' '}
+            <button className="btn sm" onClick={descartarRascunho}>descartar o rascunho</button>
+          </div>
+        )}
+        {rascunho?.tipo === 'doc_mudou' && (
+          <div className="banner atencao">
+            <b>O Doc mudou desde o seu rascunho de {dataHora(rascunho.salvo.salvo_em)}.</b>
+            <div>
+              Continuar o rascunho traz suas edições, mas sobre o texto antigo do Doc: o que mudou no Doc depois não aparece aqui.
+              Abrir o Doc atual apaga o rascunho.
+            </div>
+            <div className="acoes">
+              <button className="btn sm" onClick={() => { aplicarRascunho(rascunho.salvo); setRascunho({ tipo: 'antigo' }) }}>continuar o rascunho</button>
+              <button className="btn sm" onClick={() => { armazem.apagar(chaveDoRascunho(tema)); setRascunho(null) }}>abrir o Doc atual</button>
+            </div>
+          </div>
+        )}
+        {rascunho?.tipo === 'antigo' && (
+          <div className="banner atencao">
+            Este rascunho foi feito sobre uma versão anterior do Doc: "alterado" compara com aquela versão. Confira no Doc antes de colar.{' '}
+            <button className="btn sm" onClick={descartarRascunho}>descartar o rascunho</button>
+          </div>
+        )}
+        {editou && rascunho?.tipo !== 'doc_mudou' && (
+          <PainelExportar
+            alterados={blocos.filter((b) => b.alterado).map((b) => b.numero)}
+            conferencia={!resultado ? 'nunca' : conferenciaVelha ? 'velha' : 'ok'}
+            avisosLocais={blocos.reduce((n, b) => n + b.avisos.length, 0)}
+            copiarTudo={() => copiar(exportar(itens), 'tudo')}
+            copiado={copiado === 'tudo'}
+          />
+        )}
+        {paraCopiar !== null && <CopiarAMao texto={paraCopiar} fechar={() => setParaCopiar(null)} />}
         {resultado && <Avisos resultado={resultado} />}
         {naCidade && (
           <details className="card cidade-texto" open>
@@ -697,10 +874,15 @@ export default function Laboratorio() {
           const posicoes = grupo.versoes.map((indice) => posicao.get(indice)).filter((k) => k !== undefined)
           const contaCom = casaComOTexto && !conferenciaVelha
           const primeiro = itens[grupo.versoes[0]]
+          const bloco = blocos[numeroBloco++]
           return (
             <Bloco
               key={`b-${primeiro.id}`}
-              numero={++numeroBloco}
+              numero={bloco.numero}
+              alterado={bloco.alterado}
+              avisos={bloco.avisos}
+              copiar={() => copiar(textoDoBloco(itens, grupo.versoes), `b-${primeiro.id}`)}
+              copiado={copiado === `b-${primeiro.id}`}
               estatisticas={contaCom ? estatisticasDoBloco(posicoes, resultado.versoes_por_municipio) : null}
               juntar={grupos[i - 1]?.tipo === 'bloco' ? () => juntarComOdeCima(primeiro.id) : null}
               novaVersao={() => novaVersao(itens[grupo.versoes.at(-1)].id)}

@@ -3,7 +3,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
-import { agruparEmBlocos, condicaoDoItem, exportar, lerDoc, prefixoDoDoc, trechoParaLer } from './modelo.js'
+import { agruparEmBlocos, condicaoDoItem, exportar, lerDoc, prefixoDoDoc, trechoParaLer,
+  avisosDaVersao, blocoAlterado, doRascunho, paraRascunho, temEdicao, textoDoBloco } from './modelo.js'
 
 const FIXTURES = new URL('../../../tests/fixtures/relatorio_congelado/docs/', import.meta.url)
 const TEMAS = ['demografia', 'educacao', 'saude', 'economia-renda', 'hidraulica',
@@ -93,4 +94,43 @@ test('os marcadores do tema ficam fora das versões', () => {
       assert.match(v.original, /^\s*Para/i, tema)
     }
   }
+})
+
+test('bloco: alterado só se algum item mudou, e o texto volta igual ao Doc', () => {
+  const doc = readFileSync(new URL('demografia.txt', FIXTURES), 'utf-8')
+  const itens = lerDoc(doc)
+  const blocos = agruparEmBlocos(itens).filter((g) => g.tipo === 'bloco')
+  for (const b of blocos) {
+    assert.equal(blocoAlterado(itens, b.versoes), false)
+    assert.ok(doc.includes(textoDoBloco(itens, b.versoes)))
+  }
+  const [b1, b2] = blocos
+  itens[b2.versoes[0]].editado = ''
+  assert.equal(blocoAlterado(itens, b1.versoes), false)
+  assert.equal(blocoAlterado(itens, b2.versoes), true)
+  assert.ok(!textoDoBloco(itens, b2.versoes).includes(itens[b2.versoes[0]].original.trim()))
+  assert.equal(temEdicao(itens), true)
+})
+
+test('avisos da versão', () => {
+  const colunas = new Map([['x', {}]])
+  const v = (texto) => avisosDaVersao({ tipo: 'versao', original: texto }, colunas)
+  assert.deepEqual(v('Para quando $x for 1, então:\nTexto.\n'), [])
+  assert.deepEqual(v('Para quando $x for 1, então: Texto na linha.\n'), [])
+  assert.match(v('Para quando $x for 1, então:\n\n')[0], /^versão sem texto/)
+  assert.match(v('Texto qualquer\nmais')[0], /não é uma condição/)
+  assert.match(v('Para quando demografia.$campo for igual a 0, então:\nT.\n')[0], /\$campo, que não está/)
+  assert.deepEqual(avisosDaVersao({ tipo: 'versao', original: 'Para quando $y for 1:\nT', editado: '' }, colunas), [])
+})
+
+test('rascunho: ida e volta, e formato desconhecido é ignorado', () => {
+  const itens = lerDoc('Para quando $x for 1, então:\nA.\n')
+  itens[0].editado = 'Para quando $x for 2, então:\nB.\n'
+  const json = paraRascunho({ hash: 'h', itens, ajustes: { cortes: new Set([3]), juncoes: new Set() }, proximoId: 5 })
+  const r = doRascunho(json)
+  assert.equal(r.hash, 'h')
+  assert.deepEqual(r.itens, itens)
+  assert.ok(r.ajustes.cortes.has(3))
+  assert.equal(doRascunho(json.replace('"formato":1', '"formato":0')), null)
+  assert.equal(doRascunho('não é json'), null)
 })

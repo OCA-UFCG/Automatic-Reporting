@@ -185,3 +185,67 @@ export function fraseDaCondicao({ prefixo, coluna, operador, valor = '', valor2 
   const op = OPERADORES.find((o) => o.id === operador)
   return `Para quando ${prefixo}.$${coluna} for ${op.frase(valor.trim(), valor2.trim())}, então:`
 }
+
+// --- Exportar e rascunho (5c-4) ---
+
+const editado = (item) => item.editado !== undefined || item.original === ''
+export const temEdicao = (itens) => itens.some(editado)
+
+// Do 1º ao último item de um bloco (`versoes` são posições em `itens`): as linhas em
+// branco entre as versões vão junto.
+const itensDoBloco = (itens, versoes) => itens.slice(versoes[0], versoes.at(-1) + 1)
+
+export const blocoAlterado = (itens, versoes) => itensDoBloco(itens, versoes).some(editado)
+
+// O texto do bloco para colar no Doc por cima do mesmo trecho: o que não foi editado
+// volta idêntico; só as pontas em branco saem.
+export const textoDoBloco = (itens, versoes) => itensDoBloco(itens, versoes).map(textoDoItem).join('').trim()
+
+// Avisos que a tela vê sozinha, antes de copiar. Os do gerador (campo cru, condição
+// não entendida) vêm da conferência.
+export function avisosDaVersao(item, colunas) {
+  const texto = textoDoItem(item)
+  if (item.tipo !== 'versao' || texto === '') return []
+  const [primeira, ...resto] = texto.replace(/^\s*\n/, '').split('\n')
+  const condicao = lerCondicao(semFimDeLinha(primeira))
+  if (!condicao) return ['a 1ª linha não é uma condição: o gerador lê a versão como texto fixo']
+  const avisos = []
+  // Ex. real (economia, 01/11): condição seguida de um gráfico. O gerador não põe
+  // gráfico, título nem outra condição sob a condição: eles saem sempre.
+  if (!condicao.inline.trim() && !resto.join('').trim()) {
+    avisos.push('versão sem texto: o que vem logo depois (gráfico, título ou outra condição) não fica sob esta condição, sai sempre')
+  }
+  // Coluna errada na condição não aparece como campo cru: vale como 0, e a versão
+  // pode sair onde não devia. Pode ser apelido (_resolver_campo_com_alias).
+  for (const campo of camposDaCondicao(primeira)) {
+    if (colunas && !colunas.has(campo)) avisos.push(`a condição usa $${campo}, que não está nas colunas do tema`)
+  }
+  return avisos
+}
+
+// Rascunho no localStorage (spec, "Rascunho"): por tema, com o hash do Doc em que se
+// baseou. `formato` muda se o lerDoc mudar o jeito de cortar o Doc: rascunho de outro
+// formato é ignorado, em vez de restaurar itens que não batem mais.
+const FORMATO_DO_RASCUNHO = 1
+export const chaveDoRascunho = (slug) => `laboratorio:rascunho:${slug}`
+
+export function paraRascunho({ hash, itens, ajustes, proximoId }) {
+  return JSON.stringify({
+    formato: FORMATO_DO_RASCUNHO,
+    hash,
+    salvo_em: new Date().toISOString(),
+    proximoId,
+    itens,
+    ajustes: { cortes: [...ajustes.cortes], juncoes: [...ajustes.juncoes] },
+  })
+}
+
+export function doRascunho(json) {
+  try {
+    const r = JSON.parse(json)
+    if (r?.formato !== FORMATO_DO_RASCUNHO || !Array.isArray(r.itens)) return null
+    return { ...r, ajustes: { cortes: new Set(r.ajustes.cortes), juncoes: new Set(r.ajustes.juncoes) } }
+  } catch {
+    return null
+  }
+}
