@@ -351,7 +351,7 @@ function separarEspacos(texto) {
   return { antes, miolo, depois }
 }
 
-function Versao({ item, contagem, naCidade, podeSeparar, acoes, tema, colunas, prefixo, csv }) {
+function Versao({ item, contagem, problema, naCidade, podeSeparar, acoes, tema, colunas, prefixo, csv }) {
   const texto = textoDoItem(item)
   // Versão recém-criada já abre em edição, com o modelo no textarea.
   const [editando, setEditando] = useState(item.original === '' && item.editado !== undefined)
@@ -413,6 +413,7 @@ function Versao({ item, contagem, naCidade, podeSeparar, acoes, tema, colunas, p
         {!removida && podeSeparar && <button className="btn ghost sm" onClick={acoes.separar} title="Esta versão e as de baixo passam a ser outro bloco">separar daqui</button>}
         {!removida && <button className="btn ghost sm" onClick={acoes.remover}>remover</button>}
       </div>
+      {problema && !removida && <div className="problema">O gerador não entende esta condição: {problema}</div>}
       {!removida && <div className="corpo"><ComCampos texto={paraTela(corpo)} colunas={colunas} /></div>}
       {!removida && <LerComCadaValor tema={tema} texto={texto} colunas={colunas} csv={csv} />}
     </div>
@@ -786,6 +787,14 @@ export default function Laboratorio() {
     resultado.versoes.length === posicao.size &&
     [...posicao].every(([indice, k]) => resultado.versoes[k].condicao === condicaoDoItem(itens[indice]))
   const conferenciaVelha = resultado && textoConferido !== exportar(itens)
+  // O aviso do gerador começa com a linha da condição, igual à que a conferência
+  // devolve para a versão: vai para baixo da linha (spec, "Construir").
+  const problemas = new Map(
+    (resultado?.condicoes_nao_entendidas ?? []).map((aviso) => {
+      const [linha, ...detalhes] = aviso.split('\n')
+      return [linha.trim(), detalhes.map((d) => d.replace(/^\s*→\s*/, '')).join('; ')]
+    }),
+  )
   const temaAtual = temas?.find((t) => t.slug === tema)
   const blocos = grupos.filter((g) => g.tipo === 'bloco').map((g, i) => ({
     ...g,
@@ -967,6 +976,7 @@ export default function Laboratorio() {
                     key={itens[indice].id}
                     item={itens[indice]}
                     contagem={contaCom && k !== undefined ? resultado.versoes[k].municipios : undefined}
+                    problema={contaCom && k !== undefined ? problemas.get(resultado.versoes[k].condicao) : undefined}
                     naCidade={naCidade && k !== undefined ? naCidade.versoes[k]?.[1] : undefined}
                     podeSeparar={j > 0}
                     acoes={acoesDaVersao(itens[indice].id)}

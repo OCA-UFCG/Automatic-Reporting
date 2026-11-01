@@ -137,6 +137,29 @@ def test_texto_de_uma_cidade_e_tema_sem_snapshot(monkeypatch, snapshot_falso):
     ).status_code == 404
 
 
+def test_conferir_tema_com_e_ou_parenteses_sem_dados_e_campo_a_campo():
+    # Os casos que o spec pede na conferência sem banco (spec, "Testes").
+    texto = (
+        "Para quando $a for maior que 1 e $b for igual a 0:\nE.\n\n"
+        "Para quando $a for igual a 1 ou $b for maior que 0:\nOU.\n\n"
+        "Para quando ($a for igual a 1 ou $a for igual a 2) e $b for igual a 0:\nPAR.\n\n"
+        "Para quando $c for sem dados:\nSD.\n\n"
+        "Para quando $a for igual a $b:\nCC.\n"
+    )
+    contextos = {
+        "X (PB)": {"a": 2, "b": 0, "c": None},
+        "Y (PB)": {"a": 1, "b": 1, "c": 5},
+        "Z (PB)": {"a": 0, "b": 0, "c": "sem dados"},
+    }
+    resultado = conferir_tema(texto, "demografia", contextos)
+
+    assert [v["municipios"] for v in resultado["versoes"]] == [1, 1, 1, 2, 2]
+    assert resultado["versoes_por_municipio"] == {
+        "X (PB)": [0, 2, 3], "Y (PB)": [1, 4], "Z (PB)": [3, 4],
+    }
+    assert resultado["condicoes_nao_entendidas"] == []
+
+
 def test_id_de_conferencia_invalido_nao_vira_caminho(monkeypatch, snapshot_falso):
     assert laboratorio.ler_conferencia("../../etc/passwd") is None
 

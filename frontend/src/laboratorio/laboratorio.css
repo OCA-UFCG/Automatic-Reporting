@@ -105,3 +105,4 @@ html { scroll-padding-top: 90px; }
 label.btn { display: inline-block; }
 label.btn.desligado { opacity: .5; pointer-events: none; }
 .banner.csv { background: var(--accent-soft); color: var(--ink); }
+.problema { color: var(--bad); background: var(--bad-bg); border-radius: 6px; padding: 4px 8px; margin-bottom: 6px; font-size: 12.5px; }
