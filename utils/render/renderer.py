@@ -871,17 +871,20 @@ def html_para_texto(html: str) -> str:
     return "\n".join(linha for linha in linhas if linha)
 
 
-def texto_final_do_tema(descricao_tema: str, contexto: dict, namespace: str) -> list[str]:
-    """O texto do tema como sai no relatório, uma parte por item (título,
-    parágrafo, lista, gráfico), em texto plano. É o laboratório quem usa.
+def html_do_tema(
+    descricao_tema: str, contexto: dict, namespace: str, graficos: dict[str, str] | None = None
+) -> list[str]:
+    """O tema como sai no relatório, em HTML, uma parte por item (título, parágrafo,
+    lista, gráfico). É o laboratório quem usa: o painel de texto pronto mostra o HTML,
+    e a conferência converte em texto (texto_final_do_tema).
 
-    Passa pelo mesmo render_descricao_tema_html do relatório, e não por
-    paragrafos_do_tema: título órfão, numeração e supressão de "Figura X" e
-    marcadores só se resolvem no HTML (review do #234, achado 2).
+    `graficos` é {placeholder: arquivo} dos gráficos gerados de verdade para o
+    município (generation.gerar_graficos_do_tema): gráfico sem dado não está nele e
+    some junto com a menção "(Figura X)", como no relatório.
 
-    ponytail: supõe que todo gráfico citado no texto é gerado. No relatório, o
-    gráfico sem dado some e leva junto a menção "(Figura X)"; aqui ela fica. Gerar
-    os gráficos de verdade se a diferença aparecer na conferência.
+    ponytail: sem `graficos`, supõe que todo gráfico citado no texto é gerado. É o
+    caminho da conferência dos 2.074 municípios, em que gerar os gráficos de todos
+    custaria demais; ali a menção ao gráfico sem dado fica e a numeração pode diferir.
 
     `descricao_tema` tem que ser a que separar_secoes_do_tema devolve: é ela que
     insere os marcadores de gráfico (GRAFICOS_AUTO_MARCADOR); o texto cru do Doc
@@ -890,12 +893,13 @@ def texto_final_do_tema(descricao_tema: str, contexto: dict, namespace: str) -> 
     Roda num contexto copiado com a numeração zerada, como num relatório de um
     tema só, para não mexer na numeração de um relatório em andamento.
     """
-    graficos = {
-        nome: f"{nome}.png"
-        for linha in descricao_tema.splitlines()
-        if _MARCADOR_GRAFICO_LINHA.fullmatch(linha.strip())
-        for nome in linha.strip().lstrip("%*").split("+")
-    }
+    if graficos is None:
+        graficos = {
+            nome: f"{nome}.png"
+            for linha in descricao_tema.splitlines()
+            if _MARCADOR_GRAFICO_LINHA.fullmatch(linha.strip())
+            for nome in linha.strip().lstrip("%*").split("+")
+        }
 
     def renderizar() -> list[str]:
         reset_figura_contador()
@@ -903,8 +907,17 @@ def texto_final_do_tema(descricao_tema: str, contexto: dict, namespace: str) -> 
             descricao_tema, contexto, namespace, graficos_por_placeholder=graficos
         )
 
-    partes = copy_context().run(renderizar)
-    return [texto for texto in map(html_para_texto, partes) if texto]
+    return copy_context().run(renderizar)
+
+
+def texto_final_do_tema(
+    descricao_tema: str, contexto: dict, namespace: str, graficos: dict[str, str] | None = None
+) -> list[str]:
+    """O texto do tema como sai no relatório, em texto plano: o html_do_tema
+    convertido. Passa pelo mesmo render_descricao_tema_html do relatório, e não por
+    paragrafos_do_tema: título órfão, numeração e supressão de "Figura X" e
+    marcadores só se resolvem no HTML (review do #234, achado 2)."""
+    return [texto for texto in map(html_para_texto, html_do_tema(descricao_tema, contexto, namespace, graficos)) if texto]
 
 
 def _render_descricao_tema_partes(

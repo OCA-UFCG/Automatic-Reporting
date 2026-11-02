@@ -380,3 +380,37 @@ def test_rotas_com_csv(monkeypatch, snapshot_falso):
     assert estado["resultado"]["versoes"][0]["municipios"] == 1  # só Nova (pop 50)
 
     assert cliente.post("/laboratorio/demografia/csv", json={"csv": "a,b\n1,2\n"}).status_code == 400
+
+
+# --- Painel de texto pronto: gráficos de verdade ---
+
+
+def test_texto_numa_cidade_com_graficos_de_verdade(monkeypatch, tmp_path):
+    from services import cache
+
+    monkeypatch.setattr(laboratorio_snapshot, "SNAPSHOT_DIR", tmp_path)
+    monkeypatch.setattr(laboratorio, "OUTPUT_DIR", tmp_path)
+    monkeypatch.setattr(cache, "OUTPUT_DIR", tmp_path)
+    monkeypatch.setattr(cache, "DATA_VERSION_FILE", tmp_path / ".data_version")
+    faixas = [{"faixa": "0-4", "mulheres": 1200, "homens": 1300}, {"faixa": "5-9", "mulheres": 1400, "homens": 1500}]
+    _gravar_snapshot(tmp_path, "demografia", {
+        "Com Dado (PB)": {"nm_mun": "Com Dado (PB)", "faixas_etarias_sexo": faixas},
+        "Sem Dado (PB)": {"nm_mun": "Sem Dado (PB)"},
+    })
+    doc = (
+        "descricao_tema = A pirâmide de $nm_mun (Figura x).\n\n"
+        "Figura x – População por faixa etária e sexo em $nm_mun\n@@"
+    )
+
+    com = laboratorio.texto_do_municipio("demografia", doc, "Com Dado (PB)", com_graficos=True)
+    img = [parte for parte in com["html"] if "<img" in parte]
+    assert len(img) == 1 and 'src="/output/grafico_faixa_etaria_e_sexo_lab_com_dado_pb_' in img[0]
+    assert len(list(tmp_path.glob("grafico_faixa_etaria_e_sexo_lab_*.png"))) == 1
+
+    # Sem dado, o gráfico não é gerado: some a imagem, a legenda e a menção
+    # "(Figura x)", pelo mesmo render do relatório.
+    sem = laboratorio.texto_do_municipio("demografia", doc, "Sem Dado (PB)", com_graficos=True)
+    assert sem["html"] == ['<p class="theme-detail-text">A pirâmide de Sem Dado (PB).</p>']
+    # Sem pedir os gráficos (conferência), supõe todo gráfico gerado, como antes.
+    suposto = laboratorio.texto_do_municipio("demografia", doc, "Sem Dado (PB)")
+    assert any("Figura" in parte for parte in suposto["partes"])

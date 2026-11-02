@@ -202,6 +202,9 @@ if os.getenv("LABORATORIO_HABILITADO") == "1":
 
     class TextoNaCidade(TextoDoTema):
         cidade: str
+        # Painel de texto pronto: gera os gráficos de verdade da cidade (0,1–1,8 s na
+        # 1ª vez, depois reaproveitados). A conferência e o "ler com cada valor" não.
+        graficos: bool = False
 
     def _tema_com_snapshot(tema: str) -> str:
         if tema not in MACROTEMAS or not caminho_snapshot(tema).exists():
@@ -268,7 +271,7 @@ if os.getenv("LABORATORIO_HABILITADO") == "1":
 
     @app.post("/laboratorio/{tema}/municipio")
     def laboratorio_municipio(tema: str, corpo: TextoNaCidade):
-        resultado = texto_do_municipio(_tema_com_snapshot(tema), corpo.texto, corpo.cidade, corpo.csv)
+        resultado = texto_do_municipio(_tema_com_snapshot(tema), corpo.texto, corpo.cidade, corpo.csv, corpo.graficos)
         if resultado is None:
             raise HTTPException(status_code=404, detail=f"cidade fora do snapshot: {corpo.cidade}")
         return resultado

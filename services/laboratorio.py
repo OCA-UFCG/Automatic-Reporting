@@ -1,10 +1,12 @@
 """Laboratório de Temas: conferência do texto de um tema contra os 2.074 municípios.
 
 O texto passa inteiro, município a município, pelo mesmo caminho do relatório
-(texto_final_do_tema), com o contexto do snapshot. Avaliar condição por condição
+(html_do_tema), com o contexto do snapshot. Avaliar condição por condição
 divergiria do relatório: interpretar_blocos_condicionais tem estado entre linhas
 (spec do laboratório, "Conferência pelo gerador"). Nada aqui escreve em banco, Doc
-ou cache; só o estado das conferências, em output/laboratorio/conferencias/.
+ou no cache de texto do relatório. Grava só o estado das conferências
+(output/laboratorio/conferencias/) e os gráficos do painel de texto pronto, com
+"_lab_" no nome, na pasta de gráficos do relatório (graficos_do_municipio).
 """
 
 import fcntl
@@ -25,18 +27,21 @@ from pathlib import Path
 
 import pandas as pd
 
+from config import OUTPUT_DIR
+from services.cache import evict_graficos_if_needed
 from services.csv_loader import normalizar_colunas_macrotema
-from services.generation import separar_secoes_do_tema
+from services.generation import gerar_graficos_do_tema, separar_secoes_do_tema
 from services.laboratorio_snapshot import SNAPSHOT_DIR, carregar_snapshot
 from services.macrotemas import get_macrotema
 from utils.data.cities import filtrar_linhas_por_cidade, separar_cidade_uf
 from utils.external.docs import baixar_doc
+from utils.json_tipado import codificar
 from utils.render.placeholders import (
     _numero_do_campo,
     conferir_condicoes,
     registrar_versoes,
 )
-from utils.render.renderer import texto_final_do_tema
+from utils.render.renderer import html_do_tema, html_para_texto
 
 logger = logging.getLogger(__name__)
 
@@ -119,13 +124,19 @@ def ler_csv(slug: str, texto: str) -> dict | None:
     }
 
 
-def conferir_municipio(descricao_tema: str, contexto: dict, slug: str) -> dict:
-    """Texto final do tema num município, as versões avaliadas (condição, disparou)
-    na ordem do texto e os campos que ficaram crus."""
+def conferir_municipio(
+    descricao_tema: str, contexto: dict, slug: str, graficos: dict[str, str] | None = None
+) -> dict:
+    """Texto final do tema num município (em texto e em HTML de relatório), as
+    versões avaliadas (condição, disparou) na ordem do texto e os campos que ficaram
+    crus. `graficos`: os gerados de verdade (graficos_do_municipio); sem eles, supõe
+    todo gráfico gerado (html_do_tema)."""
     with registrar_versoes() as versoes:
-        partes = texto_final_do_tema(descricao_tema, contexto, slug)
+        html = html_do_tema(descricao_tema, contexto, slug, graficos)
+    partes = [texto for texto in map(html_para_texto, html) if texto]
     return {
         "partes": partes,
+        "html": html,
         "versoes": versoes,
         "campos_crus": sorted(set(_CAMPO_CRU.findall("\n".join(partes)))),
     }
@@ -294,8 +305,26 @@ def iniciar_conferencia(slug: str, doc_texto: str, csv: dict[str, dict] | None =
     return id_conferencia
 
 
+def graficos_do_municipio(slug: str, contexto: dict, cidade: str) -> dict[str, str]:
+    """Os gráficos do tema para o município, pelo mesmo caminho do relatório
+    (gerar_graficos_do_tema), na pasta de gráficos do relatório: reuso, escrita
+    atômica e limite de disco vêm de lá (plotting.reusar_grafico,
+    cache.evict_graficos_if_needed).
+
+    O nome leva "lab" e um hash do contexto: o gerador reaproveita o PNG pelo nome, e
+    o contexto do laboratório muda com o snapshot da noite ou com um CSV. Sem o hash,
+    o painel mostraria o gráfico de antes (ou, sem a cidade no nome, o de outra).
+    Medido em 01/11: 0,1 a 1,8 s por tema na 1ª vez de uma cidade; editar o texto
+    não gera de novo."""
+    chave = hashlib.sha256(json.dumps(codificar(contexto), sort_keys=True).encode()).hexdigest()[:12]
+    safe_city = f"lab_{re.sub(r'[^a-zA-Z0-9_-]+', '_', cidade.strip().lower())}_{chave}"
+    graficos = gerar_graficos_do_tema(slug, contexto, OUTPUT_DIR, safe_city, f"laboratório: {cidade}")
+    evict_graficos_if_needed()
+    return graficos
+
+
 def texto_do_municipio(
-    slug: str, doc_texto: str, cidade: str, csv: dict[str, dict] | None = None
+    slug: str, doc_texto: str, cidade: str, csv: dict[str, dict] | None = None, com_graficos: bool = False
 ) -> dict | None:
     """Texto final do tema numa cidade, para "texto pronto numa cidade" e "ler com
     cada valor". None se o tema não tem snapshot ou a cidade não está nele.
@@ -312,7 +341,8 @@ def texto_do_municipio(
     if contexto is None:
         return None
     secoes, _ = separar_secoes_do_tema(doc_texto, slug)
-    return conferir_municipio(secoes.descricao_tema or "", contexto, slug)
+    graficos = graficos_do_municipio(slug, contexto, cidade) if com_graficos else None
+    return conferir_municipio(secoes.descricao_tema or "", contexto, slug, graficos)
 
 
 async def abrir_doc(slug: str) -> dict | None:
