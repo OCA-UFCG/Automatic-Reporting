@@ -55,9 +55,6 @@ input.cidade { border: 1px solid var(--line); background: var(--panel); padding:
 .versao.apagada { opacity: .45; }
 .bloco-detalhe { padding: 8px 12px; background: var(--panel2); border-bottom: 1px solid var(--line); font-size: 12.5px; display: grid; gap: 4px; }
 .nomes { color: var(--ink2); }
-.cidade-texto summary { cursor: pointer; list-style: none; }
-.cidade-texto { border-color: var(--ok); }
-.cidade-texto .cbody { max-height: 40vh; overflow: auto; }
 .btn.sm { padding: 2px 8px; font-size: 12.5px; border-radius: 6px; }
 .btn.ghost { border-color: transparent; background: transparent; color: var(--ink2); }
 .btn.ghost:hover:not(:disabled) { color: var(--accent); border-color: var(--line); }
@@ -106,3 +103,24 @@ label.btn { display: inline-block; }
 label.btn.desligado { opacity: .5; pointer-events: none; }
 .banner.csv { background: var(--accent-soft); color: var(--ink); }
 .problema { color: var(--bad); background: var(--bad-bg); border-radius: 6px; padding: 4px 8px; margin-bottom: 6px; font-size: 12.5px; }
+/* Painel "Veja o texto pronto numa cidade": ao lado dos blocos, fixo na tela. */
+main.com-painel { max-width: 1680px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 42%); gap: 18px; align-items: start; }
+.coluna-texto { min-width: 0; }
+.painel { position: sticky; top: 84px; max-height: calc(100vh - 100px); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.painel-topo { position: sticky; top: 0; z-index: 1; display: grid; gap: 6px; padding: 10px 12px; background: var(--panel2); border-bottom: 1px solid var(--line); }
+.painel input.cidade { width: 100%; }
+.painel .vazio { padding: 16px; margin: 0; }
+.painel .banner { margin: 12px; }
+/* O texto como no relatório (report/src/styles/content.css): papel branco também no escuro. */
+.relatorio { background: #fff; color: #292829; padding: 18px 22px; font: 15px/1.35 Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; transition: opacity .2s; }
+.relatorio.velho { opacity: .55; }
+.relatorio p { margin: 0 0 12px; text-indent: 32px; text-align: justify; }
+.relatorio .theme-detail-heading, .relatorio h1, .relatorio h2, .relatorio h3 { color: #085F2D; font-size: 15px; font-weight: 600; margin: 16px 0 4px; text-indent: 0; }
+.relatorio ul { margin: 6px 0 12px 24px; padding: 0; }
+.relatorio img { max-width: 100%; height: auto; }
+.relatorio .grafico-com-legenda { margin: 14px 0; }
+.relatorio .figure-caption { text-indent: 0; text-align: center; font-size: 12.5px; color: #555; margin-top: 4px; }
+@media (max-width: 1100px) {
+  main.com-painel { grid-template-columns: 1fr; }
+  .painel { position: static; max-height: none; }
+}

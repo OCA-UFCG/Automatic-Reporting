@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   OPERADORES,
   agruparEmBlocos,
@@ -28,6 +28,8 @@ const API_BASE = import.meta.env.DEV ? import.meta.env.VITE_API_BASE_URL || '' :
 const INTERVALO_MS = 1000
 const MAX_NOMES = 8
 const MAX_SUGESTOES = 12
+// O painel de texto pronto espera a pessoa parar de digitar antes de pedir de novo.
+const ESPERA_DO_PAINEL_MS = 500
 
 async function pedir(caminho, opcoes) {
   const resposta = await fetch(`${API_BASE}${caminho}`, opcoes)
@@ -145,11 +147,13 @@ function EditorComColunas({ valor, mudar, colunas }) {
     ref.current.setSelectionRange(cursor.current, cursor.current)
     cursor.current = null
   })
-  // A condição mudou (ex.: "trocar a 1ª linha"): mostra o topo, onde ela está.
-  const primeiraLinha = valor.split('\n')[0]
-  useEffect(() => {
-    ref.current.scrollTop = 0
-  }, [primeiraLinha])
+  // Cresce até caber o texto inteiro. Contar as quebras de linha ignorava a quebra
+  // automática e escondia o fim do parágrafo (André, 01/11).
+  useLayoutEffect(() => {
+    const caixa = ref.current
+    caixa.style.height = 'auto'
+    caixa.style.height = `${caixa.scrollHeight + 2}px`
+  }, [valor])
 
   function atualizar(alvo) {
     const pos = alvo.selectionStart
@@ -189,7 +193,7 @@ function EditorComColunas({ valor, mudar, colunas }) {
       <textarea
         ref={ref}
         value={valor}
-        rows={Math.max(4, valor.split('\n').length + 1)}
+        rows={4}
         autoFocus
         onChange={(e) => {
           mudar(e.target.value)
@@ -365,11 +369,26 @@ function Versao({ item, contagem, problema, naCidade, podeSeparar, acoes, tema, 
     setRascunho(separarEspacos(texto).miolo)
     setEditando(true)
   }
-  function salvar() {
+  // O texto da versão com o rascunho no miolo; o espaço em volta (linhas em branco do
+  // Doc) volta igual.
+  function montar(r) {
     const { antes, depois } = separarEspacos(texto)
-    acoes.salvar(antes + rascunho.trim() + (depois || '\n'))
+    return antes + r.trim() + (depois || '\n')
+  }
+  function salvar() {
+    acoes.digitar(null)
+    acoes.salvar(montar(rascunho))
     setEditando(false)
   }
+  function cancelar() {
+    acoes.digitar(null)
+    if (item.original === '' && !item.editado.trim()) acoes.desfazer()
+    else setEditando(false)
+  }
+  // O painel de texto pronto acompanha o que se digita, antes do "Pronto".
+  useEffect(() => {
+    if (editando) acoes.digitar(montar(rascunho))
+  }, [editando, rascunho])
 
   if (editando) {
     return (
@@ -386,7 +405,7 @@ function Versao({ item, contagem, problema, naCidade, podeSeparar, acoes, tema, 
         <div className="acoes">
           <button className="btn pri sm" onClick={salvar}>Pronto</button>
           {!formAberto && <button className="btn sm" onClick={() => setFormAberto(true)}>nova condição</button>}
-          <button className="btn sm" onClick={() => (item.original === '' && !item.editado.trim() ? acoes.desfazer() : setEditando(false))}>Cancelar</button>
+          <button className="btn sm" onClick={cancelar}>Cancelar</button>
         </div>
       </div>
     )
@@ -409,7 +428,7 @@ function Versao({ item, contagem, problema, naCidade, podeSeparar, acoes, tema, 
         {naCidade && !removida && <span className="chip bom">vale nesta cidade</span>}
         <span className="spacer" />
         {estado && <button className="btn ghost sm" onClick={acoes.desfazer}>desfazer</button>}
-        {!removida && <button className="btn ghost sm" onClick={abrirEdicao}>editar</button>}
+        {!removida && <button className="btn sm" onClick={abrirEdicao}>editar</button>}
         {!removida && podeSeparar && <button className="btn ghost sm" onClick={acoes.separar} title="Esta versão e as de baixo passam a ser outro bloco">separar daqui</button>}
         {!removida && <button className="btn ghost sm" onClick={acoes.remover}>remover</button>}
       </div>
@@ -530,6 +549,30 @@ function CopiarAMao({ texto, fechar }) {
   )
 }
 
+// "Veja o texto pronto numa cidade" (André, 01/11): ao lado dos blocos, o tema como sai
+// no relatório da cidade, com os gráficos dela, acompanhando o que se escreve. O HTML
+// vem do mesmo render do relatório (html_do_tema), que já escapa os valores.
+function PainelCidade({ cidade, setCidade, resultado, atualizando, erro }) {
+  return (
+    <aside className="painel">
+      <div className="painel-topo">
+        <b>Veja o texto pronto numa cidade</b>
+        <input className="cidade" list="cidades" placeholder="Digite o nome da cidade…" value={cidade} onChange={(e) => setCidade(e.target.value)} />
+        {atualizando && <span className="muted">atualizando…</span>}
+      </div>
+      {erro && <div className="banner erro">{erro}</div>}
+      {!resultado && !atualizando && !erro && (
+        <p className="muted vazio">
+          Escolha uma cidade para ver o tema como sai no relatório dela, com os gráficos. O texto acompanha o que você escreve.
+        </p>
+      )}
+      {resultado && (
+        <div className={`relatorio${atualizando ? ' velho' : ''}`} dangerouslySetInnerHTML={{ __html: resultado.html.join('') }} />
+      )}
+    </aside>
+  )
+}
+
 function Avisos({ resultado }) {
   const avisos = []
   for (const campo of resultado.campos_crus) {
@@ -575,6 +618,10 @@ export default function Laboratorio() {
   const [cidades, setCidades] = useState([])
   const [cidade, setCidade] = useState('')
   const [naCidade, setNaCidade] = useState(null)
+  const [aoVivo, setAoVivo] = useState(null) // {id, texto}: a versão sendo editada, antes do "Pronto"
+  const [atualizandoPainel, setAtualizandoPainel] = useState(false)
+  const [erroPainel, setErroPainel] = useState('')
+  const pedidoDoPainel = useRef(0)
   const [ajustes, setAjustes] = useState({ cortes: new Set(), juncoes: new Set() })
   const [textoConferido, setTextoConferido] = useState(null)
   const [colunas, setColunas] = useState(null)
@@ -672,7 +719,6 @@ export default function Laboratorio() {
   function trocarCsv(novo) {
     setCsv(novo)
     setConferencia(null)
-    if (naCidade) escolherCidade(cidade, itens, novo)
   }
 
   function aplicarRascunho(salvo) {
@@ -735,26 +781,10 @@ export default function Laboratorio() {
     }
   }
 
-  async function escolherCidade(nome, comItens = itens, comCsv = csv) {
-    setCidade(nome)
-    setNaCidade(null)
-    const soNoCsv = comCsv?.so_no_csv.includes(nome)
-    if (!tema || !(cidades.includes(nome) || soNoCsv)) return
-    // Só a linha desta cidade: o CSV inteiro a cada edição pesaria na conexão.
-    const linha = comCsv?.linhas[nome]
-    try {
-      const corpo = { texto: exportar(comItens), cidade: nome, csv: linha ? { [nome]: linha } : undefined }
-      setNaCidade({ cidade: nome, ...(await postarJson(`/laboratorio/${tema}/municipio`, corpo)) })
-    } catch (err) {
-      setErro(err.message)
-    }
-  }
-
-  // Toda mudança no texto passa por aqui: o "ver numa cidade" acompanha na hora (1
-  // chamada); a conferência inteira, não (~25 s), e a tela avisa que ficou velha.
+  // Toda mudança no texto passa por aqui. O painel de texto pronto acompanha sozinho
+  // (efeito abaixo); a conferência inteira, não (~25 s), e a tela avisa que ficou velha.
   function mudarItens(novos) {
     setItens(novos)
-    if (naCidade) escolherCidade(cidade, novos)
   }
   const acoesDaVersao = (id) => ({
     salvar: (texto) =>
@@ -764,6 +794,7 @@ export default function Laboratorio() {
       mudarItens(itens.flatMap((i) => (i.id !== id ? [i] : i.original === '' ? [] : [{ ...i, editado: undefined }]))),
     separar: () =>
       setAjustes(({ cortes, juncoes }) => ({ cortes: new Set(cortes).add(id), juncoes: new Set([...juncoes].filter((j) => j !== id)) })),
+    digitar: (texto) => setAoVivo(texto === null ? null : { id, texto }),
   })
   function juntarComOdeCima(id) {
     setAjustes(({ cortes, juncoes }) => ({ cortes: new Set([...cortes].filter((c) => c !== id)), juncoes: new Set(juncoes).add(id) }))
@@ -783,6 +814,42 @@ export default function Laboratorio() {
   }
 
   const grupos = useMemo(() => agruparEmBlocos(itens, ajustes), [itens, ajustes])
+  const textoSalvo = useMemo(() => exportar(itens), [itens])
+  // O que o painel mostra: o texto com a versão em edição como está agora.
+  const textoDoPainel = useMemo(
+    () => (aoVivo ? exportar(itens.map((i) => (i.id === aoVivo.id ? { ...i, editado: aoVivo.texto } : i))) : textoSalvo),
+    [itens, aoVivo, textoSalvo],
+  )
+  useEffect(() => {
+    const valida = cidades.includes(cidade) || csv?.so_no_csv.includes(cidade)
+    if (!tema || !doc || !valida) {
+      pedidoDoPainel.current++
+      setNaCidade(null)
+      setAtualizandoPainel(false)
+      return
+    }
+    const numero = ++pedidoDoPainel.current
+    setAtualizandoPainel(true)
+    const espera = setTimeout(async () => {
+      // Só a linha desta cidade: o CSV inteiro a cada tecla pesaria na conexão.
+      const linha = csv?.linhas[cidade]
+      try {
+        const corpo = { texto: textoDoPainel, cidade, csv: linha ? { [cidade]: linha } : undefined, graficos: true }
+        const r = await postarJson(`/laboratorio/${tema}/municipio`, corpo)
+        if (numero !== pedidoDoPainel.current) return // chegou depois de um pedido mais novo
+        setNaCidade({ cidade, texto: textoDoPainel, ...r })
+        setErroPainel('')
+      } catch (err) {
+        if (numero === pedidoDoPainel.current) setErroPainel(err.message)
+      } finally {
+        if (numero === pedidoDoPainel.current) setAtualizandoPainel(false)
+      }
+    }, ESPERA_DO_PAINEL_MS)
+    return () => clearTimeout(espera)
+  }, [textoDoPainel, cidade, csv, tema, doc, cidades])
+  // "Vale nesta cidade" nos blocos: só quando o painel é do texto salvo (as posições
+  // das versões mudam enquanto se edita uma condição).
+  const naCidadeAtual = naCidade && naCidade.texto === textoSalvo ? naCidade : null
   const prefixo = useMemo(() => prefixoDoDoc(doc?.texto ?? '', tema), [doc, tema])
   // Posição de cada versão (que ainda é condição) na ordem do texto: é assim que o
   // backend devolve as contagens.
@@ -797,7 +864,7 @@ export default function Laboratorio() {
     resultado &&
     resultado.versoes.length === posicao.size &&
     [...posicao].every(([indice, k]) => resultado.versoes[k].condicao === condicaoDoItem(itens[indice]))
-  const conferenciaVelha = resultado && textoConferido !== exportar(itens)
+  const conferenciaVelha = resultado && textoConferido !== textoSalvo
   // O aviso do gerador começa com a linha da condição, igual à que a conferência
   // devolve para a versão: vai para baixo da linha (spec, "Construir").
   const problemas = new Map(
@@ -844,14 +911,6 @@ export default function Laboratorio() {
             ))}
           </select>
           <button className="btn pri" onClick={conferir} disabled={!doc || rodando}>Conferir</button>
-          <input
-            className="cidade"
-            list="cidades"
-            placeholder="Ver numa cidade…"
-            value={cidade}
-            onChange={(e) => escolherCidade(e.target.value)}
-            disabled={!doc}
-          />
           <datalist id="cidades">{[...cidades, ...(csv?.so_no_csv ?? [])].map((c) => <option key={c} value={c} />)}</datalist>
           <label className={`btn${!doc || rodando || lendoCsv ? ' desligado' : ''}`} title="Testar com um CSV de uma view que ainda não existe: as colunas dele entram por cima dos dados do tema">
             {lendoCsv ? 'lendo o CSV…' : csv ? 'trocar o CSV' : 'usar um CSV'}
@@ -886,7 +945,8 @@ export default function Laboratorio() {
           </div>
         )}
       </header>
-      <main>
+      <main className={tema ? 'com-painel' : ''}>
+        <div className="coluna-texto">
         {erro && <div className="banner erro">{erro}</div>}
         {conferencia?.estado === 'erro' && <div className="banner erro">A conferência falhou: {conferencia.erro}</div>}
         {resultado && (
@@ -949,12 +1009,6 @@ export default function Laboratorio() {
         )}
         {paraCopiar !== null && <CopiarAMao texto={paraCopiar} fechar={() => setParaCopiar(null)} />}
         {resultado && <Avisos resultado={resultado} />}
-        {naCidade && (
-          <details className="card cidade-texto" open>
-            <summary className="chead"><span className="ctag">Texto pronto</span> {naCidade.cidade}</summary>
-            <div className="cbody">{naCidade.partes.join('\n\n')}</div>
-          </details>
-        )}
         {carregando && <div className="empty"><p>Abrindo o Doc…</p></div>}
         {!tema && !carregando && (
           <div className="empty">
@@ -990,7 +1044,7 @@ export default function Laboratorio() {
                     item={itens[indice]}
                     contagem={contaCom && k !== undefined ? resultado.versoes[k].municipios : undefined}
                     problema={contaCom && k !== undefined ? problemas.get(resultado.versoes[k].condicao) : undefined}
-                    naCidade={naCidade && k !== undefined ? naCidade.versoes[k]?.[1] : undefined}
+                    naCidade={naCidadeAtual && k !== undefined ? naCidadeAtual.versoes[k]?.[1] : undefined}
                     podeSeparar={j > 0}
                     acoes={acoesDaVersao(itens[indice].id)}
                     tema={tema}
@@ -1003,6 +1057,10 @@ export default function Laboratorio() {
             />
           )
         })}
+        </div>
+        {tema && (
+          <PainelCidade cidade={cidade} setCidade={setCidade} resultado={naCidade} atualizando={atualizandoPainel} erro={erroPainel} />
+        )}
       </main>
     </>
   )
