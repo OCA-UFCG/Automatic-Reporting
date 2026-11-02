@@ -389,6 +389,9 @@ function Versao({ item, contagem, problema, naCidade, podeSeparar, acoes, tema, 
   useEffect(() => {
     if (editando) acoes.digitar(montar(rascunho))
   }, [editando, rascunho])
+  // A versão pode sair da tela no meio da edição (trocar de tema, desfazer): o
+  // painel não pode ficar com o texto dela.
+  useEffect(() => () => acoes.digitar(null), [])
 
   if (editando) {
     return (
@@ -551,7 +554,8 @@ function CopiarAMao({ texto, fechar }) {
 
 // "Veja o texto pronto numa cidade" (André, 01/11): ao lado dos blocos, o tema como sai
 // no relatório da cidade, com os gráficos dela, acompanhando o que se escreve. O HTML
-// vem do mesmo render do relatório (html_do_tema), que já escapa os valores.
+// vem do mesmo render do relatório (html_do_tema), que escapa o texto do Doc e os
+// valores, inclusive os de um CSV (conferido em 01/11: "<script>" sai como texto).
 function PainelCidade({ cidade, setCidade, resultado, atualizando, erro }) {
   return (
     <aside className="painel">
@@ -660,6 +664,7 @@ export default function Laboratorio() {
     setColunas(null)
     setRascunho(null)
     setCsv(null)
+    setAoVivo(null)
     if (!slug) return
     // Em paralelo com o Doc: sem as colunas, a tela funciona, só sem a ajuda.
     carregarColunas(slug)
@@ -794,7 +799,8 @@ export default function Laboratorio() {
       mudarItens(itens.flatMap((i) => (i.id !== id ? [i] : i.original === '' ? [] : [{ ...i, editado: undefined }]))),
     separar: () =>
       setAjustes(({ cortes, juncoes }) => ({ cortes: new Set(cortes).add(id), juncoes: new Set([...juncoes].filter((j) => j !== id)) })),
-    digitar: (texto) => setAoVivo(texto === null ? null : { id, texto }),
+    // Só limpa se for desta versão: os ids recomeçam do 0 em cada tema.
+    digitar: (texto) => setAoVivo((atual) => (texto !== null ? { id, texto } : atual?.id === id ? null : atual)),
   })
   function juntarComOdeCima(id) {
     setAjustes(({ cortes, juncoes }) => ({ cortes: new Set([...cortes].filter((c) => c !== id)), juncoes: new Set(juncoes).add(id) }))
