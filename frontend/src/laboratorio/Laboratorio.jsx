@@ -86,10 +86,10 @@ function resumoDaColuna(info) {
   // Pode ser apelido que o gerador resolve (_resolver_campo_com_alias): quem diz se
   // sai cru é a conferência.
   if (!info) return 'não está nas colunas deste tema (se a conferência não acusar, é um apelido)'
-  const vazios = info.vazios ? ` · vazia em ${municipios(info.vazios)}` : ''
+  const vazios = info.vazios ? `; vazia em ${municipios(info.vazios)}` : ''
   if (info.tipo === 'numero') {
     const outros = info.nao_numeros.map((v) => `"${v.valor}" em ${numero(v.municipios)}`).join(', ')
-    return `número de ${numero(info.min)} a ${numero(info.max)} · zero em ${municipios(info.zeros)}${vazios}${outros ? ` · ${outros}` : ''}`
+    return `número de ${numero(info.min)} a ${numero(info.max)} ; zero em ${municipios(info.zeros)}${vazios}${outros ? `; ${outros}` : ''}`
   }
   if (info.tipo === 'texto') return `texto, ${numero(info.distintos)} ${info.distintos === 1 ? 'valor' : 'valores'}${vazios}`
   return `lista${vazios}`
@@ -427,11 +427,11 @@ function Versao({ item, contagem, problema, naCidade, podeSeparar, acoes, tema, 
         </span>
         {estado && <span className={`chip ${estado === 'removida' ? 'ruim' : 'atencao'}`}>{estado}</span>}
         {contagem !== undefined && !removida && (
-          <span className={`chip ${contagem ? '' : 'ruim'}`}>
-            {contagem ? `aparece em ${municipios(contagem)}` : 'não aparece em nenhum município'}
-          </span>
+          contagem
+            ? <span className="muted">aparece em {municipios(contagem)}</span>
+            : <span className="chip ruim">não aparece em nenhum município</span>
         )}
-        {naCidade && !removida && <span className="chip bom">vale nesta cidade</span>}
+        {naCidade && !removida && <span className="na-cidade">vale nesta cidade</span>}
         <span className="spacer" />
         {estado && <button className="btn ghost sm" onClick={acoes.desfazer}>desfazer</button>}
         {!removida && <button className="btn sm" onClick={abrirEdicao}>editar</button>}
@@ -460,17 +460,9 @@ function Bloco({ numero: n, versoes, estatisticas, juntar, novaVersao, alterado,
       <div className="chead">
         <span className="ctag">Bloco {n}</span>
         <span className="muted">{versoes.length} {versoes.length === 1 ? 'versão' : 'versões'}</span>
-        <span className={`chip ${alterado ? 'atencao' : ''}`}>{alterado ? 'alterado' : 'igual ao Doc'}</span>
-        {estatisticas && (
-          <>
-            <span className={`chip ${estatisticas.sem.length ? 'atencao' : 'bom'}`}>
-              fica de fora em {municipios(estatisticas.sem.length)}
-            </span>
-            <span className={`chip ${estatisticas.varias.length ? 'ruim' : 'bom'}`}>
-              sai com 2+ trechos em {municipios(estatisticas.varias.length)}
-            </span>
-          </>
-        )}
+        {alterado ? <span className="chip atencao">alterado</span> : <span className="muted">igual ao Doc</span>}
+        {estatisticas?.sem.length > 0 && <span className="chip atencao">fica de fora em {municipios(estatisticas.sem.length)}</span>}
+        {estatisticas?.varias.length > 0 && <span className="chip ruim">sai com 2+ trechos em {municipios(estatisticas.varias.length)}</span>}
         <span className="spacer" />
         {juntar && <button className="btn ghost sm" onClick={juntar}>juntar com o de cima</button>}
         <button className={`btn sm${alterado ? ' pri' : ''}`} onClick={copiar} title="Copia o bloco para colar no Doc, por cima do mesmo trecho">
@@ -480,7 +472,7 @@ function Bloco({ numero: n, versoes, estatisticas, juntar, novaVersao, alterado,
       {alterado && dica && <div className="bloco-detalhe">{dica}</div>}
       {avisos.length > 0 && (
         <div className="bloco-detalhe avisos">
-          {avisos.map((a) => <div key={a}>⚠ {a}</div>)}
+          {avisos.map((a) => <div key={a} className="aviso">{a}</div>)}
         </div>
       )}
       {estatisticas && (estatisticas.sem.length > 0 || estatisticas.varias.length > 0) && (
@@ -529,10 +521,10 @@ function PainelExportar({ editou, alterados, conferencia, avisosLocais, copiarTu
         </div>
         {editou && <div className={conferencia === 'ok' ? 'muted' : 'aviso-exportar'}>
           {conferencia === 'ok' && '✓ Conferido depois da última mudança (os avisos do gerador, se houver, estão acima).'}
-          {conferencia === 'velha' && '⚠ O texto mudou desde a última conferência: clique em Conferir antes de colar.'}
-          {conferencia === 'nunca' && '⚠ Ainda não conferido: clique em Conferir antes de colar.'}
+          {conferencia === 'velha' && 'O texto mudou desde a última conferência: clique em Conferir antes de colar.'}
+          {conferencia === 'nunca' && 'Ainda não conferido: clique em Conferir antes de colar.'}
         </div>}
-        {avisosLocais > 0 && <div className="aviso-exportar">⚠ {avisosLocais === 1 ? '1 aviso' : `${avisosLocais} avisos`} nos blocos (veja em cada bloco).</div>}
+        {avisosLocais > 0 && <div className="aviso-exportar">{avisosLocais === 1 ? '1 aviso' : `${avisosLocais} avisos`} nos blocos (veja em cada bloco).</div>}
         <div className="acoes">
           <button className="btn sm" onClick={copiarTudo}>{copiado ? 'copiado ✓' : 'copiar o Doc inteiro'}</button>
           <span className="muted">Só se for substituir o Doc todo: colar por cima apaga comentários e formatação do Doc.</span>
@@ -549,7 +541,7 @@ function CopiarAMao({ texto, fechar }) {
     <div className="copiar-a-mao">
       <div className="card">
         <div className="chead"><span className="ctag">Copie com Ctrl+C</span><span className="spacer" /><button className="btn sm" onClick={fechar}>fechar</button></div>
-        <div className="aviso-exportar">⚠ Este navegador não deixou copiar direto. Colado no Google Docs a partir daqui, todo trecho entre dois "$" vira equação e some do relatório: prefira abrir o TemaLab pelo endereço https.</div>
+        <div className="aviso-exportar">Este navegador não deixou copiar direto. Colado no Google Docs a partir daqui, todo trecho entre dois "$" vira equação e some do relatório: prefira abrir o TemaLab pelo endereço https.</div>
         <textarea readOnly value={texto} autoFocus onFocus={(e) => e.target.select()} />
       </div>
     </div>
@@ -952,8 +944,8 @@ export default function Laboratorio() {
           <span className="spacer" />
           {doc && (
             <span className="status">
-              Doc aberto às <b>{dataHora(doc.aberto_em)}</b> · dados de <b>{dataHora(temaAtual.snapshot_gerado_em)}</b>
-              {csv && <> + <b>{csv.nome}</b></>}
+              <span>Doc aberto às <b>{dataHora(doc.aberto_em)}</b></span>
+              <span>Dados de <b>{dataHora(temaAtual.snapshot_gerado_em)}</b>{csv && <> + <b>{csv.nome}</b></>}</span>
             </span>
           )}
         </div>
