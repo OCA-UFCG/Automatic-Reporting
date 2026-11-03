@@ -8,6 +8,7 @@ esperado (e revise o diff). Para trocar dados/Docs, scripts/gravar_relatorio_con
 
 import json
 import os
+import re
 
 import pytest
 
@@ -55,3 +56,34 @@ def test_relatorio_congelado_nao_esta_vazio(monkeypatch, tmp_path):
 
     recife = json.loads(_props("Recife (PE)", "saude", monkeypatch, tmp_path))
     assert "figure-caption" in "".join(recife["cover"]["macrotemas"][0]["descricao_html"])
+
+
+@pytest.mark.parametrize("caso, cidade, macrotema", CASOS)
+def test_texto_final_do_tema_igual_ao_relatorio(caso, cidade, macrotema, monkeypatch, tmp_path):
+    # O laboratório mostra texto_final_do_tema; ele tem que ser o texto do HTML que o
+    # relatório entrega, tema a tema, com o mesmo Doc e o mesmo contexto.
+    from services import generation
+    from utils.render.renderer import html_para_texto, texto_final_do_tema
+
+    chamadas = []
+    original = generation.render_descricao_tema_html
+
+    def gravar(descricao, contexto, namespace="demografia", **kwargs):
+        html = original(descricao, contexto, namespace=namespace, **kwargs)
+        chamadas.append((descricao, dict(contexto), namespace, html))
+        return html
+
+    monkeypatch.setattr(generation, "render_descricao_tema_html", gravar)
+    _props(cidade, macrotema, monkeypatch, tmp_path)
+
+    temas = [c for c in chamadas if c[2] != "caract_mun"]
+    assert temas
+    for i, (descricao, contexto, namespace, html) in enumerate(temas):
+        esperado = [t for t in map(html_para_texto, html) if t]
+        obtido = texto_final_do_tema(descricao, contexto, namespace)
+        if macrotema == "todos" and i > 0:
+            # Num relatório de vários temas a numeração das figuras continua do tema
+            # anterior; o laboratório numera o tema sozinho, como um relatório dele só.
+            esperado = [re.sub(r"Figura \d+", "Figura N", t) for t in esperado]
+            obtido = [re.sub(r"Figura \d+", "Figura N", t) for t in obtido]
+        assert obtido == esperado, namespace

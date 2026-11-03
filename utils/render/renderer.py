@@ -2,8 +2,9 @@ import base64
 import html as html_module
 import logging
 import re
-from contextvars import ContextVar
+from contextvars import ContextVar, copy_context
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from urllib.parse import quote
 
 from config import BASE_DIR
@@ -835,6 +836,75 @@ def paragrafos_do_tema(descricao_tema: str, contexto: dict, namespace: str) -> l
             continue
         paragrafos.append(substituir_placeholders(paragrafo, contexto, namespace))
     return paragrafos
+
+
+class _HtmlParaTexto(HTMLParser):
+    """Texto plano de uma parte do HTML do tema: um bloco por linha, item de lista
+    com "- " e gráfico como "[gráfico: nome]" (o nome vem do alt da <img>)."""
+
+    _FIM_DE_BLOCO = frozenset({"p", "h2", "h3", "li", "figure", "div", "br"})
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.pedacos: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "li":
+            self.pedacos.append("\n- ")
+        elif tag == "img":
+            self.pedacos.append(f"[gráfico: {dict(attrs).get('alt', '')}]")
+        elif tag == "br":
+            self.pedacos.append("\n")
+
+    def handle_endtag(self, tag):
+        if tag in self._FIM_DE_BLOCO:
+            self.pedacos.append("\n")
+
+    def handle_data(self, data):
+        self.pedacos.append(data)
+
+
+def html_para_texto(html: str) -> str:
+    leitor = _HtmlParaTexto()
+    leitor.feed(html)
+    linhas = (re.sub(r"[ \t]+", " ", linha).strip() for linha in "".join(leitor.pedacos).splitlines())
+    return "\n".join(linha for linha in linhas if linha)
+
+
+def texto_final_do_tema(descricao_tema: str, contexto: dict, namespace: str) -> list[str]:
+    """O texto do tema como sai no relatório, uma parte por item (título,
+    parágrafo, lista, gráfico), em texto plano. É o laboratório quem usa.
+
+    Passa pelo mesmo render_descricao_tema_html do relatório, e não por
+    paragrafos_do_tema: título órfão, numeração e supressão de "Figura X" e
+    marcadores só se resolvem no HTML (review do #234, achado 2).
+
+    ponytail: supõe que todo gráfico citado no texto é gerado. No relatório, o
+    gráfico sem dado some e leva junto a menção "(Figura X)"; aqui ela fica. Gerar
+    os gráficos de verdade se a diferença aparecer na conferência.
+
+    `descricao_tema` tem que ser a que separar_secoes_do_tema devolve: é ela que
+    insere os marcadores de gráfico (GRAFICOS_AUTO_MARCADOR); o texto cru do Doc
+    sai sem gráficos e com outra numeração.
+
+    Roda num contexto copiado com a numeração zerada, como num relatório de um
+    tema só, para não mexer na numeração de um relatório em andamento.
+    """
+    graficos = {
+        nome: f"{nome}.png"
+        for linha in descricao_tema.splitlines()
+        if _MARCADOR_GRAFICO_LINHA.fullmatch(linha.strip())
+        for nome in linha.strip().lstrip("%*").split("+")
+    }
+
+    def renderizar() -> list[str]:
+        reset_figura_contador()
+        return render_descricao_tema_html(
+            descricao_tema, contexto, namespace, graficos_por_placeholder=graficos
+        )
+
+    partes = copy_context().run(renderizar)
+    return [texto for texto in map(html_para_texto, partes) if texto]
 
 
 def _render_descricao_tema_partes(
