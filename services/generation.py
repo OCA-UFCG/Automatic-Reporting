@@ -3,6 +3,7 @@ import os
 import re
 import tempfile
 import unicodedata
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
@@ -137,6 +138,67 @@ from utils.render.renderer import (
 from utils.ssr import render_react_ssr
 
 logger = logging.getLogger(__name__)
+
+# Os gráficos de cada tema, na ordem em que saem: (placeholder no Doc, função,
+# exceções que só pulam o gráfico, com aviso no log). Uma tabela só, para o relatório
+# e o Laboratório de Temas gerarem os mesmos gráficos (spec do laboratório, "fiel").
+# Era uma cadeia de `if macrotema_slug == ...` dentro do handler.
+_SO_VALOR = (ValueError,)
+_VALOR_OU_CHAVE = (ValueError, KeyError)
+GRAFICOS_POR_TEMA: dict[str, tuple[tuple[str, Callable[..., str], tuple[type[Exception], ...]], ...]] = {
+    "demografia": (
+        ("grafico_faixa_etaria_e_sexo", gerar_grafico_faixa_etaria_e_sexo, _SO_VALOR),
+        ("grafico_composicao_cor_raca", gerar_grafico_composicao_cor_raca, _SO_VALOR),
+        ("grafico_visao_historica", gerar_grafico_visao_historica_populacao, _SO_VALOR),
+    ),
+    "educacao": (
+        ("grafico_cor_faixa_etaria", gerar_grafico_cor_faixa_etaria, _SO_VALOR),
+        ("grafico_nivel_instrucao", gerar_grafico_nivel_instrucao, _SO_VALOR),
+    ),
+    "saude": (
+        ("grafico_publico_etario", gerar_grafico_publico_etario, _VALOR_OU_CHAVE),
+        ("grafico_cobertura_vacinal", gerar_grafico_cobertura_vacinal, _VALOR_OU_CHAVE),
+        ("grafico_taxa_mortalidade", gerar_grafico_taxa_mortalidade, _VALOR_OU_CHAVE),
+        ("grafico_de_estabelecimento", gerar_grafico_de_estabelecimento, _VALOR_OU_CHAVE),
+    ),
+    "hidraulica": (
+        ("grafico_tecnologias_acesso_agua", gerar_grafico_tecnologias_acesso_agua, _SO_VALOR),
+    ),
+    "meio-ambiente": (
+        ("grafico_aridez", gerar_grafico_aridez, _SO_VALOR),
+    ),
+    "saneamento": (
+        ("grafico_domicilio", gerar_grafico_dinamica_esgoto, _VALOR_OU_CHAVE),
+        ("grafico_domicilio_por_tipo_esgosto", gerar_grafico_esgotamento_sanitario, _VALOR_OU_CHAVE),
+        ("grafico_coleta_lixo", gerar_grafico_coleta_lixo, _VALOR_OU_CHAVE),
+    ),
+    "desenvolvimento-social": (
+        ("grafico_de_desenvolvimento_social", gerar_grafico_de_desenvolvimento_social, _SO_VALOR),
+    ),
+    "economia-renda": (
+        ("grafico_pib", gerar_grafico_pib, _SO_VALOR),
+        ("grafico_vab", gerar_grafico_vab, _SO_VALOR),
+        ("grafico_fob", gerar_grafico_fob, _SO_VALOR),
+        ("grafico_exportacao", gerar_grafico_exportacao, _SO_VALOR),
+        ("grafico_balanca", gerar_grafico_balanca, _SO_VALOR),
+    ),
+}
+
+
+def gerar_graficos_do_tema(
+    macrotema_slug: str, linha: dict, output_dir: Path, safe_city: str, rotulo: str
+) -> dict[str, str]:
+    """Gera os gráficos do tema a partir do contexto do município e devolve
+    {placeholder: arquivo}. Gráfico sem dado (a função levanta) fica de fora, com
+    aviso no log: no relatório ele some junto com a menção "(Figura X)"."""
+    graficos: dict[str, str] = {}
+    for nome_grafico, gerar_grafico, toleradas in GRAFICOS_POR_TEMA.get(macrotema_slug, ()):
+        try:
+            graficos[nome_grafico] = gerar_grafico(cidade=linha, OUTPUT_DIR=output_dir, safe_city=safe_city)
+        except toleradas as err:
+            logger.warning("Não foi possível gerar o gráfico '%s' para '%s': %s", nome_grafico, rotulo, err)
+    return graficos
+
 
 GRAFICOS_AUTO_MARCADOR = {
     "demografia": (
@@ -1148,256 +1210,9 @@ async def gerar_relatorio_handler(
 
             eh_primeiro = macrotema_slug == macrotema_slugs[0]
 
-            graficos_por_placeholder = {}
-
-            if macrotema_slug == "demografia":
-                for nome_grafico, gerar_grafico in (
-                    ("grafico_faixa_etaria_e_sexo", gerar_grafico_faixa_etaria_e_sexo),
-                    ("grafico_composicao_cor_raca", gerar_grafico_composicao_cor_raca),
-                    ("grafico_visao_historica", gerar_grafico_visao_historica_populacao),
-                ):
-                    try:
-                        graficos_por_placeholder[nome_grafico] = gerar_grafico(
-                            cidade=linhas_macrotema[0],
-                            OUTPUT_DIR=OUTPUT_DIR,
-                            safe_city=safe_city or "relatorio",
-                        )
-                    except ValueError as err:
-                        logger.warning(
-                            "Não foi possível gerar o gráfico '%s' para '%s': %s",
-                            nome_grafico,
-                            safe_report,
-                            err,
-                        )
-
-            if macrotema_slug == "educacao":
-                try:
-                    chart_file_name = gerar_grafico_cor_faixa_etaria(
-                        cidade=linhas_macrotema[0],
-                        OUTPUT_DIR=OUTPUT_DIR,
-                        safe_city=safe_city or "relatorio",
-                    )
-                    graficos_por_placeholder["grafico_cor_faixa_etaria"] = chart_file_name
-                except ValueError as err:
-                    logger.warning(
-                        "Não foi possível gerar o gráfico de cor/faixa etária de "
-                        "educação para '%s': %s",
-                        safe_report,
-                        err,
-                    )
-
-                try:
-                    graficos_por_placeholder["grafico_nivel_instrucao"] = (
-                        gerar_grafico_nivel_instrucao(
-                            cidade=linhas_macrotema[0],
-                            OUTPUT_DIR=OUTPUT_DIR,
-                            safe_city=safe_city or "relatorio",
-                        )
-                    )
-                except ValueError as err:
-                    logger.warning(
-                        "Não foi possível gerar o gráfico de nível de instrução "
-                        "de educação para '%s': %s",
-                        safe_report,
-                        err,
-                    )
-
-            if macrotema_slug == "saude":
-                for nome_grafico, gerar_grafico in (
-                    ("grafico_publico_etario", gerar_grafico_publico_etario),
-                    ("grafico_cobertura_vacinal", gerar_grafico_cobertura_vacinal),
-                    ("grafico_taxa_mortalidade", gerar_grafico_taxa_mortalidade),
-                    ("grafico_de_estabelecimento", gerar_grafico_de_estabelecimento),
-                ):
-                    try:
-                        graficos_por_placeholder[nome_grafico] = gerar_grafico(
-                            cidade=linhas_macrotema[0],
-                            OUTPUT_DIR=OUTPUT_DIR,
-                            safe_city=safe_city or "relatorio",
-                        )
-                    except (ValueError, KeyError) as err:
-                        logger.warning(
-                            "Não foi possível gerar o gráfico '%s' para '%s': %s",
-                            nome_grafico,
-                            safe_report,
-                            err,
-                        )
-
-            if macrotema_slug == "hidraulica":
-                try:
-                    chart_file_name = gerar_grafico_tecnologias_acesso_agua(
-                        cidade=linhas_macrotema[0],
-                        OUTPUT_DIR=OUTPUT_DIR,
-                        safe_city=safe_city or "relatorio",
-                    )
-                    graficos_por_placeholder["grafico_tecnologias_acesso_agua"] = (
-                        chart_file_name
-                    )
-                except ValueError as err:
-                    logger.warning(
-                        "Não foi possível gerar o gráfico de tecnologias de acesso "
-                        "à água para '%s': %s",
-                        safe_report,
-                        err,
-                    )
-
-            if macrotema_slug == "meio-ambiente":
-                try:
-                    graficos_por_placeholder["grafico_aridez"] = gerar_grafico_aridez(
-                        cidade=linhas_macrotema[0],
-                        OUTPUT_DIR=OUTPUT_DIR,
-                        safe_city=safe_city or "relatorio",
-                    )
-                except ValueError as err:
-                    logger.warning(
-                        "Não foi possível gerar o gráfico de classificação de "
-                        "aridez para '%s': %s",
-                        safe_report,
-                        err,
-                    )
-
-            if macrotema_slug == "saneamento":
-                try:
-                    graficos_por_placeholder["grafico_domicilio"] = (
-                        gerar_grafico_dinamica_esgoto(
-                            cidade=linhas_macrotema[0],
-                            OUTPUT_DIR=OUTPUT_DIR,
-                            safe_city=safe_city or "relatorio",
-                        )
-                    )
-                except (ValueError, KeyError) as err:
-                    logger.warning(
-                        "Não foi possível gerar o gráfico de dinâmica de "
-                        "esgotamento para '%s': %s",
-                        safe_report,
-                        err,
-                    )
-
-                try:
-                    graficos_por_placeholder["grafico_domicilio_por_tipo_esgosto"] = (
-                        gerar_grafico_esgotamento_sanitario(
-                            cidade=linhas_macrotema[0],
-                            OUTPUT_DIR=OUTPUT_DIR,
-                            safe_city=safe_city or "relatorio",
-                        )
-                    )
-                except (ValueError, KeyError) as err:
-                    logger.warning(
-                        "Não foi possível gerar o gráfico de esgotamento sanitário "
-                        "para '%s': %s",
-                        safe_report,
-                        err,
-                    )
-
-                try:
-                    graficos_por_placeholder["grafico_coleta_lixo"] = (
-                        gerar_grafico_coleta_lixo(
-                            cidade=linhas_macrotema[0],
-                            OUTPUT_DIR=OUTPUT_DIR,
-                            safe_city=safe_city or "relatorio",
-                        )
-                    )
-                except (ValueError, KeyError) as err:
-                    logger.warning(
-                        "Não foi possível gerar o gráfico de coleta de lixo "
-                        "para '%s': %s",
-                        safe_report,
-                        err,
-                    )
-
-            if macrotema_slug == "desenvolvimento-social":
-                try:
-                    chart_file_name = gerar_grafico_de_desenvolvimento_social(
-                        cidade=linhas_macrotema[0],
-                        OUTPUT_DIR=OUTPUT_DIR,
-                        safe_city=safe_city or "relatorio",
-                    )
-                    graficos_por_placeholder["grafico_de_desenvolvimento_social"] = (
-                        chart_file_name
-                    )
-                except ValueError as err:
-                    logger.warning(
-                        "Não foi possível gerar o gráfico de desenvolvimento social "
-                        "para '%s': %s",
-                        safe_report,
-                        err,
-                    )
-
-            if macrotema_slug == "economia-renda":
-                try:
-                    chart_file_name = gerar_grafico_pib(
-                        cidade=linhas_macrotema[0],
-                        OUTPUT_DIR=OUTPUT_DIR,
-                        safe_city=safe_city or "relatorio",
-                    )
-                    graficos_por_placeholder["grafico_pib"] = chart_file_name
-                except ValueError as err:
-                    logger.warning(
-                        "Não foi possível gerar o gráfico de evolução do PIB "
-                        "para '%s': %s",
-                        safe_report,
-                        err,
-                    )
-
-                try:
-                    chart_file_name = gerar_grafico_vab(
-                        cidade=linhas_macrotema[0],
-                        OUTPUT_DIR=OUTPUT_DIR,
-                        safe_city=safe_city or "relatorio",
-                    )
-                    graficos_por_placeholder["grafico_vab"] = chart_file_name
-                except ValueError as err:
-                    logger.warning(
-                        "Não foi possível gerar o gráfico de VAB por setor "
-                        "para '%s': %s",
-                        safe_report,
-                        err,
-                    )
-
-                try:
-                    chart_file_name = gerar_grafico_fob(
-                        cidade=linhas_macrotema[0],
-                        OUTPUT_DIR=OUTPUT_DIR,
-                        safe_city=safe_city or "relatorio",
-                    )
-                    graficos_por_placeholder["grafico_fob"] = chart_file_name
-                except ValueError as err:
-                    logger.warning(
-                        "Não foi possível gerar o gráfico de países de importação "
-                        "para '%s': %s",
-                        safe_report,
-                        err,
-                    )
-
-                try:
-                    chart_file_name = gerar_grafico_exportacao(
-                        cidade=linhas_macrotema[0],
-                        OUTPUT_DIR=OUTPUT_DIR,
-                        safe_city=safe_city or "relatorio",
-                    )
-                    graficos_por_placeholder["grafico_exportacao"] = chart_file_name
-                except ValueError as err:
-                    logger.warning(
-                        "Não foi possível gerar o gráfico de países de exportação "
-                        "para '%s': %s",
-                        safe_report,
-                        err,
-                    )
-
-                try:
-                    chart_file_name = gerar_grafico_balanca(
-                        cidade=linhas_macrotema[0],
-                        OUTPUT_DIR=OUTPUT_DIR,
-                        safe_city=safe_city or "relatorio",
-                    )
-                    graficos_por_placeholder["grafico_balanca"] = chart_file_name
-                except ValueError as err:
-                    logger.warning(
-                        "Não foi possível gerar o gráfico de balança comercial "
-                        "para '%s': %s",
-                        safe_report,
-                        err,
-                    )
+            graficos_por_placeholder = gerar_graficos_do_tema(
+                macrotema_slug, linhas_macrotema[0], OUTPUT_DIR, safe_city or "relatorio", safe_report
+            )
 
             docs_url = require_config_value(macrotema_dados["docs_url"], macrotema_dados["docs_env"])
             try:
