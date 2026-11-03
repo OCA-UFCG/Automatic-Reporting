@@ -414,3 +414,19 @@ def test_texto_numa_cidade_com_graficos_de_verdade(monkeypatch, tmp_path):
     # Sem pedir os gráficos (conferência), supõe todo gráfico gerado, como antes.
     suposto = laboratorio.texto_do_municipio("demografia", doc, "Sem Dado (PB)")
     assert any("Figura" in parte for parte in suposto["partes"])
+
+
+def test_texto_numa_cidade_fecha_com_a_caixa_de_fontes(monkeypatch, tmp_path):
+    # O relatório põe depois do tema a caixa "Fontes / Conteúdos relacionados" (o que
+    # sobra do Doc depois do "@@"); o painel do laboratório não mostrava (André, 03/11).
+    monkeypatch.setattr(laboratorio_snapshot, "SNAPSHOT_DIR", tmp_path)
+    _gravar_snapshot(tmp_path, "demografia", {"Nova (PB)": {"nm_mun": "Nova (PB)"}})
+    doc = (
+        "descricao_tema = Texto de $nm_mun.\n@@\n\n#!Fontes\n\n"
+        "Os dados vêm do IBGE.\n\n#!Conteúdos relacionados\n\nVeja também o boletim."
+    )
+
+    resultado = laboratorio.texto_do_municipio("demografia", doc, "Nova (PB)")
+    assert "fontes-box" in resultado["html"][-1] and "Veja também o boletim." in resultado["html"][-1]
+    # Só no HTML do painel: o texto que a conferência lê continua só o do tema.
+    assert resultado["partes"] == ["Texto de Nova (PB)."]

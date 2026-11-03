@@ -10,6 +10,8 @@ import {
   doRascunho,
   exportar,
   fraseDaCondicao,
+  htmlParaODocs,
+  inserirColuna,
   lerDoc,
   numeroValido,
   paraRascunho,
@@ -138,7 +140,7 @@ function ComCampos({ texto, colunas }) {
 
 // Textarea com autocomplete de $coluna: abre ao digitar "$" (com ou sem "tema.") e
 // troca só o nome depois do "$". A lista fica embaixo do textarea, não no cursor.
-function EditorComColunas({ valor, mudar, colunas }) {
+function EditorComColunas({ valor, mudar, colunas, prefixo }) {
   const ref = useRef(null)
   const cursor = useRef(null)
   const [sugestao, setSugestao] = useState(null)
@@ -169,8 +171,9 @@ function EditorComColunas({ valor, mudar, colunas }) {
     setSugestao({ inicio: pos - m[1].length, fim: pos, lista, sel: 0 })
   }
   function escolher(nome) {
-    cursor.current = sugestao.inicio + nome.length
-    mudar(valor.slice(0, sugestao.inicio) + nome + valor.slice(sugestao.fim))
+    const { texto, cursor: pos } = inserirColuna(valor, sugestao.inicio, sugestao.fim, nome, prefixo)
+    cursor.current = pos
+    mudar(texto)
     setSugestao(null)
   }
   function tecla(e) {
@@ -396,7 +399,7 @@ function Versao({ item, contagem, problema, naCidade, podeSeparar, acoes, tema, 
   if (editando) {
     return (
       <div className="versao editando">
-        <EditorComColunas valor={rascunho} mudar={setRascunho} colunas={colunas} />
+        <EditorComColunas valor={rascunho} mudar={setRascunho} colunas={colunas} prefixo={prefixo} />
         {formAberto && (
           <FormCondicao
             colunas={colunas}
@@ -514,21 +517,21 @@ function dicaDeColar(texto) {
 // Resumo para levar ao Doc (spec, "Exportar"): copiar por bloco é o caminho
 // principal; copiar o tema inteiro é o secundário, porque colar o Doc inteiro apaga
 // comentários e formatação que o editorial tenha nele.
-function PainelExportar({ alterados, conferencia, avisosLocais, copiarTudo, copiado }) {
+function PainelExportar({ editou, alterados, conferencia, avisosLocais, copiarTudo, copiado }) {
   return (
     <div className="card exportar">
       <div className="chead"><span className="ctag">Para levar ao Doc</span></div>
       <div className="cbody">
         <div>
-          {alterados.length
+          {!editou ? 'Nada alterado ainda: edite uma versão e o bloco aparece aqui para copiar.' : alterados.length
             ? <>Blocos alterados: {alterados.map((n, i) => <span key={n}>{i ? ', ' : ''}<a href={`#bloco-${n}`}>Bloco {n}</a></span>)}. Copie cada um e cole no Doc por cima do mesmo trecho.</>
             : 'Nenhum bloco alterado: as mudanças estão em texto fora dos blocos.'}
         </div>
-        <div className={conferencia === 'ok' ? 'muted' : 'aviso-exportar'}>
+        {editou && <div className={conferencia === 'ok' ? 'muted' : 'aviso-exportar'}>
           {conferencia === 'ok' && '✓ Conferido depois da última mudança (os avisos do gerador, se houver, estão acima).'}
           {conferencia === 'velha' && '⚠ O texto mudou desde a última conferência: clique em Conferir antes de colar.'}
           {conferencia === 'nunca' && '⚠ Ainda não conferido: clique em Conferir antes de colar.'}
-        </div>
+        </div>}
         {avisosLocais > 0 && <div className="aviso-exportar">⚠ {avisosLocais === 1 ? '1 aviso' : `${avisosLocais} avisos`} nos blocos (veja em cada bloco).</div>}
         <div className="acoes">
           <button className="btn sm" onClick={copiarTudo}>{copiado ? 'copiado ✓' : 'copiar o Doc inteiro'}</button>
@@ -546,6 +549,7 @@ function CopiarAMao({ texto, fechar }) {
     <div className="copiar-a-mao">
       <div className="card">
         <div className="chead"><span className="ctag">Copie com Ctrl+C</span><span className="spacer" /><button className="btn sm" onClick={fechar}>fechar</button></div>
+        <div className="aviso-exportar">⚠ Este navegador não deixou copiar direto. Colado no Google Docs a partir daqui, todo trecho entre dois "$" vira equação e some do relatório: prefira abrir o TemaLab pelo endereço https.</div>
         <textarea readOnly value={texto} autoFocus onFocus={(e) => e.target.select()} />
       </div>
     </div>
@@ -611,6 +615,15 @@ function Avisos({ resultado }) {
 }
 
 export default function Laboratorio() {
+  // A altura do cabeçalho muda (barra de progresso, quebra de linha em tela estreita); o
+  // painel da cidade e as âncoras dos blocos se alinham por ela (--altura-header).
+  const cabecalho = useRef(null)
+  useLayoutEffect(() => {
+    const observador = new ResizeObserver(([e]) =>
+      document.documentElement.style.setProperty('--altura-header', `${e.borderBoxSize[0].blockSize}px`))
+    if (cabecalho.current) observador.observe(cabecalho.current)
+    return () => observador.disconnect()
+  }, [])
   const [temas, setTemas] = useState(null)
   const [desligado, setDesligado] = useState(false)
   const [tema, setTema] = useState('')
@@ -757,7 +770,11 @@ export default function Laboratorio() {
 
   async function copiar(texto, rotulo) {
     try {
-      await navigator.clipboard.writeText(texto)
+      // Com o HTML junto: o Docs cola o HTML, e texto puro vira equação (htmlParaODocs).
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/plain': new Blob([texto], { type: 'text/plain' }),
+        'text/html': new Blob([htmlParaODocs(texto)], { type: 'text/html' }),
+      })])
       setCopiado(rotulo)
       setTimeout(() => setCopiado((atual) => (atual === rotulo ? null : atual)), 2500)
     } catch {
@@ -894,7 +911,7 @@ export default function Laboratorio() {
     return (
       <main>
         <div className="empty">
-          <h2>O laboratório não está ligado neste ambiente</h2>
+          <h2>O TemaLab não está ligado neste ambiente</h2>
           <p>Ele só funciona onde a API roda com LABORATORIO_HABILITADO=1 (o gamma).</p>
         </div>
       </main>
@@ -905,9 +922,9 @@ export default function Laboratorio() {
 
   return (
     <>
-      <header>
+      <header ref={cabecalho}>
         <div className="hrow">
-          <h1>Laboratório de Temas</h1>
+          <h1>TemaLab</h1>
           <select value={tema} onChange={(e) => abrirTema(e.target.value)} disabled={!temas || carregando || rodando}>
             <option value="">Escolha o tema</option>
             {temas?.map((t) => (
@@ -952,7 +969,9 @@ export default function Laboratorio() {
         )}
       </header>
       <main className={tema ? 'com-painel' : ''}>
-        <div className="coluna-texto">
+        {/* Status e avisos em faixa própria, acima das duas colunas: dentro da coluna do
+            texto, eles empurravam só ela e desalinhavam do painel da cidade (André, 03/11). */}
+        <div className="mensagens">
         {erro && <div className="banner erro">{erro}</div>}
         {conferencia?.estado === 'erro' && <div className="banner erro">A conferência falhou: {conferencia.erro}</div>}
         {resultado && (
@@ -1004,8 +1023,12 @@ export default function Laboratorio() {
             <button className="btn sm" onClick={descartarRascunho}>descartar o rascunho</button>
           </div>
         )}
-        {editou && rascunho?.tipo !== 'doc_mudou' && (
+        </div>
+        <div className="coluna-texto">
+        {/* Sempre à vista: só depois de editar, o "copiar o Doc inteiro" não era achado (André, 03/11). */}
+        {doc && rascunho?.tipo !== 'doc_mudou' && (
           <PainelExportar
+            editou={editou}
             alterados={blocos.filter((b) => b.alterado).map((b) => b.numero)}
             conferencia={!resultado ? 'nunca' : conferenciaVelha ? 'velha' : 'ok'}
             avisosLocais={blocos.reduce((n, b) => n + b.avisos.length, 0)}
@@ -1019,7 +1042,7 @@ export default function Laboratorio() {
         {!tema && !carregando && (
           <div className="empty">
             <h2>Escolha um tema</h2>
-            <p>O laboratório abre a versão mais recente do Doc e confere o texto contra os 2.074 municípios, pelo mesmo código do relatório.</p>
+            <p>O TemaLab abre a versão mais recente do Doc e confere o texto contra os 2.074 municípios, pelo mesmo código do relatório.</p>
           </div>
         )}
         {grupos.map((grupo, i) => {

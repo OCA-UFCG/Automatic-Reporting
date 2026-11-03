@@ -157,6 +157,26 @@ export function prefixoDoDoc(texto, slug) {
   return [...contagem].sort((a, b) => b[1] - a[1])[0]?.[0] ?? slug
 }
 
+// Troca o que se digitou depois do "$" (de `inicio` a `fim`) pela coluna escolhida e,
+// se o "$" veio sem prefixo, põe o do Doc na frente: o gerador aceita "$campo" solto,
+// mas o Doc escreve "tema.$campo" em tudo (André, 03/11). Devolve o texto e o cursor.
+export function inserirColuna(texto, inicio, fim, nome, prefixo) {
+  const antes = texto.slice(0, inicio - 1)
+  const comPrefixo = /[A-Za-z_][\w-]*\.$/.test(antes) ? antes : `${antes}${prefixo}.`
+  const novo = `${comPrefixo}$${nome}`
+  return { texto: novo + texto.slice(fim), cursor: novo.length }
+}
+
+// HTML para colar no Google Docs. Colado como texto puro (ou HTML com o "$" junto do
+// texto), o Docs vira todo "$…$" em equação, e o export em txt que o relatório lê
+// perde o trecho inteiro. Cada "$" num <span> próprio escapa disso, e as linhas
+// unidas por <br> voltam no export idênticas, linhas em branco inclusive (testado
+// colando no Docs em 03/11; <p> vazio era descartado e a linha em branco fecha a versão).
+export function htmlParaODocs(texto) {
+  const esc = (l) => l.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return `<p style="margin:0">${texto.split('\n').map((l) => esc(l).replace(/\$/g, '<span>$</span>')).join('<br>')}</p>`
+}
+
 // O trecho como o backend lê: sem o marcador do bloco do tema ("descricao_tema = “" /
 // "”@@"), que fica no texto antes da 1ª versão e depois da última.
 export const trechoParaLer = (texto) => semMarcadorDeBloco(texto.trim())
@@ -225,7 +245,7 @@ export function avisosDaVersao(item, colunas) {
   // Ex. real (economia, 01/11): condição seguida de um gráfico. O gerador não põe
   // gráfico, título nem outra condição sob a condição: eles saem sempre.
   if (!condicao.inline.trim() && !resto.join('').trim()) {
-    avisos.push('versão sem texto: o que vem logo depois (gráfico, título ou outra condição) não fica sob esta condição, sai sempre')
+    avisos.push('Esta versão só tem a condição, sem texto embaixo. A condição só esconde texto: o gráfico ou título que vem depois sai em todas as cidades, mesmo onde ela não vale.')
   }
   // Coluna errada na condição não aparece como campo cru: vale como 0, e a versão
   // pode sair onde não devia. Pode ser apelido (_resolver_campo_com_alias).

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
 import { agruparEmBlocos, condicaoDoItem, exportar, lerDoc, prefixoDoDoc, trechoParaLer,
-  avisosDaVersao, blocoAlterado, doRascunho, paraRascunho, temEdicao, textoDoBloco } from './modelo.js'
+  avisosDaVersao, blocoAlterado, doRascunho, htmlParaODocs, inserirColuna, paraRascunho, temEdicao, textoDoBloco } from './modelo.js'
 
 const FIXTURES = new URL('../../../tests/fixtures/relatorio_congelado/docs/', import.meta.url)
 const TEMAS = ['demografia', 'educacao', 'saude', 'economia-renda', 'hidraulica',
@@ -117,7 +117,7 @@ test('avisos da versão', () => {
   const v = (texto) => avisosDaVersao({ tipo: 'versao', original: texto }, colunas)
   assert.deepEqual(v('Para quando $x for 1, então:\nTexto.\n'), [])
   assert.deepEqual(v('Para quando $x for 1, então: Texto na linha.\n'), [])
-  assert.match(v('Para quando $x for 1, então:\n\n')[0], /^versão sem texto/)
+  assert.match(v('Para quando $x for 1, então:\n\n')[0], /^Esta versão só tem a condição/)
   assert.match(v('Texto qualquer\nmais')[0], /não é uma condição/)
   assert.match(v('Para quando demografia.$campo for igual a 0, então:\nT.\n')[0], /\$campo, que não está/)
   assert.deepEqual(avisosDaVersao({ tipo: 'versao', original: 'Para quando $y for 1:\nT', editado: '' }, colunas), [])
@@ -142,4 +142,19 @@ test('copiar o último bloco editado leva o ”@@ da linha do Doc', () => {
   const copia = textoDoBloco(itens, versoes)
   assert.ok(copia.startsWith('descricao_tema = “Para quando $x for 1'))
   assert.ok(copia.endsWith('B editado.\n”@@'))
+})
+
+test('inserirColuna põe o prefixo do Doc só quando o "$" veio solto', () => {
+  // "em $esg|" → coluna escolhida, com o prefixo na frente
+  assert.deepEqual(inserirColuna('em $esg fim', 4, 7, 'esgoto_rede_2022', 'infraestrutura'),
+    { texto: 'em infraestrutura.$esgoto_rede_2022 fim', cursor: 35 })
+  // já tinha prefixo (qualquer um): não duplica
+  assert.equal(inserirColuna('em demografia.$', 15, 15, 'nm_mun', 'infraestrutura').texto, 'em demografia.$nm_mun')
+  // "$" no começo do texto
+  assert.equal(inserirColuna('$', 1, 1, 'nm_mun', 'saude').texto, 'saude.$nm_mun')
+})
+
+test('htmlParaODocs: cada $ num span, linhas (e as em branco) por <br>, texto escapado', () => {
+  assert.equal(htmlParaODocs('a.$x <b>\n\nb.$y'),
+    '<p style="margin:0">a.<span>$</span>x &lt;b&gt;<br><br>b.<span>$</span>y</p>')
 })

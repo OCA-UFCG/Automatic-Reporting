@@ -41,7 +41,7 @@ from utils.render.placeholders import (
     conferir_condicoes,
     registrar_versoes,
 )
-from utils.render.renderer import html_do_tema, html_para_texto
+from utils.render.renderer import html_do_tema, html_para_texto, texto_para_html
 
 logger = logging.getLogger(__name__)
 
@@ -342,7 +342,13 @@ def texto_do_municipio(
         return None
     secoes, _ = separar_secoes_do_tema(doc_texto, slug)
     graficos = graficos_do_municipio(slug, contexto, cidade) if com_graficos else None
-    return conferir_municipio(secoes.descricao_tema or "", contexto, slug, graficos)
+    resultado = conferir_municipio(secoes.descricao_tema or "", contexto, slug, graficos)
+    # O relatório fecha o tema com a caixa "Fontes / Conteúdos relacionados", o que
+    # sobra do Doc depois do "@@" (generation.py, fontes_html). Só no HTML do painel:
+    # "partes" e a conferência seguem só com o texto do tema.
+    if secoes.resto.strip():
+        resultado["html"].append(texto_para_html(secoes.resto, contexto, namespace=slug))
+    return resultado
 
 
 async def abrir_doc(slug: str) -> dict | None:
