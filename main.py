@@ -223,7 +223,7 @@ if os.getenv("LABORATORIO_HABILITADO") == "1":
             return datetime.fromtimestamp(caminho.stat().st_mtime, UTC).isoformat(timespec="seconds")
 
         return [
-            {"slug": slug, "nome": dados["nome"], "snapshot_gerado_em": gerado_em(slug)}
+            {"slug": slug, "nome": dados["nome"], "cor": dados["cor"], "snapshot_gerado_em": gerado_em(slug)}
             for slug, dados in MACROTEMAS.items()
         ]
 

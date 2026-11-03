@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
 import { agruparEmBlocos, condicaoDoItem, exportar, lerDoc, prefixoDoDoc, trechoParaLer,
-  avisosDaVersao, blocoAlterado, doRascunho, htmlParaODocs, inserirColuna, paraRascunho, temEdicao, textoDoBloco } from './modelo.js'
+  avisosDaVersao, blocoAlterado, buscarOpcoes, doRascunho, htmlParaODocs, inserirColuna, paraRascunho, temEdicao, textoDoBloco } from './modelo.js'
 
 const FIXTURES = new URL('../../../tests/fixtures/relatorio_congelado/docs/', import.meta.url)
 const TEMAS = ['demografia', 'educacao', 'saude', 'economia-renda', 'hidraulica',
@@ -157,4 +157,12 @@ test('inserirColuna põe o prefixo do Doc só quando o "$" veio solto', () => {
 test('htmlParaODocs: cada $ num span, linhas (e as em branco) por <br>, texto escapado', () => {
   assert.equal(htmlParaODocs('a.$x <b>\n\nb.$y'),
     '<p style="margin:0">a.<span>$</span>x &lt;b&gt;<br><br>b.<span>$</span>y</p>')
+})
+
+test('buscarOpcoes: sem acento e sem caixa, quem começa com o termo vem antes', () => {
+  const cidades = ['Água Branca (AL)', 'Recife (PE)', 'Santa Rita (PB)', 'Riachão (MA)', 'Arapiraca (AL)']
+  assert.deepEqual(buscarOpcoes(cidades, 'agua'), ['Água Branca (AL)'])
+  assert.deepEqual(buscarOpcoes(cidades, 'ri'), ['Riachão (MA)', 'Santa Rita (PB)'])
+  assert.deepEqual(buscarOpcoes(cidades, '(al)'), ['Água Branca (AL)', 'Arapiraca (AL)'])
+  assert.equal(buscarOpcoes(cidades, '', 2).length, 2)
 })

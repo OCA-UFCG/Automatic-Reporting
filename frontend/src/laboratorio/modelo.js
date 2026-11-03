@@ -177,6 +177,22 @@ export function htmlParaODocs(texto) {
   return `<p style="margin:0">${texto.split('\n').map((l) => esc(l).replace(/\$/g, '<span>$</span>')).join('<br>')}</p>`
 }
 
+// Opções de uma caixa de busca (cidade, coluna): sem acento e sem caixa, primeiro as que
+// começam com o termo, depois as que o contêm; no máximo `max`.
+const semAcento = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+export function buscarOpcoes(opcoes, termo, max = 50) {
+  const t = semAcento(termo.trim())
+  if (!t) return opcoes.slice(0, max)
+  const comeca = []
+  const contem = []
+  for (const opcao of opcoes) {
+    const n = semAcento(opcao)
+    if (n.startsWith(t)) comeca.push(opcao)
+    else if (n.includes(t)) contem.push(opcao)
+  }
+  return [...comeca, ...contem].slice(0, max)
+}
+
 // O trecho como o backend lê: sem o marcador do bloco do tema ("descricao_tema = “" /
 // "”@@"), que fica no texto antes da 1ª versão e depois da última.
 export const trechoParaLer = (texto) => semMarcadorDeBloco(texto.trim())

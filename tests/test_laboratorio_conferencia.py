@@ -229,6 +229,7 @@ def test_rotas_de_temas_e_colunas(monkeypatch, snapshot_falso):
     temas = {t["slug"]: t for t in cliente.get("/laboratorio/temas").json()}
     assert temas["demografia"]["snapshot_gerado_em"].endswith("+00:00")
     assert temas["saude"]["snapshot_gerado_em"] is None
+    assert temas["demografia"]["cor"].startswith("#")  # o ponto colorido do seletor de tema
 
     colunas = cliente.get("/laboratorio/demografia/colunas").json()
     assert colunas["snapshot_gerado_em"] == "2026-10-29T04:30:00+00:00"

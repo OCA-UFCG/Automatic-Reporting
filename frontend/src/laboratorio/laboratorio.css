@@ -30,8 +30,48 @@ header select, header .btn { background: rgba(255,255,255,.1); border-color: rgb
 header select option { color: var(--ink); }
 header .btn:hover:not(:disabled) { border-color: #fff; }
 header .btn.pri { background: #ffbe20; border-color: #ffbe20; color: #461902; font-weight: 600; }
-.hrow { display: flex; align-items: center; gap: 10px; padding: 10px 18px; flex-wrap: wrap; }
-h1 { font-size: 19px; margin: 0 8px 0 0; font-weight: 700; letter-spacing: -.02em; }
+header .btn.pri:disabled { background: transparent; border-color: rgba(255,255,255,.3); color: rgba(255,255,255,.6); opacity: 1; }
+header .btn { padding: 6px 14px; }
+header .status { flex-direction: column; gap: 0; font-size: 12px; line-height: 1.35; text-align: right; }
+/* Marca: o ¶ (marca de parágrafo) num quadrado amarelo, a cor das condições; o nome e,
+   embaixo, de quem é a ferramenta. */
+.marca { display: flex; align-items: center; gap: 10px; }
+.marca-simbolo { display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--raio); background: #ffbe20; color: var(--verde); font: 700 22px/1 Georgia, 'Times New Roman', serif; }
+.marca-nome { display: grid; line-height: 1.1; }
+.marca-nome h1 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
+.marca-nome span { font-size: 11.5px; color: var(--accent-soft); }
+/* O tema como título do documento aberto, separado da marca por uma linha. */
+.escolha-tema { display: grid; line-height: 1.1; margin-left: 10px; padding-left: 20px; border-left: 1px solid rgba(255,255,255,.22); }
+.escolha-tema > span { font-size: 11.5px; color: var(--accent-soft); }
+/* Seletor de tema: botão sem caixa no cabeçalho e menu próprio, no jeito dos menus do macOS
+   (vidro claro, cantos de 10 px, sombra larga, linha ativa na cor de destaque, ✓ no atual). */
+.seletor-tema { position: relative; }
+.seletor-botao { display: flex; align-items: center; gap: 8px; border: 0; border-radius: var(--raio); padding: 1px 24px 1px 0; margin-left: -1px; background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23fff' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 6px center; color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; }
+.seletor-botao:hover:not(:disabled), .seletor-botao[aria-expanded='true'] { background-color: rgba(255,255,255,.12); padding-left: 6px; margin-left: -7px; }
+.seletor-botao:disabled { cursor: default; opacity: .7; }
+.seletor-botao .sem-tema { font-weight: 500; color: var(--accent-soft); }
+.ponto { flex: none; width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 0 1.5px rgba(255,255,255,.9); }
+.seletor-lista { position: absolute; z-index: 40; top: calc(100% + 8px); left: -8px; min-width: 290px; margin: 0; padding: 5px; list-style: none;
+  background: rgba(255,255,255,.9); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(0,0,0,.1); border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,.2), 0 2px 6px rgba(0,0,0,.08);
+  color: var(--ink); font-size: 14px; outline: none; transform-origin: top left; animation: abrir-menu .14s ease-out; }
+@keyframes abrir-menu { from { opacity: 0; transform: scale(.97) translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .seletor-lista { animation: none; } }
+.seletor-lista li { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+.seletor-lista li .ponto { box-shadow: 0 0 0 1px rgba(0,0,0,.12); }
+.seletor-lista li.ativo { background: var(--accent); color: #fff; }
+.seletor-lista li.ativo .ponto { box-shadow: 0 0 0 1.5px #fff; }
+.seletor-lista li[aria-disabled='true'] { color: var(--ink2); opacity: .55; cursor: default; }
+.seletor-lista .sem-dados { font-size: 12px; }
+.seletor-lista .marcado { margin-left: auto; font-weight: 600; color: var(--accent); }
+/* Caixa de busca (cidade, coluna): campo claro com a mesma lista do seletor de tema. */
+.caixa-busca { position: relative; }
+.caixa-busca input { width: 100%; border: 1px solid var(--line); border-radius: var(--raio); padding: 5px 28px 5px 10px; background: var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23676264' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 10px center; }
+.caixa-busca input:focus { outline: 3px solid var(--accent-soft); border-color: var(--accent); }
+.caixa-busca.coluna { width: 240px; }
+.lista-busca { position: fixed; min-width: 0; max-height: min(320px, 50vh); overflow: auto; }
+.seletor-lista li.ativo .marcado { color: #fff; }
+.hrow { display: flex; align-items: center; gap: 12px; padding: 9px 18px; flex-wrap: wrap; }
 .status, .muted { color: var(--ink2); font-size: 12.5px; }
 .status b { color: var(--ink); }
 .spacer { flex: 1; }
@@ -57,7 +97,6 @@ main { max-width: 1180px; margin: 0 auto; padding: 18px 16px; }
 .btn:hover:not(:disabled) { border-color: var(--accent); color: var(--ok); }
 .btn:disabled { opacity: .5; cursor: default; }
 .btn.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
-input.cidade { border: 1px solid var(--line); background: var(--panel); padding: 5px 8px; border-radius: var(--raio); width: 240px; max-width: 100%; }
 .progresso { position: relative; height: 26px; background: var(--verde-escuro); font-size: 12.5px; }
 .progresso .barra { position: absolute; inset: 0 auto 0 0; background: var(--accent); transition: width .4s; }
 .progresso span { position: relative; padding: 0 18px; line-height: 26px; color: #fff; }
@@ -68,8 +107,24 @@ input.cidade { border: 1px solid var(--line); background: var(--panel); padding:
 .chip.bom { background: var(--ok-bg); color: var(--ok); border-color: transparent; }
 .chip.atencao { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
 .chip.ruim { background: var(--bad-bg); color: var(--bad); border-color: transparent; }
-.linha-condicao { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; }
-.linha-condicao .condicao { margin-bottom: 0; }
+/* Condição na margem, como anotação de revisor (André, 03/11): a regra numa coluna à
+   esquerda, separada por uma linha âmbar (a margem do caderno), e o texto corrido ao lado.
+   No cartão estreito (container query), a margem volta para cima do texto. */
+.card { container-type: inline-size; }
+.versao:not(.editando) { display: grid; grid-template-columns: minmax(200px, 30%) minmax(0, 1fr); column-gap: 20px; align-items: start; }
+.margem { white-space: normal; display: grid; gap: 6px; align-content: start; align-self: stretch; padding-right: 16px; border-right: 2px solid var(--cond-borda); }
+.margem .condicao { display: block; margin: 0; padding: 0; background: none; border: 0; border-radius: 0; font-size: 13px; line-height: 1.45; }
+.margem .condicao.quebrada { padding: 4px 8px; background: var(--bad-bg); }
+.margem .prefixo { display: none; }
+.margem-info { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.margem-info:empty, .margem-acoes:empty { display: none; }
+.margem-acoes { display: flex; flex-wrap: wrap; gap: 4px; margin-left: -8px; }
+.prefixo { opacity: .55; }
+@container (max-width: 720px) {
+  .versao:not(.editando) { display: block; }
+  .margem { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 12px; padding: 0 0 8px; margin-bottom: 8px; border-right: 0; border-bottom: 2px solid var(--cond-borda); }
+  .margem .condicao { flex: 1 1 320px; }
+}
 .versao.dispara { border-left-color: var(--accent); }
 .na-cidade { color: var(--ok); font-size: 12.5px; font-weight: 600; }
 .versao.apagada { opacity: .5; }
@@ -86,9 +141,9 @@ input.cidade { border: 1px solid var(--line); background: var(--panel); padding:
    não visibility, para o Tab continuar chegando neles). Versão com pendência (alterada,
    removida, sem município) mostra sempre. Em tela de toque, sempre à vista. */
 @media (hover: hover) {
-  .versao:not(:hover):not(:focus-within):not(:has(.chip)) .linha-condicao .btn { opacity: 0; }
+  .versao:not(:hover):not(:focus-within):not(:has(.chip)) .margem-acoes .btn { opacity: 0; }
 }
-.linha-condicao .btn { transition: opacity .12s; }
+.margem-acoes .btn { transition: opacity .12s; }
 /* Aviso (padrão "warning text" do GOV.UK): "!" num círculo no lugar de emoji. */
 .aviso, .aviso-exportar { position: relative; padding-left: 26px; }
 .aviso::before, .aviso-exportar::before { content: '!'; position: absolute; left: 0; top: .1em; width: 18px; height: 18px; border-radius: 50%; background: var(--warn); color: #fff; font: 700 12px/18px Inter, sans-serif; text-align: center; }
@@ -103,7 +158,7 @@ input.cidade { border: 1px solid var(--line); background: var(--panel); padding:
 .sugestoes b { font-family: var(--mono); font-weight: 600; }
 .form-condicao { margin-top: 8px; padding: 8px 10px; background: var(--panel2); border-radius: var(--raio); display: grid; gap: 6px; font-size: 13px; white-space: normal; }
 .form-condicao .acoes { flex-wrap: wrap; align-items: center; margin-top: 0; }
-.form-condicao input { border: 1px solid var(--line); background: var(--panel); padding: 3px 7px; border-radius: var(--raio); width: 220px; }
+.form-condicao input:not([role=combobox]) { border: 1px solid var(--line); background: var(--panel); padding: 3px 7px; border-radius: var(--raio); width: 220px; }
 .form-condicao input.num { width: 90px; }
 .cada-valor { margin-top: 6px; white-space: normal; }
 .card.texto .cada-valor { padding: 0 12px 10px; }
@@ -145,7 +200,7 @@ main.com-painel .mensagens { grid-column: 1 / -1; }
 .painel-topo { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 12px; }
 .painel .relatorio { margin: 14px; border-radius: 4px; box-shadow: 0 1px 3px rgba(41,40,41,.15), 0 6px 18px rgba(41,40,41,.1); }
 .painel .vazio { background: var(--panel); }
-.painel input.cidade { flex: 1; width: auto; min-width: 0; padding: 4px 8px; }
+.painel .caixa-busca.cidade { flex: 1; min-width: 0; }
 .painel .vazio { padding: 16px; margin: 0; }
 .painel .banner { margin: 12px; }
 /* O texto como no relatório (report/src/styles/content.css): papel branco também no escuro. */

@@ -4,6 +4,7 @@ import {
   agruparEmBlocos,
   avisosDaVersao,
   blocoAlterado,
+  buscarOpcoes,
   camposDaCondicao,
   chaveDoRascunho,
   condicaoDoItem,
@@ -132,9 +133,16 @@ function ComCampos({ texto, colunas }) {
   if (!colunas) return texto
   return texto.split(/((?:[A-Za-z_][\w-]*\.)?\$[A-Za-z_]\w*)/).map((parte, i) => {
     if (i % 2 === 0) return parte
-    const nome = parte.slice(parte.indexOf('$') + 1)
+    const cifrao = parte.indexOf('$')
+    const nome = parte.slice(cifrao + 1)
     const info = colunas.get(nome)
-    return <span key={i} className={`campo${info ? '' : ' desconhecido'}`} title={tituloDaColuna(nome, info)}>{parte}</span>
+    // O prefixo ("tema.") não muda nada para o gerador: fica esmaecido no texto e some
+    // na margem, onde ocupava metade da largura.
+    return (
+      <span key={i} className={`campo${info ? '' : ' desconhecido'}`} title={tituloDaColuna(nome, info)}>
+        {cifrao > 0 && <span className="prefixo">{parte.slice(0, cifrao)}</span>}{parte.slice(cifrao)}
+      </span>
+    )
   })
 }
 
@@ -233,8 +241,101 @@ function EditorComColunas({ valor, mudar, colunas, prefixo }) {
 
 // "Nova condição": coluna / operador / valor que escreve a frase na 1ª linha. Depois
 // disso a linha é só texto (spec, "Construir").
+// Caixa de busca com lista própria, no lugar do <datalist> (cada navegador o desenha do
+// seu jeito; no Chrome do Windows, uma lista escura): o mesmo menu do seletor de tema
+// (André, 03/11). Padrão combobox do WAI-ARIA: setas, Enter, Esc; clicar abre a lista.
+function CaixaDeBusca({ id, valor, mudar, opcoes, placeholder, className = '' }) {
+  const [aberto, setAberto] = useState(false)
+  const [ativo, setAtivo] = useState(0)
+  const [lugar, setLugar] = useState(null)
+  const raiz = useRef(null)
+  const achadas = useMemo(() => buscarOpcoes(opcoes, valor), [opcoes, valor])
+  // A lista fica presa à tela, medida a partir do campo: dentro do painel da cidade (que
+  // rola), ela seria cortada quando o painel está baixo. Rolar ou redimensionar fecha.
+  useLayoutEffect(() => {
+    if (!aberto) return
+    const r = raiz.current.getBoundingClientRect()
+    setLugar({ top: r.bottom + 6, left: r.left, width: r.width })
+  }, [aberto])
+  useEffect(() => {
+    if (!aberto) return
+    const fora = (e) => { if (!raiz.current?.contains(e.target)) setAberto(false) }
+    const fechar = (e) => { if (!e.target?.closest?.('.seletor-lista')) setAberto(false) }
+    document.addEventListener('mousedown', fora)
+    window.addEventListener('scroll', fechar, true)
+    window.addEventListener('resize', fechar)
+    return () => {
+      document.removeEventListener('mousedown', fora)
+      window.removeEventListener('scroll', fechar, true)
+      window.removeEventListener('resize', fechar)
+    }
+  }, [aberto])
+  useEffect(() => {
+    if (aberto) document.getElementById(`${id}-${ativo}`)?.scrollIntoView({ block: 'nearest' })
+  }, [aberto, ativo, id])
+  function escolher(opcao) {
+    mudar(opcao)
+    setAberto(false)
+  }
+  function tecla(e) {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      if (!aberto) return setAberto(true)
+      const passo = e.key === 'ArrowDown' ? 1 : -1
+      setAtivo((i) => (i + passo + achadas.length) % Math.max(achadas.length, 1))
+    } else if (e.key === 'Enter' && aberto && achadas[ativo]) {
+      e.preventDefault()
+      escolher(achadas[ativo])
+    } else if (e.key === 'Escape' && aberto) {
+      e.preventDefault()
+      setAberto(false)
+    }
+  }
+  const mostrar = aberto && lugar && achadas.length > 0 && !(achadas.length === 1 && achadas[0] === valor)
+  return (
+    <div className={`caixa-busca ${className}`} ref={raiz}>
+      <input
+        role="combobox"
+        aria-expanded={mostrar}
+        aria-controls={`${id}-lista`}
+        aria-autocomplete="list"
+        aria-activedescendant={mostrar ? `${id}-${ativo}` : undefined}
+        placeholder={placeholder}
+        value={valor}
+        onChange={(e) => {
+          mudar(e.target.value)
+          setAtivo(0)
+          setAberto(true)
+        }}
+        onClick={() => setAberto((a) => !a)}
+        onKeyDown={tecla}
+      />
+      {mostrar && (
+        <ul className="seletor-lista lista-busca" role="listbox" id={`${id}-lista`} style={lugar}>
+          {achadas.map((opcao, i) => (
+            <li
+              key={opcao}
+              id={`${id}-${i}`}
+              role="option"
+              aria-selected={opcao === valor}
+              className={i === ativo ? 'ativo' : ''}
+              onMouseEnter={() => setAtivo(i)}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => escolher(opcao)}
+            >
+              <span className="nome">{opcao}</span>
+              {opcao === valor && <span className="marcado" aria-hidden="true">✓</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function FormCondicao({ colunas, prefixo, escrever, fechar }) {
   const [coluna, setColuna] = useState('')
+  const nomesDasColunas = useMemo(() => [...(colunas?.keys() ?? [])], [colunas])
   const [operador, setOperador] = useState('igual')
   const [valor, setValor] = useState('')
   const [valor2, setValor2] = useState('')
@@ -248,7 +349,7 @@ function FormCondicao({ colunas, prefixo, escrever, fechar }) {
     <div className="form-condicao">
       <div className="acoes">
         <span>Para quando</span>
-        <input list="lista-colunas" placeholder="coluna" value={coluna} onChange={(e) => setColuna(e.target.value.replace(/^.*\$/, '').trim())} />
+        <CaixaDeBusca id="nova-condicao-coluna" className="coluna" placeholder="coluna" valor={coluna} mudar={(v) => setColuna(v.replace(/^.*\$/, '').trim())} opcoes={nomesDasColunas} />
         <span>for</span>
         <select value={op.id} onChange={(e) => setOperador(e.target.value)}>
           {operadores.map((o) => <option key={o.id} value={o.id}>{o.rotulo}</option>)}
@@ -420,11 +521,13 @@ function Versao({ item, contagem, problema, naCidade, podeSeparar, acoes, tema, 
   const classe = removida ? ' removida' : naCidade === undefined ? '' : naCidade ? ' dispara' : ' apagada'
   const corpo = separarEspacos(texto).miolo.split('\n').slice(1).join('\n')
   return (
+    // Condição na margem, como anotação de revisor; o texto corre ao lado (André, 03/11).
     <div className={`versao${classe}`}>
-      <div className="linha-condicao">
+      <div className="margem">
         <span className={`condicao${condicao || removida ? '' : ' quebrada'}`}>
           {removida ? item.condicao : condicao ? <ComCampos texto={condicao} colunas={colunas} /> : 'A 1ª linha não é mais uma condição: o gerador vai ler isto como texto fixo'}
         </span>
+        <div className="margem-info">
         {estado && <span className={`chip ${estado === 'removida' ? 'ruim' : 'atencao'}`}>{estado}</span>}
         {contagem !== undefined && !removida && (
           contagem
@@ -432,15 +535,19 @@ function Versao({ item, contagem, problema, naCidade, podeSeparar, acoes, tema, 
             : <span className="chip ruim">não aparece em nenhum município</span>
         )}
         {naCidade && !removida && <span className="na-cidade">vale nesta cidade</span>}
-        <span className="spacer" />
+        </div>
+        <div className="margem-acoes">
         {estado && <button className="btn ghost sm" onClick={acoes.desfazer}>desfazer</button>}
         {!removida && <button className="btn sm" onClick={abrirEdicao}>editar</button>}
         {!removida && podeSeparar && <button className="btn ghost sm" onClick={acoes.separar} title="Esta versão e as de baixo passam a ser outro bloco">separar daqui</button>}
         {!removida && <button className="btn ghost sm" onClick={acoes.remover}>remover</button>}
+        </div>
       </div>
-      {problema && !removida && <div className="problema">O gerador não entende esta condição: {problema}</div>}
-      {!removida && <div className="corpo"><ComCampos texto={paraTela(corpo)} colunas={colunas} /></div>}
-      {!removida && <LerComCadaValor tema={tema} texto={texto} colunas={colunas} csv={csv} />}
+      <div className="texto-versao">
+        {problema && !removida && <div className="problema">O gerador não entende esta condição: {problema}</div>}
+        {!removida && <div className="corpo"><ComCampos texto={paraTela(corpo)} colunas={colunas} /></div>}
+        {!removida && <LerComCadaValor tema={tema} texto={texto} colunas={colunas} csv={csv} />}
+      </div>
     </div>
   )
 }
@@ -459,8 +566,8 @@ function Bloco({ numero: n, versoes, estatisticas, juntar, novaVersao, alterado,
     <div className="card" id={`bloco-${n}`}>
       <div className="chead">
         <span className="ctag">Bloco {n}</span>
-        <span className="muted">{versoes.length} {versoes.length === 1 ? 'versão' : 'versões'}</span>
-        {alterado ? <span className="chip atencao">alterado</span> : <span className="muted">igual ao Doc</span>}
+        <span className="chip">{versoes.length} {versoes.length === 1 ? 'versão' : 'versões'}</span>
+        {alterado ? <span className="chip atencao">alterado</span> : <span className="chip bom">igual ao Doc</span>}
         {estatisticas?.sem.length > 0 && <span className="chip atencao">fica de fora em {municipios(estatisticas.sem.length)}</span>}
         {estatisticas?.varias.length > 0 && <span className="chip ruim">sai com 2+ trechos em {municipios(estatisticas.varias.length)}</span>}
         <span className="spacer" />
@@ -552,12 +659,12 @@ function CopiarAMao({ texto, fechar }) {
 // no relatório da cidade, com os gráficos dela, acompanhando o que se escreve. O HTML
 // vem do mesmo render do relatório (html_do_tema), que escapa o texto do Doc e os
 // valores, inclusive os de um CSV (conferido em 01/11: "<script>" sai como texto).
-function PainelCidade({ cidade, setCidade, resultado, atualizando, erro }) {
+function PainelCidade({ cidade, setCidade, cidades, resultado, atualizando, erro }) {
   return (
     <aside className="painel">
       <div className="painel-topo">
         <b>Veja o texto pronto numa cidade</b>
-        <input className="cidade" list="cidades" placeholder="Digite o nome da cidade…" value={cidade} onChange={(e) => setCidade(e.target.value)} />
+        <CaixaDeBusca id="cidade" className="cidade" placeholder="Digite o nome da cidade…" valor={cidade} mudar={setCidade} opcoes={cidades} />
         {atualizando && <span className="muted">atualizando…</span>}
       </div>
       {erro && <div className="banner erro">{erro}</div>}
@@ -604,6 +711,125 @@ function Avisos({ resultado }) {
     avisos.push(<div key="erros" className="banner erro"><b>Erro em {municipios(erros.length)}:</b> {erros.slice(0, 3).map(([c, e]) => `${c} (${e})`).join('; ')}</div>)
   }
   return avisos
+}
+
+// Seletor de tema próprio (André, 03/11): a lista nativa não se estiliza, e "Escolha o
+// tema" como opção confundia; agora é só o texto do botão enquanto nada foi escolhido.
+// Padrão listbox do WAI-ARIA: setas, Home/End, Enter, Esc e a inicial do tema.
+function SeletorDeTema({ temas, tema, escolher, desligado }) {
+  const [aberto, setAberto] = useState(false)
+  const [ativo, setAtivo] = useState(0)
+  const raiz = useRef(null)
+  const botao = useRef(null)
+  const lista = useRef(null)
+  const opcoes = temas ?? []
+  const atual = opcoes.find((t) => t.slug === tema)
+  const pode = (t) => Boolean(t?.snapshot_gerado_em)
+
+  useEffect(() => {
+    if (!aberto) return
+    lista.current?.focus()
+    const fora = (e) => { if (!raiz.current?.contains(e.target)) setAberto(false) }
+    document.addEventListener('mousedown', fora)
+    return () => document.removeEventListener('mousedown', fora)
+  }, [aberto])
+
+  function abrir() {
+    setAtivo(Math.max(0, opcoes.findIndex((t) => t.slug === tema)))
+    setAberto(true)
+  }
+  function fechar() {
+    setAberto(false)
+    botao.current?.focus()
+  }
+  function confirmar(i) {
+    if (!pode(opcoes[i])) return
+    fechar()
+    if (opcoes[i].slug !== tema) escolher(opcoes[i].slug)
+  }
+  // Próxima opção com dados a partir de i, andando de passo em passo.
+  function proxima(i, passo) {
+    for (let n = 0; n < opcoes.length; n++) {
+      i = (i + passo + opcoes.length) % opcoes.length
+      if (pode(opcoes[i])) return i
+    }
+    return i
+  }
+  function tecla(e) {
+    const acoes = {
+      ArrowDown: () => setAtivo(proxima(ativo, 1)),
+      ArrowUp: () => setAtivo(proxima(ativo, -1)),
+      Home: () => setAtivo(proxima(-1, 1)),
+      End: () => setAtivo(proxima(opcoes.length, -1)),
+      Enter: () => confirmar(ativo),
+      ' ': () => confirmar(ativo),
+      Escape: fechar,
+      Tab: () => setAberto(false),
+    }
+    if (acoes[e.key]) {
+      if (e.key !== 'Tab') e.preventDefault()
+      return acoes[e.key]()
+    }
+    if (e.key.length === 1) {
+      const letra = e.key.toLowerCase()
+      const achado = opcoes.findIndex((t, i) => i > ativo && pode(t) && t.nome.toLowerCase().startsWith(letra))
+      const i = achado >= 0 ? achado : opcoes.findIndex((t) => pode(t) && t.nome.toLowerCase().startsWith(letra))
+      if (i >= 0) setAtivo(i)
+    }
+  }
+
+  return (
+    <div className="seletor-tema" ref={raiz}>
+      <button
+        ref={botao}
+        type="button"
+        className="seletor-botao"
+        aria-haspopup="listbox"
+        aria-expanded={aberto}
+        aria-labelledby="rotulo-tema seletor-botao"
+        id="seletor-botao"
+        disabled={desligado}
+        onClick={() => (aberto ? setAberto(false) : abrir())}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault()
+            abrir()
+          }
+        }}
+      >
+        {atual ? <><span className="ponto" style={{ background: atual.cor }} />{atual.nome}</> : <span className="sem-tema">Escolha um tema</span>}
+      </button>
+      {aberto && (
+        <ul
+          ref={lista}
+          className="seletor-lista"
+          role="listbox"
+          tabIndex={-1}
+          aria-labelledby="rotulo-tema"
+          aria-activedescendant={`opcao-tema-${ativo}`}
+          onKeyDown={tecla}
+        >
+          {opcoes.map((t, i) => (
+            <li
+              key={t.slug}
+              id={`opcao-tema-${i}`}
+              role="option"
+              aria-selected={t.slug === tema}
+              aria-disabled={!pode(t)}
+              className={i === ativo && pode(t) ? 'ativo' : ''}
+              onMouseEnter={() => pode(t) && setAtivo(i)}
+              onClick={() => confirmar(i)}
+            >
+              <span className="ponto" style={{ background: t.cor }} />
+              <span className="nome">{t.nome}</span>
+              {!pode(t) && <span className="sem-dados">sem dados ainda</span>}
+              {t.slug === tema && <span className="marcado" aria-hidden="true">✓</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
 }
 
 export default function Laboratorio() {
@@ -897,6 +1123,7 @@ export default function Laboratorio() {
     dica: dicaDeColar(textoDoBloco(itens, g.versoes)),
   }))
   const editou = temEdicao(itens)
+  const opcoesDeCidade = useMemo(() => [...cidades, ...(csv?.so_no_csv ?? [])], [cidades, csv])
   let numeroBloco = 0
 
   if (desligado) {
@@ -915,18 +1142,24 @@ export default function Laboratorio() {
   return (
     <>
       <header ref={cabecalho}>
+        {/* Três grupos (André, 03/11: botões "apinhados" junto da marca): marca; o tema, como
+            título do documento aberto; status e ações à direita, com Conferir na ponta. */}
         <div className="hrow">
-          <h1>TemaLab</h1>
-          <select value={tema} onChange={(e) => abrirTema(e.target.value)} disabled={!temas || carregando || rodando}>
-            <option value="">Escolha o tema</option>
-            {temas?.map((t) => (
-              <option key={t.slug} value={t.slug} disabled={!t.snapshot_gerado_em}>
-                {t.nome}{t.snapshot_gerado_em ? '' : ' (sem dados ainda)'}
-              </option>
-            ))}
-          </select>
-          <button className="btn pri" onClick={conferir} disabled={!doc || rodando}>Conferir</button>
-          <datalist id="cidades">{[...cidades, ...(csv?.so_no_csv ?? [])].map((c) => <option key={c} value={c} />)}</datalist>
+          <div className="marca">
+            <span className="marca-simbolo" aria-hidden="true">¶</span>
+            <span className="marca-nome"><h1>TemaLab</h1><span>Data Nordeste</span></span>
+          </div>
+          <div className="escolha-tema">
+            <span id="rotulo-tema">Tema</span>
+            <SeletorDeTema temas={temas} tema={tema} escolher={abrirTema} desligado={!temas || carregando || rodando} />
+          </div>
+          <span className="spacer" />
+          {doc && (
+            <span className="status">
+              <span>Doc aberto às <b>{dataHora(doc.aberto_em)}</b></span>
+              <span>Dados de <b>{dataHora(temaAtual.snapshot_gerado_em)}</b>{csv && <> + <b>{csv.nome}</b></>}</span>
+            </span>
+          )}
           <label className={`btn${!doc || rodando || lendoCsv ? ' desligado' : ''}`} title="Testar com um CSV de uma view que ainda não existe: as colunas dele entram por cima dos dados do tema">
             {lendoCsv ? 'lendo o CSV…' : csv ? 'trocar o CSV' : 'usar um CSV'}
             <input
@@ -940,14 +1173,7 @@ export default function Laboratorio() {
               }}
             />
           </label>
-          <datalist id="lista-colunas">{colunas && [...colunas.keys()].map((c) => <option key={c} value={c} />)}</datalist>
-          <span className="spacer" />
-          {doc && (
-            <span className="status">
-              <span>Doc aberto às <b>{dataHora(doc.aberto_em)}</b></span>
-              <span>Dados de <b>{dataHora(temaAtual.snapshot_gerado_em)}</b>{csv && <> + <b>{csv.nome}</b></>}</span>
-            </span>
-          )}
+          <button className="btn pri" onClick={conferir} disabled={!doc || rodando}>Conferir</button>
         </div>
         {rodando && (
           <div className="progresso">
@@ -1080,7 +1306,7 @@ export default function Laboratorio() {
         })}
         </div>
         {tema && (
-          <PainelCidade cidade={cidade} setCidade={setCidade} resultado={naCidade} atualizando={atualizandoPainel} erro={erroPainel} />
+          <PainelCidade cidade={cidade} setCidade={setCidade} cidades={opcoesDeCidade} resultado={naCidade} atualizando={atualizandoPainel} erro={erroPainel} />
         )}
       </main>
     </>
