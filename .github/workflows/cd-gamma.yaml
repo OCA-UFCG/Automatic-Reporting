@@ -265,11 +265,20 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_PORT: ${{ secrets.DB_PORT }}
           DB_SSLMODE: ${{ secrets.DB_SSLMODE }}
+          DEMOGRAFIA_ESTADO_DOCS_URL: ${{ secrets.DEMOGRAFIA_ESTADO_DOCS_URL }}
+          EDUCACAO_ESTADO_DOCS_URL: ${{ secrets.EDUCACAO_ESTADO_DOCS_URL }}
+          SAUDE_ESTADO_DOCS_URL: ${{ secrets.SAUDE_ESTADO_DOCS_URL }}
+          ECONOMIA_RENDA_ESTADO_DOCS_URL: ${{ secrets.ECONOMIA_RENDA_ESTADO_DOCS_URL }}
+          SANEAMENTO_ESTADO_DOCS_URL: ${{ secrets.SANEAMENTO_ESTADO_DOCS_URL }}
+          HIDRAULICA_ESTADO_DOCS_URL: ${{ secrets.HIDRAULICA_ESTADO_DOCS_URL }}
+          DESENVOLVIMENTO_SOCIAL_ESTADO_DOCS_URL: ${{ secrets.DESENVOLVIMENTO_SOCIAL_ESTADO_DOCS_URL }}
+          MEIO_AMBIENTE_ESTADO_DOCS_URL: ${{ secrets.MEIO_AMBIENTE_ESTADO_DOCS_URL }}
         run: |
           # LABORATORIO_HABILITADO liga as rotas e a página do Laboratório de Temas.
           # Só aqui, no gamma: beta e prod não setam a flag, e as rotas não existem lá
           # (spec do laboratório, "Acesso"). O acesso de fora é pelo gamma-lab.oca-portal.com,
           # com basic auth no nginx do beta.
+          # <TEMA>_ESTADO_DOCS_URL: Docs estaduais do laboratório (?unidade=estado).
           sudo docker run \
             --name ${{ vars.CONTAINER_NAME_GAMMA }} \
             --restart unless-stopped \
@@ -288,6 +297,14 @@ jobs:
             -e DB_PORT="$DB_PORT" \
             -e DB_SSLMODE="$DB_SSLMODE" \
             -e LABORATORIO_HABILITADO=1 \
+            -e DEMOGRAFIA_ESTADO_DOCS_URL="$DEMOGRAFIA_ESTADO_DOCS_URL" \
+            -e EDUCACAO_ESTADO_DOCS_URL="$EDUCACAO_ESTADO_DOCS_URL" \
+            -e SAUDE_ESTADO_DOCS_URL="$SAUDE_ESTADO_DOCS_URL" \
+            -e ECONOMIA_RENDA_ESTADO_DOCS_URL="$ECONOMIA_RENDA_ESTADO_DOCS_URL" \
+            -e SANEAMENTO_ESTADO_DOCS_URL="$SANEAMENTO_ESTADO_DOCS_URL" \
+            -e HIDRAULICA_ESTADO_DOCS_URL="$HIDRAULICA_ESTADO_DOCS_URL" \
+            -e DESENVOLVIMENTO_SOCIAL_ESTADO_DOCS_URL="$DESENVOLVIMENTO_SOCIAL_ESTADO_DOCS_URL" \
+            -e MEIO_AMBIENTE_ESTADO_DOCS_URL="$MEIO_AMBIENTE_ESTADO_DOCS_URL" \
             -d ${{ vars.DOCKER_IMAGE_GAMMA }}:latest
 
       - name: Validate files inside running container
