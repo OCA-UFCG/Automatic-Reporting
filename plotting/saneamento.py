@@ -74,11 +74,10 @@ _ESPACO_ENTRE_ROTULOS = 0.19
 _Y_MAXIMO_ROTULO = 1.45
 
 
-def _angulos_dos_meios(valores: list[float], angulo_inicial: float = 90.0) -> dict[int, float]:
+def _angulos_dos_meios(valores: list[float]) -> dict[int, float]:
     """Ângulo (graus, convenção matemática) do meio de cada fatia com valor
-    > 0, na mesma geometria de `ax.pie(startangle=angulo_inicial,
-    counterclock=False)`: começa em `angulo_inicial` (90 = topo) e anda no
-    sentido horário."""
+    > 0, na mesma geometria de `ax.pie(startangle=90, counterclock=False)`:
+    começa no topo e anda no sentido horário."""
     total = sum(valores)
     if total <= 0:
         return {}
@@ -87,7 +86,7 @@ def _angulos_dos_meios(valores: list[float], angulo_inicial: float = 90.0) -> di
     acumulado = 0.0
     for indice, valor in enumerate(valores):
         if valor > 0:
-            meios[indice] = angulo_inicial - 360.0 * (acumulado + valor / 2) / total
+            meios[indice] = 90.0 - 360.0 * (acumulado + valor / 2) / total
         acumulado += valor
 
     return meios
@@ -128,7 +127,9 @@ def _espalhar_coluna(ideais: list[float], espaco: float = _ESPACO_ENTRE_ROTULOS)
 
 
 def _posicoes_dos_rotulos(
-    valores: list[float], espaco: float = _ESPACO_ENTRE_ROTULOS, angulo_inicial: float = 90.0
+    valores: list[float],
+    espaco: float = _ESPACO_ENTRE_ROTULOS,
+    apenas: set[int] | None = None,
 ) -> dict[int, tuple[float, float, float]]:
     """(ângulo do meio da fatia, x do texto, y do texto) de cada fatia com
     valor > 0. Fatias do lado direito vão para a coluna da direita e as do
@@ -139,8 +140,12 @@ def _posicoes_dos_rotulos(
     `espaco` é a distância vertical mínima entre rótulos, em raios: o padrão
     cabe uma linha de texto; rótulo de duas linhas (pizzas de porte da empresa,
     plotting/instrumentos_sudene_porte.py) passa um valor maior.
-    `angulo_inicial` tem de ser o mesmo `startangle` passado ao `ax.pie`."""
-    meios = _angulos_dos_meios(valores, angulo_inicial)
+    `apenas` restringe aos índices informados (ex.: só as fatias finas, quando
+    as grandes levam o rótulo dentro); o ângulo de cada fatia continua vindo da
+    pizza inteira."""
+    meios = _angulos_dos_meios(valores)
+    if apenas is not None:
+        meios = {indice: angulo for indice, angulo in meios.items() if indice in apenas}
     posicoes: dict[int, tuple[float, float, float]] = {}
 
     for lado in (1, -1):
