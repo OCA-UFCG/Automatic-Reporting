@@ -9,6 +9,10 @@ noturna logo depois do refresh_matviews.sh, mais `--tema X` à mão depois de um
 
 Falhar é barato, como no atualizar_docs.py: uma rodada que aborta ou não passa no portão
 deixa o arquivo anterior no lugar, e a tela mostra a data dele.
+
+Estado (pedido de 03/11/2026: "Estado e Área de interesse se comportarão como município"):
+o mesmo arquivo, em `output/laboratorio/estado/<tema>.json.gz`, com os 9 estados do NE
+no lugar dos municípios, lidos direto da matview estadual do tema (gerar_snapshot_estado).
 """
 
 import gzip
@@ -46,6 +50,24 @@ SNAPSHOT_DIR = OUTPUT_DIR / "laboratorio"
 MAX_FRACAO_MUNICIPIOS_COM_FALHA = 0.01
 MAX_QUEDA_NA_VIEW = 0.05
 
+UNIDADES = ("municipio", "estado")
+
+# Matview estadual de cada tema (schema auto_relatorios_est, da equipe de dados). As
+# colunas são as municipais com o prefixo `uf_`, e as 6 primeiras vêm da est_geral
+# (uf_estado, uf_sujeito "A Paraíba", uf_em, uf_de…). Instrumentos Sudene não tem.
+MATVIEW_ESTADUAL_POR_MACROTEMA = {
+    "demografia": "est_demografia",
+    "educacao": "est_educacao",
+    "saude": "est_saude",
+    "economia-renda": "est_economia",
+    "hidraulica": "est_seg_hidrica",
+    "desenvolvimento-social": "est_desen_social",
+    "meio-ambiente": "est_ambiente",
+    "saneamento": "est_infraestrutura",
+}
+# Só os 9 do Nordeste, como estão nas matviews (André, 03/11/2026: MG e ES ficam fora).
+ESTADOS_DO_NORDESTE = 9
+
 
 class _ContaFalhas(logging.Handler):
     """O único rastro de um timeout/erro engolido por executar_query é o warning
@@ -61,8 +83,10 @@ class _ContaFalhas(logging.Handler):
             self.por_cidade[self.cidade] += 1
 
 
-def caminho_snapshot(slug: str) -> Path:
-    return SNAPSHOT_DIR / f"{slug}.json.gz"
+def caminho_snapshot(slug: str, unidade: str = "municipio") -> Path:
+    # Município fica na raiz, onde o cron do gamma e os snapshots de hoje já estão.
+    pasta = SNAPSHOT_DIR if unidade == "municipio" else SNAPSHOT_DIR / unidade
+    return pasta / f"{slug}.json.gz"
 
 
 def ler_view_do_tema(conn, slug: str) -> tuple[dict[tuple[str, str], dict], list[str]]:
@@ -191,24 +215,75 @@ def gerar_snapshot_tema(slug: str, cidades: list[str] | None = None) -> Path | N
         logger.error("snapshot %s: %s; mantém o anterior", slug, motivo)
         return None
 
-    caminho = caminho_snapshot(slug)
+    caminho, duracao_s = _gravar(caminho_snapshot(slug), slug, inicio, metadados, municipios)
+    logger.info(
+        "snapshot %s: %d na view, %d do CSV, %d ausentes, %d com falha (%.0f s)",
+        slug, na_view, metadados["do_csv"], len(ausentes),
+        len(metadados["falhas_de_consulta"]), duracao_s,
+    )
+    return caminho
+
+
+def _gravar(
+    caminho: Path, slug: str, inicio: float, metadados: dict, unidades: dict[str, dict]
+) -> tuple[Path, float]:
     caminho.parent.mkdir(parents=True, exist_ok=True)
     conteudo = {
         "tema": slug,
         "gerado_em": datetime.now(UTC).isoformat(timespec="seconds"),
         "duracao_s": round(time.monotonic() - inicio, 1),
         "metadados": metadados,
-        "municipios": codificar(municipios),
+        # A chave fica "municipios" em toda unidade: conferir_tema, texto_do_municipio
+        # e as rotas leem dela sem saber se são municípios ou estados.
+        "municipios": codificar(unidades),
     }
     temporario = caminho.with_suffix(".tmp")
     with gzip.open(temporario, "wt", encoding="utf-8") as arquivo:
         json.dump(conteudo, arquivo, ensure_ascii=False)
     os.replace(temporario, caminho)  # atômico: quem lê nunca vê um arquivo pela metade
-    logger.info(
-        "snapshot %s: %d na view, %d do CSV, %d ausentes, %d com falha (%.0f s)",
-        slug, na_view, metadados["do_csv"], len(ausentes),
-        len(metadados["falhas_de_consulta"]), conteudo["duracao_s"],
+    return caminho, conteudo["duracao_s"]
+
+
+def ler_matview_estadual(conn, slug: str) -> list[dict]:
+    """As linhas da matview estadual do tema, uma por estado."""
+    view = MATVIEW_ESTADUAL_POR_MACROTEMA[slug]
+    # SELECT * sem WHERE é seguro aqui, ao contrário das vw_perfil_* (guard do
+    # CLAUDE.md): é matview, já materializada, com 9 linhas e 40–400 kB, e a conexão
+    # leva o statement_timeout (15 s no gamma, 03/11/2026).
+    with conn.cursor() as cursor:
+        cursor.execute(f"SELECT * FROM auto_relatorios_est.{view} ORDER BY uf_cd_uf")
+        colunas = [descricao[0] for descricao in cursor.description]
+        return [dict(zip(colunas, valores)) for valores in cursor.fetchall()]
+
+
+def gerar_snapshot_estado(slug: str) -> Path | None:
+    """Snapshot de estado de um tema: os 9 estados do NE como chaves, com a linha da
+    matview como contexto. Sem o casamento municipal nem os extras do relatório
+    (montar_contexto_tema): a matview já traz o tema inteiro do estado. Devolve o
+    caminho gravado, ou None se a rodada abortou (o arquivo anterior fica)."""
+    inicio = time.monotonic()
+    with conexao_reaproveitada() as conn:
+        try:
+            linhas = ler_matview_estadual(conn, slug)
+        except psycopg2.Error as err:
+            logger.error("snapshot %s (estado): falha ao ler a matview (%s); mantém o anterior", slug, err)
+            return None
+
+    estados = {linha.get("uf_estado"): linha for linha in linhas}
+    # Portão: os 9 estados, com nomes distintos e preenchidos. O portão municipal
+    # (queda na view) não serve: compararia 9 com os 2.074 municípios.
+    if len(linhas) != ESTADOS_DO_NORDESTE or len(estados) != ESTADOS_DO_NORDESTE or not all(estados):
+        logger.error(
+            "snapshot %s (estado): %d linhas e %d nomes de estado, esperava %d; mantém o anterior",
+            slug, len(linhas), len(estados), ESTADOS_DO_NORDESTE,
+        )
+        return None
+
+    unidades = {nome: {"fonte": "view", "contexto": linha} for nome, linha in estados.items()}
+    caminho, duracao_s = _gravar(
+        caminho_snapshot(slug, "estado"), slug, inicio, {"estados": len(unidades)}, unidades
     )
+    logger.info("snapshot %s (estado): %d estados (%.0f s)", slug, len(unidades), duracao_s)
     return caminho
 
 
@@ -221,9 +296,9 @@ def _motivo_para_abortar(metadados: dict, total: int, anteriores: dict | None) -
     return None
 
 
-def carregar_snapshot(slug: str) -> dict | None:
+def carregar_snapshot(slug: str, unidade: str = "municipio") -> dict | None:
     """O snapshot do tema com os tipos de volta (Decimal, date…), ou None se não existe."""
-    caminho = caminho_snapshot(slug)
+    caminho = caminho_snapshot(slug, unidade)
     if not caminho.exists():
         return None
     with gzip.open(caminho, "rt", encoding="utf-8") as arquivo:

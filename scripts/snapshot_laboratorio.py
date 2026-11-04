@@ -6,7 +6,10 @@ no ~/scripts/refresh_matviews.sh do gamma depois do touch .data_version, e à m�
 de uma carga de dados de um tema:
 
     docker exec automatic-reporting-gamma flock -n /app/output/laboratorio.lock \\
-        python3 scripts/snapshot_laboratorio.py [--tema saneamento]
+        python3 scripts/snapshot_laboratorio.py [--tema saneamento] [--unidade estado]
+
+Sem --unidade, só municípios (o que o cron roda). Estado lê as matviews estaduais, 9 linhas
+cada, em poucos segundos; fica fora da rodada noturna até o André decidir encadear.
 
 O flock impede a rodada manual e a noturna de rodarem juntas: um tema por vez, nunca em
 paralelo, é parte da exceção ao guard do SELECT * (ver services/laboratorio_snapshot.py).
@@ -27,7 +30,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 # Antes de qualquer conexão: identifica o job no pg_stat_activity.
 os.environ.setdefault("PGAPPNAME", "laboratorio-snapshot")
 
-from services.laboratorio_snapshot import gerar_snapshot_tema
+from services.laboratorio_snapshot import (
+    MATVIEW_ESTADUAL_POR_MACROTEMA,
+    UNIDADES,
+    gerar_snapshot_estado,
+    gerar_snapshot_tema,
+)
 from utils.queries.perfil_municipal import VIEW_POR_MACROTEMA
 
 logger = logging.getLogger("snapshot_laboratorio")
@@ -36,18 +44,25 @@ logger = logging.getLogger("snapshot_laboratorio")
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--tema", choices=sorted(VIEW_POR_MACROTEMA))
+    parser.add_argument("--unidade", choices=UNIDADES, default="municipio")
     args = parser.parse_args(argv)
+    if args.unidade == "estado":
+        gerar, todos = gerar_snapshot_estado, list(MATVIEW_ESTADUAL_POR_MACROTEMA)
+    else:
+        gerar, todos = gerar_snapshot_tema, list(VIEW_POR_MACROTEMA)
+    if args.tema and args.tema not in todos:
+        parser.error(f"o tema {args.tema} não tem dados por {args.unidade}")
 
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)sZ %(levelname)s %(name)s: %(message)s"
     )
     logging.Formatter.converter = time.gmtime  # a VM roda em UTC; o log também
 
-    temas = [args.tema] if args.tema else list(VIEW_POR_MACROTEMA)
+    temas = [args.tema] if args.tema else todos
     abortados = []
     for slug in temas:
         try:
-            gravado = gerar_snapshot_tema(slug)
+            gravado = gerar(slug)
         except Exception:
             logger.exception("snapshot %s: erro inesperado; mantém o anterior", slug)
             gravado = None
