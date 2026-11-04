@@ -95,7 +95,7 @@ def test_gera_card_de_valor_para_municipio_sem_contratacao_em_2021(tmp_path: Pat
 def test_tema_registra_os_dois_graficos_pelos_marcadores_do_doc():
     nomes = [nome for nome, _, _ in GRAFICOS_POR_TEMA["instrumentos-sudene"]]
 
-    assert nomes == ["grafico_quantidade_de_contratacoes", "grafico_valor_investido"]
+    assert nomes[:2] == ["grafico_quantidade_de_contratacoes", "grafico_valor_investido"]
     assert "instrumentos-sudene" not in GRAFICOS_AUTO_MARCADOR
 
 

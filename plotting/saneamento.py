@@ -74,10 +74,11 @@ _ESPACO_ENTRE_ROTULOS = 0.19
 _Y_MAXIMO_ROTULO = 1.45
 
 
-def _angulos_dos_meios(valores: list[float]) -> dict[int, float]:
+def _angulos_dos_meios(valores: list[float], angulo_inicial: float = 90.0) -> dict[int, float]:
     """Ângulo (graus, convenção matemática) do meio de cada fatia com valor
-    > 0, na mesma geometria de `ax.pie(startangle=90, counterclock=False)`:
-    começa no topo e anda no sentido horário."""
+    > 0, na mesma geometria de `ax.pie(startangle=angulo_inicial,
+    counterclock=False)`: começa em `angulo_inicial` (90 = topo) e anda no
+    sentido horário."""
     total = sum(valores)
     if total <= 0:
         return {}
@@ -86,20 +87,20 @@ def _angulos_dos_meios(valores: list[float]) -> dict[int, float]:
     acumulado = 0.0
     for indice, valor in enumerate(valores):
         if valor > 0:
-            meios[indice] = 90.0 - 360.0 * (acumulado + valor / 2) / total
+            meios[indice] = angulo_inicial - 360.0 * (acumulado + valor / 2) / total
         acumulado += valor
 
     return meios
 
 
-def _blocos_colidem(cima: list[float], baixo: list[float]) -> bool:
-    base_de_cima = cima[0] - _ESPACO_ENTRE_ROTULOS * (cima[1] - 1) / 2
-    topo_de_baixo = baixo[0] + _ESPACO_ENTRE_ROTULOS * (baixo[1] - 1) / 2
+def _blocos_colidem(cima: list[float], baixo: list[float], espaco: float) -> bool:
+    base_de_cima = cima[0] - espaco * (cima[1] - 1) / 2
+    topo_de_baixo = baixo[0] + espaco * (baixo[1] - 1) / 2
 
-    return base_de_cima - topo_de_baixo < _ESPACO_ENTRE_ROTULOS
+    return base_de_cima - topo_de_baixo < espaco
 
 
-def _espalhar_coluna(ideais: list[float]) -> list[float]:
+def _espalhar_coluna(ideais: list[float], espaco: float = _ESPACO_ENTRE_ROTULOS) -> list[float]:
     """Alturas finais de uma coluna de rótulos, dadas as alturas ideais em
     ordem decrescente. Rótulos que se sobrepõem viram um bloco centrado na
     média das suas alturas ideais (em vez de só empurrar para baixo), e o
@@ -108,7 +109,7 @@ def _espalhar_coluna(ideais: list[float]) -> list[float]:
     blocos: list[list[float]] = []
     for ideal in ideais:
         blocos.append([ideal, 1])
-        while len(blocos) > 1 and _blocos_colidem(blocos[-2], blocos[-1]):
+        while len(blocos) > 1 and _blocos_colidem(blocos[-2], blocos[-1], espaco):
             baixo = blocos.pop()
             cima = blocos[-1]
             quantidade = cima[1] + baixo[1]
@@ -117,22 +118,29 @@ def _espalhar_coluna(ideais: list[float]) -> list[float]:
 
     alturas: list[float] = []
     for centro, quantidade in blocos:
-        meia_altura = _ESPACO_ENTRE_ROTULOS * (quantidade - 1) / 2
+        meia_altura = espaco * (quantidade - 1) / 2
         centro = min(centro, _Y_MAXIMO_ROTULO - meia_altura)
         centro = max(centro, -_Y_MAXIMO_ROTULO + meia_altura)
         topo = centro + meia_altura
-        alturas.extend(topo - _ESPACO_ENTRE_ROTULOS * i for i in range(int(quantidade)))
+        alturas.extend(topo - espaco * i for i in range(int(quantidade)))
 
     return alturas
 
 
-def _posicoes_dos_rotulos(valores: list[float]) -> dict[int, tuple[float, float, float]]:
+def _posicoes_dos_rotulos(
+    valores: list[float], espaco: float = _ESPACO_ENTRE_ROTULOS, angulo_inicial: float = 90.0
+) -> dict[int, tuple[float, float, float]]:
     """(ângulo do meio da fatia, x do texto, y do texto) de cada fatia com
     valor > 0. Fatias do lado direito vão para a coluna da direita e as do
     esquerdo para a da esquerda; dentro de cada coluna os rótulos são
     espalhados na vertical sem se sobrepor e na mesma ordem das fatias —
-    por isso as linhas-guia não se cruzam."""
-    meios = _angulos_dos_meios(valores)
+    por isso as linhas-guia não se cruzam.
+
+    `espaco` é a distância vertical mínima entre rótulos, em raios: o padrão
+    cabe uma linha de texto; rótulo de duas linhas (pizzas de porte da empresa,
+    plotting/instrumentos_sudene_porte.py) passa um valor maior.
+    `angulo_inicial` tem de ser o mesmo `startangle` passado ao `ax.pie`."""
+    meios = _angulos_dos_meios(valores, angulo_inicial)
     posicoes: dict[int, tuple[float, float, float]] = {}
 
     for lado in (1, -1):
@@ -142,7 +150,7 @@ def _posicoes_dos_rotulos(valores: list[float]) -> dict[int, tuple[float, float,
         ]
         indices.sort(key=lambda indice: -math.sin(math.radians(meios[indice])))
         ideais = [_RAIO_ROTULO * math.sin(math.radians(meios[i])) for i in indices]
-        for indice, y in zip(indices, _espalhar_coluna(ideais)):
+        for indice, y in zip(indices, _espalhar_coluna(ideais, espaco)):
             posicoes[indice] = (meios[indice], lado * _X_COLUNA_ROTULO, y)
 
     return posicoes
