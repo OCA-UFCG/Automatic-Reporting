@@ -93,7 +93,11 @@ def snapshot_falso(monkeypatch, tmp_path):
         "Pequena (PB)": {"fonte": "view", "contexto": {"pop": 5, "nm_mun": "Pequena (PB)"}},
     }
     with gzip.open(tmp_path / "demografia.json.gz", "wt", encoding="utf-8") as arquivo:
-        json.dump({"gerado_em": "2026-10-29T04:30:00+00:00", "municipios": codificar(municipios)}, arquivo)
+        json.dump({
+            "gerado_em": "2026-10-29T04:30:00+00:00",
+            "municipios": codificar(municipios),
+            "metadados": {"ausentes": ["Sumida (PB)"]},
+        }, arquivo)
 
 
 @pytest.mark.parametrize("flag", [None, "0"])
@@ -122,6 +126,8 @@ def test_conferencia_roda_em_segundo_plano_e_termina_pronta(monkeypatch, snapsho
     assert estado["total"] == 2
     assert estado["snapshot_gerado_em"] == "2026-10-29T04:30:00+00:00"
     assert [v["municipios"] for v in estado["resultado"]["versoes"]] == [1, 1]
+    # Sem dado no tema, fora do snapshot: a tela diz que ficou fora da conferência.
+    assert estado["resultado"]["ausentes"] == ["Sumida (PB)"]
 
 
 def test_texto_de_uma_cidade_e_tema_sem_snapshot(monkeypatch, snapshot_falso):
@@ -233,7 +239,9 @@ def test_rotas_de_temas_e_colunas(monkeypatch, snapshot_falso):
 
     colunas = cliente.get("/laboratorio/demografia/colunas").json()
     assert colunas["snapshot_gerado_em"] == "2026-10-29T04:30:00+00:00"
-    assert {c["coluna"] for c in colunas["colunas"]} == {"pop", "nm_mun"}
+    assert {c["coluna"] for c in colunas["colunas"] if c["tipo"] != "apelido"} == {"pop", "nm_mun"}
+    apelidos = {c["coluna"]: c["de"] for c in colunas["colunas"] if c["tipo"] == "apelido"}
+    assert apelidos == {"city": "nm_mun", "municipio": "nm_mun"}
     assert cliente.get("/laboratorio/saude/colunas").status_code == 404
 
 
@@ -431,3 +439,19 @@ def test_texto_numa_cidade_fecha_com_a_caixa_de_fontes(monkeypatch, tmp_path):
     assert "fontes-box" in resultado["html"][-1] and "Veja também o boletim." in resultado["html"][-1]
     # Só no HTML do painel: o texto que a conferência lê continua só o do tema.
     assert resultado["partes"] == ["Texto de Nova (PB)."]
+
+
+def test_nomes_resolvidos_sem_coluna_saem_preenchidos():
+    # A tela acusa "não está nas colunas" com esta lista: um nome dela que o gerador
+    # não resolvesse viraria campo cru sem aviso.
+    from utils.render.placeholders import (
+        _resolver_campo_com_alias,
+        nomes_resolvidos_sem_coluna,
+    )
+
+    colunas = {"area_territorial", "nm_mun", "ano", "cres_pop", "pop_total", "pop_rural"}
+    nomes = nomes_resolvidos_sem_coluna(colunas)
+    assert {"area", "city", "year", "cres_pop_analise", "pop_rural_per"} <= set(nomes)
+    assert "ano" not in nomes and "raca_maior" not in nomes  # é coluna / origem ausente
+    contexto = dict.fromkeys(colunas, 7)
+    assert [n for n in nomes if _resolver_campo_com_alias(contexto, n) is None] == []

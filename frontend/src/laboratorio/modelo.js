@@ -249,11 +249,30 @@ export function textoDoBloco(itens, versoes) {
   return (comecoDaLinha + bloco + restoDaLinha).trim()
 }
 
-// Avisos que a tela vê sozinha, antes de copiar. Os do gerador (campo cru, condição
-// não entendida) vêm da conferência.
+// $campos do texto que não estão nas colunas do tema nem nos apelidos que o gerador
+// resolve (colunas_para_a_tela): saem crus no relatório, em todo município.
+export function camposForaDasColunas(texto, colunas) {
+  if (!colunas) return []
+  return [...camposDaCondicao(texto)].filter((c) => !colunas.has(c))
+}
+
+// O que sai escrito no relatório: na versão, sem a linha da condição (um $campo só da
+// condição nunca sai cru). Texto fixo: ele inteiro.
+export function textoQueSai(item) {
+  const texto = textoDoItem(item)
+  if (item.tipo !== 'versao') return texto
+  const [primeira, ...resto] = texto.replace(/^\s*\n/, '').split('\n')
+  const condicao = lerCondicao(semFimDeLinha(primeira))
+  return condicao ? [condicao.inline, ...resto].join('\n') : texto
+}
+
+// Avisos que a tela vê sozinha, antes de copiar. Os do gerador (campo vazio em parte
+// dos municípios, condição não entendida) vêm da conferência.
 export function avisosDaVersao(item, colunas) {
   const texto = textoDoItem(item)
-  if (item.tipo !== 'versao' || texto === '') return []
+  if (texto === '') return []
+  const doTexto = (corpo) => camposForaDasColunas(corpo, colunas).map((c) => `$${c} não existe nos dados do tema: sai escrito assim, cru, no relatório`)
+  if (item.tipo !== 'versao') return doTexto(texto)
   const [primeira, ...resto] = texto.replace(/^\s*\n/, '').split('\n')
   const condicao = lerCondicao(semFimDeLinha(primeira))
   if (!condicao) return ['a 1ª linha não é uma condição: o gerador lê a versão como texto fixo']
@@ -264,11 +283,12 @@ export function avisosDaVersao(item, colunas) {
     avisos.push('Esta versão só tem a condição, sem texto embaixo. A condição só esconde texto: o gráfico ou título que vem depois sai em todas as cidades, mesmo onde ela não vale.')
   }
   // Coluna errada na condição não aparece como campo cru: vale como 0, e a versão
-  // pode sair onde não devia. Pode ser apelido (_resolver_campo_com_alias).
-  for (const campo of camposDaCondicao(primeira)) {
-    if (colunas && !colunas.has(campo)) avisos.push(`a condição usa $${campo}, que não está nas colunas do tema`)
+  // pode sair onde não devia.
+  const soACondicao = condicao.inline ? primeira.slice(0, primeira.lastIndexOf(condicao.inline)) : primeira
+  for (const campo of camposForaDasColunas(soACondicao, colunas)) {
+    avisos.push(`a condição usa $${campo}, que não existe nos dados do tema: vale como 0, e a versão pode sair onde não devia`)
   }
-  return avisos
+  return [...avisos, ...doTexto([condicao.inline, ...resto].join('\n'))]
 }
 
 // Rascunho no localStorage (spec, "Rascunho"): por tema, com o hash do Doc em que se

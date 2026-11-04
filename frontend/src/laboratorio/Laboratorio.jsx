@@ -6,6 +6,7 @@ import {
   blocoAlterado,
   buscarOpcoes,
   camposDaCondicao,
+  camposForaDasColunas,
   chaveDoRascunho,
   condicaoDoItem,
   doRascunho,
@@ -20,6 +21,7 @@ import {
   temEdicao,
   textoDoBloco,
   textoDoItem,
+  textoQueSai,
   trechoParaLer,
 } from './modelo.js'
 
@@ -86,7 +88,8 @@ const comparavel = (info) =>
 function resumoDaColuna(info) {
   // Pode ser apelido que o gerador resolve (_resolver_campo_com_alias): quem diz se
   // sai cru é a conferência.
-  if (!info) return 'não está nas colunas deste tema (se a conferência não acusar, é um apelido)'
+  if (!info) return 'não existe nos dados do tema: sai cru no relatório'
+  if (info.tipo === 'apelido') return `apelido que o gerador resolve: sai de $${info.de}`
   const vazios = info.vazios ? `; vazia em ${municipios(info.vazios)}` : ''
   if (info.tipo === 'numero') {
     const outros = info.nao_numeros.map((v) => `"${v.valor}" em ${numero(v.municipios)}`).join(', ')
@@ -110,6 +113,9 @@ function tituloDaColuna(nome, info) {
   if (mais) linhas.push(`… e mais ${numero(mais)} valores`)
   return [`$${nome}: ${resumoDaColuna(info)}`, ...linhas].join('\n')
 }
+
+// O autocomplete oferece só colunas: o apelido existe para Doc antigo, não para texto novo.
+const soColunas = (colunas) => [...(colunas ?? [])].filter(([, info]) => info.tipo !== 'apelido').map(([nome]) => nome)
 
 function FichaDaColuna({ nome, info }) {
   const { valores, mais } = valoresDaColuna(info)
@@ -146,12 +152,22 @@ function ComCampos({ texto, colunas }) {
   })
 }
 
+// Tira do texto o $campo em que o cursor está (para o aviso não piscar a cada letra).
+function semOCampoDoCursor(texto, pos) {
+  if (pos === null) return texto
+  return texto.replace(/(?:[A-Za-z_][\w-]*\.)?\$\w*/g, (m, i) => (i <= pos && pos <= i + m.length ? '' : m))
+}
+
 // Textarea com autocomplete de $coluna: abre ao digitar "$" (com ou sem "tema.") e
 // troca só o nome depois do "$". A lista fica embaixo do textarea, não no cursor.
 function EditorComColunas({ valor, mudar, colunas, prefixo }) {
   const ref = useRef(null)
   const cursor = useRef(null)
   const [sugestao, setSugestao] = useState(null)
+  const [posicaoDoCursor, setPosicaoDoCursor] = useState(null)
+  // Aviso enquanto se escreve (André, 03/11: só vinha da conferência, lá no topo). O
+  // $campo onde está o cursor fica de fora: "$agua_in" ainda está sendo digitado.
+  const errados = sugestao ? [] : camposForaDasColunas(semOCampoDoCursor(valor, posicaoDoCursor), colunas)
   useEffect(() => {
     if (cursor.current === null) return
     ref.current.setSelectionRange(cursor.current, cursor.current)
@@ -167,10 +183,11 @@ function EditorComColunas({ valor, mudar, colunas, prefixo }) {
 
   function atualizar(alvo) {
     const pos = alvo.selectionStart
+    setPosicaoDoCursor(pos)
     const m = alvo.value.slice(0, pos).match(/\$(\w*)$/)
     if (!m || !colunas) return setSugestao(null)
     const q = m[1].toLowerCase()
-    const nomes = [...colunas.keys()]
+    const nomes = soColunas(colunas)
     const lista = [
       ...nomes.filter((c) => c.toLowerCase().startsWith(q)),
       ...nomes.filter((c) => !c.toLowerCase().startsWith(q) && c.toLowerCase().includes(q)),
@@ -213,8 +230,16 @@ function EditorComColunas({ valor, mudar, colunas, prefixo }) {
         onKeyDown={tecla}
         onKeyUp={(e) => ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key) && atualizar(e.target)}
         onClick={(e) => atualizar(e.target)}
-        onBlur={() => setSugestao(null)}
+        onBlur={() => {
+          setSugestao(null)
+          setPosicaoDoCursor(null)
+        }}
       />
+      {errados.length > 0 && (
+        <div className="problema">
+          {errados.map((c) => `$${c}`).join(', ')} não {errados.length === 1 ? 'existe' : 'existem'} nos dados do tema: {errados.length === 1 ? 'sai' : 'saem'} cru no relatório.
+        </div>
+      )}
       {sugestao && (
         <div className="sugestoes" role="listbox">
           {sugestao.lista.map((nome, i) => (
@@ -335,7 +360,7 @@ function CaixaDeBusca({ id, valor, mudar, opcoes, placeholder, className = '' })
 
 function FormCondicao({ colunas, prefixo, escrever, fechar }) {
   const [coluna, setColuna] = useState('')
-  const nomesDasColunas = useMemo(() => [...(colunas?.keys() ?? [])], [colunas])
+  const nomesDasColunas = useMemo(() => soColunas(colunas), [colunas])
   const [operador, setOperador] = useState('igual')
   const [valor, setValor] = useState('')
   const [valor2, setValor2] = useState('')
@@ -459,7 +484,7 @@ function separarEspacos(texto) {
   return { antes, miolo, depois }
 }
 
-function Versao({ item, contagem, problema, naCidade, podeSeparar, acoes, tema, colunas, prefixo, csv }) {
+function Versao({ item, contagem, avisos, naCidade, podeSeparar, acoes, tema, colunas, prefixo, csv }) {
   const texto = textoDoItem(item)
   // Versão recém-criada já abre em edição, com o modelo no textarea.
   const [editando, setEditando] = useState(item.original === '' && item.editado !== undefined)
@@ -518,11 +543,11 @@ function Versao({ item, contagem, problema, naCidade, podeSeparar, acoes, tema, 
     )
   }
 
-  const classe = removida ? ' removida' : naCidade === undefined ? '' : naCidade ? ' dispara' : ' apagada'
+  const classe = (removida ? ' removida' : naCidade === undefined ? '' : naCidade ? ' dispara' : ' apagada') + (avisos.length ? ' com-aviso' : '')
   const corpo = separarEspacos(texto).miolo.split('\n').slice(1).join('\n')
   return (
     // Condição na margem, como anotação de revisor; o texto corre ao lado (André, 03/11).
-    <div className={`versao${classe}`}>
+    <div className={`versao${classe}`} id={`item-${item.id}`}>
       <div className="margem">
         <span className={`condicao${condicao || removida ? '' : ' quebrada'}`}>
           {removida ? item.condicao : condicao ? <ComCampos texto={condicao} colunas={colunas} /> : 'A 1ª linha não é mais uma condição: o gerador vai ler isto como texto fixo'}
@@ -544,7 +569,7 @@ function Versao({ item, contagem, problema, naCidade, podeSeparar, acoes, tema, 
         </div>
       </div>
       <div className="texto-versao">
-        {problema && !removida && <div className="problema">O gerador não entende esta condição: {problema}</div>}
+        {avisos.map((a) => <div key={a} className="problema">{a}</div>)}
         {!removida && <div className="corpo"><ComCampos texto={paraTela(corpo)} colunas={colunas} /></div>}
         {!removida && <LerComCadaValor tema={tema} texto={texto} colunas={colunas} csv={csv} />}
       </div>
@@ -552,23 +577,25 @@ function Versao({ item, contagem, problema, naCidade, podeSeparar, acoes, tema, 
   )
 }
 
-function Texto({ item, tema, colunas, csv }) {
+function Texto({ item, avisos, tema, colunas, csv }) {
   return (
-    <div className="card texto">
+    <div className={`card texto${avisos.length ? ' com-aviso' : ''}`} id={`item-${item.id}`}>
+      {avisos.map((a) => <div key={a} className="problema">{a}</div>)}
       <div className="cbody"><ComCampos texto={paraTela(textoDoItem(item))} colunas={colunas} /></div>
       <LerComCadaValor tema={tema} texto={textoDoItem(item)} colunas={colunas} csv={csv} />
     </div>
   )
 }
 
-function Bloco({ numero: n, versoes, estatisticas, juntar, novaVersao, alterado, avisos, dica, copiar, copiado }) {
+function Bloco({ numero: n, versoes, estatisticas, completo, juntar, novaVersao, alterado, dica, copiar, copiado }) {
   return (
     <div className="card" id={`bloco-${n}`}>
       <div className="chead">
         <span className="ctag">Bloco {n}</span>
         <span className="chip">{versoes.length} {versoes.length === 1 ? 'versão' : 'versões'}</span>
         {alterado ? <span className="chip atencao">alterado</span> : <span className="chip bom">igual ao Doc</span>}
-        {estatisticas?.sem.length > 0 && <span className="chip atencao">fica de fora em {municipios(estatisticas.sem.length)}</span>}
+        {estatisticas?.sem.length > 0 && <span className="chip ruim">sem texto em {municipios(estatisticas.sem.length)}</span>}
+        {estatisticas?.sem.length === 0 && completo && <span className="chip bom">texto em todos os municípios</span>}
         {estatisticas?.varias.length > 0 && <span className="chip ruim">sai com 2+ trechos em {municipios(estatisticas.varias.length)}</span>}
         <span className="spacer" />
         {juntar && <button className="btn ghost sm" onClick={juntar}>juntar com o de cima</button>}
@@ -577,11 +604,6 @@ function Bloco({ numero: n, versoes, estatisticas, juntar, novaVersao, alterado,
         </button>
       </div>
       {alterado && dica && <div className="bloco-detalhe">{dica}</div>}
-      {avisos.length > 0 && (
-        <div className="bloco-detalhe avisos">
-          {avisos.map((a) => <div key={a} className="aviso">{a}</div>)}
-        </div>
-      )}
       {estatisticas && (estatisticas.sem.length > 0 || estatisticas.varias.length > 0) && (
         <div className="bloco-detalhe">
           {estatisticas.varias.length > 0 && (
@@ -591,7 +613,7 @@ function Bloco({ numero: n, versoes, estatisticas, juntar, novaVersao, alterado,
             </div>
           )}
           {estatisticas.sem.length > 0 && (
-            <div><b>Fica de fora em:</b> <Nomes nomes={estatisticas.sem.slice(0, MAX_NOMES)} total={estatisticas.sem.length} /></div>
+            <div><b>Sem texto em:</b> <Nomes nomes={estatisticas.sem.slice(0, MAX_NOMES)} total={estatisticas.sem.length} /></div>
           )}
         </div>
       )}
@@ -616,7 +638,7 @@ function dicaDeColar(texto) {
 // Resumo para levar ao Doc (spec, "Exportar"): copiar por bloco é o caminho
 // principal; copiar o tema inteiro é o secundário, porque colar o Doc inteiro apaga
 // comentários e formatação que o editorial tenha nele.
-function PainelExportar({ editou, alterados, conferencia, avisosLocais, copiarTudo, copiado }) {
+function PainelExportar({ editou, alterados, conferencia, nAvisos, copiarTudo, copiado }) {
   return (
     <div className="card exportar">
       <div className="chead"><span className="ctag">Para levar ao Doc</span></div>
@@ -627,11 +649,11 @@ function PainelExportar({ editou, alterados, conferencia, avisosLocais, copiarTu
             : 'Nenhum bloco alterado: as mudanças estão em texto fora dos blocos.'}
         </div>
         {editou && <div className={conferencia === 'ok' ? 'muted' : 'aviso-exportar'}>
-          {conferencia === 'ok' && '✓ Conferido depois da última mudança (os avisos do gerador, se houver, estão acima).'}
-          {conferencia === 'velha' && 'O texto mudou desde a última conferência: clique em Conferir antes de colar.'}
-          {conferencia === 'nunca' && 'Ainda não conferido: clique em Conferir antes de colar.'}
+          {conferencia === 'ok' && '✓ Conferido depois da última mudança.'}
+          {conferencia === 'velha' && 'O texto mudou desde a última conferência: confira antes de colar (barra no pé da página).'}
+          {conferencia === 'nunca' && 'Ainda não conferido: confira antes de colar (barra no pé da página).'}
         </div>}
-        {avisosLocais > 0 && <div className="aviso-exportar">{avisosLocais === 1 ? '1 aviso' : `${avisosLocais} avisos`} nos blocos (veja em cada bloco).</div>}
+        {nAvisos > 0 && <div className="aviso-exportar">{nAvisos === 1 ? '1 trecho' : `${nAvisos} trechos`} com aviso, marcados em vermelho: "próximo aviso", na barra do pé da página, leva a cada um.</div>}
         <div className="acoes">
           <button className="btn sm" onClick={copiarTudo}>{copiado ? 'copiado ✓' : 'copiar o Doc inteiro'}</button>
           <span className="muted">Só se for substituir o Doc todo: colar por cima apaga comentários e formatação do Doc.</span>
@@ -680,9 +702,11 @@ function PainelCidade({ cidade, setCidade, cidades, resultado, atualizando, erro
   )
 }
 
-function Avisos({ resultado }) {
+// Só o que não tem um trecho onde ficar: os campos crus e as condições não entendidas
+// vão para a versão que os usa (André, 03/11); aqui ficam os que não acharam versão.
+function Avisos({ resultado, crusSoltos, naoEntendidasSoltas }) {
   const avisos = []
-  for (const campo of resultado.campos_crus) {
+  for (const campo of crusSoltos) {
     avisos.push(
       <div key={`c-${campo.campo}`} className={`banner ${campo.existe ? 'atencao' : 'erro'}`}>
         <b>${campo.campo}</b>{' '}
@@ -693,7 +717,7 @@ function Avisos({ resultado }) {
       </div>
     )
   }
-  for (const aviso of resultado.condicoes_nao_entendidas) {
+  for (const aviso of naoEntendidasSoltas) {
     avisos.push(<div key={`n-${aviso}`} className="banner erro"><b>O gerador não entende esta condição:</b> {aviso}</div>)
   }
   for (const condicao of resultado.condicoes_sem_efeito) {
@@ -711,6 +735,73 @@ function Avisos({ resultado }) {
     avisos.push(<div key="erros" className="banner erro"><b>Erro em {municipios(erros.length)}:</b> {erros.slice(0, 3).map(([c, e]) => `${c} (${e})`).join('; ')}</div>)
   }
   return avisos
+}
+
+// Conferir perto de quem edita (André, 03/11): o botão e o resultado ficavam no topo, e
+// quem editava o Bloco 7 não via nada. A barra gruda no pé da coluna do texto. A
+// cobertura responde a pergunta do editorial: toda cidade recebe texto em todo bloco?
+function BarraDaConferencia({ conferencia, rodando, resultado, velha, casa, cobertura, nBlocos, nAvisos, proximo, conferir }) {
+  let status
+  let tom = ''
+  if (rodando) {
+    status = conferencia.estado === 'na_fila'
+      ? 'Na fila: outra conferência está rodando…'
+      : `Conferindo ${numero(conferencia.feitos)} de ${numero(conferencia.total)} municípios…`
+  } else if (conferencia?.estado === 'erro') {
+    status = `A conferência falhou: ${conferencia.erro}`
+    tom = ' ruim'
+  } else if (!resultado) {
+    status = 'Ainda não conferido contra os municípios.'
+  } else if (velha) {
+    status = `O texto mudou desde a conferência das ${dataHora(conferencia.conferido_em)}: as contagens são do texto anterior.`
+    tom = ' atencao'
+  } else if (!casa) {
+    status = 'As versões do texto não batem com as da conferência: confira de novo.'
+    tom = ' atencao'
+  } else {
+    const nenhum = resultado.versoes.filter((v) => !v.municipios).length
+    status = `Conferido às ${dataHora(conferencia.conferido_em)} contra ${municipios(cobertura.conferidos)}.${nenhum ? ` ${nenhum} ${nenhum === 1 ? 'versão não aparece' : 'versões não aparecem'} em nenhum.` : ''}`
+  }
+  return (
+    <div className="barra-conferencia" role="status">
+      <div className="barra-linha">
+        <span className={`barra-status${tom}`}>{status}</span>
+        <span className="spacer" />
+        {nAvisos > 0 && (
+          <button className="btn sm" onClick={proximo} title="Rola até o próximo trecho marcado em vermelho">
+            próximo aviso ↓ <span className="contador">{nAvisos}</span>
+          </button>
+        )}
+        <button className="btn pri sm" onClick={conferir} disabled={rodando}>{resultado ? 'Conferir de novo' : 'Conferir'}</button>
+      </div>
+      {rodando && (
+        <div className="progresso">
+          <div className="barra" style={{ width: `${conferencia.total ? (100 * conferencia.feitos) / conferencia.total : 0}%` }} />
+        </div>
+      )}
+      {cobertura && nBlocos > 0 && (
+        <div className="cobertura">
+          {cobertura.blocosSemTexto.length === 0 ? (
+            <span className={cobertura.completa ? 'bom' : ''}>
+              {cobertura.completa ? '✓ ' : ''}{nBlocos === 1 ? 'O bloco tem' : `Todos os ${nBlocos} blocos têm`} texto em {cobertura.completa ? 'todos os ' : ''}{municipios(cobertura.conferidos)}{cobertura.completa ? '' : ' conferidos'}.
+            </span>
+          ) : (
+            <span className="ruim">
+              {cobertura.blocosSemTexto.length} de {nBlocos} blocos deixam municípios sem texto:{' '}
+              {cobertura.blocosSemTexto.map((n, i) => <span key={n}>{i ? ', ' : ''}<a href={`#bloco-${n}`}>Bloco {n}</a></span>)}.
+            </span>
+          )}
+          {cobertura.comErro > 0 && <span className="ruim"> {municipios(cobertura.comErro)} {cobertura.comErro === 1 ? 'deu erro e não foi conferido' : 'deram erro e não foram conferidos'}.</span>}
+          {cobertura.ausentes.length > 0 && (
+            <span className="atencao">
+              {' '}{municipios(cobertura.ausentes.length)} sem dados neste tema {cobertura.ausentes.length === 1 ? 'ficou' : 'ficaram'} fora:{' '}
+              <Nomes nomes={cobertura.ausentes.slice(0, MAX_NOMES)} total={cobertura.ausentes.length} />.
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // Seletor de tema próprio (André, 03/11): a lista nativa não se estiliza, e "Escolha o
@@ -1115,13 +1206,81 @@ export default function Laboratorio() {
     }),
   )
   const temaAtual = temas?.find((t) => t.slug === tema)
+  const contaCom = casaComOTexto && !conferenciaVelha
   const blocos = grupos.filter((g) => g.tipo === 'bloco').map((g, i) => ({
     ...g,
     numero: i + 1,
     alterado: blocoAlterado(itens, g.versoes),
-    avisos: g.versoes.flatMap((indice) => avisosDaVersao(itens[indice], colunas)),
     dica: dicaDeColar(textoDoBloco(itens, g.versoes)),
+    estatisticas: contaCom
+      ? estatisticasDoBloco(g.versoes.map((indice) => posicao.get(indice)).filter((k) => k !== undefined), resultado.versoes_por_municipio)
+      : null,
   }))
+
+  // Avisos de cada trecho, no próprio trecho (André, 03/11). Os da tela valem sempre;
+  // os da conferência, só se ela é do texto de agora.
+  const crusAchados = new Set()
+  const avisosDoItem = new Map()
+  itens.forEach((item, indice) => {
+    const locais = avisosDaVersao(item, colunas)
+    const avisos = [...locais]
+    const k = posicao.get(indice)
+    if (contaCom && textoDoItem(item) !== '') {
+      const problema = k !== undefined && problemas.get(resultado.versoes[k].condicao)
+      if (problema) avisos.push(`O gerador não entende esta condição: ${problema}`)
+      const usados = camposDaCondicao(textoQueSai(item))
+      for (const campo of resultado.campos_crus) {
+        if (!usados.has(campo.campo)) continue
+        crusAchados.add(campo.campo)
+        if (locais.some((a) => a.startsWith(`$${campo.campo} `))) continue // já avisado pela tela
+        // Só onde este trecho sai: vazio numa cidade em que a versão não vale não aparece.
+        const onde = k === undefined ? campo.municipios : campo.municipios.filter((c) => resultado.versoes_por_municipio[c]?.includes(k))
+        if (!onde.length) continue
+        avisos.push(`$${campo.campo} ${campo.existe ? 'está vazio' : 'não existe'} em ${municipios(onde.length)} onde este trecho sai, e lá sai cru: ${onde.slice(0, 3).join(', ')}${onde.length > 3 ? '…' : ''}`)
+      }
+    }
+    if (avisos.length) avisosDoItem.set(indice, avisos)
+  })
+  const semAvisos = []
+  const avisosDe = (indice) => avisosDoItem.get(indice) ?? semAvisos
+  // Na ordem da tela: o bloco (sem texto / 2+ trechos) antes das versões dele.
+  const marcados = []
+  let contaBlocos = 0
+  for (const grupo of grupos) {
+    if (grupo.tipo === 'bloco') {
+      const bloco = blocos[contaBlocos++]
+      if (bloco.estatisticas && (bloco.estatisticas.sem.length || bloco.estatisticas.varias.length)) marcados.push(`bloco-${bloco.numero}`)
+      for (const indice of grupo.versoes) if (avisosDoItem.has(indice)) marcados.push(`item-${itens[indice].id}`)
+    } else if (avisosDoItem.has(grupo.indice)) {
+      marcados.push(`item-${itens[grupo.indice].id}`)
+    }
+  }
+  const versoesDoTexto = new Set(resultado?.versoes.map((v) => v.condicao))
+  const cobertura = contaCom
+    ? {
+        conferidos: Object.keys(resultado.versoes_por_municipio).length,
+        comErro: Object.keys(resultado.erros).length,
+        ausentes: resultado.ausentes ?? [],
+        blocosSemTexto: blocos.filter((b) => b.estatisticas.sem.length).map((b) => b.numero),
+      }
+    : null
+  if (cobertura) cobertura.completa = !cobertura.comErro && !cobertura.ausentes.length
+
+  // "Próximo aviso": o primeiro marcado abaixo do topo da área de leitura; no fim, volta
+  // ao primeiro. O scroll-margin-top deixa o alvo logo abaixo do cabeçalho.
+  // Se o último alvo ainda está no alto da tela, segue a lista a partir dele (sem isso,
+  // o alvo que pousou um pouco abaixo do cabeçalho era escolhido de novo).
+  const ultimoAviso = useRef(null)
+  function proximoAviso() {
+    const topo = cabecalho.current.getBoundingClientRect().bottom
+    const alvos = marcados.map((id) => document.getElementById(id)).filter(Boolean)
+    const ultimo = alvos.indexOf(document.getElementById(ultimoAviso.current))
+    const noAlto = ultimo >= 0 && Math.abs(alvos[ultimo].getBoundingClientRect().top - topo) < 200
+    const alvo = noAlto ? alvos[(ultimo + 1) % alvos.length] : alvos.find((e) => e.getBoundingClientRect().top > topo + 4) ?? alvos[0]
+    if (!alvo) return
+    ultimoAviso.current = alvo.id
+    alvo.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
   const editou = temEdicao(itens)
   const opcoesDeCidade = useMemo(() => [...cidades, ...(csv?.so_no_csv ?? [])], [cidades, csv])
   let numeroBloco = 0
@@ -1175,35 +1334,12 @@ export default function Laboratorio() {
           </label>
           <button className="btn pri" onClick={conferir} disabled={!doc || rodando}>Conferir</button>
         </div>
-        {rodando && (
-          <div className="progresso">
-            <div className="barra" style={{ width: `${conferencia.total ? (100 * conferencia.feitos) / conferencia.total : 0}%` }} />
-            <span>
-              {conferencia.estado === 'na_fila'
-                ? 'Na fila: outra conferência está rodando…'
-                : `Conferindo ${numero(conferencia.feitos)} de ${numero(conferencia.total)} municípios…`}
-            </span>
-          </div>
-        )}
       </header>
       <main className={tema ? 'com-painel' : ''}>
         {/* Status e avisos em faixa própria, acima das duas colunas: dentro da coluna do
             texto, eles empurravam só ela e desalinhavam do painel da cidade (André, 03/11). */}
         <div className="mensagens">
         {erro && <div className="banner erro">{erro}</div>}
-        {conferencia?.estado === 'erro' && <div className="banner erro">A conferência falhou: {conferencia.erro}</div>}
-        {resultado && (
-          <div className="resumo">
-            Conferido às <b>{dataHora(conferencia.conferido_em)}</b> contra {municipios(conferencia.total)}.{' '}
-            {resultado.versoes.filter((v) => !v.municipios).length} versões não aparecem em nenhum município.
-          </div>
-        )}
-        {conferenciaVelha && (
-          <div className="banner atencao">O texto mudou desde a conferência: os números abaixo são do texto anterior. Clique em Conferir de novo.</div>
-        )}
-        {resultado && !casaComOTexto && !conferenciaVelha && (
-          <div className="banner atencao">As versões do texto não batem com as da conferência. Confira de novo.</div>
-        )}
         {csv && (
           <div className="banner csv">
             <b>CSV {csv.nome}</b>: {csv.colunas_do_csv.length} {csv.colunas_do_csv.length === 1 ? 'coluna' : 'colunas'}{' '}
@@ -1249,13 +1385,19 @@ export default function Laboratorio() {
             editou={editou}
             alterados={blocos.filter((b) => b.alterado).map((b) => b.numero)}
             conferencia={!resultado ? 'nunca' : conferenciaVelha ? 'velha' : 'ok'}
-            avisosLocais={blocos.reduce((n, b) => n + b.avisos.length, 0)}
+            nAvisos={marcados.length}
             copiarTudo={() => copiar(exportar(itens), 'tudo')}
             copiado={copiado === 'tudo'}
           />
         )}
         {paraCopiar !== null && <CopiarAMao texto={paraCopiar} fechar={() => setParaCopiar(null)} />}
-        {resultado && <Avisos resultado={resultado} />}
+        {resultado && contaCom && (
+          <Avisos
+            resultado={resultado}
+            crusSoltos={resultado.campos_crus.filter((c) => !crusAchados.has(c.campo))}
+            naoEntendidasSoltas={resultado.condicoes_nao_entendidas.filter((a) => !versoesDoTexto.has(a.split('\n')[0].trim()))}
+          />
+        )}
         {carregando && <div className="empty"><p>Abrindo o Doc…</p></div>}
         {!tema && !carregando && (
           <div className="empty">
@@ -1266,9 +1408,7 @@ export default function Laboratorio() {
         {grupos.map((grupo, i) => {
           // Chaves com prefixo: id de texto e id de versão são números da mesma sequência,
           // e "b-3" e "t-3" não podem colidir (o React reaproveitaria o cartão errado).
-          if (grupo.tipo !== 'bloco') return <Texto key={`t-${itens[grupo.indice].id}`} item={itens[grupo.indice]} tema={tema} colunas={colunas} csv={csv} />
-          const posicoes = grupo.versoes.map((indice) => posicao.get(indice)).filter((k) => k !== undefined)
-          const contaCom = casaComOTexto && !conferenciaVelha
+          if (grupo.tipo !== 'bloco') return <Texto key={`t-${itens[grupo.indice].id}`} item={itens[grupo.indice]} avisos={avisosDe(grupo.indice)} tema={tema} colunas={colunas} csv={csv} />
           const primeiro = itens[grupo.versoes[0]]
           const bloco = blocos[numeroBloco++]
           return (
@@ -1276,11 +1416,11 @@ export default function Laboratorio() {
               key={`b-${primeiro.id}`}
               numero={bloco.numero}
               alterado={bloco.alterado}
-              avisos={bloco.avisos}
               dica={bloco.dica}
               copiar={() => copiar(textoDoBloco(itens, grupo.versoes), `b-${primeiro.id}`)}
               copiado={copiado === `b-${primeiro.id}`}
-              estatisticas={contaCom ? estatisticasDoBloco(posicoes, resultado.versoes_por_municipio) : null}
+              estatisticas={bloco.estatisticas}
+              completo={cobertura?.completa}
               juntar={grupos[i - 1]?.tipo === 'bloco' ? () => juntarComOdeCima(primeiro.id) : null}
               novaVersao={() => novaVersao(itens[grupo.versoes.at(-1)].id)}
               versoes={grupo.versoes.map((indice, j) => {
@@ -1290,7 +1430,7 @@ export default function Laboratorio() {
                     key={itens[indice].id}
                     item={itens[indice]}
                     contagem={contaCom && k !== undefined ? resultado.versoes[k].municipios : undefined}
-                    problema={contaCom && k !== undefined ? problemas.get(resultado.versoes[k].condicao) : undefined}
+                    avisos={avisosDe(indice)}
                     naCidade={naCidadeAtual && k !== undefined ? naCidadeAtual.versoes[k]?.[1] : undefined}
                     podeSeparar={j > 0}
                     acoes={acoesDaVersao(itens[indice].id)}
@@ -1304,6 +1444,20 @@ export default function Laboratorio() {
             />
           )
         })}
+        {doc && (
+          <BarraDaConferencia
+            conferencia={conferencia}
+            rodando={rodando}
+            resultado={resultado}
+            velha={conferenciaVelha}
+            casa={casaComOTexto}
+            cobertura={cobertura}
+            nBlocos={blocos.length}
+            nAvisos={marcados.length}
+            proximo={proximoAviso}
+            conferir={conferir}
+          />
+        )}
         </div>
         {tema && (
           <PainelCidade cidade={cidade} setCidade={setCidade} cidades={opcoesDeCidade} resultado={naCidade} atualizando={atualizandoPainel} erro={erroPainel} />
