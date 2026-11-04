@@ -27,7 +27,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from config import OUTPUT_DIR
+from config import OUTPUT_DIR, get_config_value
 from services.cache import evict_graficos_if_needed
 from services.csv_loader import normalizar_colunas_macrotema
 from services.generation import gerar_graficos_do_tema, separar_secoes_do_tema
@@ -64,7 +64,7 @@ def com_csv(contextos: dict[str, dict], csv: dict[str, dict] | None) -> dict[str
     }}
 
 
-def ler_csv(slug: str, texto: str) -> dict | None:
+def ler_csv(slug: str, texto: str, unidade: str = "municipio") -> dict | None:
     """Lê o CSV que a editora subiu e casa cada linha com um município do snapshot,
     pela mesma regra do fallback de CSV do gerador (filtrar_linhas_por_cidade). Nada
     é gravado: as linhas voltam para o navegador, que as manda junto em cada pedido.
@@ -73,7 +73,7 @@ def ler_csv(slug: str, texto: str) -> dict | None:
     já com o CSV por cima (para a ficha e o autocomplete). None sem snapshot; ValueError
     com a mensagem para a tela se o CSV não serve.
     """
-    snapshot = carregar_snapshot(slug)
+    snapshot = carregar_snapshot(slug, unidade)
     if snapshot is None:
         return None
     try:
@@ -266,11 +266,13 @@ def _apagar_antigas() -> None:
             arquivo.unlink(missing_ok=True)
 
 
-def _rodar(id_conferencia: str, slug: str, doc_texto: str, csv: dict[str, dict] | None) -> None:
+def _rodar(
+    id_conferencia: str, slug: str, doc_texto: str, csv: dict[str, dict] | None, unidade: str = "municipio"
+) -> None:
     with open(_LOCK, "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)  # espera a conferência anterior acabar
         try:
-            snapshot = carregar_snapshot(slug)
+            snapshot = carregar_snapshot(slug, unidade)
             if snapshot is None:
                 _gravar(id_conferencia, {"estado": "erro", "erro": "tema sem snapshot"})
                 return
@@ -297,13 +299,15 @@ def _rodar(id_conferencia: str, slug: str, doc_texto: str, csv: dict[str, dict] 
             _gravar(id_conferencia, {"estado": "erro", "erro": f"{type(err).__name__}: {err}"})
 
 
-def iniciar_conferencia(slug: str, doc_texto: str, csv: dict[str, dict] | None = None) -> str:
+def iniciar_conferencia(
+    slug: str, doc_texto: str, csv: dict[str, dict] | None = None, unidade: str = "municipio"
+) -> str:
     CONFERENCIAS_DIR.mkdir(parents=True, exist_ok=True)
     _apagar_antigas()
     id_conferencia = uuid.uuid4().hex
     _gravar(id_conferencia, {"estado": "na_fila"})
     threading.Thread(
-        target=_rodar, args=(id_conferencia, slug, doc_texto, csv),
+        target=_rodar, args=(id_conferencia, slug, doc_texto, csv, unidade),
         name=f"conferencia:{slug}", daemon=True,
     ).start()
     return id_conferencia
@@ -328,7 +332,12 @@ def graficos_do_municipio(slug: str, contexto: dict, cidade: str) -> dict[str, s
 
 
 def texto_do_municipio(
-    slug: str, doc_texto: str, cidade: str, csv: dict[str, dict] | None = None, com_graficos: bool = False
+    slug: str,
+    doc_texto: str,
+    cidade: str,
+    csv: dict[str, dict] | None = None,
+    com_graficos: bool = False,
+    unidade: str = "municipio",
 ) -> dict | None:
     """Texto final do tema numa cidade, para "texto pronto numa cidade" e "ler com
     cada valor". None se o tema não tem snapshot ou a cidade não está nele.
@@ -337,7 +346,7 @@ def texto_do_municipio(
     custaria ~100 MB × 3 workers num host que já sofreu com memória; cachear se a
     tela ficar lenta.
     """
-    snapshot = carregar_snapshot(slug)
+    snapshot = carregar_snapshot(slug, unidade)
     if snapshot is None:
         return None
     municipio = snapshot["municipios"].get(cidade)
@@ -345,7 +354,12 @@ def texto_do_municipio(
     if contexto is None:
         return None
     secoes, _ = separar_secoes_do_tema(doc_texto, slug)
-    graficos = graficos_do_municipio(slug, contexto, cidade) if com_graficos else None
+    if unidade != "municipio":
+        # Os gráficos (GRAFICOS_POR_TEMA) leem colunas municipais: estado fica sem
+        # gráfico, e a menção "(Figura X)" some como num gráfico sem dado.
+        graficos = {}
+    else:
+        graficos = graficos_do_municipio(slug, contexto, cidade) if com_graficos else None
     resultado = conferir_municipio(secoes.descricao_tema or "", contexto, slug, graficos)
     # O relatório fecha o tema com a caixa "Fontes / Conteúdos relacionados", o que
     # sobra do Doc depois do "@@" (generation.py, fontes_html). Só no HTML do painel:
@@ -355,13 +369,28 @@ def texto_do_municipio(
     return resultado
 
 
-async def abrir_doc(slug: str) -> dict | None:
+def docs_env(slug: str, unidade: str = "municipio") -> str:
+    """Nome da variável de ambiente com o Doc do tema na unidade. Um Doc por tema e
+    unidade (André, 03/11/2026): DEMOGRAFIA_DOCS_URL → DEMOGRAFIA_ESTADO_DOCS_URL.
+    Lista oficial dos nomes: .env.example."""
+    env = get_macrotema(slug)["docs_env"]
+    return env if unidade == "municipio" else env.replace("_DOCS_URL", f"_{unidade.upper()}_DOCS_URL")
+
+
+def docs_url(slug: str, unidade: str = "municipio") -> str | None:
+    if unidade == "municipio":
+        return get_macrotema(slug).get("docs_url")
+    # Lido na hora, e não em config.py: um Doc novo de unidade entra só pelo .env.
+    return get_config_value(docs_env(slug, unidade))
+
+
+async def abrir_doc(slug: str, unidade: str = "municipio") -> dict | None:
     """O Doc do tema, sempre fresco e sem gravar no cache do relatório, com o hash que
     o rascunho guarda para saber se o Doc mudou depois. None se o tema não tem Doc."""
-    docs_url = get_macrotema(slug).get("docs_url")
-    if not docs_url:
+    docs_url_do_tema = docs_url(slug, unidade)
+    if not docs_url_do_tema:
         return None
-    texto = await baixar_doc(docs_url)
+    texto = await baixar_doc(docs_url_do_tema)
     return {"texto": texto, "hash": hashlib.sha256(texto.encode()).hexdigest()}
 
 
@@ -436,7 +465,9 @@ def colunas_para_a_tela(contextos: dict[str, dict]) -> list[dict]:
     return colunas + [{"coluna": nome, "tipo": "apelido", "de": origem} for nome, origem in sorted(apelidos.items())]
 
 
-def ler_com_cada_valor(slug: str, trecho: str, csv: dict[str, dict] | None = None) -> list[dict] | None:
+def ler_com_cada_valor(
+    slug: str, trecho: str, csv: dict[str, dict] | None = None, unidade: str = "municipio"
+) -> list[dict] | None:
     """"Ler com cada valor" (spec): o trecho (uma versão ou um texto fixo) pronto, por
     um município que tenha cada valor das colunas de texto que ele usa. Pega a
     concordância que serve para um valor e não para outro ("apresentou uma redução" ×
@@ -451,7 +482,7 @@ def ler_com_cada_valor(slug: str, trecho: str, csv: dict[str, dict] | None = Non
     lido e o trecho renderizado uma vez por município, pelo mesmo caminho do relatório.
     None se o tema não tem snapshot.
     """
-    snapshot = carregar_snapshot(slug)
+    snapshot = carregar_snapshot(slug, unidade)
     if snapshot is None:
         return None
     contextos = com_csv({cidade: m["contexto"] for cidade, m in snapshot["municipios"].items()}, csv)
