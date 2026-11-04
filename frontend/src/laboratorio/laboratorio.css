@@ -97,12 +97,7 @@ main { max-width: 1180px; margin: 0 auto; padding: 18px 16px; }
 .btn:hover:not(:disabled) { border-color: var(--accent); color: var(--ok); }
 .btn:disabled { opacity: .5; cursor: default; }
 .btn.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
-.progresso { position: relative; height: 26px; background: var(--verde-escuro); font-size: 12.5px; }
-.progresso .barra { position: absolute; inset: 0 auto 0 0; background: var(--accent); transition: width .4s; }
-.progresso span { position: relative; padding: 0 18px; line-height: 26px; color: #fff; }
 .banner.atencao { background: var(--warn-bg); color: var(--warn); }
-.resumo { margin-bottom: 12px; color: var(--ink2); }
-.resumo b { color: var(--ink); }
 .chip { font-size: 12.5px; border-radius: 999px; padding: 1px 9px; background: var(--panel2); color: var(--ink2); border: 1px solid var(--line); white-space: nowrap; }
 .chip.bom { background: var(--ok-bg); color: var(--ok); border-color: transparent; }
 .chip.atencao { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
@@ -149,7 +144,7 @@ main { max-width: 1180px; margin: 0 auto; padding: 18px 16px; }
 .aviso::before, .aviso-exportar::before { content: '!'; position: absolute; left: 0; top: .1em; width: 18px; height: 18px; border-radius: 50%; background: var(--warn); color: #fff; font: 700 12px/18px Inter, sans-serif; text-align: center; }
 /* 5c-3b: ajuda com colunas */
 .campo { background: var(--campo-bg); color: var(--verde); border-radius: 3px; padding: 0 2px; margin: 0 -2px; cursor: help; }
-.campo.desconhecido { background: var(--warn-bg); color: var(--warn); }
+.campo.desconhecido { background: var(--bad-bg); color: var(--bad); box-shadow: inset 0 -1px 0 var(--bad); }
 .editor { position: relative; }
 .editor textarea { width: 100%; border: 1px solid var(--accent); border-radius: var(--raio); padding: 8px 10px; background: var(--panel); resize: vertical; font: 13px/1.5 var(--mono); }
 .sugestoes { position: absolute; z-index: 10; left: 0; right: 0; top: 100%; max-height: 60vh; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: var(--raio); box-shadow: 0 6px 18px rgba(0,0,0,.12); font-size: 12.5px; }
@@ -177,7 +172,6 @@ main { max-width: 1180px; margin: 0 auto; padding: 18px 16px; }
 .card.exportar .cbody { white-space: normal; display: grid; gap: 6px; }
 .card.exportar a { color: var(--accent); }
 .aviso-exportar { color: var(--warn); }
-.bloco-detalhe.avisos { color: var(--warn); }
 .banner .acoes { margin-top: 8px; }
 .copiar-a-mao { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.35); display: grid; place-items: center; padding: 16px; }
 .copiar-a-mao .card { width: min(900px, 100%); }
@@ -226,3 +220,24 @@ main.com-painel .mensagens { grid-column: 1 / -1; }
   main.com-painel { grid-template-columns: 1fr; }
   .painel { position: static; max-height: none; }
 }
+
+/* Aviso no trecho (André, 03/11): o vermelho vence o verde de "vale nesta cidade". */
+.versao.com-aviso { border-left-color: var(--bad); }
+.card.texto.com-aviso { border-color: var(--bad); }
+.card.texto > .problema { margin: 10px 12px 0; }
+.versao[id], .card[id] { scroll-margin-top: calc(var(--altura-header) + 18px); }
+
+/* Barra da conferência: gruda no pé da coluna do texto, perto de quem edita. */
+.barra-conferencia { position: sticky; bottom: 12px; z-index: 5; margin-top: 4px; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--verde); border-radius: var(--raio); box-shadow: 0 -2px 14px rgba(0,54,22,.14), 0 1px 2px rgba(0,0,0,.06); font-size: 13px; overflow: hidden; }
+.barra-linha { display: flex; align-items: center; gap: 8px; padding: 8px 10px 8px 14px; }
+.barra-status { color: var(--ink2); }
+.barra-status.ruim { color: var(--bad); }
+.barra-status.atencao { color: var(--warn); }
+.barra-conferencia .contador { display: inline-block; min-width: 18px; margin-left: 2px; padding: 0 5px; border-radius: 999px; background: var(--bad); color: #fff; font-size: 11.5px; font-weight: 600; text-align: center; }
+.barra-conferencia .progresso { height: 3px; background: var(--line2); }
+.barra-conferencia .progresso .barra { height: 100%; background: var(--accent); transition: width .4s; }
+.cobertura { padding: 7px 14px 8px; border-top: 1px solid var(--line2); background: var(--panel2); }
+.cobertura .bom { color: var(--ok); font-weight: 600; }
+.cobertura .ruim { color: var(--bad); }
+.cobertura .atencao { color: var(--warn); }
+.cobertura a { color: inherit; }

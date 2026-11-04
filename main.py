@@ -180,12 +180,12 @@ if os.getenv("LABORATORIO_HABILITADO") == "1":
 
     from services.laboratorio import (
         abrir_doc,
+        colunas_para_a_tela,
         iniciar_conferencia,
         ler_com_cada_valor,
         ler_conferencia,
         ler_csv,
         texto_do_municipio,
-        valores_das_colunas,
     )
     from services.laboratorio_snapshot import caminho_snapshot, carregar_snapshot
 
@@ -243,7 +243,7 @@ if os.getenv("LABORATORIO_HABILITADO") == "1":
     def laboratorio_colunas(tema: str):
         snapshot = carregar_snapshot(_tema_com_snapshot(tema))
         contextos = {cidade: m["contexto"] for cidade, m in snapshot["municipios"].items()}
-        return {"snapshot_gerado_em": snapshot["gerado_em"], "colunas": valores_das_colunas(contextos)}
+        return {"snapshot_gerado_em": snapshot["gerado_em"], "colunas": colunas_para_a_tela(contextos)}
 
     @app.post("/laboratorio/{tema}/csv")
     def laboratorio_csv(tema: str, corpo: ArquivoCsv):

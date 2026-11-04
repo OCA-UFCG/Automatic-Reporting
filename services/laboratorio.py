@@ -39,6 +39,7 @@ from utils.json_tipado import codificar
 from utils.render.placeholders import (
     _numero_do_campo,
     conferir_condicoes,
+    nomes_resolvidos_sem_coluna,
     registrar_versoes,
 )
 from utils.render.renderer import html_do_tema, html_para_texto, texto_para_html
@@ -120,7 +121,7 @@ def ler_csv(slug: str, texto: str) -> dict | None:
         "casados": len(linhas) - len(so_no_csv),
         "so_no_csv": so_no_csv,
         "colunas_do_csv": [c for c in df.columns if c != "nm_mun"],
-        "colunas": valores_das_colunas(contextos),
+        "colunas": colunas_para_a_tela(contextos),
     }
 
 
@@ -281,6 +282,9 @@ def _rodar(id_conferencia: str, slug: str, doc_texto: str, csv: dict[str, dict] 
 
             _gravar(id_conferencia, {"estado": "rodando", "feitos": 0, "total": len(contextos)})
             resultado = conferir_doc(doc_texto, slug, contextos, progresso)
+            # Cidades da lista do relatório sem dado nenhum neste tema: ficam fora do
+            # snapshot e da conferência, e a tela precisa dizer isso (cobertura).
+            resultado["ausentes"] = snapshot.get("metadados", {}).get("ausentes", [])
             _gravar(id_conferencia, {
                 "estado": "pronta",
                 "feitos": len(contextos),
@@ -421,6 +425,15 @@ def valores_das_colunas(contextos: dict[str, dict]) -> list[dict]:
             info["tipo"] = "outro"
         saida.append(info)
     return saida
+
+
+def colunas_para_a_tela(contextos: dict[str, dict]) -> list[dict]:
+    """As colunas com a ficha de cada uma, mais os apelidos que o gerador resolve
+    (tipo "apelido"): a tela não acusa $area como inexistente, mas não oferece ele no
+    autocomplete."""
+    colunas = valores_das_colunas(contextos)
+    apelidos = nomes_resolvidos_sem_coluna({c["coluna"] for c in colunas})
+    return colunas + [{"coluna": nome, "tipo": "apelido", "de": origem} for nome, origem in sorted(apelidos.items())]
 
 
 def ler_com_cada_valor(slug: str, trecho: str, csv: dict[str, dict] | None = None) -> list[dict] | None:

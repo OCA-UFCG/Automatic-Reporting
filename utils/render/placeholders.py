@@ -978,30 +978,46 @@ def _resolver_percentual_derivado(contexto: dict, campo: str) -> object | None:
         return None
 
 
+APELIDOS_DE_COLUNA = {
+    "area": "area_territorial",
+    "centro_pop": "centros_pop",
+    "fundamental_com_per": "fundamental_comp_per",
+    "comparar_analfabetismo_idade": "analfabetismo_jovens_idosos",
+    "pop_ind_2022": "pop_total_indigena",
+    "pop_ind_homem_2022": "homem_indigena",
+    "pop_ind_mulher_2022": "mulher_indigena",
+    "pop_rua_2022": "pop_rua_total",
+    "pop_familias_rua_2026": "familias_rua_total",
+    "pop_rua_bolsaf_2026": "familias_rua_bf",
+    "pop_rua_pobreza": "pobreza_cadunico",
+    "pop_rua_br": "baixa_renda_cadunico",
+    "pop_rua_acima_br": "acima_meio_sm_cadunico",
+    "pop_rua_bolsaf_2022": "familias_rua_bf",
+    "raca_maior": "cor_maior",
+    "raca_menor": "cor_menor",
+}
+# Nomes que o gerador resolve sem coluna própria, fora da tabela acima. Mantenha junto
+# dos ifs de _resolver_campo_com_alias: o TemaLab usa isto para não acusar como
+# inexistente um campo que sai preenchido (nomes_resolvidos_sem_coluna).
+_APELIDOS_ESPECIAIS = {"city": "nm_mun", "municipio": "nm_mun", "year": "ano", "ano": "year", "cres_pop_analise": "cres_pop"}
+
+
+def nomes_resolvidos_sem_coluna(colunas: set[str]) -> dict[str, str]:
+    """{nome: coluna de onde sai} para cada $nome que _resolver_campo_com_alias
+    preenche a partir destas colunas sem que o nome seja uma delas."""
+    apelidos = {**APELIDOS_DE_COLUNA, **_APELIDOS_ESPECIAIS}
+    nomes = {nome: origem for nome, origem in apelidos.items() if origem in colunas}
+    if "pop_total" in colunas:  # _resolver_percentual_derivado
+        nomes |= {f"{coluna}_per": coluna for coluna in colunas}
+    return {nome: origem for nome, origem in nomes.items() if nome not in colunas}
+
+
 def _resolver_campo_com_alias(contexto: dict, campo: str) -> object | None:
     valor = _resolver_caminho_em_contexto(contexto, campo)
     if valor is not None:
         return valor
 
-    aliases_de_coluna = {
-        "area": "area_territorial",
-        "centro_pop": "centros_pop",
-        "fundamental_com_per": "fundamental_comp_per",
-        "comparar_analfabetismo_idade": "analfabetismo_jovens_idosos",
-        "pop_ind_2022": "pop_total_indigena",
-        "pop_ind_homem_2022": "homem_indigena",
-        "pop_ind_mulher_2022": "mulher_indigena",
-        "pop_rua_2022": "pop_rua_total",
-        "pop_familias_rua_2026": "familias_rua_total",
-        "pop_rua_bolsaf_2026": "familias_rua_bf",
-        "pop_rua_pobreza": "pobreza_cadunico",
-        "pop_rua_br": "baixa_renda_cadunico",
-        "pop_rua_acima_br": "acima_meio_sm_cadunico",
-        "pop_rua_bolsaf_2022": "familias_rua_bf",
-        "raca_maior": "cor_maior",
-        "raca_menor": "cor_menor",
-    }
-    campo_original = aliases_de_coluna.get(campo)
+    campo_original = APELIDOS_DE_COLUNA.get(campo)
     if campo_original:
         valor = _resolver_caminho_em_contexto(contexto, campo_original)
         if valor is not None:

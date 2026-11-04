@@ -119,7 +119,15 @@ test('avisos da versão', () => {
   assert.deepEqual(v('Para quando $x for 1, então: Texto na linha.\n'), [])
   assert.match(v('Para quando $x for 1, então:\n\n')[0], /^Esta versão só tem a condição/)
   assert.match(v('Texto qualquer\nmais')[0], /não é uma condição/)
-  assert.match(v('Para quando demografia.$campo for igual a 0, então:\nT.\n')[0], /\$campo, que não está/)
+  assert.match(v('Para quando demografia.$campo for igual a 0, então:\nT.\n')[0], /condição usa \$campo, que não existe/)
+  // O texto embaixo da condição também (André, 03/11: o aviso só vinha da conferência, lá no topo).
+  assert.deepEqual(v('Para quando $x for 1, então:\nValor $errado e tema.$outro.\n').map((a) => a.slice(0, 8)), ['$errado ', '$outro n'])
+  assert.match(v('Para quando $x for 1, então: Na linha $errado.\n')[0], /^\$errado não existe/)
+  // Apelido que o gerador resolve vem nas colunas (tipo "apelido"): não é aviso.
+  assert.deepEqual(avisosDaVersao({ tipo: 'versao', original: 'Para quando $x for 1:\n$area.' }, new Map([['x', {}], ['area', { tipo: 'apelido' }]])), [])
+  // Texto fixo: sai em todo município, então também avisa.
+  assert.match(avisosDaVersao({ tipo: 'texto', original: 'Fixo com $errado.' }, colunas)[0], /^\$errado não existe/)
+  assert.deepEqual(avisosDaVersao({ tipo: 'texto', original: 'Fixo $x.' }, null), [])
   assert.deepEqual(avisosDaVersao({ tipo: 'versao', original: 'Para quando $y for 1:\nT', editado: '' }, colunas), [])
 })
 
