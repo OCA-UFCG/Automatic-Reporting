@@ -8,6 +8,7 @@ import {
   camposDaCondicao,
   camposForaDasColunas,
   chaveDoRascunho,
+  comNovoBloco,
   condicaoDoItem,
   doRascunho,
   exportar,
@@ -23,6 +24,7 @@ import {
   textoDoItem,
   textoQueSai,
   trechoParaLer,
+  versaoModelo,
 } from './modelo.js'
 
 // Em produção, sempre a mesma origem: atrás do gamma-lab.oca-portal.com, o basic auth
@@ -1203,13 +1205,21 @@ export default function Laboratorio() {
       id: proximoId.current++,
       tipo: 'versao',
       original: '',
-      editado: `\nPara quando ${prefixo}.$campo for igual a 0, então:\nTexto desta versão.\n`,
+      editado: `\n${versaoModelo(prefixo)}\n`,
       condicao: null,
     }
     const posicaoNoTexto = itens.findIndex((i) => i.id === depoisDoId) + 1
     // Fica no bloco onde foi criada, mesmo antes de a editora trocar o $campo do modelo.
     setAjustes(({ cortes, juncoes }) => ({ cortes, juncoes: new Set(juncoes).add(nova.id) }))
     mudarItens([...itens.slice(0, posicaoNoTexto), nova, ...itens.slice(posicaoNoTexto)])
+  }
+
+  // Depois do último bloco, ou o tema inteiro num Doc vazio (comNovoBloco).
+  function novoBloco() {
+    const novo = comNovoBloco(itens, prefixo, () => proximoId.current++)
+    if (!novo) return
+    setAjustes(({ cortes, juncoes }) => ({ cortes: new Set(cortes).add(novo.id), juncoes }))
+    mudarItens(novo.itens)
   }
 
   const grupos = useMemo(() => agruparEmBlocos(itens, ajustes), [itens, ajustes])
@@ -1352,6 +1362,8 @@ export default function Laboratorio() {
   const editou = temEdicao(itens)
   const opcoesDeCidade = useMemo(() => [...lugares, ...(csv?.so_no_csv ?? [])], [lugares, csv])
   let numeroBloco = 0
+  const ultimoBloco = grupos.findLastIndex((g) => g.tipo === 'bloco')
+  const docVazio = doc && !carregando && rascunho?.tipo !== 'doc_mudou' && textoSalvo.trim() === ''
 
   if (desligado) {
     return (
@@ -1484,6 +1496,13 @@ export default function Laboratorio() {
             <p>O TemaLab abre a versão mais recente do Doc e confere o texto contra os 2.074 municípios, ou os 9 estados do Nordeste, pelo mesmo código do relatório.</p>
           </div>
         )}
+        {docVazio && (
+          <div className="empty">
+            <h2>O Doc deste tema está vazio</h2>
+            <p>Comece com um bloco aqui. Depois, "copiar o Doc inteiro" leva o texto, já com descricao_tema = “ … ”@@, para colar no Doc.</p>
+            <button className="btn pri" onClick={novoBloco}>+ começar com um bloco</button>
+          </div>
+        )}
         {grupos.map((grupo, i) => {
           // Chaves com prefixo: id de texto e id de versão são números da mesma sequência,
           // e "b-3" e "t-3" não podem colidir (o React reaproveitaria o cartão errado).
@@ -1491,8 +1510,8 @@ export default function Laboratorio() {
           const primeiro = itens[grupo.versoes[0]]
           const bloco = blocos[numeroBloco++]
           return (
+            <React.Fragment key={`b-${primeiro.id}`}>
             <Bloco
-              key={`b-${primeiro.id}`}
               numero={bloco.numero}
               alterado={bloco.alterado}
               dica={bloco.dica}
@@ -1521,6 +1540,8 @@ export default function Laboratorio() {
                 )
               })}
             />
+            {i === ultimoBloco && <button className="btn ghost sm novo-bloco" onClick={novoBloco}>+ novo bloco</button>}
+            </React.Fragment>
           )
         })}
         {doc && (

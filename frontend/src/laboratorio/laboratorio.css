@@ -136,6 +136,8 @@ main { max-width: 1180px; margin: 0 auto; padding: 18px 16px; }
 .btn.ghost { border-color: transparent; background: transparent; color: var(--ink2); }
 .btn.ghost:hover:not(:disabled) { color: var(--accent); border-color: var(--line); }
 .btn.nova { margin-top: 10px; }
+/* Depois do último bloco: um bloco novo, antes do fim do tema (comNovoBloco). */
+.btn.novo-bloco { align-self: flex-start; margin: -4px 0 14px; }
 .versao.removida .condicao { text-decoration: line-through; opacity: .6; }
 .condicao.quebrada { color: var(--bad); background: var(--bad-bg); font-family: inherit; }
 .acoes { display: flex; gap: 6px; margin-top: 6px; }

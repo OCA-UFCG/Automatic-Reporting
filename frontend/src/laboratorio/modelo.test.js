@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
-import { agruparEmBlocos, chaveDoRascunho, condicaoDoItem, exportar, lerDoc, prefixoDoDoc, trechoParaLer,
+import { agruparEmBlocos, chaveDoRascunho, comNovoBloco, condicaoDoItem, exportar, lerDoc, prefixoDoDoc, trechoParaLer,
   avisosDaVersao, blocoAlterado, buscarOpcoes, doRascunho, htmlParaODocs, inserirColuna, paraRascunho, temEdicao, textoDoBloco } from './modelo.js'
 
 const FIXTURES = new URL('../../../tests/fixtures/relatorio_congelado/docs/', import.meta.url)
@@ -178,4 +178,32 @@ test('buscarOpcoes: sem acento e sem caixa, quem começa com o termo vem antes',
 test('rascunho de estado não sobrescreve o municipal', () => {
   assert.equal(chaveDoRascunho('demografia'), 'laboratorio:rascunho:demografia')
   assert.equal(chaveDoRascunho('demografia', 'estado'), 'laboratorio:rascunho:demografia@estado')
+})
+
+test('novo bloco num Doc vazio monta o tema com os marcadores', () => {
+  let n = 0
+  const { id, itens } = comNovoBloco(lerDoc(''), 'demografia', () => n++)
+  const texto = exportar(itens)
+  assert.equal(texto, 'descricao_tema = “Para quando demografia.$campo for igual a 0, então:\nTexto desta versão.”@@\n')
+  // Relido do Doc depois de colar, é o mesmo bloco.
+  const relidos = lerDoc(texto)
+  assert.deepEqual(relidos.map((i) => i.tipo), ['texto', 'versao', 'texto'])
+  assert.equal(agruparEmBlocos(itens).filter((g) => g.tipo === 'bloco').length, 1)
+  assert.equal(itens.find((i) => i.id === id).tipo, 'versao')
+})
+
+test('novo bloco vai depois da última versão, antes do fim do tema', () => {
+  const doc = 'descricao_tema = “Para quando $uf_pop for maior que 5:\nGrande.\n\nPara quando $uf_pop for menor ou igual a 5:\nPequeno.”@@\n\n#!Fontes\n'
+  const itens = lerDoc(doc)
+  let n = itens.length
+  const { id, itens: novos } = comNovoBloco(itens, 'demografia', () => n++)
+  const texto = exportar(novos)
+  assert.ok(texto.includes('Pequeno.\nPara quando demografia.$campo for igual a 0, então:\nTexto desta versão.\n”@@'))
+  assert.equal(lerDoc(texto).filter((i) => i.tipo === 'versao').length, 3)
+  const blocos = agruparEmBlocos(novos, { cortes: new Set([id]), juncoes: new Set() }).filter((g) => g.tipo === 'bloco')
+  assert.equal(blocos.length, 2)
+})
+
+test('novo bloco sem versão nenhuma no Doc não tem onde ficar', () => {
+  assert.equal(comNovoBloco(lerDoc('Só um texto.\n'), 'demografia', () => 0), null)
 })

@@ -157,6 +157,38 @@ export function prefixoDoDoc(texto, slug) {
   return [...contagem].sort((a, b) => b[1] - a[1])[0]?.[0] ?? slug
 }
 
+// O texto de uma versão criada na tela: o $campo do modelo a editora troca.
+export const versaoModelo = (prefixo) => `Para quando ${prefixo}.$campo for igual a 0, então:\nTexto desta versão.`
+
+// "+ novo bloco" (passo 4 dos estados, 04/11/2026): um Doc novo, de estado, chega vazio,
+// e o "+ nova versão" só existe dentro de um bloco. Devolve os itens com o bloco novo e
+// o id da versão dele, que vai para os `cortes` (começa bloco, mesmo testando o mesmo
+// $campo do de cima).
+// - Doc vazio: o tema inteiro, com os marcadores que o backend procura
+//   (descricao_tema = “ … ”@@), como texto separado da versão, igual ao lerDoc.
+// - Doc com versões: logo depois da última, antes do ”@@ que fecha o tema.
+// null se não há onde pôr: tem texto, mas nenhuma versão (o bloco não teria lugar certo).
+export function comNovoBloco(itens, prefixo, novoId) {
+  const vazio = exportar(itens).trim() === ''
+  if (vazio) {
+    const id = novoId()
+    return {
+      id,
+      itens: [
+        ...itens,
+        { id: novoId(), tipo: 'texto', original: '', editado: 'descricao_tema = “' },
+        { id, tipo: 'versao', original: '', editado: versaoModelo(prefixo), condicao: null },
+        { id: novoId(), tipo: 'texto', original: '', editado: '”@@\n' },
+      ],
+    }
+  }
+  const ultima = itens.findLastIndex((i) => i.tipo === 'versao')
+  if (ultima < 0) return null
+  const id = novoId()
+  const nova = { id, tipo: 'versao', original: '', editado: `\n${versaoModelo(prefixo)}\n`, condicao: null }
+  return { id, itens: [...itens.slice(0, ultima + 1), nova, ...itens.slice(ultima + 1)] }
+}
+
 // Troca o que se digitou depois do "$" (de `inicio` a `fim`) pela coluna escolhida e,
 // se o "$" veio sem prefixo, põe o do Doc na frente: o gerador aceita "$campo" solto,
 // mas o Doc escreve "tema.$campo" em tudo (André, 03/11). Devolve o texto e o cursor.
