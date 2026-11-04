@@ -175,19 +175,29 @@ async def gerar_relatorio(
 # laboratório, "Acesso"). Antes do mount do frontend, que responde por "/".
 if os.getenv("LABORATORIO_HABILITADO") == "1":
     from datetime import UTC, datetime
+    from typing import Literal
 
     from pydantic import BaseModel, Field
 
     from services.laboratorio import (
         abrir_doc,
         colunas_para_a_tela,
+        docs_url,
         iniciar_conferencia,
         ler_com_cada_valor,
         ler_conferencia,
         ler_csv,
         texto_do_municipio,
     )
-    from services.laboratorio_snapshot import caminho_snapshot, carregar_snapshot
+    from services.laboratorio_snapshot import (
+        MATVIEW_ESTADUAL_POR_MACROTEMA,
+        caminho_snapshot,
+        carregar_snapshot,
+    )
+
+    # A unidade de um tema (03/11/2026): município, como sempre, ou estado. Sem o
+    # parâmetro, as rotas seguem municipais, e a tela de hoje não muda.
+    Unidade = Literal["municipio", "estado"]
 
     class TextoDoTema(BaseModel):
         # Os Docs de hoje têm até ~30 kB; o teto só barra abuso.
@@ -206,9 +216,9 @@ if os.getenv("LABORATORIO_HABILITADO") == "1":
         # 1ª vez, depois reaproveitados). A conferência e o "ler com cada valor" não.
         graficos: bool = False
 
-    def _tema_com_snapshot(tema: str) -> str:
-        if tema not in MACROTEMAS or not caminho_snapshot(tema).exists():
-            raise HTTPException(status_code=404, detail=f"tema sem snapshot: {tema}")
+    def _tema_com_snapshot(tema: str, unidade: str = "municipio") -> str:
+        if tema not in MACROTEMAS or not caminho_snapshot(tema, unidade).exists():
+            raise HTTPException(status_code=404, detail=f"tema sem snapshot: {tema} ({unidade})")
         return tema
 
     @app.get("/laboratorio/temas")
@@ -216,51 +226,64 @@ if os.getenv("LABORATORIO_HABILITADO") == "1":
         # O SPA também usa esta rota para saber se o laboratório está ligado (spec).
         # A hora do arquivo, e não o "gerado_em" de dentro dele: ler 8 snapshots
         # inteiros custaria segundos. O arquivo é gravado no fim da rodada.
-        def gerado_em(slug: str) -> str | None:
-            caminho = caminho_snapshot(slug)
+        def gerado_em(slug: str, unidade: str = "municipio") -> str | None:
+            caminho = caminho_snapshot(slug, unidade)
             if not caminho.exists():
                 return None
             return datetime.fromtimestamp(caminho.stat().st_mtime, UTC).isoformat(timespec="seconds")
 
+        # As outras unidades vão num campo à parte, e não como itens novos da lista: a
+        # tela de hoje lê um item por tema. `tem_doc` falso = "sem Doc ainda".
         return [
-            {"slug": slug, "nome": dados["nome"], "cor": dados["cor"], "snapshot_gerado_em": gerado_em(slug)}
+            {
+                "slug": slug,
+                "nome": dados["nome"],
+                "cor": dados["cor"],
+                "snapshot_gerado_em": gerado_em(slug),
+                "unidades": {
+                    "estado": {"snapshot_gerado_em": gerado_em(slug, "estado"), "tem_doc": bool(docs_url(slug, "estado"))}
+                } if slug in MATVIEW_ESTADUAL_POR_MACROTEMA else {},
+            }
             for slug, dados in MACROTEMAS.items()
         ]
 
     @app.get("/laboratorio/{tema}/doc")
-    async def laboratorio_doc(tema: str):
+    async def laboratorio_doc(tema: str, unidade: Unidade = "municipio"):
         if tema not in MACROTEMAS:
             raise HTTPException(status_code=404, detail=f"tema desconhecido: {tema}")
         try:
-            doc = await abrir_doc(tema)
+            doc = await abrir_doc(tema, unidade)
         except ValueError as err:  # Google fora do ar ou Doc sem acesso público
             raise HTTPException(status_code=502, detail=str(err)) from err
         if doc is None:
-            raise HTTPException(status_code=404, detail=f"tema sem Doc configurado: {tema}")
+            raise HTTPException(status_code=404, detail=f"tema sem Doc configurado: {tema} ({unidade})")
         return doc
 
     @app.get("/laboratorio/{tema}/colunas")
-    def laboratorio_colunas(tema: str):
-        snapshot = carregar_snapshot(_tema_com_snapshot(tema))
+    def laboratorio_colunas(tema: str, unidade: Unidade = "municipio"):
+        snapshot = carregar_snapshot(_tema_com_snapshot(tema, unidade), unidade)
         contextos = {cidade: m["contexto"] for cidade, m in snapshot["municipios"].items()}
         return {"snapshot_gerado_em": snapshot["gerado_em"], "colunas": colunas_para_a_tela(contextos)}
 
     @app.post("/laboratorio/{tema}/csv")
-    def laboratorio_csv(tema: str, corpo: ArquivoCsv):
+    def laboratorio_csv(tema: str, corpo: ArquivoCsv, unidade: Unidade = "municipio"):
+        if unidade != "municipio":
+            # ler_csv casa as linhas por nm_mun; estado não tem CSV de fallback.
+            raise HTTPException(status_code=400, detail="CSV só para município")
         try:
             return ler_csv(_tema_com_snapshot(tema), corpo.csv)
         except ValueError as err:
             raise HTTPException(status_code=400, detail=str(err)) from err
 
     @app.post("/laboratorio/{tema}/cada-valor")
-    def laboratorio_cada_valor(tema: str, corpo: TextoDoTema):
+    def laboratorio_cada_valor(tema: str, corpo: TextoDoTema, unidade: Unidade = "municipio"):
         # Rota própria, e não N chamadas a /municipio (que relê o snapshot a cada
         # uma, ~0,5 s): um parágrafo de saúde com as vacinas passa de 80 valores.
-        return {"colunas": ler_com_cada_valor(_tema_com_snapshot(tema), corpo.texto, corpo.csv) or []}
+        return {"colunas": ler_com_cada_valor(_tema_com_snapshot(tema, unidade), corpo.texto, corpo.csv, unidade) or []}
 
     @app.post("/laboratorio/{tema}/conferencias")
-    def laboratorio_conferir(tema: str, corpo: TextoDoTema):
-        return {"id": iniciar_conferencia(_tema_com_snapshot(tema), corpo.texto, corpo.csv)}
+    def laboratorio_conferir(tema: str, corpo: TextoDoTema, unidade: Unidade = "municipio"):
+        return {"id": iniciar_conferencia(_tema_com_snapshot(tema, unidade), corpo.texto, corpo.csv, unidade)}
 
     @app.get("/laboratorio/conferencias/{id_conferencia}")
     def laboratorio_conferencia(id_conferencia: str):
@@ -270,8 +293,11 @@ if os.getenv("LABORATORIO_HABILITADO") == "1":
         return estado
 
     @app.post("/laboratorio/{tema}/municipio")
-    def laboratorio_municipio(tema: str, corpo: TextoNaCidade):
-        resultado = texto_do_municipio(_tema_com_snapshot(tema), corpo.texto, corpo.cidade, corpo.csv, corpo.graficos)
+    def laboratorio_municipio(tema: str, corpo: TextoNaCidade, unidade: Unidade = "municipio"):
+        # `cidade` é o nome da unidade: "Campina Grande (PB)" ou, em estado, "Paraíba".
+        resultado = texto_do_municipio(
+            _tema_com_snapshot(tema, unidade), corpo.texto, corpo.cidade, corpo.csv, corpo.graficos, unidade
+        )
         if resultado is None:
             raise HTTPException(status_code=404, detail=f"cidade fora do snapshot: {corpo.cidade}")
         return resultado

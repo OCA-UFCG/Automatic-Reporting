@@ -153,3 +153,90 @@ def test_script_recusa_tema_invalido():
     with pytest.raises(SystemExit) as saida:
         main(["--tema", "astrologia"])
     assert saida.value.code == 2
+
+
+# --- Estado (pedido de 03/11/2026) ---
+
+_ESTADOS = ["Maranhão", "Piauí", "Ceará", "Rio Grande do Norte", "Paraíba",
+            "Pernambuco", "Alagoas", "Sergipe", "Bahia"]
+
+
+def _linha_estadual(cd_uf: int, nome: str) -> dict:
+    return {"uf_cd_uf": cd_uf, "uf_estado": nome, "uf_sujeito": nome,
+            "uf_em": f"no {nome}", "uf_pop_total_2022": Decimal(1234567)}
+
+
+@pytest.fixture
+def rodada_estado(monkeypatch, tmp_path):
+    estado = {"linhas": [_linha_estadual(21 + i, nome) for i, nome in enumerate(_ESTADOS)]}
+
+    @contextmanager
+    def conexao():
+        yield object()
+
+    def ler(_conn, _slug):
+        if isinstance(estado["linhas"], Exception):
+            raise estado["linhas"]
+        return estado["linhas"]
+
+    monkeypatch.setattr(laboratorio_snapshot, "SNAPSHOT_DIR", tmp_path)
+    monkeypatch.setattr(laboratorio_snapshot, "conexao_reaproveitada", conexao)
+    monkeypatch.setattr(laboratorio_snapshot, "ler_matview_estadual", ler)
+    return estado
+
+
+def test_estado_grava_os_9_numa_pasta_propria(rodada_estado, tmp_path):
+    caminho = laboratorio_snapshot.gerar_snapshot_estado("saude")
+    assert caminho == tmp_path / "estado" / "saude.json.gz"
+    # O município continua na raiz: o cron do gamma e os snapshots de hoje.
+    assert laboratorio_snapshot.caminho_snapshot("saude") == tmp_path / "saude.json.gz"
+    assert laboratorio_snapshot.carregar_snapshot("saude") is None
+
+    snapshot = laboratorio_snapshot.carregar_snapshot("saude", "estado")
+    assert list(snapshot["municipios"]) == _ESTADOS
+    contexto = snapshot["municipios"]["Paraíba"]["contexto"]
+    assert type(contexto["uf_pop_total_2022"]) is Decimal
+
+
+@pytest.mark.parametrize(
+    "provocar",
+    [
+        lambda e: e.update(linhas=e["linhas"][:8]),  # faltou um estado
+        lambda e: e.update(linhas=e["linhas"][:8] + [e["linhas"][0]]),  # nome repetido
+        lambda e: e["linhas"][0].update(uf_estado=None),  # nome vazio
+        lambda e: e.update(linhas=psycopg2.errors.QueryCanceled("statement timeout")),
+    ],
+    ids=["faltou_estado", "nome_repetido", "nome_vazio", "erro_na_matview"],
+)
+def test_estado_suspeito_mantem_o_anterior(rodada_estado, provocar):
+    laboratorio_snapshot.gerar_snapshot_estado("saude")
+    caminho = laboratorio_snapshot.caminho_snapshot("saude", "estado")
+    anterior = caminho.read_bytes()
+    provocar(rodada_estado)
+    assert laboratorio_snapshot.gerar_snapshot_estado("saude") is None
+    assert caminho.read_bytes() == anterior
+
+
+def test_estado_passa_pela_conferencia(rodada_estado):
+    # A promessa do handoff: o resto do laboratório não depende de ser município.
+    from services import laboratorio
+
+    laboratorio_snapshot.gerar_snapshot_estado("demografia")
+    snapshot = laboratorio_snapshot.carregar_snapshot("demografia", "estado")
+    contextos = {nome: m["contexto"] for nome, m in snapshot["municipios"].items()}
+    texto = "$uf_sujeito tinha $uf_pop_total_2022 habitantes em 2022.\n"
+
+    conferencia = laboratorio.conferir_tema(texto, "demografia", contextos)
+    assert conferencia["campos_crus"] == [] and conferencia["erros"] == {}
+
+    # graficos={}: estado não tem gráfico (GRAFICOS_POR_TEMA é por município).
+    resultado = laboratorio.conferir_municipio(texto, contextos["Paraíba"], "demografia", {})
+    assert resultado["partes"] == ["Paraíba tinha 1.234.567 habitantes em 2022."]
+
+
+def test_script_recusa_tema_sem_matview_estadual():
+    from scripts.snapshot_laboratorio import main
+
+    with pytest.raises(SystemExit) as saida:
+        main(["--tema", "instrumentos-sudene", "--unidade", "estado"])
+    assert saida.value.code == 2

@@ -248,7 +248,7 @@ def test_rotas_de_temas_e_colunas(monkeypatch, snapshot_falso):
 def test_rota_do_doc_traduz_falha_do_google(monkeypatch):
     cliente = _app(monkeypatch, "1")
 
-    async def _falha(_slug):
+    async def _falha(_slug, _unidade="municipio"):
         raise ValueError("Google Docs sem acesso público para exportação.")
 
     monkeypatch.setattr(laboratorio, "abrir_doc", _falha)
@@ -455,3 +455,93 @@ def test_nomes_resolvidos_sem_coluna_saem_preenchidos():
     assert "ano" not in nomes and "raca_maior" not in nomes  # é coluna / origem ausente
     contexto = dict.fromkeys(colunas, 7)
     assert [n for n in nomes if _resolver_campo_com_alias(contexto, n) is None] == []
+
+
+# --- Unidade estado (passo 2, 04/11/2026) ---
+
+@pytest.fixture
+def snapshot_estadual(monkeypatch, snapshot_falso, tmp_path):
+    (tmp_path / "estado").mkdir()
+    estados = {
+        "Paraíba": {"fonte": "view", "contexto": {"uf_sujeito": "A Paraíba", "uf_pop": 20}},
+        "Ceará": {"fonte": "view", "contexto": {"uf_sujeito": "O Ceará", "uf_pop": 5}},
+    }
+    with gzip.open(tmp_path / "estado" / "demografia.json.gz", "wt", encoding="utf-8") as arquivo:
+        json.dump({"gerado_em": "2026-11-04T04:30:00+00:00", "municipios": codificar(estados),
+                   "metadados": {"estados": 2}}, arquivo)
+
+
+_TEXTO_ESTADUAL = (
+    "descricao_tema = Para quando $uf_pop for maior que 10:\n$uf_sujeito é grande.\n"
+    "Para quando $uf_pop for menor ou igual a 10:\n$uf_sujeito é pequeno.\n@@"
+)
+
+
+def test_estado_texto_pronto_e_conferencia(monkeypatch, snapshot_estadual):
+    cliente = _app(monkeypatch, "1")
+    resposta = cliente.post(
+        "/laboratorio/demografia/municipio?unidade=estado", json={"texto": _TEXTO_ESTADUAL, "cidade": "Ceará"}
+    )
+    assert resposta.status_code == 200
+    assert resposta.json()["partes"] == ["O Ceará é pequeno."]
+
+    id_conferencia = cliente.post(
+        "/laboratorio/demografia/conferencias?unidade=estado", json={"texto": _TEXTO_ESTADUAL}
+    ).json()["id"]
+    for _ in range(100):
+        estado = cliente.get(f"/laboratorio/conferencias/{id_conferencia}").json()
+        if estado["estado"] in ("pronta", "erro"):
+            break
+        time.sleep(0.05)
+    assert estado["estado"] == "pronta", estado
+    assert estado["total"] == 2
+    assert estado["resultado"]["campos_crus"] == []
+    assert estado["resultado"]["versoes_por_municipio"] == {"Paraíba": [0], "Ceará": [1]}
+    assert estado["resultado"]["graficos_sem_legenda"] == []  # gráfico é só municipal
+
+    # Sem a unidade, a mesma rota segue municipal: o Ceará não está lá.
+    municipal = cliente.post("/laboratorio/demografia/municipio", json={"texto": _TEXTO_ESTADUAL, "cidade": "Ceará"})
+    assert municipal.status_code == 404
+
+
+def test_estado_rotas_recusam_o_que_nao_existe(monkeypatch, snapshot_estadual):
+    cliente = _app(monkeypatch, "1")
+    assert cliente.get("/laboratorio/saude/colunas?unidade=estado").status_code == 404  # sem snapshot
+    assert cliente.get("/laboratorio/demografia/colunas?unidade=area").status_code == 422
+    assert cliente.post("/laboratorio/demografia/csv?unidade=estado", json={"csv": "nm_mun\nX"}).status_code == 400
+    colunas = cliente.get("/laboratorio/demografia/colunas?unidade=estado").json()["colunas"]
+    assert {c["coluna"] for c in colunas} >= {"uf_sujeito", "uf_pop"}
+
+
+def test_lista_de_temas_diz_se_o_estado_tem_doc(monkeypatch, snapshot_estadual):
+    monkeypatch.setenv("DEMOGRAFIA_ESTADO_DOCS_URL", "https://docs.google.com/document/d/x/edit")
+    monkeypatch.delenv("SAUDE_ESTADO_DOCS_URL", raising=False)
+    temas = {t["slug"]: t for t in _app(monkeypatch, "1").get("/laboratorio/temas").json()}
+
+    assert temas["demografia"]["unidades"]["estado"]["tem_doc"] is True
+    assert temas["demografia"]["unidades"]["estado"]["snapshot_gerado_em"]
+    assert temas["saude"]["unidades"]["estado"] == {"snapshot_gerado_em": None, "tem_doc": False}
+    assert temas["instrumentos-sudene"]["unidades"] == {}
+    # O item municipal continua igual para a tela de hoje.
+    assert temas["demografia"]["snapshot_gerado_em"]
+
+
+def test_doc_da_unidade_vem_da_variavel_de_ambiente(monkeypatch):
+    monkeypatch.setenv("SANEAMENTO_ESTADO_DOCS_URL", " https://docs.google.com/document/d/y/edit ")
+    assert laboratorio.docs_env("saneamento", "estado") == "SANEAMENTO_ESTADO_DOCS_URL"
+    assert laboratorio.docs_url("saneamento", "estado") == "https://docs.google.com/document/d/y/edit"
+    assert laboratorio.docs_env("economia-renda") == "ECONOMIA_RENDA_DOCS_URL"
+    monkeypatch.delenv("SAUDE_ESTADO_DOCS_URL", raising=False)
+    assert laboratorio.docs_url("saude", "estado") is None
+
+
+def test_ler_com_cada_valor_ignora_a_concordancia_do_estado(monkeypatch, tmp_path):
+    # Como a sigla_uf no município (01/11): um valor por estado, em quase toda frase.
+    monkeypatch.setattr(laboratorio_snapshot, "SNAPSHOT_DIR", tmp_path)
+    (tmp_path / "estado").mkdir()
+    _gravar_snapshot(tmp_path / "estado", "demografia", {
+        "Paraíba": {"uf_sujeito": "A Paraíba", "uf_analise": "uma redução"},
+        "Ceará": {"uf_sujeito": "O Ceará", "uf_analise": "um aumento"},
+    })
+    colunas = laboratorio.ler_com_cada_valor("demografia", "$uf_sujeito teve $uf_analise.", unidade="estado")
+    assert [c["coluna"] for c in colunas] == ["uf_analise"]
