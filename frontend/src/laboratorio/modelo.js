@@ -295,7 +295,10 @@ export function avisosDaVersao(item, colunas) {
 // baseou. `formato` muda se o lerDoc mudar o jeito de cortar o Doc: rascunho de outro
 // formato é ignorado, em vez de restaurar itens que não batem mais.
 const FORMATO_DO_RASCUNHO = 1
-export const chaveDoRascunho = (slug) => `laboratorio:rascunho:${slug}`
+// Um rascunho por tema e unidade. A chave municipal fica a de sempre: os rascunhos já
+// gravados no navegador continuam abrindo.
+export const chaveDoRascunho = (slug, unidade = 'municipio') =>
+  `laboratorio:rascunho:${slug}${unidade === 'municipio' ? '' : `@${unidade}`}`
 
 export function paraRascunho({ hash, itens, ajustes, proximoId }) {
   return JSON.stringify({

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
-import { agruparEmBlocos, condicaoDoItem, exportar, lerDoc, prefixoDoDoc, trechoParaLer,
+import { agruparEmBlocos, chaveDoRascunho, condicaoDoItem, exportar, lerDoc, prefixoDoDoc, trechoParaLer,
   avisosDaVersao, blocoAlterado, buscarOpcoes, doRascunho, htmlParaODocs, inserirColuna, paraRascunho, temEdicao, textoDoBloco } from './modelo.js'
 
 const FIXTURES = new URL('../../../tests/fixtures/relatorio_congelado/docs/', import.meta.url)
@@ -173,4 +173,9 @@ test('buscarOpcoes: sem acento e sem caixa, quem começa com o termo vem antes',
   assert.deepEqual(buscarOpcoes(cidades, 'ri'), ['Riachão (MA)', 'Santa Rita (PB)'])
   assert.deepEqual(buscarOpcoes(cidades, '(al)'), ['Água Branca (AL)', 'Arapiraca (AL)'])
   assert.equal(buscarOpcoes(cidades, '', 2).length, 2)
+})
+
+test('rascunho de estado não sobrescreve o municipal', () => {
+  assert.equal(chaveDoRascunho('demografia'), 'laboratorio:rascunho:demografia')
+  assert.equal(chaveDoRascunho('demografia', 'estado'), 'laboratorio:rascunho:demografia@estado')
 })

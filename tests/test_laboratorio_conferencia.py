@@ -497,6 +497,7 @@ def test_estado_texto_pronto_e_conferencia(monkeypatch, snapshot_estadual):
     assert estado["total"] == 2
     assert estado["resultado"]["campos_crus"] == []
     assert estado["resultado"]["versoes_por_municipio"] == {"Paraíba": [0], "Ceará": [1]}
+    assert estado["resultado"]["graficos_sem_legenda"] == []  # gráfico é só municipal
 
     # Sem a unidade, a mesma rota segue municipal: o Ceará não está lá.
     municipal = cliente.post("/laboratorio/demografia/municipio", json={"texto": _TEXTO_ESTADUAL, "cidade": "Ceará"})
@@ -532,3 +533,15 @@ def test_doc_da_unidade_vem_da_variavel_de_ambiente(monkeypatch):
     assert laboratorio.docs_env("economia-renda") == "ECONOMIA_RENDA_DOCS_URL"
     monkeypatch.delenv("SAUDE_ESTADO_DOCS_URL", raising=False)
     assert laboratorio.docs_url("saude", "estado") is None
+
+
+def test_ler_com_cada_valor_ignora_a_concordancia_do_estado(monkeypatch, tmp_path):
+    # Como a sigla_uf no município (01/11): um valor por estado, em quase toda frase.
+    monkeypatch.setattr(laboratorio_snapshot, "SNAPSHOT_DIR", tmp_path)
+    (tmp_path / "estado").mkdir()
+    _gravar_snapshot(tmp_path / "estado", "demografia", {
+        "Paraíba": {"uf_sujeito": "A Paraíba", "uf_analise": "uma redução"},
+        "Ceará": {"uf_sujeito": "O Ceará", "uf_analise": "um aumento"},
+    })
+    colunas = laboratorio.ler_com_cada_valor("demografia", "$uf_sujeito teve $uf_analise.", unidade="estado")
+    assert [c["coluna"] for c in colunas] == ["uf_analise"]

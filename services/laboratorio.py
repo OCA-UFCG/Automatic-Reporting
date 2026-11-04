@@ -287,6 +287,10 @@ def _rodar(
             # Cidades da lista do relatório sem dado nenhum neste tema: ficam fora do
             # snapshot e da conferência, e a tela precisa dizer isso (cobertura).
             resultado["ausentes"] = snapshot.get("metadados", {}).get("ausentes", [])
+            if unidade != "municipio":
+                # Gráfico é só municipal (GRAFICOS_POR_TEMA): sem legenda no Doc de
+                # estado não é falta, e o aviso confundiria.
+                resultado["graficos_sem_legenda"] = []
             _gravar(id_conferencia, {
                 "estado": "pronta",
                 "feitos": len(contextos),
@@ -398,7 +402,9 @@ async def abrir_doc(slug: str, unidade: str = "municipio") -> dict | None:
 _MAX_VALORES = 40
 # A sigla da UF (11 valores) não muda a concordância da frase e punha o botão em quase
 # todo cartão (André, 01/11). Mesma lista no frontend (Laboratorio.jsx, `comparavel`).
-_FORA_DO_LER_COM_CADA_VALOR = {"sigla_uf"}
+# Em estado, o mesmo vale para as colunas da est_geral: 9 valores, um por estado, com a
+# concordância já pronta ("A Paraíba", "na Paraíba"), e presentes em quase toda frase.
+_FORA_DO_LER_COM_CADA_VALOR = {"sigla_uf", "uf_estado", "uf_sigla_uf", "uf_sujeito", "uf_em", "uf_de"}
 
 
 def _como_numero(valor: object) -> float | None:
