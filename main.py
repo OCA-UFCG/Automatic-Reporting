@@ -10,10 +10,12 @@ from fastapi.staticfiles import StaticFiles
 from config import BASE_DIR, MAPAS_DIR, OUTPUT_DIR
 from services import (
     apagar_relatorio_handler,
+    gerar_relatorio_estado_handler,
     gerar_relatorio_handler,
     listar_relatorios_handler,
 )
 from utils.data.cities import carregar_cidades
+from utils.data.estados import ESTADOS_COM_RELATORIO, resolver_estado
 from utils.data.macrotemas import (
     MACROTEMAS,
     TODOS_MACROTEMAS_NOME,
@@ -142,6 +144,14 @@ async def listar_cidades():
     return carregar_cidades()
 
 
+# Lista à parte, e não dentro de /cities: o seletor municipal do Laboratório e o form
+# do admin leem /cities, e um estado ali daria 404 no fluxo municipal. O portal junta
+# as duas listas na busca (data-nordeste-frontend, /api/reports/cities).
+@app.get("/estados")
+async def listar_estados():
+    return list(ESTADOS_COM_RELATORIO)
+
+
 @app.get("/macrotemas")
 async def listar_macrotemas():
     return [
@@ -167,6 +177,10 @@ def apagar_relatorio(arquivo_pdf: str):
 async def gerar_relatorio(
     cidade: str, macrotema: str = "demografia", aguardar: str = "sim"
 ):
+    # Município e estado dividem a rota: o portal manda o nome escolhido na busca, e
+    # os nomes não colidem ("Paraíba" x "João Pessoa (PB)"; município sempre com UF).
+    if resolver_estado(cidade) is not None:
+        return await gerar_relatorio_estado_handler(cidade, macrotema, aguardar=aguardar != "nao")
     return await gerar_relatorio_handler(cidade, macrotema, aguardar=aguardar != "nao")
 
 
