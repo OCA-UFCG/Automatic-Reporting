@@ -38,6 +38,7 @@ from utils.data.cities import carregar_cidades
 from utils.geografia import resolver_nome_uf, separar_cidade_uf
 from utils.json_tipado import codificar, decodificar
 from utils.queries.base import conexao_reaproveitada
+from utils.queries.estado import MATVIEW_ESTADUAL_POR_MACROTEMA
 from utils.queries.perfil_municipal import VIEW_POR_MACROTEMA, chave_municipio_sql
 
 logger = logging.getLogger(__name__)
@@ -52,19 +53,6 @@ MAX_QUEDA_NA_VIEW = 0.05
 
 UNIDADES = ("municipio", "estado")
 
-# Matview estadual de cada tema (schema auto_relatorios_est, da equipe de dados). As
-# colunas são as municipais com o prefixo `uf_`, e as 6 primeiras vêm da est_geral
-# (uf_estado, uf_sujeito "A Paraíba", uf_em, uf_de…). Instrumentos Sudene não tem.
-MATVIEW_ESTADUAL_POR_MACROTEMA = {
-    "demografia": "est_demografia",
-    "educacao": "est_educacao",
-    "saude": "est_saude",
-    "economia-renda": "est_economia",
-    "hidraulica": "est_seg_hidrica",
-    "desenvolvimento-social": "est_desen_social",
-    "meio-ambiente": "est_ambiente",
-    "saneamento": "est_infraestrutura",
-}
 # Só os 9 do Nordeste, como estão nas matviews (André, 03/11/2026: MG e ES ficam fora).
 ESTADOS_DO_NORDESTE = 9
 

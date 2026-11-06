@@ -4,6 +4,7 @@ import IndicatorScores from './IndicatorScores.jsx';
 import MacrothemeCard from './MacrothemeCard.jsx';
 import MetricCard from './MetricCard.jsx';
 import ThemeDetail from '../ThemeDetail.jsx';
+import { rotuloDaUnidade } from '../rotuloDaUnidade.js';
 
 const LIGHT_BADGE_COLORS = new Set(['#FFD65A', '#B0CC41']);
 
@@ -27,7 +28,7 @@ export default function Cover({ cover }) {
         <div className="cover-meta">
           <CoverBrand />
           <PdfCoverBrand />
-          <span className="cover-start-label">Dados municipais reunidos em uma única plataforma</span>
+          <span className="cover-start-label">{rotuloDaUnidade(cover)}</span>
         </div>
       </div>
       <header className="cover-report-header">
@@ -63,7 +64,11 @@ export default function Cover({ cover }) {
           </section>
         )}
 
-        <div className="cover-kicker">Características Gerais</div>
+        {/* No estado, a seção só existe se o Doc trouxer o bloco resumo_cidade: os
+            cards e o mapa abaixo são municipais (services/relatorio_estado.py). */}
+        {(cover.unidade !== 'estado' || cover.resumo_cidade_html?.length > 0) && (
+          <div className="cover-kicker">Características Gerais</div>
+        )}
 
         {cover.resumo_cidade_html?.length > 0 && (
           <div className="cover-resumo-cidade-wrap">
