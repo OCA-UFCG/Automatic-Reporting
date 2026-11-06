@@ -39,6 +39,14 @@ from plotting.educacao import (
     gerar_grafico_nivel_instrucao,
 )
 from plotting.hidraulica import gerar_grafico_tecnologias_acesso_agua
+from plotting.instrumentos_sudene import (
+    gerar_grafico_quantidade_de_contratacoes,
+    gerar_grafico_valor_investido,
+)
+from plotting.instrumentos_sudene_porte import (
+    gerar_grafico_porte_contratacoes,
+    gerar_grafico_porte_valor,
+)
 from plotting.meio_ambiente import gerar_grafico_aridez
 from plotting.saneamento import (
     gerar_grafico_coleta_lixo,
@@ -181,6 +189,16 @@ GRAFICOS_POR_TEMA: dict[str, tuple[tuple[str, Callable[..., str], tuple[type[Exc
         ("grafico_fob", gerar_grafico_fob, _SO_VALOR),
         ("grafico_exportacao", gerar_grafico_exportacao, _SO_VALOR),
         ("grafico_balanca", gerar_grafico_balanca, _SO_VALOR),
+    ),
+    # Sem entrada em GRAFICOS_AUTO_MARCADOR de propósito: o Doc do tema traz os
+    # marcadores `*grafico_...` acima de cada legenda, e é só por eles que os
+    # gráficos entram no relatório.
+    "instrumentos-sudene": (
+        ("grafico_quantidade_de_contratacoes", gerar_grafico_quantidade_de_contratacoes, _SO_VALOR),
+        ("grafico_valor_investido", gerar_grafico_valor_investido, _SO_VALOR),
+        # Lado a lado no Doc: *grafico_porte_contratacoes+grafico_porte_valor.
+        ("grafico_porte_contratacoes", gerar_grafico_porte_contratacoes, _SO_VALOR),
+        ("grafico_porte_valor", gerar_grafico_porte_valor, _SO_VALOR),
     ),
 }
 
