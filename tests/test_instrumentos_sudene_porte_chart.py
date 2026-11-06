@@ -145,5 +145,5 @@ def test_gera_pizza_com_portes_zerados(tmp_path: Path):
 def test_tema_registra_as_pizzas_pelos_marcadores_do_doc():
     nomes = [nome for nome, _, _ in GRAFICOS_POR_TEMA["instrumentos-sudene"]]
 
-    assert nomes[-2:] == ["grafico_porte_contratacoes", "grafico_porte_valor"]
+    assert nomes[2:4] == ["grafico_porte_contratacoes", "grafico_porte_valor"]
     assert "instrumentos-sudene" not in GRAFICOS_AUTO_MARCADOR

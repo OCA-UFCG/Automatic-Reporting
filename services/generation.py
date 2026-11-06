@@ -47,6 +47,7 @@ from plotting.instrumentos_sudene_porte import (
     gerar_grafico_porte_contratacoes,
     gerar_grafico_porte_valor,
 )
+from plotting.instrumentos_sudene_setor import gerar_grafico_setor
 from plotting.meio_ambiente import gerar_grafico_aridez
 from plotting.saneamento import (
     gerar_grafico_coleta_lixo,
@@ -199,6 +200,7 @@ GRAFICOS_POR_TEMA: dict[str, tuple[tuple[str, Callable[..., str], tuple[type[Exc
         # Lado a lado no Doc: *grafico_porte_contratacoes+grafico_porte_valor.
         ("grafico_porte_contratacoes", gerar_grafico_porte_contratacoes, _SO_VALOR),
         ("grafico_porte_valor", gerar_grafico_porte_valor, _SO_VALOR),
+        ("grafico_setor", gerar_grafico_setor, _SO_VALOR),
     ),
 }
 
