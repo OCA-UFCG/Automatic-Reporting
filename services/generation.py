@@ -3,7 +3,7 @@ import os
 import re
 import tempfile
 import unicodedata
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
@@ -899,6 +899,137 @@ def separar_secoes_do_tema(
     )
 
 
+def responder_sem_gerar(
+    safe_report: str,
+    aguardar: bool,
+    gerar_em_fundo: Callable[[], Awaitable[HTMLResponse]],
+) -> HTMLResponse | None:
+    """O que o handler responde sem renderizar nada: HIT do cache, 202 de quem já
+    está gerando, 503 de lotação ou 202 depois de agendar a geração em fundo.
+    None = o chamador gera agora, no request. Comum ao relatório de município e ao
+    de estado (services/relatorio_estado.py), que têm o mesmo gate e a mesma fila.
+
+    Ex.: `if (r := responder_sem_gerar(safe, aguardar, gerar)) is not None: return r`
+    """
+    pdf_cache, html_cache = _caminhos_relatorio(safe_report)
+    # HIT: os dois artefatos existem, são mais novos que a última mudança de dado
+    # e estão dentro do TTL (ver config.REPORT_CACHE_TTL_S para o porquê do teto).
+    if artefato_fresco(pdf_cache, REPORT_CACHE_TTL_S) and artefato_fresco(
+        html_cache, REPORT_CACHE_TTL_S
+    ):
+        return _resposta_do_relatorio(
+            html_cache.read_text(encoding="utf-8"), safe_report
+        )
+    if aguardar:
+        return None
+    # Já existe alguém gerando este mesmo relatório: responde 202 e deixa o
+    # portal esperar a geração em curso, sem disparar outra.
+    if not adquirir_geracao(safe_report):
+        return _resposta_em_geracao(safe_report)
+    if geracoes_em_voo() > MAX_GERACOES_EM_VOO:
+        liberar_geracao(safe_report)
+        # 503 rápido, e não 202-e-enfileira: com o orçamento de 120s do
+        # portal, enfileirar além da capacidade só troca um erro honesto em
+        # 1s por um spinner de 2 minutos que termina no mesmo erro.
+        raise HTTPException(
+            status_code=503,
+            detail="Serviço ocupado gerando outros relatórios.",
+            headers={"Retry-After": "30"},
+        )
+    agendar_geracao(gerar_em_fundo, safe_report)
+    return _resposta_em_geracao(safe_report)
+
+
+def paragrafos_com_valores(texto: str, contexto: dict, namespace: str) -> list[str]:
+    """Os parágrafos do texto (separados por linha em branco), com os placeholders
+    resolvidos no contexto: a `descricao_paragrafos` do tema no SSR.
+
+    Ex.: paragrafos_com_valores("$x.\\n\\nFim.", {"x": 1}, "demografia") == ["1.", "Fim."]
+    """
+    return [
+        substituir_placeholders(paragrafo.strip(), contexto, namespace)
+        for paragrafo in re.split(r"\n\s*\n", texto)
+        if paragrafo.strip()
+    ]
+
+
+def html_das_referencias(referencias: list[str], safe_report: str) -> str | None:
+    """A seção "Referências" do fim do relatório: as referências dos Docs sem
+    repetição (espaços normalizados) e em ordem alfabética sem acento. None quando
+    nenhum Doc trouxe referência.
+
+    Ex.: html_das_referencias(["IBGE, 2022.", "IBGE,  2022."], "x") → uma referência só
+    """
+    referencias_unicas = {
+        re.sub(r"\s+", " ", referencia).strip(): None
+        for referencia in referencias
+        if referencia.strip()
+    }
+
+    def chave_referencia(referencia: str) -> str:
+        texto_sem_acentos = "".join(
+            caractere
+            for caractere in unicodedata.normalize("NFKD", referencia)
+            if not unicodedata.combining(caractere)
+        )
+        return texto_sem_acentos.casefold()
+
+    referencias_ordenadas = sorted(referencias_unicas, key=chave_referencia)
+    if not referencias_ordenadas:
+        return None
+    referencias_texto = "#! Referências\n\n" + "\n\n".join(referencias_ordenadas)
+    return texto_para_html(
+        referencias_texto,
+        {},
+        namespace="caract_mun",
+        safe_report=safe_report,
+    )
+
+
+async def gravar_relatorio(html_content: str, safe_report: str) -> HTMLResponse:
+    """Grava o par (PDF, HTML) do relatório em output/ na ordem que o gate exige e
+    devolve a resposta com os headers do artefato. Comum a município e estado.
+
+    Ex.: `return await gravar_relatorio(await render_react_ssr(props), safe_report)`
+    """
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    pdf_file, output_file = _caminhos_relatorio(safe_report)
+
+    # Apaga o par (pdf, html) velho antes de regerar, pra o gate nunca servir um
+    # HTML fresco apontando pra um PDF stale (ou vice-versa).
+    for stale_artifact in (pdf_file, output_file):
+        try:
+            stale_artifact.unlink()
+        except FileNotFoundError:
+            pass
+
+    # Ordem importa pro gate (que exige pdf E html frescos): gera o PDF primeiro
+    # (escrita atômica em services.pdf) e só então persiste o HTML — assim
+    # "html fresco" sempre implica "pdf fresco".
+    if not await _gerar_pdf(html_content, pdf_file):
+        raise HTTPException(
+            status_code=500,
+            detail="Falha ao gerar o PDF do relatório.",
+        )
+
+    # HTML atômico e por último: escreve num .tmp e os.replace no destino, depois do
+    # PDF já existir, pra o gate nunca ler um HTML meio-escrito. O nome do .tmp é
+    # único por escritor (mkstemp): os.replace é atômico pro leitor, mas não impede
+    # dois writers concorrentes de intercalar bytes num .tmp de nome fixo.
+    fd, tmp_nome = tempfile.mkstemp(
+        dir=output_file.parent, prefix=output_file.name + ".", suffix=".tmp"
+    )
+    os.close(fd)
+    tmp_html = Path(tmp_nome)
+    tmp_html.write_text(html_content, encoding="utf-8")
+    os.replace(tmp_html, output_file)
+
+    evict_cache_if_needed(protegido=safe_report)
+    evict_graficos_if_needed()
+
+    return _resposta_do_relatorio(html_content, safe_report)
+
+
 async def gerar_relatorio_handler(
     cidade: str,
     macrotema: str = "demografia",
@@ -934,37 +1065,15 @@ async def gerar_relatorio_handler(
     # diferentes produzem documentos distintos disputando a mesma entrada de cache.
     macrotema_slugs = sorted(macrotema_slugs, key=TODOS_MACROTEMAS_ORDEM.index)
     safe_city, safe_report = montar_safe_report(cidade, macrotema, macrotema_slugs)
-    pdf_cache, html_cache = _caminhos_relatorio(safe_report)
-    # HIT: os dois artefatos existem, são mais novos que a última mudança de dado
-    # e estão dentro do TTL (ver config.REPORT_CACHE_TTL_S para o porquê do teto).
-    if artefato_fresco(pdf_cache, REPORT_CACHE_TTL_S) and artefato_fresco(
-        html_cache, REPORT_CACHE_TTL_S
-    ):
-        return _resposta_do_relatorio(
-            html_cache.read_text(encoding="utf-8"), safe_report
-        )
-    if not aguardar:
-        # Já existe alguém gerando este mesmo relatório: responde 202 e deixa o
-        # portal esperar a geração em curso, sem disparar outra.
-        if not adquirir_geracao(safe_report):
-            return _resposta_em_geracao(safe_report)
-        if geracoes_em_voo() > MAX_GERACOES_EM_VOO:
-            liberar_geracao(safe_report)
-            # 503 rápido, e não 202-e-enfileira: com o orçamento de 120s do
-            # portal, enfileirar além da capacidade só troca um erro honesto em
-            # 1s por um spinner de 2 minutos que termina no mesmo erro.
-            raise HTTPException(
-                status_code=503,
-                detail="Serviço ocupado gerando outros relatórios.",
-                headers={"Retry-After": "30"},
-            )
-        agendar_geracao(
-            lambda: gerar_relatorio_handler(
-                cidade, macrotema, aguardar=True, _sentinela_ja_adquirida=True
-            ),
-            safe_report,
-        )
-        return _resposta_em_geracao(safe_report)
+    resposta_sem_gerar = responder_sem_gerar(
+        safe_report,
+        aguardar,
+        lambda: gerar_relatorio_handler(
+            cidade, macrotema, aguardar=True, _sentinela_ja_adquirida=True
+        ),
+    )
+    if resposta_sem_gerar is not None:
+        return resposta_sem_gerar
 
     # Melhor esforço: se outro já está gerando este relatório, o caminho síncrono
     # gera assim mesmo (é o admin e o scan, volume baixo) — só não é ele quem
@@ -1297,13 +1406,9 @@ async def gerar_relatorio_handler(
                 macrotema_item["descricao"] = substituir_placeholders(
                     descricao_tema, linhas_macrotema[0], macrotema_slug
                 )
-                macrotema_item["descricao_paragrafos"] = [
-                    substituir_placeholders(
-                        paragrafo.strip(), linhas_macrotema[0], macrotema_slug
-                    )
-                    for paragrafo in re.split(r"\n\s*\n", descricao_tema)
-                    if paragrafo.strip()
-                ]
+                macrotema_item["descricao_paragrafos"] = paragrafos_com_valores(
+                    descricao_tema, linhas_macrotema[0], macrotema_slug
+                )
                 macrotema_item["descricao_html"] = render_descricao_tema_html(
                     descricao_tema,
                     linhas_macrotema[0],
@@ -1335,33 +1440,9 @@ async def gerar_relatorio_handler(
 
             macrotemas_render.append(macrotema_item)
 
-        referencias_unicas = {
-            re.sub(r"\s+", " ", referencia).strip(): None
-            for referencia in referencias
-            if referencia.strip()
-        }
-
-        def chave_referencia(referencia: str) -> str:
-            texto_sem_acentos = "".join(
-                caractere
-                for caractere in unicodedata.normalize("NFKD", referencia)
-                if not unicodedata.combining(caractere)
-            )
-            return texto_sem_acentos.casefold()
-
-        referencias_ordenadas = sorted(referencias_unicas, key=chave_referencia)
-        if referencias_ordenadas:
-            referencias_texto = "#! Referências\n\n" + "\n\n".join(
-                referencias_ordenadas
-            )
-            docs_html_parts.append(
-                texto_para_html(
-                    referencias_texto,
-                    {},
-                    namespace="caract_mun",
-                    safe_report=safe_report,
-                )
-            )
+        referencias_html = html_das_referencias(referencias, safe_report)
+        if referencias_html:
+            docs_html_parts.append(referencias_html)
 
         docs_html = "\n".join([*caracteristicas_html_parts, *docs_html_parts])
 
@@ -1376,43 +1457,7 @@ async def gerar_relatorio_handler(
             "dados": linhas,
         })
 
-        # Output file handling
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        pdf_file, output_file = _caminhos_relatorio(safe_report)
-
-        # Apaga o par (pdf, html) velho antes de regerar, pra o gate nunca servir um
-        # HTML fresco apontando pra um PDF stale (ou vice-versa).
-        for stale_artifact in (pdf_file, output_file):
-            try:
-                stale_artifact.unlink()
-            except FileNotFoundError:
-                pass
-
-        # Ordem importa pro gate (que exige pdf E html frescos): gera o PDF primeiro
-        # (escrita atômica em services.pdf) e só então persiste o HTML — assim
-        # "html fresco" sempre implica "pdf fresco".
-        if not await _gerar_pdf(html_content, pdf_file):
-            raise HTTPException(
-                status_code=500,
-                detail="Falha ao gerar o PDF do relatório.",
-            )
-
-        # HTML atômico e por último: escreve num .tmp e os.replace no destino, depois do
-        # PDF já existir, pra o gate nunca ler um HTML meio-escrito. O nome do .tmp é
-        # único por escritor (mkstemp): os.replace é atômico pro leitor, mas não impede
-        # dois writers concorrentes de intercalar bytes num .tmp de nome fixo.
-        fd, tmp_nome = tempfile.mkstemp(
-            dir=output_file.parent, prefix=output_file.name + ".", suffix=".tmp"
-        )
-        os.close(fd)
-        tmp_html = Path(tmp_nome)
-        tmp_html.write_text(html_content, encoding="utf-8")
-        os.replace(tmp_html, output_file)
-
-        evict_cache_if_needed(protegido=safe_report)
-        evict_graficos_if_needed()
-
-        return _resposta_do_relatorio(html_content, safe_report)
+        return await gravar_relatorio(html_content, safe_report)
     finally:
         if dono_da_sentinela:
             liberar_geracao(safe_report)
