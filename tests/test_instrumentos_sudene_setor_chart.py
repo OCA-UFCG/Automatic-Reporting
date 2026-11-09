@@ -53,11 +53,25 @@ def test_coluna_ausente_vira_value_error_com_a_chave():
         totais_por_setor(linha, "{setor}_contrato")
 
 
-def test_todos_os_setores_zerados_vira_value_error():
+def test_as_duas_series_zeradas_vira_value_error(tmp_path: Path):
     zerado = _linha_da_view(["0"] * 6, ["0"] * 6)
 
     with pytest.raises(ValueError, match="zerados"):
-        totais_por_setor(zerado, "{setor}_contrato")
+        gerar_grafico_setor(zerado, tmp_path, "zerado")
+
+
+@pytest.mark.parametrize(
+    ("contratos", "valores"),
+    [
+        (["0", "401", "1", "956", "2", "0"], ["0"] * 6),
+        (["0"] * 6, ["0", "3013505.85", "4729.41", "15930324.2", "35899", "0"]),
+    ],
+    ids=["so_contratacoes", "so_valores"],
+)
+def test_uma_serie_zerada_ainda_gera_o_card(tmp_path: Path, contratos, valores):
+    nome = gerar_grafico_setor(_linha_da_view(contratos, valores), tmp_path, "uma_serie")
+
+    assert (tmp_path / nome).stat().st_size > 0
 
 
 @pytest.mark.parametrize(

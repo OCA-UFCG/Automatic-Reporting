@@ -64,11 +64,23 @@ def totais_por_setor(cidade: dict, coluna: str) -> list[float]:
     if faltando:
         raise ValueError(f"Colunas de setor do FNE ausentes: {faltando}; esperado um número em cada.")
 
-    totais = [float(cidade[chave]) for chave in chaves]
-    if not any(totais):
-        raise ValueError(f"Todos os setores do FNE estão zerados em {chaves}; esperado ao menos um > 0.")
+    return [float(cidade[chave]) for chave in chaves]
 
-    return totais
+
+def _exigir_alguma_serie_com_dado(quantidades: list[float], valores: list[float]) -> None:
+    """Só sem nenhuma contratação e nenhum valor o card fica de fora do relatório.
+
+    INTENTIONAL: uma série zerada sozinha não derruba a Figura (revisão do PR do
+    gráfico de setor): o card sai com a outra série, e a zerada fica sem barras,
+    com os rótulos "0" / "R$ 0".
+    """
+    if any(quantidades) or any(valores):
+        return
+
+    raise ValueError(
+        f"Contratações e valores do FNE zerados em todos os setores: {quantidades} e {valores}; "
+        "esperado ao menos um > 0."
+    )
 
 
 def formatar_quantidade(valor: float) -> str:
@@ -160,6 +172,7 @@ def gerar_grafico_setor(
 ) -> str:
     quantidades = totais_por_setor(cidade, "{setor}_contrato")
     valores = totais_por_setor(cidade, "valor_{setor}_contrato")
+    _exigir_alguma_serie_com_dado(quantidades, valores)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     chart_file = OUTPUT_DIR / f"grafico_setor_{safe_city}.png"
     reuso = reusar_grafico(chart_file)
