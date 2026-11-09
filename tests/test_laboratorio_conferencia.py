@@ -401,6 +401,7 @@ def test_texto_numa_cidade_com_graficos_de_verdade(monkeypatch, tmp_path):
     monkeypatch.setattr(laboratorio, "OUTPUT_DIR", tmp_path)
     monkeypatch.setattr(cache, "OUTPUT_DIR", tmp_path)
     monkeypatch.setattr(cache, "DATA_VERSION_FILE", tmp_path / ".data_version")
+    monkeypatch.setattr(laboratorio, "CARACTERISTICAS_DOCS_URL", None)  # sem a primeira página
     faixas = [{"faixa": "0-4", "mulheres": 1200, "homens": 1300}, {"faixa": "5-9", "mulheres": 1400, "homens": 1500}]
     _gravar_snapshot(tmp_path, "demografia", {
         "Com Dado (PB)": {"nm_mun": "Com Dado (PB)", "faixas_etarias_sexo": faixas},
@@ -571,3 +572,41 @@ def test_area_texto_pronto_e_doc_proprio(monkeypatch, snapshot_falso, tmp_path):
     resposta = cliente.post("/laboratorio/demografia/municipio?unidade=area", json={"texto": texto, "cidade": "Caatinga"})
     assert resposta.status_code == 200
     assert "Caatinga tinha 7 habitantes." in resposta.json()["partes"][0]
+
+
+def test_painel_traz_a_primeira_pagina_so_em_municipio(monkeypatch, tmp_path):
+    # A primeira página do relatório (Apresentação, Características Gerais e o mapa)
+    # vem do Doc de Características, não do Doc do tema (André, 09/11/2026).
+    monkeypatch.setattr(laboratorio_snapshot, "SNAPSHOT_DIR", tmp_path)
+    monkeypatch.setattr(laboratorio, "CARACTERISTICAS_DOCS_URL", "doc-caract")
+    caracteristicas = (
+        "relatorio_geral= “Síntese de caract_mun.$nm_mun.”@@\n\n"
+        "resumo_cidade= “caract_mun.$nm_mun fica na região caract_mun.$regiao (Figura X) "
+        "e está inserido caract_mun.$bioma.”@@\n\n"
+        "Figura X- Localização do município de caract_mun.$nm_mun.\n"
+    )
+
+    async def texto_do_doc(_url):
+        return caracteristicas
+
+    monkeypatch.setattr(laboratorio, "carregar_texto_do_docs", texto_do_doc)
+    monkeypatch.setattr(laboratorio, "buscar_mapa_estatico", lambda nome, uf: "Nova (PB).png")
+    laboratorio._bioma_da_capa.cache_clear()
+    _gravar_snapshot(tmp_path, "demografia", {"Nova (PB)": {"nm_mun": "Nova", "regiao": "Nordeste", "bioma": "no bioma Caatinga"}})
+    _gravar_snapshot(tmp_path, "meio-ambiente", {"Nova (PB)": {"nm_mun": "Nova", "regiao": "Nordeste", "bioma": "inserida no bioma Caatinga"}})
+    doc = "descricao_tema = Texto de $nm_mun.\n@@"
+
+    html = laboratorio.texto_do_municipio("demografia", doc, "Nova (PB)", com_graficos=True)["html"]
+    capa = html[0]
+    assert "Apresentação" in capa and "Síntese de Nova." in capa
+    assert "região Nordeste (Figura 1)" in capa and "inserido no bioma Caatinga" in capa
+    assert 'src="/laboratorio/mapas/Nova%20%28PB%29.png"' in capa and "Figura 1 – Localização do município de Nova." in capa
+    assert html[1:] == ['<p class="theme-detail-text">Texto de Nova.</p>']
+
+    # Em Meio Ambiente o bioma da linha é outra frase: a capa usa o de demografia, como
+    # o relatório usa o das características.
+    meio = laboratorio.texto_do_municipio("meio-ambiente", doc, "Nova (PB)", com_graficos=True)["html"][0]
+    assert "inserido no bioma Caatinga" in meio and "inserida" not in meio
+
+    # Fora do painel (conferência, "ler com cada valor"), sem capa.
+    assert laboratorio.texto_do_municipio("demografia", doc, "Nova (PB)")["html"] == html[1:]

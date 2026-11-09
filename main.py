@@ -306,6 +306,10 @@ if os.getenv("LABORATORIO_HABILITADO") == "1":
             raise HTTPException(status_code=404, detail="conferência não encontrada")
         return estado
 
+    # O mapa da primeira página no painel: o nginx do gamma-lab só deixa passar
+    # /laboratorio/..., e não /mapas/ (laboratorio-5d-roteiro-acesso.md).
+    app.add_api_route("/laboratorio/mapas/{path:path}", mapa_estatico_file, methods=["GET", "HEAD"])
+
     @app.post("/laboratorio/{tema}/municipio")
     def laboratorio_municipio(tema: str, corpo: TextoNaCidade, unidade: Unidade = "municipio"):
         # `cidade` é o nome da unidade: "Campina Grande (PB)" ou, em estado, "Paraíba".
