@@ -164,5 +164,6 @@ def test_titulo_do_card_repete_a_legenda_do_doc():
 def test_tema_registra_o_grafico_pelo_marcador_do_doc():
     nomes = [nome for nome, _, _ in GRAFICOS_POR_TEMA["instrumentos-sudene"]]
 
-    assert nomes[-1] == "grafico_setor"
+    # Presença, não posição: `nomes[-1]` quebraria no próximo gráfico do tema.
+    assert "grafico_setor" in nomes
     assert "instrumentos-sudene" not in GRAFICOS_AUTO_MARCADOR
