@@ -149,6 +149,18 @@ def test_gera_o_png(tmp_path: Path):
     assert (tmp_path / nome).stat().st_size > 0
 
 
+def test_titulo_do_card_repete_a_legenda_do_doc():
+    # A legenda "Figura w" do Doc sai logo abaixo do card; com textos diferentes
+    # os dois pareciam descrever gráficos distintos.
+    fig = desenhar_barras_por_setor(
+        totais_por_setor(RECIFE, "{setor}_contrato"), totais_por_setor(RECIFE, "valor_{setor}_contrato"),
+    )
+
+    assert "Quantidade de contratações e valor investido por tipo de setor econômico" in [
+        texto.get_text() for texto in fig.texts
+    ]
+
+
 def test_tema_registra_o_grafico_pelo_marcador_do_doc():
     nomes = [nome for nome, _, _ in GRAFICOS_POR_TEMA["instrumentos-sudene"]]
 

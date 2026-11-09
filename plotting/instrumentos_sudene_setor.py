@@ -34,6 +34,10 @@ SETORES_ECONOMICOS = (
     ("pessoaf", "Pessoa\nFísica"),
     ("turismo", "Turismo"),
 )
+# IMPORTANT: igual à legenda "Figura w" do Doc, que sai logo abaixo do card; com
+# textos diferentes os dois pareciam descrever gráficos distintos (revisão do PR).
+# Se o Doc mudar a legenda, mude aqui também.
+TITULO_CARD_SETOR = "Quantidade de contratações e valor investido por tipo de setor econômico"
 # Cores medidas do design. São as mesmas das pizzas de porte
 # (`plotting/instrumentos_sudene_porte.py`): laranja = contratações, verde = valor.
 _COR_QUANTIDADE = "#DD7402"
@@ -158,7 +162,7 @@ def _estilizar_eixos(ax) -> None:
 def desenhar_barras_por_setor(quantidades: list[float], valores: list[float]):
     """Monta o card (sem salvar) e devolve a figura, para o teste medir os rótulos."""
     fig, ax = iniciar_card_grafico(
-        (8, 3.8), "Quantidade de contratações e valor total investido por tipo de setor",
+        (8, 3.8), TITULO_CARD_SETOR,
         margem_esquerda=0.04,
     )
     _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas=0.45)
