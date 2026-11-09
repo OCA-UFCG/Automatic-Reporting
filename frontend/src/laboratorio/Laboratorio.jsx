@@ -26,6 +26,7 @@ import {
   trechoParaLer,
   versaoModelo,
 } from './modelo.js'
+import { CHAVE_TUTORIAL_VISTO, abrirTutorial, fecharTutorial } from './tutorial.js'
 
 // Em produção, sempre a mesma origem: atrás do gamma-lab.oca-portal.com, o basic auth
 // do nginx cobre a página e a API juntas. O build do gamma grava um VITE_API_BASE_URL
@@ -1375,6 +1376,21 @@ export default function Laboratorio() {
   const ultimoBloco = grupos.findLastIndex((g) => g.tipo === 'bloco')
   const docVazio = doc && !carregando && rascunho?.tipo !== 'doc_mudou' && textoSalvo.trim() === ''
 
+  // O tutorial abre sozinho na primeira vez que um Doc abre: antes disso a tela só tem o
+  // cabeçalho, e o tutorial não teria bloco nem painel para mostrar. Marca ao abrir, não ao
+  // concluir: quem recarrega no meio não é surpreendido de novo (como no SAP-frontend).
+  useEffect(() => {
+    if (!doc || carregando || armazem.ler(CHAVE_TUTORIAL_VISTO)) return
+    const espera = setTimeout(() => {
+      armazem.gravar(CHAVE_TUTORIAL_VISTO, '1')
+      // Sem localStorage não há como lembrar que já viu: melhor não abrir sozinho do que
+      // abrir em toda visita. O botão continua funcionando.
+      if (armazem.ler(CHAVE_TUTORIAL_VISTO)) abrirTutorial(u)
+    }, 600)
+    return () => clearTimeout(espera)
+  }, [doc, carregando])
+  useEffect(() => fecharTutorial, [])
+
   if (desligado) {
     return (
       <main>
@@ -1398,11 +1414,11 @@ export default function Laboratorio() {
             <span className="marca-simbolo" aria-hidden="true">¶</span>
             <span className="marca-nome"><h1>TemaLab</h1><span>Data Nordeste</span></span>
           </div>
-          <div className="escolha-tema">
+          <div className="escolha-tema" data-tour="tema">
             <span id="rotulo-tema">Tema</span>
             <SeletorDeTema temas={temas && opcoesDeTema} tema={tema} escolher={abrirTema} desligado={!temas || carregando || rodando} />
           </div>
-          <div className="escolha-tema">
+          <div className="escolha-tema" data-tour="unidade">
             <span id="rotulo-unidade">Unidade</span>
             <div className="unidade-seg" role="group" aria-labelledby="rotulo-unidade">
               {Object.values(UNIDADES).map((x) => (
@@ -1510,7 +1526,7 @@ export default function Laboratorio() {
           <div className="empty">
             <h2>O Doc deste tema está vazio</h2>
             <p>Comece com um bloco aqui. Depois, "copiar o Doc inteiro" leva o texto, já com descricao_tema = “ … ”@@, para colar no Doc.</p>
-            <button className="btn pri" onClick={novoBloco}>+ começar com um bloco</button>
+            <button className="btn pri" onClick={novoBloco} data-tour="comecar">+ começar com um bloco</button>
           </div>
         )}
         {grupos.map((grupo, i) => {
@@ -1573,6 +1589,9 @@ export default function Laboratorio() {
           <PainelCidade cidade={cidade} setCidade={setCidade} cidades={opcoesDeCidade} resultado={naCidade} atualizando={atualizandoPainel} erro={erroPainel} />
         )}
       </main>
+      <button type="button" className="botao-tutorial" data-tour="tutorial" onClick={() => abrirTutorial(u)}>
+        <span className="simbolo" aria-hidden="true">?</span>Tutorial
+      </button>
     </Unidade.Provider>
   )
 }
