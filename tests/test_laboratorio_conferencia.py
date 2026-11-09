@@ -507,7 +507,7 @@ def test_estado_texto_pronto_e_conferencia(monkeypatch, snapshot_estadual):
 def test_estado_rotas_recusam_o_que_nao_existe(monkeypatch, snapshot_estadual):
     cliente = _app(monkeypatch, "1")
     assert cliente.get("/laboratorio/saude/colunas?unidade=estado").status_code == 404  # sem snapshot
-    assert cliente.get("/laboratorio/demografia/colunas?unidade=area").status_code == 422
+    assert cliente.get("/laboratorio/demografia/colunas?unidade=pais").status_code == 422
     assert cliente.post("/laboratorio/demografia/csv?unidade=estado", json={"csv": "nm_mun\nX"}).status_code == 400
     colunas = cliente.get("/laboratorio/demografia/colunas?unidade=estado").json()["colunas"]
     assert {c["coluna"] for c in colunas} >= {"uf_sujeito", "uf_pop"}
@@ -520,8 +520,13 @@ def test_lista_de_temas_diz_se_o_estado_tem_doc(monkeypatch, snapshot_estadual):
 
     assert temas["demografia"]["unidades"]["estado"]["tem_doc"] is True
     assert temas["demografia"]["unidades"]["estado"]["snapshot_gerado_em"]
-    assert temas["saude"]["unidades"]["estado"] == {"snapshot_gerado_em": None, "tem_doc": False}
+    # Os nomes vêm do snapshot, para a tela não ter lista fixa (área, 08/11/2026).
+    assert temas["demografia"]["unidades"]["estado"]["lugares"] == ["Paraíba", "Ceará"]
+    assert temas["saude"]["unidades"]["estado"] == {"snapshot_gerado_em": None, "tem_doc": False, "lugares": []}
     assert temas["instrumentos-sudene"]["unidades"] == {}
+    # Área: só os temas com matview de área (desenvolvimento social não tem).
+    assert set(temas["demografia"]["unidades"]) == {"estado", "area"}
+    assert set(temas["desenvolvimento-social"]["unidades"]) == {"estado"}
     # O item municipal continua igual para a tela de hoje.
     assert temas["demografia"]["snapshot_gerado_em"]
 
@@ -545,3 +550,24 @@ def test_ler_com_cada_valor_ignora_a_concordancia_do_estado(monkeypatch, tmp_pat
     })
     colunas = laboratorio.ler_com_cada_valor("demografia", "$uf_sujeito teve $uf_analise.", unidade="estado")
     assert [c["coluna"] for c in colunas] == ["uf_analise"]
+
+
+# --- Unidade área de interesse (08/11/2026) ---
+
+def test_area_texto_pronto_e_doc_proprio(monkeypatch, snapshot_falso, tmp_path):
+    (tmp_path / "area").mkdir()
+    areas = {"Caatinga": {"fonte": "view", "contexto": {"area_sujeito": "A Caatinga", "area_pop": 7}}}
+    with gzip.open(tmp_path / "area" / "demografia.json.gz", "wt", encoding="utf-8") as arquivo:
+        json.dump({"gerado_em": "2026-11-08T04:30:00+00:00", "municipios": codificar(areas),
+                   "metadados": {"area": 1}}, arquivo)
+    monkeypatch.setenv("DEMOGRAFIA_AREA_DOCS_URL", "https://docs.google.com/document/d/a/edit")
+    cliente = _app(monkeypatch, "1")
+
+    temas = {t["slug"]: t for t in cliente.get("/laboratorio/temas").json()}
+    assert temas["demografia"]["unidades"]["area"]["lugares"] == ["Caatinga"]
+    assert temas["demografia"]["unidades"]["area"]["tem_doc"] is True
+
+    texto = "descricao_tema = $area_sujeito tinha $area_pop habitantes.\n@@"
+    resposta = cliente.post("/laboratorio/demografia/municipio?unidade=area", json={"texto": texto, "cidade": "Caatinga"})
+    assert resposta.status_code == 200
+    assert "Caatinga tinha 7 habitantes." in resposta.json()["partes"][0]

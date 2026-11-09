@@ -402,9 +402,13 @@ async def abrir_doc(slug: str, unidade: str = "municipio") -> dict | None:
 _MAX_VALORES = 40
 # A sigla da UF (11 valores) não muda a concordância da frase e punha o botão em quase
 # todo cartão (André, 01/11). Mesma lista no frontend (Laboratorio.jsx, `comparavel`).
-# Em estado, o mesmo vale para as colunas da est_geral: 9 valores, um por estado, com a
-# concordância já pronta ("A Paraíba", "na Paraíba"), e presentes em quase toda frase.
-_FORA_DO_LER_COM_CADA_VALOR = {"sigla_uf", "uf_estado", "uf_sigla_uf", "uf_sujeito", "uf_em", "uf_de"}
+# Em estado e área, o mesmo vale para as colunas da est_geral e da areaint_geral: um
+# valor por unidade, com a concordância já pronta ("A Paraíba", "na Caatinga"), e
+# presentes em quase toda frase.
+_FORA_DO_LER_COM_CADA_VALOR = {
+    "sigla_uf", "uf_estado", "uf_sigla_uf", "uf_sujeito", "uf_em", "uf_de",
+    "area_nome", "area_sigla", "area_sujeito", "area_em", "area_de",
+}
 
 
 def _como_numero(valor: object) -> float | None:

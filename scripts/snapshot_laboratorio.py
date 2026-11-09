@@ -6,10 +6,11 @@ no ~/scripts/refresh_matviews.sh do gamma depois do touch .data_version, e à m�
 de uma carga de dados de um tema:
 
     docker exec automatic-reporting-gamma flock -n /app/output/laboratorio.lock \\
-        python3 scripts/snapshot_laboratorio.py [--tema saneamento] [--unidade estado]
+        python3 scripts/snapshot_laboratorio.py [--tema saneamento] [--unidade estado|area]
 
-Sem --unidade, só municípios (o que o cron roda). Estado lê as matviews estaduais, 9 linhas
-cada, em poucos segundos; fica fora da rodada noturna até o André decidir encadear.
+Sem --unidade, só municípios. Estado e área leem as matviews da unidade (9 e 4 linhas
+em 08/11/2026), em poucos segundos. O cron do gamma roda município e estado num laço
+(04/11/2026); área entra nele só com o ok do André.
 
 O flock impede a rodada manual e a noturna de rodarem juntas: um tema por vez, nunca em
 paralelo, é parte da exceção ao guard do SELECT * (ver services/laboratorio_snapshot.py).
@@ -31,10 +32,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 os.environ.setdefault("PGAPPNAME", "laboratorio-snapshot")
 
 from services.laboratorio_snapshot import (
-    MATVIEW_ESTADUAL_POR_MACROTEMA,
     UNIDADES,
-    gerar_snapshot_estado,
+    UNIDADES_POR_MATVIEW,
     gerar_snapshot_tema,
+    gerar_snapshot_unidade,
 )
 from utils.queries.perfil_municipal import VIEW_POR_MACROTEMA
 
@@ -46,8 +47,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--tema", choices=sorted(VIEW_POR_MACROTEMA))
     parser.add_argument("--unidade", choices=UNIDADES, default="municipio")
     args = parser.parse_args(argv)
-    if args.unidade == "estado":
-        gerar, todos = gerar_snapshot_estado, list(MATVIEW_ESTADUAL_POR_MACROTEMA)
+    if args.unidade in UNIDADES_POR_MATVIEW:
+        def gerar(slug):
+            return gerar_snapshot_unidade(slug, args.unidade)
+        todos = list(UNIDADES_POR_MATVIEW[args.unidade]["matviews"])
     else:
         gerar, todos = gerar_snapshot_tema, list(VIEW_POR_MACROTEMA)
     if args.tema and args.tema not in todos:
