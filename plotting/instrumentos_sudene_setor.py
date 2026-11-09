@@ -94,7 +94,7 @@ def formatar_valor_reais(valor: float) -> str:
     """Rótulo da barra verde: 154528.6 -> "R$ 154,53k", 359580433.74 -> "R$ 359,58M"."""
     divisor, sufixo, decimais = _faixa_do_rotulo(valor, _FAIXAS_REAIS)
 
-    return f"R$ {formatar_numero_ptbr(valor / divisor, decimais=decimais)}{sufixo}"
+    return f"R$ {_sem_zero_decimal(formatar_numero_ptbr(valor / divisor, decimais=decimais))}{sufixo}"
 
 
 def _faixa_do_rotulo(valor: float, faixas: tuple) -> tuple[float, str, int]:
@@ -112,7 +112,12 @@ def _faixa_do_rotulo(valor: float, faixas: tuple) -> tuple[float, str, int]:
 
 
 def _sem_zero_decimal(texto: str) -> str:
-    return texto.removesuffix(",0")
+    """Convenção dos cards: X,0 / X,00 sai inteiro ("4,0" -> "4", "302,00" -> "302"); "1,50" fica."""
+    inteiro, virgula, decimais = texto.partition(",")
+    if virgula and not decimais.strip("0"):
+        return inteiro
+
+    return texto
 
 
 def alturas_normalizadas(totais: list[float]) -> list[float]:

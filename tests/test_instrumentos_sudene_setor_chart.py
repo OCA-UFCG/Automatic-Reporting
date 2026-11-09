@@ -92,15 +92,17 @@ def test_rotulo_da_quantidade(valor, esperado):
         (0, "R$ 0"),
         (950, "R$ 950"),
         (154528.6, "R$ 154,53k"),
-        (302000, "R$ 302,00k"),
+        # Convenção dos cards: X,00 sai inteiro, como "4k" na quantidade.
+        (302000, "R$ 302k"),
         (1804690.89, "R$ 1,80M"),
+        (1500000, "R$ 1,50M"),
         (359580433.74, "R$ 359,58M"),
         (2.5e9, "R$ 2,50B"),
         # Fronteiras: arredondar para 1000 sobe uma faixa em vez de "R$ 1.000,00k".
-        (999.5, "R$ 1,00k"),
+        (999.5, "R$ 1k"),
         (999994.99, "R$ 999,99k"),
-        (999995, "R$ 1,00M"),
-        (999995000, "R$ 1,00B"),
+        (999995, "R$ 1M"),
+        (999995000, "R$ 1B"),
     ],
 )
 def test_rotulo_do_valor(valor, esperado):
