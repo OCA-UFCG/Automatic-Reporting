@@ -1,6 +1,7 @@
 from decimal import Decimal
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import pytest
 
 from plotting.instrumentos_sudene_setor import (
@@ -125,6 +126,7 @@ def _folgas_entre_rotulos_do_grupo(quantidades: list[float], valores: list[float
     fig.canvas.draw()
     renderer = fig.canvas.get_renderer()
     caixas = [texto.get_window_extent(renderer) for texto in fig.axes[0].texts]
+    plt.close(fig)
     total = len(SETORES_ECONOMICOS)
 
     return [caixas[total + i].x0 - caixas[i].x1 for i in range(total)]
@@ -155,10 +157,10 @@ def test_titulo_do_card_repete_a_legenda_do_doc():
     fig = desenhar_barras_por_setor(
         totais_por_setor(RECIFE, "{setor}_contrato"), totais_por_setor(RECIFE, "valor_{setor}_contrato"),
     )
+    titulos = [texto.get_text() for texto in fig.texts]
+    plt.close(fig)
 
-    assert "Quantidade de contratações e valor investido por tipo de setor econômico" in [
-        texto.get_text() for texto in fig.texts
-    ]
+    assert "Quantidade de contratações e valor investido por tipo de setor econômico" in titulos
 
 
 def test_tema_registra_o_grafico_pelo_marcador_do_doc():
