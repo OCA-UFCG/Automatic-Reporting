@@ -80,23 +80,28 @@ const numero = (n) => n.toLocaleString('pt-BR')
 
 // A unidade do tema (03/11/2026: "Estado e Área de interesse se comportarão como
 // município"): as palavras da tela e o parâmetro das rotas. Chega aos componentes pelo
-// contexto `Unidade`.
+// contexto `Unidade`. `os`, `todos`, `nenhuma` e `conferido` levam o gênero ("todas as áreas").
 const UNIDADES = {
   municipio: {
     chave: 'municipio', nome: 'Município', um: 'município', varios: 'municípios', nenhum: 'nenhum município',
     numa: 'numa cidade', nesta: 'nesta cidade', escolha: 'Escolha uma cidade',
     digite: 'Digite o nome da cidade…', comoSai: 'no relatório dela, com os gráficos',
+    os: 'os', todos: 'todos os', nenhuma: 'nenhum', conferido: 'conferido',
   },
   estado: {
     chave: 'estado', nome: 'Estado', um: 'estado', varios: 'estados', nenhum: 'nenhum estado',
     numa: 'num estado', nesta: 'neste estado', escolha: 'Escolha um estado',
     digite: 'Digite o nome do estado…', comoSai: 'no relatório dele (sem gráficos: eles são só municipais)',
+    os: 'os', todos: 'todos os', nenhuma: 'nenhum', conferido: 'conferido',
+  },
+  area: {
+    chave: 'area', nome: 'Área', um: 'área', varios: 'áreas', nenhum: 'nenhuma área',
+    numa: 'numa área', nesta: 'nesta área', escolha: 'Escolha uma área de interesse',
+    digite: 'Digite o nome da área…', comoSai: 'no relatório dela (sem gráficos: eles são só municipais)',
+    os: 'as', todos: 'todas as', nenhuma: 'nenhuma', conferido: 'conferida',
   },
 }
 const Unidade = createContext(UNIDADES.municipio)
-// Os 9 do Nordeste, com o nome como está na matview (uf_estado). O snapshot de estado
-// só é gravado com exatamente estes 9 (gerar_snapshot_estado, no backend).
-const ESTADOS_DO_NORDESTE = ['Maranhão', 'Piauí', 'Ceará', 'Rio Grande do Norte', 'Paraíba', 'Pernambuco', 'Alagoas', 'Sergipe', 'Bahia']
 
 const contar = (n, u) => `${numero(n)} ${n === 1 ? u.um : u.varios}`
 const rota = (u, slug, resto) => `/laboratorio/${slug}/${resto}${u.chave === 'municipio' ? '' : `?unidade=${u.chave}`}`
@@ -104,10 +109,13 @@ const rota = (u, slug, resto) => `/laboratorio/${slug}/${resto}${u.chave === 'mu
 // Só para a tela: várias linhas em branco seguidas viram uma. A exportação usa o original.
 const paraTela = (texto) => texto.trim().replace(/\n\s*\n(\s*\n)+/g, '\n\n')
 
-// Coluna de texto com 2 a 40 valores, fora a sigla da UF e a concordância do estado: as
+// Coluna de texto com 2 a 40 valores, fora a sigla da UF e a concordância de estado e área: as
 // que o "ler com cada valor" do backend lê (services/laboratorio.py,
 // _FORA_DO_LER_COM_CADA_VALOR).
-const FORA_DO_LER_COM_CADA_VALOR = new Set(['sigla_uf', 'uf_estado', 'uf_sigla_uf', 'uf_sujeito', 'uf_em', 'uf_de'])
+const FORA_DO_LER_COM_CADA_VALOR = new Set([
+  'sigla_uf', 'uf_estado', 'uf_sigla_uf', 'uf_sujeito', 'uf_em', 'uf_de',
+  'area_nome', 'area_sigla', 'area_sujeito', 'area_em', 'area_de',
+])
 const comparavel = (info) =>
   info?.tipo === 'texto' && info.distintos >= 2 && info.distintos <= 40 && !FORA_DO_LER_COM_CADA_VALOR.has(info.coluna)
 
@@ -626,7 +634,7 @@ function Bloco({ numero: n, versoes, estatisticas, completo, juntar, novaVersao,
         <span className="chip">{versoes.length} {versoes.length === 1 ? 'versão' : 'versões'}</span>
         {alterado ? <span className="chip atencao">alterado</span> : <span className="chip bom">igual ao Doc</span>}
         {estatisticas?.sem.length > 0 && <span className="chip ruim">sem texto em {contar(estatisticas.sem.length, u)}</span>}
-        {estatisticas?.sem.length === 0 && completo && <span className="chip bom">texto em todos os {u.varios}</span>}
+        {estatisticas?.sem.length === 0 && completo && <span className="chip bom">texto em {u.todos} {u.varios}</span>}
         {estatisticas?.varias.length > 0 && <span className="chip ruim">sai com 2+ trechos em {contar(estatisticas.varias.length, u)}</span>}
         <span className="spacer" />
         {juntar && <button className="btn ghost sm" onClick={juntar}>juntar com o de cima</button>}
@@ -785,7 +793,7 @@ function BarraDaConferencia({ conferencia, rodando, resultado, velha, casa, cobe
     status = `A conferência falhou: ${conferencia.erro}`
     tom = ' ruim'
   } else if (!resultado) {
-    status = `Ainda não conferido contra os ${u.varios}.`
+    status = `Ainda não conferido contra ${u.os} ${u.varios}.`
   } else if (velha) {
     status = `O texto mudou desde a conferência das ${dataHora(conferencia.conferido_em)}: as contagens são do texto anterior.`
     tom = ' atencao'
@@ -794,7 +802,7 @@ function BarraDaConferencia({ conferencia, rodando, resultado, velha, casa, cobe
     tom = ' atencao'
   } else {
     const nenhum = resultado.versoes.filter((v) => !v.municipios).length
-    status = `Conferido às ${dataHora(conferencia.conferido_em)} contra ${contar(cobertura.conferidos, u)}.${nenhum ? ` ${nenhum} ${nenhum === 1 ? 'versão não aparece' : 'versões não aparecem'} em nenhum.` : ''}`
+    status = `Conferido às ${dataHora(conferencia.conferido_em)} contra ${contar(cobertura.conferidos, u)}.${nenhum ? ` ${nenhum} ${nenhum === 1 ? 'versão não aparece' : 'versões não aparecem'} em ${u.nenhuma}.` : ''}`
   }
   return (
     <div className="barra-conferencia" role="status">
@@ -817,7 +825,7 @@ function BarraDaConferencia({ conferencia, rodando, resultado, velha, casa, cobe
         <div className="cobertura">
           {cobertura.blocosSemTexto.length === 0 ? (
             <span className={cobertura.completa ? 'bom' : ''}>
-              {cobertura.completa ? '✓ ' : ''}{nBlocos === 1 ? 'O bloco tem' : `Todos os ${nBlocos} blocos têm`} texto em {cobertura.completa ? 'todos os ' : ''}{contar(cobertura.conferidos, u)}{cobertura.completa ? '' : ' conferidos'}.
+              {cobertura.completa ? '✓ ' : ''}{nBlocos === 1 ? 'O bloco tem' : `Todos os ${nBlocos} blocos têm`} texto em {cobertura.completa ? `${u.todos} ` : ''}{contar(cobertura.conferidos, u)}{cobertura.completa ? '' : ' conferidos'}.
             </span>
           ) : (
             <span className="ruim">
@@ -825,7 +833,7 @@ function BarraDaConferencia({ conferencia, rodando, resultado, velha, casa, cobe
               {cobertura.blocosSemTexto.map((n, i) => <span key={n}>{i ? ', ' : ''}<a href={`#bloco-${n}`}>Bloco {n}</a></span>)}.
             </span>
           )}
-          {cobertura.comErro > 0 && <span className="ruim"> {contar(cobertura.comErro, u)} {cobertura.comErro === 1 ? 'deu erro e não foi conferido' : 'deram erro e não foram conferidos'}.</span>}
+          {cobertura.comErro > 0 && <span className="ruim"> {contar(cobertura.comErro, u)} {cobertura.comErro === 1 ? `deu erro e não foi ${u.conferido}` : `deram erro e não foram ${u.conferido}s`}.</span>}
           {cobertura.ausentes.length > 0 && (
             <span className="atencao">
               {' '}{contar(cobertura.ausentes.length, u)} sem dados neste tema {cobertura.ausentes.length === 1 ? 'ficou' : 'ficaram'} fora:{' '}
@@ -838,7 +846,7 @@ function BarraDaConferencia({ conferencia, rodando, resultado, velha, casa, cobe
   )
 }
 
-// Os temas como a unidade os vê: em estado, a data é a do snapshot estadual, e o tema
+// Os temas como a unidade os vê: em estado ou área, a data é a do snapshot dela, e o tema
 // sem dados ou sem Doc ainda aparece desligado com o motivo (/laboratorio/temas).
 function temasDaUnidade(temas, unidade) {
   if (!temas) return []
@@ -991,7 +999,9 @@ export default function Laboratorio() {
   const [conferencia, setConferencia] = useState(null)
   const [cidades, setCidades] = useState([])
   const [cidade, setCidade] = useState('')
-  const lugares = unidade === 'estado' ? ESTADOS_DO_NORDESTE : cidades
+  // Estados e áreas vêm do snapshot (/laboratorio/temas): quais áreas existem é da equipe
+  // de dados, e a tela não supõe (André, 08/11/2026).
+  const lugares = unidade === 'municipio' ? cidades : temas?.find((t) => t.slug === tema)?.unidades?.[unidade]?.lugares ?? []
   const [naCidade, setNaCidade] = useState(null)
   const [aoVivo, setAoVivo] = useState(null) // {id, texto}: a versão sendo editada, antes do "Pronto"
   const [atualizandoPainel, setAtualizandoPainel] = useState(false)
@@ -1018,10 +1028,10 @@ export default function Laboratorio() {
     pedir('/laboratorio/temas')
       .then((lista) => {
         setTemas(lista)
-        // ?tema=<slug>[&unidade=estado] abre direto: dá para mandar o link de um tema.
+        // ?tema=<slug>[&unidade=estado|area] abre direto: dá para mandar o link de um tema.
         const params = new URLSearchParams(window.location.search)
         const doLink = params.get('tema')
-        const unidadeDoLink = params.get('unidade') === 'estado' ? 'estado' : 'municipio'
+        const unidadeDoLink = UNIDADES[params.get('unidade')] ? params.get('unidade') : 'municipio'
         const t = temasDaUnidade(lista, unidadeDoLink).find((t) => t.slug === doLink)
         if (t?.snapshot_gerado_em && !t.motivo) {
           setUnidade(unidadeDoLink)
@@ -1493,7 +1503,7 @@ export default function Laboratorio() {
         {!tema && !carregando && (
           <div className="empty">
             <h2>Escolha um tema</h2>
-            <p>O TemaLab abre a versão mais recente do Doc e confere o texto contra os 2.074 municípios, ou os 9 estados do Nordeste, pelo mesmo código do relatório.</p>
+            <p>O TemaLab abre a versão mais recente do Doc e confere o texto contra os 2.074 municípios, os 9 estados do Nordeste ou as áreas de interesse, pelo mesmo código do relatório.</p>
           </div>
         )}
         {docVazio && (

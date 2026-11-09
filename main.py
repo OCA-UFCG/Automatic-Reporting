@@ -190,14 +190,14 @@ if os.getenv("LABORATORIO_HABILITADO") == "1":
         texto_do_municipio,
     )
     from services.laboratorio_snapshot import (
-        MATVIEW_ESTADUAL_POR_MACROTEMA,
+        UNIDADES_POR_MATVIEW,
         caminho_snapshot,
         carregar_snapshot,
     )
 
-    # A unidade de um tema (03/11/2026): município, como sempre, ou estado. Sem o
-    # parâmetro, as rotas seguem municipais, e a tela de hoje não muda.
-    Unidade = Literal["municipio", "estado"]
+    # A unidade de um tema: município, como sempre, estado (03/11/2026) ou área de
+    # interesse (08/11/2026). Sem o parâmetro, as rotas seguem municipais.
+    Unidade = Literal["municipio", "estado", "area"]
 
     class TextoDoTema(BaseModel):
         # Os Docs de hoje têm até ~30 kB; o teto só barra abuso.
@@ -232,6 +232,14 @@ if os.getenv("LABORATORIO_HABILITADO") == "1":
                 return None
             return datetime.fromtimestamp(caminho.stat().st_mtime, UTC).isoformat(timespec="seconds")
 
+        # Os nomes das unidades (os 9 estados, as áreas) saem do snapshot, e não de uma
+        # lista fixa na tela: quais áreas existem é da equipe de dados (André, 08/11).
+        # ponytail: lê os snapshots inteiros a cada chamada (4–9 linhas, até ~200 kB
+        # em economia); cachear pela hora do arquivo se a rota ficar lenta.
+        def lugares(slug: str, unidade: str) -> list[str]:
+            snapshot = carregar_snapshot(slug, unidade)
+            return list(snapshot["municipios"]) if snapshot else []
+
         # As outras unidades vão num campo à parte, e não como itens novos da lista: a
         # tela de hoje lê um item por tema. `tem_doc` falso = "sem Doc ainda".
         return [
@@ -241,8 +249,14 @@ if os.getenv("LABORATORIO_HABILITADO") == "1":
                 "cor": dados["cor"],
                 "snapshot_gerado_em": gerado_em(slug),
                 "unidades": {
-                    "estado": {"snapshot_gerado_em": gerado_em(slug, "estado"), "tem_doc": bool(docs_url(slug, "estado"))}
-                } if slug in MATVIEW_ESTADUAL_POR_MACROTEMA else {},
+                    unidade: {
+                        "snapshot_gerado_em": gerado_em(slug, unidade),
+                        "tem_doc": bool(docs_url(slug, unidade)),
+                        "lugares": lugares(slug, unidade),
+                    }
+                    for unidade, config in UNIDADES_POR_MATVIEW.items()
+                    if slug in config["matviews"]
+                },
             }
             for slug, dados in MACROTEMAS.items()
         ]
