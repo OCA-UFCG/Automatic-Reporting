@@ -54,6 +54,11 @@ _DESLOCAMENTO_BARRA = 0.24
 _FRACAO_ALTURA_MINIMA = 0.012
 _FOLGA_TOPO = 1.22
 # (divisor, sufixo, casas decimais), da menor faixa para a maior.
+# INTENTIONAL: k/M/B como no design, não o mil/Mi/Bi dos outros cards do tema
+# (`_UNIDADE_ABREVIADA` em `plotting/instrumentos_sudene.py`). Com mil/Mi os dois
+# rótulos de um setor não cabem lado a lado: "4 mil" e "R$ 359,58 Mi" de Recife
+# ficavam a 1 px, e o pior caso ("999,9 mil" + "R$ 999,99 Mi") soma 135 px num
+# grupo de 115 px. Revisão do PR do gráfico de setor.
 _FAIXAS_QUANTIDADE = ((1, "", 0), (1e3, "k", 1), (1e6, "M", 1))
 _FAIXAS_REAIS = ((1, "", 0), (1e3, "k", 2), (1e6, "M", 2), (1e9, "B", 2))
 
