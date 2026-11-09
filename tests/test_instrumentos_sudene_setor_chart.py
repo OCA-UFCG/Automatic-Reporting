@@ -62,7 +62,11 @@ def test_todos_os_setores_zerados_vira_value_error():
 
 @pytest.mark.parametrize(
     ("valor", "esperado"),
-    [(0, "0"), (3, "3"), (999, "999"), (4045, "4k"), (1530, "1,5k"), (12345, "12,3k")],
+    [
+        (0, "0"), (3, "3"), (999, "999"), (4045, "4k"), (1530, "1,5k"), (12345, "12,3k"),
+        # Fronteira k -> M: o sufixo sai do valor arredondado, não do bruto.
+        (999949, "999,9k"), (999950, "1M"), (999999, "1M"), (1250000, "1,3M"),
+    ],
 )
 def test_rotulo_da_quantidade(valor, esperado):
     assert formatar_quantidade(valor) == esperado
@@ -78,6 +82,11 @@ def test_rotulo_da_quantidade(valor, esperado):
         (1804690.89, "R$ 1,80M"),
         (359580433.74, "R$ 359,58M"),
         (2.5e9, "R$ 2,50B"),
+        # Fronteiras: arredondar para 1000 sobe uma faixa em vez de "R$ 1.000,00k".
+        (999.5, "R$ 1,00k"),
+        (999994.99, "R$ 999,99k"),
+        (999995, "R$ 1,00M"),
+        (999995000, "R$ 1,00B"),
     ],
 )
 def test_rotulo_do_valor(valor, esperado):

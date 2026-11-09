@@ -21,7 +21,7 @@ from plotting import (
     salvar_card_grafico,
 )
 from plotting.economia_renda import _reservar_espaco_rotulo_x
-from utils.formatting import formatar_numero_ptbr
+from utils.formatting import arredondar_meio_para_cima, formatar_numero_ptbr
 
 # (sufixo da coluna na view, rótulo no eixo X). INTENTIONAL: ordem alfabética,
 # como no design. A quebra de linha mantém os nomes longos dentro da largura
@@ -49,7 +49,9 @@ _DESLOCAMENTO_BARRA = 0.24
 # laranja e verde não são comparáveis entre si, só dentro da mesma cor.
 _FRACAO_ALTURA_MINIMA = 0.012
 _FOLGA_TOPO = 1.22
-_SUFIXOS_REAIS = ((1e9, "B"), (1e6, "M"), (1e3, "k"))
+# (divisor, sufixo, casas decimais), da menor faixa para a maior.
+_FAIXAS_QUANTIDADE = ((1, "", 0), (1e3, "k", 1), (1e6, "M", 1))
+_FAIXAS_REAIS = ((1, "", 0), (1e3, "k", 2), (1e6, "M", 2), (1e9, "B", 2))
 
 
 def totais_por_setor(cidade: dict, coluna: str) -> list[float]:
@@ -71,19 +73,30 @@ def totais_por_setor(cidade: dict, coluna: str) -> list[float]:
 
 def formatar_quantidade(valor: float) -> str:
     """Rótulo da barra laranja: 129 -> "129", 4045 -> "4k", 1530 -> "1,5k"."""
-    if valor < 1000:
-        return formatar_numero_ptbr(valor)
+    divisor, sufixo, decimais = _faixa_do_rotulo(valor, _FAIXAS_QUANTIDADE)
 
-    return f"{_sem_zero_decimal(formatar_numero_ptbr(valor / 1000, decimais=1))}k"
+    return f"{_sem_zero_decimal(formatar_numero_ptbr(valor / divisor, decimais=decimais))}{sufixo}"
 
 
 def formatar_valor_reais(valor: float) -> str:
     """Rótulo da barra verde: 154528.6 -> "R$ 154,53k", 359580433.74 -> "R$ 359,58M"."""
-    for divisor, sufixo in _SUFIXOS_REAIS:
-        if valor >= divisor:
-            return f"R$ {formatar_numero_ptbr(valor / divisor, decimais=2)}{sufixo}"
+    divisor, sufixo, decimais = _faixa_do_rotulo(valor, _FAIXAS_REAIS)
 
-    return f"R$ {formatar_numero_ptbr(valor)}"
+    return f"R$ {formatar_numero_ptbr(valor / divisor, decimais=decimais)}{sufixo}"
+
+
+def _faixa_do_rotulo(valor: float, faixas: tuple) -> tuple[float, str, int]:
+    """Primeira faixa em que `valor`, já arredondado, fica abaixo de 1000; senão a maior.
+
+    WARNING: decidir pelo valor bruto põe o sufixo da faixa de baixo perto da
+    fronteira: R$ 999.995 virava "R$ 1.000,00k" e 999.999 contratações "1.000k".
+    Ex.: _faixa_do_rotulo(999995, _FAIXAS_REAIS) -> (1e6, "M", 2).
+    """
+    for divisor, sufixo, decimais in faixas[:-1]:
+        if arredondar_meio_para_cima(valor / divisor, decimais) < 1000:
+            return divisor, sufixo, decimais
+
+    return faixas[-1]
 
 
 def _sem_zero_decimal(texto: str) -> str:
