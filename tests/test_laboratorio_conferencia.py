@@ -199,7 +199,7 @@ def test_abrir_doc_nao_grava_no_cache_do_relatorio(monkeypatch, tmp_path):
 
     monkeypatch.setattr(docs, "DOCS_CACHE_DIR", tmp_path)
     monkeypatch.setattr(docs.httpx, "AsyncClient", _ClienteGoogle)
-    monkeypatch.setattr(laboratorio, "get_macrotema", lambda _s: {"docs_url": "1AbCdEfGhIjKlMnOp"})
+    monkeypatch.setattr(laboratorio, "docs_url", lambda _s, _u="municipio": "1AbCdEfGhIjKlMnOp")
 
     import asyncio
 

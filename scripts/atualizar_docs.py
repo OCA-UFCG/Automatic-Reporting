@@ -38,8 +38,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from config import CARACTERISTICAS_DOCS_URL
+from services.macrotemas import docs_url
 from utils.data.macrotemas import MACROTEMAS
 from utils.external.docs import baixar_e_salvar_doc
+from utils.queries.estado import MATVIEW_ESTADUAL_POR_MACROTEMA
 from utils.render.placeholders import conferir_condicoes
 
 
@@ -52,6 +54,13 @@ def _docs_configurados() -> list[tuple[str, str]]:
         for slug, dados in MACROTEMAS.items()
         if dados["docs_url"]
     ]
+    # Os Docs estaduais (relatório por estado, 05/11/2026). Sem eles aqui, o primeiro
+    # relatório de um estado baixava o Doc e ele ficava congelado no cache para sempre.
+    docs.extend(
+        (f"{slug} (estado)", url)
+        for slug in MATVIEW_ESTADUAL_POR_MACROTEMA
+        if (url := docs_url(slug, "estado"))
+    )
     if CARACTERISTICAS_DOCS_URL:
         docs.append(("caracteristicas", CARACTERISTICAS_DOCS_URL))
     return docs

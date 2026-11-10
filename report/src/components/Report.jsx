@@ -3,6 +3,7 @@ import { pdfStyles } from '../styles.js';
 import Cover from './cover/Cover.jsx';
 import ContinueComDataNordeste from './ContinueComDataNordeste.jsx';
 import { PdfPageHeader, PdfFooter } from './PdfLayout.jsx';
+import { rotuloDaUnidade } from './rotuloDaUnidade.js';
 
 export default function Report({ cover, docsHtml }) {
   return (
@@ -14,7 +15,7 @@ export default function Report({ cover, docsHtml }) {
         <style dangerouslySetInnerHTML={{ __html: pdfStyles }} />
       </head>
       <body>
-        <PdfPageHeader label="Dados municipais reunidos em uma única plataforma" />
+        <PdfPageHeader label={rotuloDaUnidade(cover)} />
         <Cover cover={cover} />
         <div className="doc-content" dangerouslySetInnerHTML={{ __html: docsHtml }} />
         <ContinueComDataNordeste />

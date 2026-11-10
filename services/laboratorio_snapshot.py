@@ -39,6 +39,7 @@ from utils.data.cities import carregar_cidades
 from utils.geografia import resolver_nome_uf, separar_cidade_uf
 from utils.json_tipado import codificar, decodificar
 from utils.queries.base import conexao_reaproveitada
+from utils.queries.estado import MATVIEW_ESTADUAL_POR_MACROTEMA
 from utils.queries.perfil_municipal import VIEW_POR_MACROTEMA, chave_municipio_sql
 
 logger = logging.getLogger(__name__)
@@ -64,17 +65,10 @@ UNIDADES_POR_MATVIEW = {
         # Só os 9 do Nordeste, como estão nas matviews (André, 03/11/2026: MG e ES
         # ficam fora). O portão exige os 9.
         "quantas": 9,
-        # Instrumentos Sudene não tem matview estadual.
-        "matviews": {
-            "demografia": "est_demografia",
-            "educacao": "est_educacao",
-            "saude": "est_saude",
-            "economia-renda": "est_economia",
-            "hidraulica": "est_seg_hidrica",
-            "desenvolvimento-social": "est_desen_social",
-            "meio-ambiente": "est_ambiente",
-            "saneamento": "est_infraestrutura",
-        },
+        # Instrumentos Sudene não tem matview estadual. O mapa mora em
+        # utils/queries/estado.py porque o relatório por estado também o lê: uma lista
+        # só, para o TemaLab e o relatório nunca lerem matviews diferentes.
+        "matviews": MATVIEW_ESTADUAL_POR_MACROTEMA,
     },
     "area": {
         "schema": "auto_relatorios_areaint",

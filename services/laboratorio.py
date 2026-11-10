@@ -32,7 +32,7 @@ from urllib.parse import quote
 
 import pandas as pd
 
-from config import CARACTERISTICAS_DOCS_URL, OUTPUT_DIR, get_config_value
+from config import CARACTERISTICAS_DOCS_URL, OUTPUT_DIR
 from services.cache import evict_graficos_if_needed
 from services.csv_loader import normalizar_colunas_macrotema
 from services.generation import (
@@ -41,7 +41,10 @@ from services.generation import (
     separar_secoes_do_tema,
 )
 from services.laboratorio_snapshot import SNAPSHOT_DIR, carregar_snapshot
-from services.macrotemas import get_macrotema
+
+# docs_env/docs_url moram em services.macrotemas desde o relatório por estado (05/11/2026);
+# importados aqui porque main.py e os testes do laboratório os pedem a este módulo.
+from services.macrotemas import docs_env, docs_url  # noqa: F401
 from utils.data.cities import filtrar_linhas_por_cidade, separar_cidade_uf
 from utils.external.docs import (
     baixar_doc,
@@ -464,21 +467,6 @@ def primeira_pagina_html(slug: str, contexto: dict, cidade: str) -> str | None:
 
     # Contexto copiado: a capa não mexe na numeração de figuras do tema (html_do_tema).
     return '<section class="primeira-pagina">' + "".join(copy_context().run(renderizar)) + "</section>"
-
-
-def docs_env(slug: str, unidade: str = "municipio") -> str:
-    """Nome da variável de ambiente com o Doc do tema na unidade. Um Doc por tema e
-    unidade (André, 03/11/2026): DEMOGRAFIA_DOCS_URL → DEMOGRAFIA_ESTADO_DOCS_URL.
-    Lista oficial dos nomes: .env.example."""
-    env = get_macrotema(slug)["docs_env"]
-    return env if unidade == "municipio" else env.replace("_DOCS_URL", f"_{unidade.upper()}_DOCS_URL")
-
-
-def docs_url(slug: str, unidade: str = "municipio") -> str | None:
-    if unidade == "municipio":
-        return get_macrotema(slug).get("docs_url")
-    # Lido na hora, e não em config.py: um Doc novo de unidade entra só pelo .env.
-    return get_config_value(docs_env(slug, unidade))
 
 
 async def abrir_doc(slug: str, unidade: str = "municipio") -> dict | None:

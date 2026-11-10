@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from config import OUTPUT_DIR
 from services.cache import _artefatos_unicos_do_relatorio
 from utils.data.cities import carregar_cidades
+from utils.data.estados import ESTADOS_COM_RELATORIO
 from utils.data.macrotemas import (
     MACROTEMAS,
     TODOS_MACROTEMAS_NOME,
@@ -42,7 +43,8 @@ def listar_relatorios_handler():
     # frontend consiga reconhecer o relatorio que acabou de solicitar.
     cidades_por_slug = {
         re.sub(r"[^a-zA-Z0-9_-]+", "_", cidade.strip().lower()): cidade
-        for cidade in carregar_cidades()
+        # Os estados também: sem eles, "Paraíba" (slug para_ba) voltava "Para Ba".
+        for cidade in [*carregar_cidades(), *ESTADOS_COM_RELATORIO]
     }
 
     with os.scandir(OUTPUT_DIR) as it:
