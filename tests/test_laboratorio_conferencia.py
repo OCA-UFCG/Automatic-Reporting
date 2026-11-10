@@ -401,6 +401,7 @@ def test_texto_numa_cidade_com_graficos_de_verdade(monkeypatch, tmp_path):
     monkeypatch.setattr(laboratorio, "OUTPUT_DIR", tmp_path)
     monkeypatch.setattr(cache, "OUTPUT_DIR", tmp_path)
     monkeypatch.setattr(cache, "DATA_VERSION_FILE", tmp_path / ".data_version")
+    monkeypatch.setattr(laboratorio, "CARACTERISTICAS_DOCS_URL", None)  # sem a primeira página
     faixas = [{"faixa": "0-4", "mulheres": 1200, "homens": 1300}, {"faixa": "5-9", "mulheres": 1400, "homens": 1500}]
     _gravar_snapshot(tmp_path, "demografia", {
         "Com Dado (PB)": {"nm_mun": "Com Dado (PB)", "faixas_etarias_sexo": faixas},
@@ -507,7 +508,7 @@ def test_estado_texto_pronto_e_conferencia(monkeypatch, snapshot_estadual):
 def test_estado_rotas_recusam_o_que_nao_existe(monkeypatch, snapshot_estadual):
     cliente = _app(monkeypatch, "1")
     assert cliente.get("/laboratorio/saude/colunas?unidade=estado").status_code == 404  # sem snapshot
-    assert cliente.get("/laboratorio/demografia/colunas?unidade=area").status_code == 422
+    assert cliente.get("/laboratorio/demografia/colunas?unidade=pais").status_code == 422
     assert cliente.post("/laboratorio/demografia/csv?unidade=estado", json={"csv": "nm_mun\nX"}).status_code == 400
     colunas = cliente.get("/laboratorio/demografia/colunas?unidade=estado").json()["colunas"]
     assert {c["coluna"] for c in colunas} >= {"uf_sujeito", "uf_pop"}
@@ -520,8 +521,13 @@ def test_lista_de_temas_diz_se_o_estado_tem_doc(monkeypatch, snapshot_estadual):
 
     assert temas["demografia"]["unidades"]["estado"]["tem_doc"] is True
     assert temas["demografia"]["unidades"]["estado"]["snapshot_gerado_em"]
-    assert temas["saude"]["unidades"]["estado"] == {"snapshot_gerado_em": None, "tem_doc": False}
+    # Os nomes vêm do snapshot, para a tela não ter lista fixa (área, 08/11/2026).
+    assert temas["demografia"]["unidades"]["estado"]["lugares"] == ["Paraíba", "Ceará"]
+    assert temas["saude"]["unidades"]["estado"] == {"snapshot_gerado_em": None, "tem_doc": False, "lugares": []}
     assert temas["instrumentos-sudene"]["unidades"] == {}
+    # Área: só os temas com matview de área (desenvolvimento social não tem).
+    assert set(temas["demografia"]["unidades"]) == {"estado", "area"}
+    assert set(temas["desenvolvimento-social"]["unidades"]) == {"estado"}
     # O item municipal continua igual para a tela de hoje.
     assert temas["demografia"]["snapshot_gerado_em"]
 
@@ -545,3 +551,62 @@ def test_ler_com_cada_valor_ignora_a_concordancia_do_estado(monkeypatch, tmp_pat
     })
     colunas = laboratorio.ler_com_cada_valor("demografia", "$uf_sujeito teve $uf_analise.", unidade="estado")
     assert [c["coluna"] for c in colunas] == ["uf_analise"]
+
+
+# --- Unidade área de interesse (08/11/2026) ---
+
+def test_area_texto_pronto_e_doc_proprio(monkeypatch, snapshot_falso, tmp_path):
+    (tmp_path / "area").mkdir()
+    areas = {"Caatinga": {"fonte": "view", "contexto": {"area_sujeito": "A Caatinga", "area_pop": 7}}}
+    with gzip.open(tmp_path / "area" / "demografia.json.gz", "wt", encoding="utf-8") as arquivo:
+        json.dump({"gerado_em": "2026-11-08T04:30:00+00:00", "municipios": codificar(areas),
+                   "metadados": {"area": 1}}, arquivo)
+    monkeypatch.setenv("DEMOGRAFIA_AREA_DOCS_URL", "https://docs.google.com/document/d/a/edit")
+    cliente = _app(monkeypatch, "1")
+
+    temas = {t["slug"]: t for t in cliente.get("/laboratorio/temas").json()}
+    assert temas["demografia"]["unidades"]["area"]["lugares"] == ["Caatinga"]
+    assert temas["demografia"]["unidades"]["area"]["tem_doc"] is True
+
+    texto = "descricao_tema = $area_sujeito tinha $area_pop habitantes.\n@@"
+    resposta = cliente.post("/laboratorio/demografia/municipio?unidade=area", json={"texto": texto, "cidade": "Caatinga"})
+    assert resposta.status_code == 200
+    assert "Caatinga tinha 7 habitantes." in resposta.json()["partes"][0]
+
+
+def test_painel_traz_a_primeira_pagina_so_em_municipio(monkeypatch, tmp_path):
+    # A primeira página do relatório (Apresentação, Características Gerais e o mapa)
+    # vem do Doc de Características, não do Doc do tema (André, 09/11/2026).
+    monkeypatch.setattr(laboratorio_snapshot, "SNAPSHOT_DIR", tmp_path)
+    monkeypatch.setattr(laboratorio, "CARACTERISTICAS_DOCS_URL", "doc-caract")
+    caracteristicas = (
+        "relatorio_geral= “Síntese de caract_mun.$nm_mun.”@@\n\n"
+        "resumo_cidade= “caract_mun.$nm_mun fica na região caract_mun.$regiao (Figura X) "
+        "e está inserido caract_mun.$bioma.”@@\n\n"
+        "Figura X- Localização do município de caract_mun.$nm_mun.\n"
+    )
+
+    async def texto_do_doc(_url):
+        return caracteristicas
+
+    monkeypatch.setattr(laboratorio, "carregar_texto_do_docs", texto_do_doc)
+    monkeypatch.setattr(laboratorio, "buscar_mapa_estatico", lambda nome, uf: "Nova (PB).png")
+    laboratorio._bioma_da_capa.cache_clear()
+    _gravar_snapshot(tmp_path, "demografia", {"Nova (PB)": {"nm_mun": "Nova", "regiao": "Nordeste", "bioma": "no bioma Caatinga"}})
+    _gravar_snapshot(tmp_path, "meio-ambiente", {"Nova (PB)": {"nm_mun": "Nova", "regiao": "Nordeste", "bioma": "inserida no bioma Caatinga"}})
+    doc = "descricao_tema = Texto de $nm_mun.\n@@"
+
+    html = laboratorio.texto_do_municipio("demografia", doc, "Nova (PB)", com_graficos=True)["html"]
+    capa = html[0]
+    assert "Apresentação" in capa and "Síntese de Nova." in capa
+    assert "região Nordeste (Figura 1)" in capa and "inserido no bioma Caatinga" in capa
+    assert 'src="/laboratorio/mapas/Nova%20%28PB%29.png"' in capa and "Figura 1 – Localização do município de Nova." in capa
+    assert html[1:] == ['<p class="theme-detail-text">Texto de Nova.</p>']
+
+    # Em Meio Ambiente o bioma da linha é outra frase: a capa usa o de demografia, como
+    # o relatório usa o das características.
+    meio = laboratorio.texto_do_municipio("meio-ambiente", doc, "Nova (PB)", com_graficos=True)["html"][0]
+    assert "inserido no bioma Caatinga" in meio and "inserida" not in meio
+
+    # Fora do painel (conferência, "ler com cada valor"), sem capa.
+    assert laboratorio.texto_do_municipio("demografia", doc, "Nova (PB)")["html"] == html[1:]

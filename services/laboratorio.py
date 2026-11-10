@@ -9,6 +9,7 @@ ou no cache de texto do relatório. Grava só o estado das conferências
 "_lab_" no nome, na pasta de gráficos do relatório (graficos_do_municipio).
 """
 
+import asyncio
 import fcntl
 import hashlib
 import json
@@ -20,32 +21,55 @@ import time
 import uuid
 from collections import Counter
 from collections.abc import Callable
+from contextvars import copy_context
 from csv import Error as ErroDeCsv
 from decimal import Decimal
+from functools import lru_cache
+from html import escape
 from io import StringIO
 from pathlib import Path
+from urllib.parse import quote
 
 import pandas as pd
 
-from config import OUTPUT_DIR
+from config import CARACTERISTICAS_DOCS_URL, OUTPUT_DIR
 from services.cache import evict_graficos_if_needed
 from services.csv_loader import normalizar_colunas_macrotema
-from services.generation import gerar_graficos_do_tema, separar_secoes_do_tema
+from services.generation import (
+    _contexto_caracteristicas,
+    gerar_graficos_do_tema,
+    separar_secoes_do_tema,
+)
 from services.laboratorio_snapshot import SNAPSHOT_DIR, carregar_snapshot
 
 # docs_env/docs_url moram em services.macrotemas desde o relatório por estado (05/11/2026);
 # importados aqui porque main.py e os testes do laboratório os pedem a este módulo.
 from services.macrotemas import docs_env, docs_url  # noqa: F401
 from utils.data.cities import filtrar_linhas_por_cidade, separar_cidade_uf
-from utils.external.docs import baixar_doc
+from utils.external.docs import (
+    baixar_doc,
+    carregar_texto_do_docs,
+    extrair_legenda_mapa_localizacao,
+    extrair_relatorio_geral,
+    extrair_resumo_cidade,
+)
 from utils.json_tipado import codificar
+from utils.maps import buscar_mapa_estatico
 from utils.render.placeholders import (
     _numero_do_campo,
     conferir_condicoes,
     nomes_resolvidos_sem_coluna,
     registrar_versoes,
+    substituir_placeholders,
 )
-from utils.render.renderer import html_do_tema, html_para_texto, texto_para_html
+from utils.render.renderer import (
+    _legenda_mapa_localizacao_html,
+    html_do_tema,
+    html_para_texto,
+    render_descricao_tema_html,
+    resolver_referencia_figura_do_mapa,
+    texto_para_html,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -373,7 +397,76 @@ def texto_do_municipio(
     # "partes" e a conferência seguem só com o texto do tema.
     if secoes.resto.strip():
         resultado["html"].append(texto_para_html(secoes.resto, contexto, namespace=slug))
+    # A primeira página do relatório, acima do tema (André, 09/11/2026). Só no painel
+    # (com_graficos) e só em município: estado e área não têm Doc de Características
+    # nem mapa. Fica fora da conferência, das "partes" e do "ler com cada valor".
+    if unidade == "municipio" and com_graficos:
+        capa = primeira_pagina_html(slug, contexto, cidade)
+        if capa:
+            resultado["html"].insert(0, capa)
     return resultado
+
+
+@lru_cache(maxsize=4096)
+def _bioma_da_capa(cidade: str) -> str | None:
+    """Bioma da cidade para a capa, lido do snapshot de demografia.
+
+    Na linha de Meio Ambiente o `bioma` é outra frase ("inserida no bioma
+    Caatinga"), e o relatório usa o das características
+    (generation._contexto_caracteristicas). O bioma não muda de uma noite para a
+    outra: o cache por processo evita ler o snapshot inteiro (~0,5 s) a cada tecla.
+    """
+    snapshot = carregar_snapshot("demografia")
+    municipio = (snapshot or {}).get("municipios", {}).get(cidade)
+    return municipio["contexto"].get("bioma") if municipio else None
+
+
+def primeira_pagina_html(slug: str, contexto: dict, cidade: str) -> str | None:
+    """Apresentação, Características Gerais e mapa de localização, como na capa do
+    relatório (generation.gerar_relatorio_handler e report/.../Cover.jsx). Sem os
+    cartões de métricas, que vêm da vw_indicadores e não estão no snapshot.
+
+    O texto é o do cache em disco, o mesmo do relatório: o Doc de Características não
+    é aberto ao vivo como o do tema, porque não se edita no TemaLab. O mapa é só o PNG
+    pré-gerado, servido por /laboratorio/mapas/ (o nginx do gamma-lab só deixa passar
+    /laboratorio/...); sem PNG, sai sem mapa, sem o plano B do shapefile.
+    """
+    if not CARACTERISTICAS_DOCS_URL:
+        return None
+    try:
+        texto = asyncio.run(carregar_texto_do_docs(CARACTERISTICAS_DOCS_URL))
+    except Exception:  # sem a capa, o painel segue só com o tema
+        logger.warning("Primeira página: Doc de Características indisponível", exc_info=True)
+        return None
+    bioma = _bioma_da_capa(cidade) if slug == "meio-ambiente" else contexto.get("bioma")
+    contexto_capa = _contexto_caracteristicas(contexto, {"bioma": bioma})
+    relatorio_geral, texto = extrair_relatorio_geral(texto)
+    resumo_cidade, texto = extrair_resumo_cidade(texto)
+    legenda, _ = extrair_legenda_mapa_localizacao(texto)
+
+    def renderizar() -> list[str]:
+        partes = []
+        if relatorio_geral:
+            partes += ['<div class="cover-kicker">Apresentação</div>']
+            partes += render_descricao_tema_html(relatorio_geral, contexto_capa, namespace="caract_mun")
+        partes.append('<div class="cover-kicker">Características Gerais</div>')
+        if resumo_cidade:
+            resumo = resolver_referencia_figura_do_mapa(resumo_cidade) if legenda else resumo_cidade
+            partes += render_descricao_tema_html(resumo, contexto_capa, namespace="caract_mun")
+        mapa = buscar_mapa_estatico(str(contexto_capa.get("nm_mun", "")), contexto_capa.get("sigla_uf"))
+        if mapa:
+            rotulo = _legenda_mapa_localizacao_html(
+                substituir_placeholders(legenda, contexto_capa, "caract_mun") if legenda else None
+            )
+            partes.append(
+                '<figure class="map-block map-block--region">'
+                f'<img class="region-map-image" src="/laboratorio/mapas/{quote(mapa)}" alt="Mapa da região de {escape(cidade)}">'
+                f"<figcaption>{rotulo}</figcaption></figure>"
+            )
+        return partes
+
+    # Contexto copiado: a capa não mexe na numeração de figuras do tema (html_do_tema).
+    return '<section class="primeira-pagina">' + "".join(copy_context().run(renderizar)) + "</section>"
 
 
 async def abrir_doc(slug: str, unidade: str = "municipio") -> dict | None:
@@ -390,9 +483,13 @@ async def abrir_doc(slug: str, unidade: str = "municipio") -> dict | None:
 _MAX_VALORES = 40
 # A sigla da UF (11 valores) não muda a concordância da frase e punha o botão em quase
 # todo cartão (André, 01/11). Mesma lista no frontend (Laboratorio.jsx, `comparavel`).
-# Em estado, o mesmo vale para as colunas da est_geral: 9 valores, um por estado, com a
-# concordância já pronta ("A Paraíba", "na Paraíba"), e presentes em quase toda frase.
-_FORA_DO_LER_COM_CADA_VALOR = {"sigla_uf", "uf_estado", "uf_sigla_uf", "uf_sujeito", "uf_em", "uf_de"}
+# Em estado e área, o mesmo vale para as colunas da est_geral e da areaint_geral: um
+# valor por unidade, com a concordância já pronta ("A Paraíba", "na Caatinga"), e
+# presentes em quase toda frase.
+_FORA_DO_LER_COM_CADA_VALOR = {
+    "sigla_uf", "uf_estado", "uf_sigla_uf", "uf_sujeito", "uf_em", "uf_de",
+    "area_nome", "area_sigla", "area_sujeito", "area_em", "area_de",
+}
 
 
 def _como_numero(valor: object) -> float | None:

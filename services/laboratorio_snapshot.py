@@ -10,9 +10,10 @@ noturna logo depois do refresh_matviews.sh, mais `--tema X` à mão depois de um
 Falhar é barato, como no atualizar_docs.py: uma rodada que aborta ou não passa no portão
 deixa o arquivo anterior no lugar, e a tela mostra a data dele.
 
-Estado (pedido de 03/11/2026: "Estado e Área de interesse se comportarão como município"):
-o mesmo arquivo, em `output/laboratorio/estado/<tema>.json.gz`, com os 9 estados do NE
-no lugar dos municípios, lidos direto da matview estadual do tema (gerar_snapshot_estado).
+Estado e área de interesse (pedido de 03/11/2026: "Estado e Área de interesse se
+comportarão como município"): o mesmo arquivo, em `output/laboratorio/<unidade>/<tema>.json.gz`,
+com os 9 estados do NE ou as áreas no lugar dos municípios, lidos direto da matview do
+tema na unidade (gerar_snapshot_unidade, UNIDADES_POR_MATVIEW).
 """
 
 import gzip
@@ -51,10 +52,45 @@ SNAPSHOT_DIR = OUTPUT_DIR / "laboratorio"
 MAX_FRACAO_MUNICIPIOS_COM_FALHA = 0.01
 MAX_QUEDA_NA_VIEW = 0.05
 
-UNIDADES = ("municipio", "estado")
-
-# Só os 9 do Nordeste, como estão nas matviews (André, 03/11/2026: MG e ES ficam fora).
-ESTADOS_DO_NORDESTE = 9
+# Unidades além do município (pedido de 03/11/2026: "Estado e Área de interesse se
+# comportarão como município"). Cada uma lê as matviews de um schema da equipe de dados,
+# uma linha por unidade, com as colunas municipais sob um prefixo (`uf_`, `area_`) e as 6
+# primeiras vindas da *_geral (nome e concordância pronta: "A Paraíba", "na Caatinga").
+# Uma unidade nova entra aqui com um schema, o nome da coluna-chave e o mapa de temas.
+UNIDADES_POR_MATVIEW = {
+    "estado": {
+        "schema": "auto_relatorios_est",
+        "nome": "uf_estado",
+        "ordem": "uf_cd_uf",
+        # Só os 9 do Nordeste, como estão nas matviews (André, 03/11/2026: MG e ES
+        # ficam fora). O portão exige os 9.
+        "quantas": 9,
+        # Instrumentos Sudene não tem matview estadual. O mapa mora em
+        # utils/queries/estado.py porque o relatório por estado também o lê: uma lista
+        # só, para o TemaLab e o relatório nunca lerem matviews diferentes.
+        "matviews": MATVIEW_ESTADUAL_POR_MACROTEMA,
+    },
+    "area": {
+        "schema": "auto_relatorios_areaint",
+        "nome": "area_nome",
+        "ordem": "area_cd",
+        # Quais áreas existem é da equipe de dados (4 em 08/11/2026: Caatinga, Área de
+        # atuação da Sudene, Semiárido, Nordeste), e o André pediu para não supor
+        # (03/11, 08/11): o portão aceita quantas a matview tiver, a partir de 1.
+        "quantas": None,
+        # Desenvolvimento social e Instrumentos Sudene não têm matview de área.
+        "matviews": {
+            "demografia": "areaint_demografia",
+            "educacao": "areaint_educacao",
+            "saude": "areaint_saude",
+            "economia-renda": "areaint_economia",
+            "hidraulica": "areaint_seg_hidrica",
+            "meio-ambiente": "areaint_ambiente",
+            "saneamento": "areaint_infraestrutura",
+        },
+    },
+}
+UNIDADES = ("municipio", *UNIDADES_POR_MATVIEW)
 
 
 class _ContaFalhas(logging.Handler):
@@ -250,46 +286,55 @@ def _gravar(
     return caminho, conteudo["duracao_s"]
 
 
-def ler_matview_estadual(conn, slug: str) -> list[dict]:
-    """As linhas da matview estadual do tema, uma por estado."""
-    view = MATVIEW_ESTADUAL_POR_MACROTEMA[slug]
+def ler_matview_da_unidade(conn, slug: str, unidade: str) -> list[dict]:
+    """As linhas da matview do tema na unidade, uma por estado ou área."""
+    config = UNIDADES_POR_MATVIEW[unidade]
     # SELECT * sem WHERE é seguro aqui, ao contrário das vw_perfil_* (guard do
-    # CLAUDE.md): é matview, já materializada, com 9 linhas e 40–400 kB, e a conexão
+    # CLAUDE.md): é matview, já materializada, com 4–9 linhas e 40–400 kB, e a conexão
     # leva o statement_timeout (15 s no gamma, 03/11/2026).
     with conn.cursor() as cursor:
-        cursor.execute(f"SELECT * FROM auto_relatorios_est.{view} ORDER BY uf_cd_uf")
+        cursor.execute(
+            f"SELECT * FROM {config['schema']}.{config['matviews'][slug]} ORDER BY {config['ordem']}"
+        )
         colunas = [descricao[0] for descricao in cursor.description]
         return [dict(zip(colunas, valores)) for valores in cursor.fetchall()]
 
 
-def gerar_snapshot_estado(slug: str) -> Path | None:
-    """Snapshot de estado de um tema: os 9 estados do NE como chaves, com a linha da
+def gerar_snapshot_unidade(slug: str, unidade: str) -> Path | None:
+    """Snapshot de estado ou área de um tema: as unidades como chaves, com a linha da
     matview como contexto. Sem o casamento municipal nem os extras do relatório
-    (montar_contexto_tema): a matview já traz o tema inteiro do estado. Devolve o
+    (montar_contexto_tema): a matview já traz o tema inteiro da unidade. Devolve o
     caminho gravado, ou None se a rodada abortou (o arquivo anterior fica)."""
+    config = UNIDADES_POR_MATVIEW[unidade]
     inicio = time.monotonic()
     with conexao_reaproveitada() as conn:
         try:
-            linhas = ler_matview_estadual(conn, slug)
+            linhas = ler_matview_da_unidade(conn, slug, unidade)
         except psycopg2.Error as err:
-            logger.error("snapshot %s (estado): falha ao ler a matview (%s); mantém o anterior", slug, err)
+            logger.error("snapshot %s (%s): falha ao ler a matview (%s); mantém o anterior", slug, unidade, err)
             return None
 
-    estados = {linha.get("uf_estado"): linha for linha in linhas}
-    # Portão: os 9 estados, com nomes distintos e preenchidos. O portão municipal
-    # (queda na view) não serve: compararia 9 com os 2.074 municípios.
-    if len(linhas) != ESTADOS_DO_NORDESTE or len(estados) != ESTADOS_DO_NORDESTE or not all(estados):
+    por_nome = {linha.get(config["nome"]): linha for linha in linhas}
+    # Portão: nomes distintos e preenchidos, e a quantidade certa quando ela é fixa. O
+    # portão municipal (queda na view) não serve: compararia 9 com os 2.074 municípios.
+    esperadas = config["quantas"]
+    if (
+        not linhas
+        or len(por_nome) != len(linhas)
+        or not all(por_nome)
+        or (esperadas is not None and len(linhas) != esperadas)
+    ):
         logger.error(
-            "snapshot %s (estado): %d linhas e %d nomes de estado, esperava %d; mantém o anterior",
-            slug, len(linhas), len(estados), ESTADOS_DO_NORDESTE,
+            "snapshot %s (%s): %d linhas e %d nomes distintos, esperava %s; mantém o anterior",
+            slug, unidade, len(linhas), len(por_nome), esperadas or "ao menos 1, sem repetir",
         )
         return None
 
-    unidades = {nome: {"fonte": "view", "contexto": linha} for nome, linha in estados.items()}
+    unidades = {nome: {"fonte": "view", "contexto": linha} for nome, linha in por_nome.items()}
     caminho, duracao_s = _gravar(
-        caminho_snapshot(slug, "estado"), slug, inicio, {"estados": len(unidades)}, unidades
+        caminho_snapshot(slug, unidade), slug, inicio, {unidade: len(unidades)}, unidades
     )
-    logger.info("snapshot %s (estado): %d estados (%.0f s)", slug, len(unidades), duracao_s)
+    logger.info("snapshot %s (%s): %d unidades (%.0f s)", slug, unidade, len(unidades), duracao_s)
     return caminho
 
 

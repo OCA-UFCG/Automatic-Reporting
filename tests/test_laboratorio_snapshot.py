@@ -190,19 +190,19 @@ def rodada_estado(monkeypatch, tmp_path):
     def conexao():
         yield object()
 
-    def ler(_conn, _slug):
+    def ler(_conn, _slug, _unidade):
         if isinstance(estado["linhas"], Exception):
             raise estado["linhas"]
         return estado["linhas"]
 
     monkeypatch.setattr(laboratorio_snapshot, "SNAPSHOT_DIR", tmp_path)
     monkeypatch.setattr(laboratorio_snapshot, "conexao_reaproveitada", conexao)
-    monkeypatch.setattr(laboratorio_snapshot, "ler_matview_estadual", ler)
+    monkeypatch.setattr(laboratorio_snapshot, "ler_matview_da_unidade", ler)
     return estado
 
 
 def test_estado_grava_os_9_numa_pasta_propria(rodada_estado, tmp_path):
-    caminho = laboratorio_snapshot.gerar_snapshot_estado("saude")
+    caminho = laboratorio_snapshot.gerar_snapshot_unidade("saude", "estado")
     assert caminho == tmp_path / "estado" / "saude.json.gz"
     # O município continua na raiz: o cron do gamma e os snapshots de hoje.
     assert laboratorio_snapshot.caminho_snapshot("saude") == tmp_path / "saude.json.gz"
@@ -225,11 +225,11 @@ def test_estado_grava_os_9_numa_pasta_propria(rodada_estado, tmp_path):
     ids=["faltou_estado", "nome_repetido", "nome_vazio", "erro_na_matview"],
 )
 def test_estado_suspeito_mantem_o_anterior(rodada_estado, provocar):
-    laboratorio_snapshot.gerar_snapshot_estado("saude")
+    laboratorio_snapshot.gerar_snapshot_unidade("saude", "estado")
     caminho = laboratorio_snapshot.caminho_snapshot("saude", "estado")
     anterior = caminho.read_bytes()
     provocar(rodada_estado)
-    assert laboratorio_snapshot.gerar_snapshot_estado("saude") is None
+    assert laboratorio_snapshot.gerar_snapshot_unidade("saude", "estado") is None
     assert caminho.read_bytes() == anterior
 
 
@@ -237,7 +237,7 @@ def test_estado_passa_pela_conferencia(rodada_estado):
     # A promessa do handoff: o resto do laboratório não depende de ser município.
     from services import laboratorio
 
-    laboratorio_snapshot.gerar_snapshot_estado("demografia")
+    laboratorio_snapshot.gerar_snapshot_unidade("demografia", "estado")
     snapshot = laboratorio_snapshot.carregar_snapshot("demografia", "estado")
     contextos = {nome: m["contexto"] for nome, m in snapshot["municipios"].items()}
     texto = "$uf_sujeito tinha $uf_pop_total_2022 habitantes em 2022.\n"
@@ -255,4 +255,96 @@ def test_script_recusa_tema_sem_matview_estadual():
 
     with pytest.raises(SystemExit) as saida:
         main(["--tema", "instrumentos-sudene", "--unidade", "estado"])
+    assert saida.value.code == 2
+
+
+# --- Área de interesse (08/11/2026) ---
+
+_AREAS = ["Caatinga", "Área de atuação da Sudene", "Semiárido", "Nordeste"]
+
+
+@pytest.fixture
+def rodada_area(monkeypatch, tmp_path):
+    area = {"linhas": [{"area_cd": i + 1, "area_nome": nome, "area_sujeito": nome,
+                        "area_pop_total_2022": Decimal(1000 + i)} for i, nome in enumerate(_AREAS)]}
+    lidas = []
+
+    @contextmanager
+    def conexao():
+        yield object()
+
+    def ler(_conn, slug, unidade):
+        lidas.append((slug, unidade))
+        return area["linhas"]
+
+    monkeypatch.setattr(laboratorio_snapshot, "SNAPSHOT_DIR", tmp_path)
+    monkeypatch.setattr(laboratorio_snapshot, "conexao_reaproveitada", conexao)
+    monkeypatch.setattr(laboratorio_snapshot, "ler_matview_da_unidade", ler)
+    area["lidas"] = lidas
+    return area
+
+
+def test_area_grava_quantas_vierem_numa_pasta_propria(rodada_area, tmp_path):
+    caminho = laboratorio_snapshot.gerar_snapshot_unidade("saude", "area")
+    assert caminho == tmp_path / "area" / "saude.json.gz"
+    assert rodada_area["lidas"] == [("saude", "area")]
+    assert list(laboratorio_snapshot.carregar_snapshot("saude", "area")["municipios"]) == _AREAS
+
+    # Quais áreas existem é da equipe de dados (André, 08/11): uma 5ª entra sem código.
+    rodada_area["linhas"].append({"area_cd": 5, "area_nome": "Amazônia Legal"})
+    laboratorio_snapshot.gerar_snapshot_unidade("saude", "area")
+    assert len(laboratorio_snapshot.carregar_snapshot("saude", "area")["municipios"]) == 5
+
+
+@pytest.mark.parametrize(
+    "provocar",
+    [
+        lambda a: a.update(linhas=[]),  # matview vazia
+        lambda a: a["linhas"].append(dict(a["linhas"][0])),  # nome repetido
+        lambda a: a["linhas"][0].update(area_nome=""),  # nome vazio
+    ],
+    ids=["vazia", "nome_repetido", "nome_vazio"],
+)
+def test_area_suspeita_mantem_o_anterior(rodada_area, provocar):
+    laboratorio_snapshot.gerar_snapshot_unidade("saude", "area")
+    caminho = laboratorio_snapshot.caminho_snapshot("saude", "area")
+    anterior = caminho.read_bytes()
+    provocar(rodada_area)
+    assert laboratorio_snapshot.gerar_snapshot_unidade("saude", "area") is None
+    assert caminho.read_bytes() == anterior
+
+
+def test_area_le_o_schema_e_a_matview_do_tema():
+    # Saneamento lê a areaint_infraestrutura, como o estado lê a est_infraestrutura.
+    executadas = []
+
+    class Cursor:
+        description = (("area_nome",),)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def execute(self, sql):
+            executadas.append(sql)
+
+        def fetchall(self):
+            return [("Caatinga",)]
+
+    class Conn:
+        def cursor(self):
+            return Cursor()
+
+    linhas = laboratorio_snapshot.ler_matview_da_unidade(Conn(), "saneamento", "area")
+    assert linhas == [{"area_nome": "Caatinga"}]
+    assert executadas == ["SELECT * FROM auto_relatorios_areaint.areaint_infraestrutura ORDER BY area_cd"]
+
+
+def test_script_recusa_tema_sem_matview_de_area():
+    from scripts.snapshot_laboratorio import main
+
+    with pytest.raises(SystemExit) as saida:
+        main(["--unidade", "area", "--tema", "desenvolvimento-social"])
     assert saida.value.code == 2

@@ -40,6 +40,18 @@ def categoria_variacao(variacao: object) -> str | None:
     return "estabilidade"
 
 
+def arredondar_meio_para_cima(numero: Decimal | float, decimais: int) -> Decimal:
+    """O arredondamento que `formatar_numero_ptbr` imprime: 999.995 com 2 casas -> Decimal("1000.00").
+
+    Exposto para quem precisa decidir algo pelo número já arredondado (o sufixo
+    k/M/B dos rótulos do FNE) sem divergir do texto que sai formatado.
+    """
+    # Pelo repr, não pelo float: 1141.165 é 1141.16499… em binário.
+    exato = numero if isinstance(numero, Decimal) else Decimal(repr(numero))
+
+    return exato.quantize(Decimal(1).scaleb(-decimais), rounding=ROUND_HALF_UP)
+
+
 def formatar_numero_ptbr(valor: object, decimais: int = 0) -> str:
     try:
         numero = float(valor)
@@ -50,10 +62,8 @@ def formatar_numero_ptbr(valor: object, decimais: int = 0) -> str:
         except ValueError:
             return texto_valor
     if math.isfinite(numero):
-        # Pelo repr, não pelo float: 1141.165 é 1141.16499… em binário.
-        exato = valor if isinstance(valor, Decimal) else Decimal(repr(numero))
         try:
-            numero = exato.quantize(Decimal(1).scaleb(-decimais), rounding=ROUND_HALF_UP)
+            numero = arredondar_meio_para_cima(valor if isinstance(valor, Decimal) else numero, decimais)
         except InvalidOperation:
             pass
     texto = f"{numero:,.{decimais}f}"

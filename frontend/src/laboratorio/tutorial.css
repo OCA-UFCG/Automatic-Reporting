@@ -1,0 +1,46 @@
+/* Balão do tutorial nas cores do TemaLab (laboratorio.css). Todo seletor começa por
+   `.driver-popover.temalab-tour` para vencer a folha do driver.js por especificidade, e
+   não pela ordem em que as duas entram no bundle (como no SAP-frontend). */
+.driver-popover.temalab-tour {
+  font-family: Inter, system-ui, sans-serif;
+  color: var(--ink);
+  min-width: 290px;
+  max-width: 340px;
+  padding: 18px 18px 14px;
+  border-radius: var(--raio);
+  border-top: 3px solid var(--verde);
+  box-shadow: 0 12px 32px rgba(0, 54, 22, .3);
+}
+.driver-popover.temalab-tour .driver-popover-title { font-size: 15px; font-weight: 600; line-height: 1.35; padding-right: 24px; }
+.driver-popover.temalab-tour .driver-popover-description { margin-top: 6px; font-size: 14px; line-height: 1.5; color: var(--ink2); }
+.driver-popover.temalab-tour .driver-popover-close-btn { top: 10px; right: 10px; width: 26px; height: 26px; border-radius: var(--raio); color: var(--ink2); }
+.driver-popover.temalab-tour .driver-popover-close-btn:hover { color: var(--ink); background: var(--line2); }
+.driver-popover.temalab-tour .driver-popover-footer { margin-top: 16px; }
+.driver-popover.temalab-tour .driver-popover-navigation-btns { gap: 6px; }
+.driver-popover.temalab-tour .driver-popover-navigation-btns button + button { margin-left: 0; }
+.driver-popover.temalab-tour .driver-popover-footer-btn {
+  border: 1px solid var(--line); border-radius: var(--raio); padding: 5px 12px;
+  background: var(--panel); color: var(--ink); font: 500 13px/1.4 Inter, system-ui, sans-serif; text-shadow: none;
+}
+.driver-popover.temalab-tour .driver-popover-footer-btn:hover { border-color: var(--accent); color: var(--ok); }
+.driver-popover.temalab-tour .driver-popover-footer-btn:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 1px; }
+.driver-popover.temalab-tour .driver-popover-next-btn { background: var(--accent); border-color: var(--accent); color: #fff; }
+.driver-popover.temalab-tour .driver-popover-next-btn:hover { background: var(--verde); border-color: var(--verde); color: #fff; }
+.driver-popover.temalab-tour .driver-popover-progress-text { display: flex; align-items: center; }
+.driver-popover.temalab-tour .temalab-tour-pontos { display: flex; gap: 4px; }
+.driver-popover.temalab-tour .temalab-tour-pontos span { width: 6px; height: 6px; border-radius: 999px; background: var(--line); }
+.driver-popover.temalab-tour .temalab-tour-pontos .feito { background: var(--accent-soft); }
+.driver-popover.temalab-tour .temalab-tour-pontos .atual { width: 16px; background: var(--accent); }
+.driver-popover.temalab-tour .temalab-tour-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Botão "Tutorial" no canto de baixo, à direita (André, 09/11). */
+.botao-tutorial {
+  position: fixed; right: 16px; bottom: 16px; z-index: 30;
+  display: flex; align-items: center; gap: 6px;
+  border: 1px solid var(--line); border-radius: var(--raio); padding: 5px 12px 5px 6px;
+  background: var(--panel); color: var(--verde); font-size: 13px; font-weight: 600; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 54, 22, .18);
+}
+.botao-tutorial:hover { border-color: var(--accent); }
+.botao-tutorial:focus-visible { outline: 3px solid var(--accent-soft); }
+.botao-tutorial .simbolo { display: grid; place-items: center; width: 20px; height: 20px; border-radius: calc(var(--raio) - 2px); background: #ffbe20; color: #461902; font-size: 12px; font-weight: 700; }
