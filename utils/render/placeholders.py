@@ -154,12 +154,24 @@ _NUMERO_POR_EXTENSO = frozenset({
 })
 
 
-def _comparacao_com_texto(resto: str) -> re.Match | None:
-    """O que vem depois do $campo, quando é "for igual a/diferente de <rótulo>"."""
-    comparacao = _COMPARACAO_COM_TEXTO.match(resto)
-    if comparacao and comparacao.group("texto").casefold() in _NUMERO_POR_EXTENSO:
+def _comparacao_com_texto(expressao: str) -> tuple[str, re.Match] | None:
+    """O $campo e a comparação quando a expressão é "$campo for igual a/diferente
+    de <rótulo>"; None nos outros casos.
+
+    Único lugar que decide se uma expressão compara com texto: _tipo_do_fator
+    classifica e _avaliar_comparacao_com_texto avalia por aqui, para os dois não
+    discordarem quando a regra mudar (revisão do PR, 06/11/2026).
+
+    >>> _comparacao_com_texto("$a for igual a empate")[1].group("texto")
+    'empate'
+    """
+    campos = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(expressao))
+    if len(campos) != 1:
         return None
-    return comparacao
+    comparacao = _COMPARACAO_COM_TEXTO.match(expressao[campos[0].end():].casefold())
+    if not comparacao or comparacao.group("texto") in _NUMERO_POR_EXTENSO:
+        return None
+    return campos[0].group(1), comparacao
 
 
 def _texto_normalizado(valor: object) -> str | None:
@@ -447,17 +459,15 @@ def _avaliar_comparacao_com_texto(expressao: str, contexto: dict) -> bool | None
     da Sudene: "$analise1_qtdcontrato_2024_2025 for diferente de manutenção").
     Devolve None quando a expressão não tem essa forma. O texto é o que a view
     devolve, literal: "manutenção" e "uma manutenção" são rótulos diferentes."""
-    matches = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(expressao))
-    if len(matches) != 1:
+    encontrada = _comparacao_com_texto(expressao)
+    if encontrada is None:
         return None
-    comparacao = _comparacao_com_texto(expressao[matches[0].end():])
-    if not comparacao:
-        return None
-    valor = _texto_normalizado(_resolver_campo_com_alias(contexto, matches[0].group(1)))
+    campo, comparacao = encontrada
+    valor = _texto_normalizado(_resolver_campo_com_alias(contexto, campo))
     if valor is None:
         return False
-    literal = " ".join(comparacao.group("texto").split()).casefold()
-    return _comparar_textos(valor, literal, comparacao.group("operador").casefold())
+    literal = " ".join(comparacao.group("texto").split())
+    return _comparar_textos(valor, literal, comparacao.group("operador"))
 
 
 def _avaliar_comparacao_campo_a_campo(expressao: str, contexto: dict) -> bool | None:
@@ -657,7 +667,7 @@ def _tipo_do_fator(fator: str) -> str | None:
     resto = fator[campos[0].end():]
     if _parse_operador_editorial(_resto_do_trecho(resto).casefold()) is not None:
         return "numero"
-    return "texto" if _comparacao_com_texto(resto.casefold()) else None
+    return "texto" if _comparacao_com_texto(fator) else None
 
 
 def _fatores_com_comparacao_entre_campos(expressao: str) -> list[str] | None:
