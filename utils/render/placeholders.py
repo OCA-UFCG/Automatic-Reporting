@@ -134,10 +134,30 @@ def _numero_do_campo(valor: object) -> float | None:
 # $qtdprograma1 = "FNE PNMPO"). Só "igual a"/"diferente de" valem para eles: "maior
 # que" entre palavras compararia ordem alfabética.
 _OPERADOR_DE_TEXTO = re.compile(r"(?P<operador>igual\s+a|diferente\s+de)\s*$")
+# O literal é comparado com o valor da view caractere a caractere: aspas
+# ("manutenção") ou pontuação final (manutenção.) nunca batem, e o parágrafo
+# sumiria em todos os municípios. Sem aceitá-los aqui, a regra cai no avaliador
+# numérico e conferir_condicoes() continua avisando "não reconhecida" (revisão
+# do PR de condições de texto, 06/11/2026).
 _COMPARACAO_COM_TEXTO = re.compile(
-    r"^\s*for\s+(?P<operador>igual\s+a|diferente\s+de)\s+(?P<texto>[^\d\s$-][^$]*?)"
+    r"^\s*for\s+(?P<operador>igual\s+a|diferente\s+de)\s+"
+    r"(?P<texto>[^\d\s$\-\"'“”‘’«».,;!?](?:[^$\"'“”‘’«».;!?]|[.;!?](?=\w))*?)(?<!,)"
     r"\s*(?:,?\s*ent[ãa]o)?\s*:?\s*$"
 )
+# Número por extenso não é rótulo: o campo é numérico, a comparação de texto
+# daria sempre falso e calada. Fica "não reconhecida", como antes do PR.
+_NUMERO_POR_EXTENSO = frozenset({
+    "zero", "um", "uma", "dois", "duas", "três", "tres",
+    "quatro", "cinco", "seis", "sete", "oito", "nove", "dez",
+})
+
+
+def _comparacao_com_texto(resto: str) -> re.Match | None:
+    """O que vem depois do $campo, quando é "for igual a/diferente de <rótulo>"."""
+    comparacao = _COMPARACAO_COM_TEXTO.match(resto)
+    if comparacao and comparacao.group("texto").casefold() in _NUMERO_POR_EXTENSO:
+        return None
+    return comparacao
 
 
 def _texto_normalizado(valor: object) -> str | None:
@@ -428,7 +448,7 @@ def _avaliar_comparacao_com_texto(expressao: str, contexto: dict) -> bool | None
     matches = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(expressao))
     if len(matches) != 1:
         return None
-    comparacao = _COMPARACAO_COM_TEXTO.match(expressao[matches[0].end():])
+    comparacao = _comparacao_com_texto(expressao[matches[0].end():])
     if not comparacao:
         return None
     valor = _texto_normalizado(_resolver_campo_com_alias(contexto, matches[0].group(1)))
@@ -635,7 +655,7 @@ def _tipo_do_fator(fator: str) -> str | None:
     resto = fator[campos[0].end():]
     if _parse_operador_editorial(_resto_do_trecho(resto).casefold()) is not None:
         return "numero"
-    return "texto" if _COMPARACAO_COM_TEXTO.match(resto.casefold()) else None
+    return "texto" if _comparacao_com_texto(resto.casefold()) else None
 
 
 def _fatores_com_comparacao_entre_campos(expressao: str) -> list[str] | None:

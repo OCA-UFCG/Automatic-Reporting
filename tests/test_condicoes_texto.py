@@ -132,3 +132,23 @@ def test_conferir_condicoes_aceita_e_com_texto_e_aponta_operador_errado():
     # precisa continuar apontando, em vez de a regra sumir calada.
     errado = certo.replace("igual a", "diferenre de")
     assert conferir_condicoes(errado) != []
+
+
+@pytest.mark.parametrize(
+    "literal",
+    ['"manutenção"', "“manutenção”", "'manutenção'", "manutenção.", "manutenção;", "zero", "Zero"],
+)
+def test_conferir_condicoes_aponta_literal_que_nunca_bate(literal):
+    # Revisão do PR: aspas, pontuação final ou número por extenso nunca batem
+    # com o valor da view, então o parágrafo sumiria em todos os municípios.
+    # A conferência roda com todo campo valendo 1 e só enxerga o problema se a
+    # regra continuar caindo em "não reconhecida", como no main.
+    for operador in ("igual a", "diferente de"):
+        texto = f"Para quando $a for {operador} {literal}, então:\nTrecho.\n"
+        assert conferir_condicoes(texto) != [], texto
+
+
+def test_literal_com_hifen_e_virgula_antes_de_entao_continua_texto():
+    contexto = {"valor_programa1": "FNE-SERVICOS"}
+    assert _vale("$valor_programa1 for igual a fne-servicos", contexto)
+    assert conferir_condicoes("Para quando $a for igual a manutenção, então:\nT.\n") == []
