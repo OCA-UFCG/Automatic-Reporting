@@ -78,6 +78,12 @@ def test_maior_que_entre_textos_nao_compara_ordem_alfabetica():
     contexto = {"a": "crescimento", "b": "diminuição"}
     assert not _vale("$a for maior que $b", contexto)
     assert not _vale("$a for menor que $b", contexto)
+    # "maior/menor ou igual a" termina em "igual a", mas é ordem, não igualdade.
+    iguais = {"a": "x", "b": "x"}
+    assert not _vale("$a for maior ou igual a $b", iguais)
+    assert not _vale("$a for menor ou igual a $b", iguais)
+    assert _vale("$a for igual a $b", iguais)
+    assert _vale("instrsudene.$a for igual a instrsudene.$b", iguais)
 
 
 def test_campo_numerico_contra_texto_nao_vale():

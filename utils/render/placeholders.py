@@ -133,7 +133,9 @@ def _numero_do_campo(valor: object) -> float | None:
 # Campos que são rótulo, não número (ex.: instrsudene.$analise1_... = "crescimento",
 # $qtdprograma1 = "FNE PNMPO"). Só "igual a"/"diferente de" valem para eles: "maior
 # que" entre palavras compararia ordem alfabética.
-_OPERADOR_DE_TEXTO = re.compile(r"(?P<operador>igual\s+a|diferente\s+de)\s*$")
+# Âncora no início também: só com "$", "maior ou igual a" casava pelo final e
+# virava igualdade entre os rótulos (revisão do PR, 06/11/2026).
+_OPERADOR_DE_TEXTO = re.compile(r"^\s*(?:for\s+)?(?P<operador>igual\s+a|diferente\s+de)\s*$")
 # O literal é comparado com o valor da view caractere a caractere: aspas
 # ("manutenção") ou pontuação final (manutenção.) nunca batem, e o parágrafo
 # sumiria em todos os municípios. Sem aceitá-los aqui, a regra cai no avaliador
