@@ -130,6 +130,66 @@ def _numero_do_campo(valor: object) -> float | None:
     return coerce_para_float(valor, default=None)
 
 
+# Campos que são rótulo, não número (ex.: instrsudene.$analise1_... = "crescimento",
+# $qtdprograma1 = "FNE PNMPO"). Só "igual a"/"diferente de" valem para eles: "maior
+# que" entre palavras compararia ordem alfabética.
+# Âncora no início também: só com "$", "maior ou igual a" casava pelo final e
+# virava igualdade entre os rótulos (revisão do PR, 06/11/2026).
+_OPERADOR_DE_TEXTO = re.compile(r"^\s*(?:for\s+)?(?P<operador>igual\s+a|diferente\s+de)\s*$")
+# O literal é comparado com o valor da view caractere a caractere: aspas
+# ("manutenção") ou pontuação final (manutenção.) nunca batem, e o parágrafo
+# sumiria em todos os municípios. Sem aceitá-los aqui, a regra cai no avaliador
+# numérico e conferir_condicoes() continua avisando "não reconhecida" (revisão
+# do PR de condições de texto, 06/11/2026).
+_COMPARACAO_COM_TEXTO = re.compile(
+    r"^\s*for\s+(?P<operador>igual\s+a|diferente\s+de)\s+"
+    r"(?P<texto>[^\d\s$\-\"'“”‘’«».,;!?](?:[^$\"'“”‘’«».;!?]|[.;!?](?=\w))*?)(?<!,)"
+    r"\s*(?:,?\s*ent[ãa]o)?\s*:?\s*$"
+)
+# Número por extenso não é rótulo: o campo é numérico, a comparação de texto
+# daria sempre falso e calada. Fica "não reconhecida", como antes do PR.
+_NUMERO_POR_EXTENSO = frozenset({
+    "zero", "um", "uma", "dois", "duas", "três", "tres",
+    "quatro", "cinco", "seis", "sete", "oito", "nove", "dez",
+})
+
+
+def _comparacao_com_texto(expressao: str) -> tuple[str, re.Match] | None:
+    """O $campo e a comparação quando a expressão é "$campo for igual a/diferente
+    de <rótulo>"; None nos outros casos.
+
+    Único lugar que decide se uma expressão compara com texto: _tipo_do_fator
+    classifica e _avaliar_comparacao_com_texto avalia por aqui, para os dois não
+    discordarem quando a regra mudar (revisão do PR, 06/11/2026).
+
+    >>> _comparacao_com_texto("$a for igual a empate")[1].group("texto")
+    'empate'
+    """
+    campos = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(expressao))
+    if len(campos) != 1:
+        return None
+    comparacao = _COMPARACAO_COM_TEXTO.match(expressao[campos[0].end():].casefold())
+    if not comparacao or comparacao.group("texto") in _NUMERO_POR_EXTENSO:
+        return None
+    return campos[0].group(1), comparacao
+
+
+def _texto_normalizado(valor: object) -> str | None:
+    """O valor como rótulo comparável (sem caixa e sem espaço sobrando: a view
+    devolve $qtdprograma1 com espaços à direita). None quando é número ou falta
+    o dado — ausência não pode virar "diferente de" nenhum texto."""
+    if not isinstance(valor, str) or _campo_sem_dado(valor):
+        return None
+    if _numero_do_campo(valor) is not None:
+        return None
+    return " ".join(valor.split()).casefold() or None
+
+
+def _comparar_textos(texto_a: str, texto_b: str, operador: str) -> bool:
+    iguais = texto_a == texto_b
+    return iguais if operador.startswith("igual") else not iguais
+
+
 def _parse_operador_campo_a_campo(trecho: str):
     for padrao, atende in _OPERADORES_CAMPO_A_CAMPO:
         if padrao.search(trecho):
@@ -394,6 +454,22 @@ def _avaliar_condicao_sem_dados(expressao: str, contexto: dict) -> bool | None:
     return True
 
 
+def _avaliar_comparacao_com_texto(expressao: str, contexto: dict) -> bool | None:
+    """Condição "campo for igual a/diferente de <palavras>" (Doc de Instrumentos
+    da Sudene: "$analise1_qtdcontrato_2024_2025 for diferente de manutenção").
+    Devolve None quando a expressão não tem essa forma. O texto é o que a view
+    devolve, literal: "manutenção" e "uma manutenção" são rótulos diferentes."""
+    encontrada = _comparacao_com_texto(expressao)
+    if encontrada is None:
+        return None
+    campo, comparacao = encontrada
+    valor = _texto_normalizado(_resolver_campo_com_alias(contexto, campo))
+    if valor is None:
+        return False
+    literal = " ".join(comparacao.group("texto").split())
+    return _comparar_textos(valor, literal, comparacao.group("operador"))
+
+
 def _avaliar_comparacao_campo_a_campo(expressao: str, contexto: dict) -> bool | None:
     """Avalia UMA comparação "campo A for igual a/diferente de campo B".
     Devolve None quando o trecho não tem essa forma (dois campos e nada além
@@ -411,10 +487,13 @@ def _avaliar_comparacao_campo_a_campo(expressao: str, contexto: dict) -> bool | 
     if _parse_operador_editorial(expressao[matches[1].end():].casefold()) is not None:
         return None
 
-    def numero(match: re.Match) -> float | None:
-        return _numero_do_campo(_resolver_campo_com_alias(contexto, match.group(1)))
+    brutos = [_resolver_campo_com_alias(contexto, match.group(1)) for match in matches]
+    textos = [_texto_normalizado(bruto) for bruto in brutos]
+    operador_de_texto = _OPERADOR_DE_TEXTO.search(trecho_entre)
+    if None not in textos and operador_de_texto:
+        return _comparar_textos(*textos, operador_de_texto.group("operador"))
 
-    valor_a, valor_b = numero(matches[0]), numero(matches[1])
+    valor_a, valor_b = (_numero_do_campo(bruto) for bruto in brutos)
     # Ausência de levantamento de um lado (ex.: sem_instr_2000 = "sem dados"
     # num município sem censo 2000) não pode virar 0 — o município passaria
     # a bater "diferente de" contra o valor real de 2022 só por falta de
@@ -456,22 +535,13 @@ def _avaliar_condicao_editorial(
     # "campo A for igual a/diferente de campo B": dois marcadores e nada além
     # do operador entre eles — compara os dois valores resolvidos entre si,
     # em vez de cada campo contra um número literal.
+    # Mesma regra de _avaliar_comparacao_campo_a_campo (operador de número
+    # literal depois do segundo campo = formato "campo A for X e campo B for Y";
+    # sem dado de um lado = regra não vale), num lugar só.
     if len(matches) == 2:
-        trecho_entre = expressao[matches[0].end():matches[1].start()].casefold()
-        trecho_apos = expressao[matches[1].end():].casefold()
-        atende_campo_a_campo = _parse_operador_campo_a_campo(trecho_entre)
-        # Só assume campo-a-campo se não houver, depois do segundo campo, um
-        # operador de número literal (que indicaria o formato "campo A for X
-        # e campo B for Y" já suportado, não uma comparação entre os dois).
-        if atende_campo_a_campo is not None and _parse_operador_editorial(trecho_apos) is None:
-            # Ausência de levantamento num dos campos (ex.: sem_instr_2000 =
-            # "sem dados" num município sem censo 2000) não pode virar 0 —
-            # bateria "diferente de" contra o valor real do outro campo só
-            # por falta de dado, afirmando uma variação que a fonte não
-            # confirma.
-            if numero_bruto(campos[0]) is None or numero_bruto(campos[1]) is None:
-                return False
-            return atende_campo_a_campo(valores[0], valores[1])
+        campo_a_campo = _avaliar_comparacao_campo_a_campo(expressao, contexto)
+        if campo_a_campo is not None:
+            return campo_a_campo
 
     operadores = []
     for indice, match in enumerate(matches):
@@ -571,6 +641,8 @@ def _avaliar_folha(expressao: str, contexto: dict) -> bool:
         especial = _avaliar_condicao_vacina(expressao, contexto)
     if especial is None:
         especial = _avaliar_condicao_sem_dados(expressao, contexto)
+    if especial is None:
+        especial = _avaliar_comparacao_com_texto(expressao, contexto)
     if especial is not None:
         return especial
     fatores = _fatores_com_comparacao_entre_campos(expressao)
@@ -581,31 +653,44 @@ def _avaliar_folha(expressao: str, contexto: dict) -> bool:
     return _avaliar_condicao_editorial(matches, expressao, contexto)
 
 
+def _tipo_do_fator(fator: str) -> str | None:
+    """Como um fator de um "e" compara: "entre_campos" ($a for igual a $b),
+    "texto" ($a for igual a empate), "numero" ($a for maior que 1), ou None
+    quando o fator não tem operador próprio ("$a" de "$a e $b for maior que 0")."""
+    campos = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(fator))
+    if len(campos) == 2 and _parse_operador_campo_a_campo(
+        fator[campos[0].end():campos[1].start()].casefold()
+    ) is not None:
+        return "entre_campos"
+    if len(campos) != 1:
+        return None
+    resto = fator[campos[0].end():]
+    if _parse_operador_editorial(_resto_do_trecho(resto).casefold()) is not None:
+        return "numero"
+    return "texto" if _comparacao_com_texto(fator) else None
+
+
 def _fatores_com_comparacao_entre_campos(expressao: str) -> list[str] | None:
     """Os fatores de "A for menor que B e A for maior que 0" quando cada um tem
-    o seu operador e algum compara dois campos; None nos outros casos.
+    o seu operador e algum compara dois campos ou um campo com texto; None nos
+    outros casos.
 
     O avaliador numérico só compara campo com campo quando a regra inteira tem
     dois campos: com três, "menor que $b" era descartado e a regra valia para
     todo $a > 0 (ASD em queda e ASD estável saíam juntos em 1.219 municípios;
     revisão editorial de Meio Ambiente, 06/10/2026). "$a e $b for maior que 0"
     (operador compartilhado) continua no caminho antigo: "$a" não tem operador.
+    O avaliador numérico também não lê texto: "$qtd_empresa1 for maior que 1 e
+    $empresa_empate for igual a empate" (Doc de Instrumentos da Sudene) nunca
+    valia, nem na versão "igual" nem na "diferente" (conferência de 05/11/2026).
     """
     fatores = _E_DE_CAMPO.split(expressao)
     if len(fatores) < 2:
         return None
-    algum_entre_campos = False
-    for fator in fatores:
-        campos = list(_MARCADOR_CAMPO_CONDICIONAL.finditer(fator))
-        if len(campos) == 2 and _parse_operador_campo_a_campo(
-            fator[campos[0].end():campos[1].start()].casefold()
-        ) is not None:
-            algum_entre_campos = True
-        elif len(campos) != 1 or _parse_operador_editorial(
-            _resto_do_trecho(fator[campos[0].end():]).casefold()
-        ) is None:
-            return None
-    return fatores if algum_entre_campos else None
+    tipos = [_tipo_do_fator(fator) for fator in fatores]
+    if None in tipos:
+        return None
+    return fatores if {"entre_campos", "texto"} & set(tipos) else None
 
 
 # "ou" que liga condições. "maior ou igual", "menor ou igual" e "maior ou
