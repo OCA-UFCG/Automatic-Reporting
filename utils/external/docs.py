@@ -3,6 +3,7 @@ import logging
 import re
 import time
 from pathlib import Path
+from typing import NamedTuple
 from urllib.parse import urlparse
 
 import httpx
@@ -301,45 +302,67 @@ _TITULO_PANORAMA = re.compile(r"(?im)^[ \t]*(?:#!\s*)?panorama de indicadores[ \
 # O que encerra o bloco mesmo formando par: um título `#!` (Fontes, Conteúdos
 # relacionados) ou um marcador de bloco (`descricao_tema =`).
 _FIM_DO_PANORAMA = re.compile(r"^(?:#!|[a-z_]+\s*=)")
+# Legenda opcional do card, na linha logo abaixo do valor: "fonte • unidade" (Doc
+# estadual de Infraestrutura, 11/11/2026: "IBGE Censo 2022 • percentual de
+# domicílios"). É o `•` que a separa de um rótulo: sem ele, a linha seguinte ao valor
+# é o rótulo do próximo card. Adivinhar pela posição confundiria a legenda com as
+# linhas "Implementação dos big numbers…" que vêm depois do bloco em Educação e Saúde.
+_SEPARADOR_DA_LEGENDA = "•"
 
 
-def extrair_panorama_indicadores(texto: str) -> tuple[list[tuple[str, str]], str]:
-    """Os pares (rótulo, valor com `$campo`) do bloco "Panorama de indicadores" e o
-    texto sem o bloco. Sem o título, devolve ([], texto) intacto.
+class CardDoPanorama(NamedTuple):
+    """Um card do bloco "Panorama de indicadores": rótulo, valor com `$campo` e a
+    legenda opcional "fonte • unidade"."""
+
+    rotulo: str
+    valor: str
+    legenda: str = ""
+
+
+def extrair_panorama_indicadores(texto: str) -> tuple[list[CardDoPanorama], str]:
+    """Os cards do bloco "Panorama de indicadores" e o texto sem o bloco. Sem o
+    título, devolve ([], texto) intacto.
 
     Ex.: extrair_panorama_indicadores("Panorama de indicadores\\nPopulação\\n$uf_pop")
-         == ([("População", "$uf_pop")], "")
+         == ([CardDoPanorama("População", "$uf_pop")], "")
     """
     titulo = _TITULO_PANORAMA.search(texto)
     if titulo is None:
         return [], texto
     linhas = texto[titulo.end():].split("\n")
-    pares, fim = _pares_do_panorama(linhas)
-    return pares, (texto[:titulo.start()] + "\n".join(linhas[fim:])).strip()
+    cards, fim = _cards_do_panorama(_linhas_do_panorama(linhas))
+    return cards, (texto[:titulo.start()] + "\n".join(linhas[fim:])).strip()
 
 
-def _pares_do_panorama(linhas: list[str]) -> tuple[list[tuple[str, str]], int]:
-    """Lê pares rótulo / `$campo`, pulando linhas em branco (o export do .docx traz
-    linhas só com tab). Para na primeira linha que não fecha um par e devolve o
-    índice logo depois do último par: um rótulo sem valor fica no texto."""
-    pares: list[tuple[str, str]] = []
-    rotulo: str | None = None
-    fim = 0
+def _linhas_do_panorama(linhas: list[str]) -> list[tuple[int, str]]:
+    """As linhas não vazias do bloco, com o índice, até o primeiro marcador de fim. O
+    export do .docx traz linhas só com tab, que contam como vazias."""
+    candidatas: list[tuple[int, str]] = []
     for indice, linha in enumerate(linhas):
         limpa = linha.strip()
-        if not limpa:
-            continue
-        if _FIM_DO_PANORAMA.match(limpa):
+        if limpa and _FIM_DO_PANORAMA.match(limpa):
             break
-        tem_campo = "$" in limpa
-        if rotulo is None and not tem_campo:
-            rotulo = limpa
-            continue
-        if rotulo is None or not tem_campo:
+        if limpa:
+            candidatas.append((indice, limpa))
+    return candidatas
+
+
+def _cards_do_panorama(candidatas: list[tuple[int, str]]) -> tuple[list[CardDoPanorama], int]:
+    """Lê rótulo / `$campo` / legenda opcional. Para na primeira linha que não fecha um
+    card e devolve o índice logo depois do último card: um rótulo sem valor fica no
+    texto."""
+    cards: list[CardDoPanorama] = []
+    fim = posicao = 0
+    while posicao + 1 < len(candidatas):
+        (_, rotulo), (indice_valor, valor) = candidatas[posicao], candidatas[posicao + 1]
+        if "$" in rotulo or "$" not in valor:
             break
-        pares.append((rotulo, limpa))
-        rotulo, fim = None, indice + 1
-    return pares, fim
+        posicao, fim, legenda = posicao + 2, indice_valor + 1, ""
+        if posicao < len(candidatas) and _SEPARADOR_DA_LEGENDA in candidatas[posicao][1]:
+            fim, legenda = candidatas[posicao][0] + 1, candidatas[posicao][1]
+            posicao += 1
+        cards.append(CardDoPanorama(rotulo, valor, legenda))
+    return cards, fim
 
 
 def remover_titulos_docs(texto: str, *titulos: str) -> str:

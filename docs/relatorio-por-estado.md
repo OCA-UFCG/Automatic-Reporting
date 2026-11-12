@@ -6,7 +6,7 @@ os tropeços que já custaram tempo. O fluxo municipal está em
 [ARCHITECTURE.md](ARCHITECTURE.md); as regras de escrita do Doc estão em
 [editorial/](editorial/).
 
-Estado em 11/11/2026: **Demografia**, **Educação**, **Saúde** e **Economia e Renda** têm Doc estadual de verdade.
+Estado em 11/11/2026: **Demografia**, **Educação**, **Saúde**, **Economia e Renda** e **Infraestrutura e Saneamento** têm Doc estadual de verdade.
 Os outros temas têm Docs de rascunho. Um tema novo costuma precisar só do Doc e do
 secret; no código, em geral só os ícones dos cards (`_ICONE_POR_CAMPO_DO_DOC` em
 `utils/cover.py`).
@@ -75,17 +75,24 @@ com a capa.
   `*grafico_…`, `Síntese`, `#!Fontes`, `#!Conteúdos relacionados`.
 - Os campos são escritos com o tema na frente e o prefixo `uf_`:
   `demografia.$uf_pop_total_2022`, `demografia.$uf_pop_mulher_per:2%`.
-- **Panorama de indicadores** (cards do tema): pares rótulo / campo antes de
-  `descricao_tema`. No município os cards vêm da `vw_indicadores`; no estado vêm do
-  próprio Doc (PR `feat/relatorio-estado-panorama`).
+- **Panorama de indicadores** (cards do tema): antes de `descricao_tema`, cada card
+  tem um rótulo, um valor e, se quiser, uma legenda "fonte • unidade". No município
+  os cards vêm da `vw_indicadores`; no estado vêm do próprio Doc.
 
   ```
   Panorama de indicadores
-  População residente
-  demografia.$uf_pop_total_2022
-  População masculina
-  demografia.$uf_pop_homem
+  Domicílios com coleta de lixo
+  infraestrutura.$uf_coleta_2022:2%
+  IBGE Censo 2022 • coleta direta e em caçamba
+  PIB
+  R$ economia.$uf_pib_2023:2 economia.$uf_pib_unid_2023
   ```
+
+  - O valor usa o mesmo formato do texto: `:2%` para percentual, `:2` para casas
+    decimais, e pode ter moeda e unidade em volta (`R$ … bilhões`).
+  - A legenda só é reconhecida com o `•`: o que vem antes vira a fonte do card, e o
+    que vem depois, o rodapé. Sem o `•`, a linha é lida como rótulo do próximo card.
+  - Card cujo campo não existe na matview some da capa, sem erro.
 
 - Pode ser Google Doc nativo ou `.docx` no Drive: o export em texto dos dois é igual.
 
@@ -167,7 +174,7 @@ com a capa.
 - **Apresentação, Características Gerais, métricas e mapa da capa:** são municipais.
   Sem eles, o primeiro tema começa logo abaixo do título (`capaTemConteudo.js`); se
   o Doc estadual trouxer o bloco `resumo_cidade`, a capa volta a ter página própria.
-- **Fonte e unidade nos cards do Panorama:** o Doc só traz rótulo e valor.
+- **Fonte e unidade nos cards do Panorama:** só aparecem quando o Doc traz a legenda "fonte • unidade" (Infraestrutura já traz; os outros temas ainda não).
 - **CSV de fallback:** o estado só lê a matview.
 - **Minas Gerais:** espera a equipe de dados incluí-lo nas matviews.
 

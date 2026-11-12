@@ -1,4 +1,5 @@
 from utils.external.docs import (
+    CardDoPanorama,
     extrair_descricao_tema,
     extrair_inicio_relatorio,
     extrair_introducao,
@@ -164,15 +165,44 @@ PANORAMA_DOC_ESTADUAL = (
 )
 
 
-def test_panorama_vira_pares_e_sai_do_texto():
-    pares, restante = extrair_panorama_indicadores(PANORAMA_DOC_ESTADUAL)
+def test_panorama_vira_cards_e_sai_do_texto():
+    cards, restante = extrair_panorama_indicadores(PANORAMA_DOC_ESTADUAL)
 
-    assert pares == [
-        ("População residente", "demografia.$uf_pop_total_2022"),
-        ("População masculina", "demografia.$uf_pop_homem"),
+    assert cards == [
+        CardDoPanorama("População residente", "demografia.$uf_pop_total_2022"),
+        CardDoPanorama("População masculina", "demografia.$uf_pop_homem"),
     ]
     assert restante.startswith("#!Fontes")
     assert "Panorama" not in restante
+
+
+# Formato do Doc estadual de Infraestrutura (11/11/2026): uma legenda "fonte •
+# unidade" abaixo do valor, e o rótulo seguinte com tab na frente.
+PANORAMA_COM_LEGENDA = (
+    "Panorama de indicadores\n"
+    "Domicílios ligados à categoria de rede de esgoto\n"
+    "infraestrutura.$uf_esgoto_rede_2022:2%\n"
+    "IBGE Censo 2022 • percentual de domicílios\n"
+    "\tDomicílios com coleta de lixo\n"
+    "infraestrutura.$uf_coleta_2022:2%\n"
+    "\t\n"
+    "Implementação dos big numbers: um campo ainda não veio no banco.\n"
+)
+
+
+def test_linha_com_ponto_abaixo_do_valor_vira_legenda_do_card():
+    cards, restante = extrair_panorama_indicadores(PANORAMA_COM_LEGENDA)
+
+    assert cards == [
+        CardDoPanorama(
+            "Domicílios ligados à categoria de rede de esgoto",
+            "infraestrutura.$uf_esgoto_rede_2022:2%",
+            "IBGE Censo 2022 • percentual de domicílios",
+        ),
+        CardDoPanorama("Domicílios com coleta de lixo", "infraestrutura.$uf_coleta_2022:2%"),
+    ]
+    # Sem `•`, a linha depois do último valor não é legenda: fica no texto.
+    assert restante == "Implementação dos big numbers: um campo ainda não veio no banco."
 
 
 def test_doc_sem_panorama_volta_intacto():
@@ -184,7 +214,7 @@ def test_doc_sem_panorama_volta_intacto():
 def test_rotulo_sem_valor_encerra_o_panorama_e_fica_no_texto():
     texto = "Panorama de indicadores\nPopulação\n$uf_pop\nRótulo solto\nOutra linha"
 
-    pares, restante = extrair_panorama_indicadores(texto)
+    cards, restante = extrair_panorama_indicadores(texto)
 
-    assert pares == [("População", "$uf_pop")]
+    assert cards == [CardDoPanorama("População", "$uf_pop")]
     assert restante == "Rótulo solto\nOutra linha"

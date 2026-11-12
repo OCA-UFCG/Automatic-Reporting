@@ -4,6 +4,7 @@ from utils.cover import (
     montar_indicadores_macrotema,
     montar_score_macrotema,
 )
+from utils.external.docs import CardDoPanorama
 
 # Contexto sintético no formato do que `buscar_indicadores_municipio` devolve.
 # `relatorios_auto.vw_indicadores` guarda cada indicador num quarteto
@@ -514,9 +515,9 @@ def test_card_sem_dado_nao_ganha_unidade():
 # Cards do bloco "Panorama de indicadores" do Doc estadual (11/11/2026): rótulo do
 # Doc, valor da linha da matview estadual.
 PANORAMA_ESTADUAL = [
-    ("População residente", "demografia.$uf_pop_total_2022"),
-    ("População quilombola", "demografia.$uf_pop_qui"),
-    ("Campo que a matview não tem", "demografia.$uf_campo_inexistente"),
+    CardDoPanorama("População residente", "demografia.$uf_pop_total_2022"),
+    CardDoPanorama("População quilombola", "demografia.$uf_pop_qui"),
+    CardDoPanorama("Campo que a matview não tem", "demografia.$uf_campo_inexistente"),
 ]
 
 
@@ -544,9 +545,9 @@ def test_card_do_doc_sem_valor_no_contexto_sai_da_capa():
 def test_cards_de_educacao_do_doc_tem_icone_proprio_e_percentual_com_formato():
     # Valores com `:2%`, como o Doc precisa escrever para o card sair com "%".
     panorama = [
-        ("Taxa de alfabetização", "educacao.$uf_alfabetizado_per:2%"),
-        ("Fundamental incompleto ou sem instrução", "educacao.$uf_sem_instr_per_2022:2%"),
-        ("Superior completo", "educacao.$uf_sup_comp_per:2%"),
+        CardDoPanorama("Taxa de alfabetização", "educacao.$uf_alfabetizado_per:2%"),
+        CardDoPanorama("Fundamental incompleto ou sem instrução", "educacao.$uf_sem_instr_per_2022:2%"),
+        CardDoPanorama("Superior completo", "educacao.$uf_sup_comp_per:2%"),
     ]
     contexto = {"uf_alfabetizado_per": 84.04, "uf_sem_instr_per_2022": 47.49, "uf_sup_comp_per": 14.51}
 
@@ -561,9 +562,9 @@ def test_cards_de_educacao_do_doc_tem_icone_proprio_e_percentual_com_formato():
 
 def test_cards_de_saude_do_doc_usam_os_icones_das_bases_municipais():
     panorama = [
-        ("Nascidos vivos", "saude.$uf_nascidos"),
-        ("Mortalidade infantil", "saude.$uf_mortalidade_2025:2"),
-        ("Unidades Básicas de Saúde", "saude.$uf_ubs_total"),
+        CardDoPanorama("Nascidos vivos", "saude.$uf_nascidos"),
+        CardDoPanorama("Mortalidade infantil", "saude.$uf_mortalidade_2025:2"),
+        CardDoPanorama("Unidades Básicas de Saúde", "saude.$uf_ubs_total"),
     ]
     contexto = {"uf_nascidos": 50711, "uf_mortalidade_2025": 12.3234, "uf_ubs_total": 1667}
 
@@ -580,9 +581,9 @@ def test_card_do_doc_em_moeda_nao_e_confundido_com_campo_sem_valor():
     # Regressão (11/11/2026): o teste antigo era um `$` qualquer no valor, e todos os
     # cards de Economia ("R$ …", "US$ …") sumiam da capa.
     panorama = [
-        ("PIB", "R$ economia.$uf_pib_2023:2 economia.$uf_pib_unid_2023"),
-        ("Saldo da balança comercial", "US$ economia.$uf_valor_balanca1_dado"),
-        ("Campo com espaço depois do $", "educacao.$ uf_seg_nivel_per"),
+        CardDoPanorama("PIB", "R$ economia.$uf_pib_2023:2 economia.$uf_pib_unid_2023"),
+        CardDoPanorama("Saldo da balança comercial", "US$ economia.$uf_valor_balanca1_dado"),
+        CardDoPanorama("Campo com espaço depois do $", "educacao.$ uf_seg_nivel_per"),
     ]
     contexto = {
         "uf_pib_2023": 96.96,
@@ -594,3 +595,23 @@ def test_card_do_doc_em_moeda_nao_e_confundido_com_campo_sem_valor():
     cards = montar_indicadores_do_doc(panorama, contexto, "economia-renda")
 
     assert [card["valor"] for card in cards] == ["R$ 96,96 bilhões", "US$ -17.551.669"]
+
+
+def test_legenda_do_card_vira_fonte_e_rodape():
+    cards = montar_indicadores_do_doc(
+        [
+            CardDoPanorama(
+                "Domicílios com coleta de lixo",
+                "infraestrutura.$uf_coleta_2022:2%",
+                "IBGE Censo 2022 • coleta direta e em caçamba",
+            )
+        ],
+        {"uf_coleta_2022": 91.234},
+        "saneamento",
+    )
+
+    assert (cards[0]["valor"], cards[0]["fonte"], cards[0]["rodape"]) == (
+        "91,23%",
+        "IBGE Censo 2022",
+        "coleta direta e em caçamba",
+    )
