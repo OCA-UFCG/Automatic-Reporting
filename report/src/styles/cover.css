@@ -1054,6 +1054,21 @@
     page-break-inside: auto;
   }
 
+  /* Capa só com o título (relatório de estado, ver capaTemConteudo.js): o primeiro
+     tema continua na mesma página, logo abaixo, como no modelo editorial de
+     11/11/2026. As duas quebras acima (fim da capa e início do tema) saem juntas;
+     os temas seguintes continuam começando no topo de uma página. */
+  .report-cover.report-cover--so-titulo {
+    margin-bottom: 0;
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .theme-detail-page.theme-detail-page--apos-titulo {
+    break-before: auto;
+    page-break-before: auto;
+  }
+
   .cover-kicker {
     margin-bottom: 2.67px;
     font-size: 16px;

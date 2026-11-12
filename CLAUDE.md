@@ -26,6 +26,9 @@ Companion docs, read them instead of re-deriving their content:
   Doc URLs, DB connection). Never commit a real `.env`.
 - `docs/editorial/` — the rules editors follow when writing a macrotheme's Google Doc
   (block markers, `$placeholders`, editorial conditionals).
+- `docs/relatorio-por-estado.md` — the state report (`/relatorio/Paraíba`): flow,
+  state matviews (`auto_relatorios_est`, gamma DB only), state Docs, and the
+  checklist to bring a theme online (pt-BR).
 
 ## Learning is part of the work
 
