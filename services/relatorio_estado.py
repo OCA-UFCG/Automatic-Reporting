@@ -1,9 +1,9 @@
-"""Relatório de uma unidade além do município (hoje, o estado): o mesmo produto do
+"""Relatório de uma unidade além do município (estado ou área de interesse): o mesmo produto do
 relatório municipal, com a linha da unidade na matview do tema e o Doc do tema na
 unidade.
 
 Uma unidade nova entra em UNIDADES_DO_RELATORIO com o jeito de achar o nome e a linha
-dela, sem um handler novo.
+dela, sem um handler novo (assim entrou a área de interesse, em 12/11/2026).
 
 Pedido de 05/11/2026: a busca do portal (data-nordeste-frontend) passa a achar os 9
 estados do Nordeste ao lado dos municípios. Um handler à parte, e não um `unidade`
@@ -51,9 +51,11 @@ from services.macrotemas import (
     get_macrotema_slugs_para_relatorio,
 )
 from utils.cover import montar_capa_relatorio, montar_indicadores_do_doc
+from utils.data.areas import resolver_area
 from utils.data.estados import resolver_estado
 from utils.data.macrotemas import TODOS_MACROTEMAS_ORDEM
 from utils.external.docs import carregar_texto_do_docs, extrair_panorama_indicadores
+from utils.queries.area import buscar_contexto_area
 from utils.queries.estado import buscar_contexto_estado
 from utils.render.placeholders import (
     isolar_paragrafo_de_cada_condicao,
@@ -91,12 +93,19 @@ class UnidadeDoRelatorio:
 
 UNIDADES_DO_RELATORIO: dict[str, UnidadeDoRelatorio] = {
     # `buscar` chama buscar_contexto_estado pelo nome do módulo na hora, e não guarda a
-    # função: os testes trocam essa costura com monkeypatch.
+    # função: os testes trocam essa costura com monkeypatch. O mesmo vale para a área.
     "estado": UnidadeDoRelatorio(
         nao_encontrado="Estado '{}' não encontrado.",
         resolver=resolver_estado,
         buscar=lambda slug, nome: buscar_contexto_estado(slug, nome),
         coluna_sigla="uf_sigla_uf",
+    ),
+    # Área de interesse (12/11/2026): sem sigla; o título da capa é só o nome.
+    "area": UnidadeDoRelatorio(
+        nao_encontrado="Área de interesse '{}' não encontrada.",
+        resolver=resolver_area,
+        buscar=lambda slug, nome: buscar_contexto_area(slug, nome),
+        coluna_sigla=None,
     ),
 }
 

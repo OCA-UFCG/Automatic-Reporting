@@ -38,6 +38,7 @@ from services.macrotemas import get_macrotema
 from utils.data.cities import carregar_cidades
 from utils.geografia import resolver_nome_uf, separar_cidade_uf
 from utils.json_tipado import codificar, decodificar
+from utils.queries.area import MATVIEW_AREA_POR_MACROTEMA
 from utils.queries.base import conexao_reaproveitada
 from utils.queries.estado import MATVIEW_ESTADUAL_POR_MACROTEMA
 from utils.queries.perfil_municipal import VIEW_POR_MACROTEMA, chave_municipio_sql
@@ -78,16 +79,9 @@ UNIDADES_POR_MATVIEW = {
         # atuação da Sudene, Semiárido, Nordeste), e o André pediu para não supor
         # (03/11, 08/11): o portão aceita quantas a matview tiver, a partir de 1.
         "quantas": None,
-        # Desenvolvimento social e Instrumentos Sudene não têm matview de área.
-        "matviews": {
-            "demografia": "areaint_demografia",
-            "educacao": "areaint_educacao",
-            "saude": "areaint_saude",
-            "economia-renda": "areaint_economia",
-            "hidraulica": "areaint_seg_hidrica",
-            "meio-ambiente": "areaint_ambiente",
-            "saneamento": "areaint_infraestrutura",
-        },
+        # Desenvolvimento social e Instrumentos Sudene não têm matview de área. O mapa
+        # mora em utils/queries/area.py porque o relatório por área também o lê.
+        "matviews": MATVIEW_AREA_POR_MACROTEMA,
     },
 }
 UNIDADES = ("municipio", *UNIDADES_POR_MATVIEW)
