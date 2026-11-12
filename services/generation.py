@@ -44,7 +44,10 @@ from plotting.instrumentos_sudene import (
     gerar_grafico_valor_investido,
 )
 from plotting.instrumentos_sudene_porte import gerar_grafico_porte
-from plotting.instrumentos_sudene_setor import gerar_grafico_setor, gerar_grafico_valor_total_tipo
+from plotting.instrumentos_sudene_setor import (
+    gerar_grafico_setor,
+    gerar_grafico_valor_total_tipo,
+)
 from plotting.meio_ambiente import gerar_grafico_aridez
 from plotting.saneamento import (
     gerar_grafico_coleta_lixo,
