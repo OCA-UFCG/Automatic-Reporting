@@ -5,12 +5,15 @@ import matplotlib.pyplot as plt
 import pytest
 
 from plotting.instrumentos_sudene_setor import (
+    SERIES_SETOR,
     SETORES_ECONOMICOS,
-    alturas_normalizadas,
+    alturas_das_barras,
     desenhar_barras_por_setor,
     formatar_quantidade,
     formatar_valor_reais,
     gerar_grafico_setor,
+    gerar_grafico_valor_total_tipo,
+    marcas_do_eixo,
     totais_por_setor,
 )
 from services.generation import GRAFICOS_AUTO_MARCADOR, GRAFICOS_POR_TEMA
@@ -54,25 +57,20 @@ def test_coluna_ausente_vira_value_error_com_a_chave():
         totais_por_setor(linha, "{setor}_contrato")
 
 
-def test_as_duas_series_zeradas_vira_value_error(tmp_path: Path):
+@pytest.mark.parametrize("gerar", [gerar_grafico_setor, gerar_grafico_valor_total_tipo])
+def test_serie_zerada_tira_so_o_proprio_card(tmp_path: Path, gerar):
+    # Cada série tem o próprio card agora: zerada, ela some sozinha do
+    # relatório (`_SO_VALOR`) e o card da outra série continua.
     zerado = _linha_da_view(["0"] * 6, ["0"] * 6)
 
-    with pytest.raises(ValueError, match="zerados"):
-        gerar_grafico_setor(zerado, tmp_path, "zerado")
+    with pytest.raises(ValueError, match="zeradas"):
+        gerar(zerado, tmp_path, "zerado")
 
 
-@pytest.mark.parametrize(
-    ("contratos", "valores"),
-    [
-        (["0", "401", "1", "956", "2", "0"], ["0"] * 6),
-        (["0"] * 6, ["0", "3013505.85", "4729.41", "15930324.2", "35899", "0"]),
-    ],
-    ids=["so_contratacoes", "so_valores"],
-)
-def test_uma_serie_zerada_ainda_gera_o_card(tmp_path: Path, contratos, valores):
-    nome = gerar_grafico_setor(_linha_da_view(contratos, valores), tmp_path, "uma_serie")
+def test_card_sai_mesmo_com_a_outra_serie_zerada(tmp_path: Path):
+    so_valor = _linha_da_view(["0"] * 6, ["0", "3013505.85", "4729.41", "15930324.2", "35899", "0"])
 
-    assert (tmp_path / nome).stat().st_size > 0
+    assert gerar_grafico_valor_total_tipo(so_valor, tmp_path, "so_valor").endswith(".png")
 
 
 @pytest.mark.parametrize(
@@ -110,62 +108,66 @@ def test_rotulo_do_valor(valor, esperado):
     assert formatar_valor_reais(valor) == esperado
 
 
-def test_barra_minima_para_valor_pequeno_e_zero_sem_barra():
-    # Agroindústria de Recife (3 contra 4.045) ainda aparece como um traço;
-    # turismo de Igaci (0) não ganha barra.
-    recife = alturas_normalizadas(totais_por_setor(RECIFE, "{setor}_contrato"))
-    igaci = alturas_normalizadas(totais_por_setor(IGACI, "{setor}_contrato"))
+@pytest.mark.parametrize(
+    ("maior", "esperado"),
+    [
+        # Recife/PE no design: R$ 0, R$ 200M, R$ 400M.
+        (359580433.74, [0.0, 2e8, 4e8]),
+        (4045.0, [0.0, 2000.0, 4000.0, 6000.0]),
+        (956.0, [0.0, 500.0, 1000.0]),
+        (1.0, [0.0, 0.5, 1.0]),
+    ],
+)
+def test_marcas_do_eixo_vao_de_zero_ate_passar_do_maior(maior, esperado):
+    assert marcas_do_eixo(maior) == esperado
 
-    assert recife[1] == 1.0
-    assert 0 < recife[0] < 0.02
+
+def test_barra_minima_para_valor_pequeno_e_zero_sem_barra():
+    # Agroindústria de Recife (R$ 154,53k contra R$ 359,58M) ainda aparece como
+    # um traço; turismo de Igaci (0) não ganha barra.
+    recife = alturas_das_barras(totais_por_setor(RECIFE, "valor_{setor}_contrato"), 4e8)
+    igaci = alturas_das_barras(totais_por_setor(IGACI, "valor_{setor}_contrato"), 2e7)
+
+    assert recife[1] == 359580433.74
+    assert recife[0] == 4e8 * 0.012
     assert igaci[0] == igaci[5] == 0.0
 
 
-def _folgas_entre_rotulos_do_grupo(quantidades: list[float], valores: list[float]) -> list[float]:
-    fig = desenhar_barras_por_setor(quantidades, valores)
-    fig.canvas.draw()
-    renderer = fig.canvas.get_renderer()
-    caixas = [texto.get_window_extent(renderer) for texto in fig.axes[0].texts]
-    plt.close(fig)
-    total = len(SETORES_ECONOMICOS)
-
-    return [caixas[total + i].x0 - caixas[i].x1 for i in range(total)]
-
-
-def test_rotulos_laranja_e_verde_do_mesmo_setor_nao_se_sobrepoem():
-    # Regressão: com as barras mais juntas, "4k" e "R$ 359,58M" de Recife
-    # encostavam, e o pior caso ("999" e "R$ 999,99M") se sobrepunha.
-    recife = _folgas_entre_rotulos_do_grupo(
-        totais_por_setor(RECIFE, "{setor}_contrato"), totais_por_setor(RECIFE, "valor_{setor}_contrato")
-    )
-    pior_caso = _folgas_entre_rotulos_do_grupo([999.0] * 6, [999.99e6] * 6)
-
-    assert min(recife) > 5
-    assert min(pior_caso) > 0
+@pytest.mark.parametrize(
+    ("gerar", "arquivo"),
+    [
+        (gerar_grafico_setor, "grafico_setor_quantidade_igaci_al.png"),
+        (gerar_grafico_valor_total_tipo, "grafico_setor_valor_igaci_al.png"),
+    ],
+)
+def test_gera_o_png_com_nome_novo(tmp_path: Path, gerar, arquivo):
+    # Nome diferente do `grafico_setor_<cidade>.png` do card antigo de duas
+    # séries, que `reusar_grafico` serviria até o próximo refresh das matviews.
+    assert gerar(IGACI, tmp_path, "igaci_al") == arquivo
+    assert (tmp_path / arquivo).stat().st_size > 0
 
 
-def test_gera_o_png(tmp_path: Path):
-    nome = gerar_grafico_setor(IGACI, tmp_path, "igaci_al")
-
-    assert nome == "grafico_setor_igaci_al.png"
-    assert (tmp_path / nome).stat().st_size > 0
-
-
-def test_titulo_do_card_repete_a_legenda_do_doc():
-    # A legenda "Figura w" do Doc sai logo abaixo do card; com textos diferentes
-    # os dois pareciam descrever gráficos distintos.
-    fig = desenhar_barras_por_setor(
-        totais_por_setor(RECIFE, "{setor}_contrato"), totais_por_setor(RECIFE, "valor_{setor}_contrato"),
-    )
+@pytest.mark.parametrize(
+    ("tipo", "coluna", "legenda"),
+    [
+        ("quantidade", "{setor}_contrato", "Quantidade de contratações por tipo de setor econômico"),
+        ("valor", "valor_{setor}_contrato", "Valor investido por tipo de setor econômico"),
+    ],
+)
+def test_titulo_do_card_repete_a_legenda_do_doc(tipo, coluna, legenda):
+    # As legendas "Figura v" e "Figura w" do Doc saem logo abaixo dos cards; com
+    # textos diferentes os dois pareciam descrever gráficos distintos.
+    fig = desenhar_barras_por_setor(totais_por_setor(RECIFE, coluna), SERIES_SETOR[tipo])
     titulos = [texto.get_text() for texto in fig.texts]
     plt.close(fig)
 
-    assert "Quantidade de contratações e valor investido por tipo de setor econômico" in titulos
+    assert legenda in titulos
 
 
-def test_tema_registra_o_grafico_pelo_marcador_do_doc():
+def test_tema_registra_os_dois_cards_pelos_marcadores_do_doc():
     nomes = [nome for nome, _, _ in GRAFICOS_POR_TEMA["instrumentos-sudene"]]
 
     # Presença, não posição: `nomes[-1]` quebraria no próximo gráfico do tema.
     assert "grafico_setor" in nomes
+    assert "grafico_valor_total_tipo" in nomes
     assert "instrumentos-sudene" not in GRAFICOS_AUTO_MARCADOR
