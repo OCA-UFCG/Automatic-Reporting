@@ -1187,6 +1187,8 @@ _CAMPOS_ANO = {
     "ultimo_junho",
     "ultimo_jun",
     "ano_referencia_finalidade",
+    # Relatório por estado (est_economia): vem como inteiro e saía "agosto de 2.026".
+    "uf_balanca_ano",
 }
 
 # Contagens que a view de educação entrega como texto (a coluna precisa ser text

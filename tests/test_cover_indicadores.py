@@ -574,3 +574,23 @@ def test_cards_de_saude_do_doc_usam_os_icones_das_bases_municipais():
         ("12,32", "mortalidade_infantil"),
         ("1.667", "unidades_basicas"),
     ]
+
+
+def test_card_do_doc_em_moeda_nao_e_confundido_com_campo_sem_valor():
+    # Regressão (11/11/2026): o teste antigo era um `$` qualquer no valor, e todos os
+    # cards de Economia ("R$ …", "US$ …") sumiam da capa.
+    panorama = [
+        ("PIB", "R$ economia.$uf_pib_2023:2 economia.$uf_pib_unid_2023"),
+        ("Saldo da balança comercial", "US$ economia.$uf_valor_balanca1_dado"),
+        ("Campo com espaço depois do $", "educacao.$ uf_seg_nivel_per"),
+    ]
+    contexto = {
+        "uf_pib_2023": 96.96,
+        "uf_pib_unid_2023": "bilhões",
+        "uf_valor_balanca1_dado": -17551669,
+        "uf_seg_nivel_per": 26.31,
+    }
+
+    cards = montar_indicadores_do_doc(panorama, contexto, "economia-renda")
+
+    assert [card["valor"] for card in cards] == ["R$ 96,96 bilhões", "US$ -17.551.669"]
