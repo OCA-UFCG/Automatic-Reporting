@@ -173,3 +173,5 @@ de um relatório real e os testes manuais das queries precisam das variáveis
 - `output/` — artefatos gerados
 
 Para detalhes do fluxo interno, consulte [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Para o relatório por estado (fluxo, passo a passo para colocar um tema no ar e o
+que revisar no PDF), consulte [docs/relatorio-por-estado.md](docs/relatorio-por-estado.md).
