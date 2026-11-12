@@ -43,10 +43,7 @@ from plotting.instrumentos_sudene import (
     gerar_grafico_quantidade_de_contratacoes,
     gerar_grafico_valor_investido,
 )
-from plotting.instrumentos_sudene_porte import (
-    gerar_grafico_porte_contratacoes,
-    gerar_grafico_porte_valor,
-)
+from plotting.instrumentos_sudene_porte import gerar_grafico_porte
 from plotting.instrumentos_sudene_setor import gerar_grafico_setor
 from plotting.meio_ambiente import gerar_grafico_aridez
 from plotting.saneamento import (
@@ -197,9 +194,7 @@ GRAFICOS_POR_TEMA: dict[str, tuple[tuple[str, Callable[..., str], tuple[type[Exc
     "instrumentos-sudene": (
         ("grafico_quantidade_de_contratacoes", gerar_grafico_quantidade_de_contratacoes, _SO_VALOR),
         ("grafico_valor_investido", gerar_grafico_valor_investido, _SO_VALOR),
-        # Lado a lado no Doc: *grafico_porte_contratacoes+grafico_porte_valor.
-        ("grafico_porte_contratacoes", gerar_grafico_porte_contratacoes, _SO_VALOR),
-        ("grafico_porte_valor", gerar_grafico_porte_valor, _SO_VALOR),
+        ("grafico_porte", gerar_grafico_porte, _SO_VALOR),
         ("grafico_setor", gerar_grafico_setor, _SO_VALOR),
     ),
 }
