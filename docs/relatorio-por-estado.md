@@ -175,40 +175,52 @@ com a capa.
   "conforme a Figura X" fica no texto. Nos temas com gráficos, a numeração começa
   na Figura 1 (o estado não tem o mapa de localização, que é a Figura 1 do municipal).
 
+## Gráficos
+
+Desde 12/11/2026 todo tema com Doc estadual gera os gráficos do Doc.
+`services/graficos_estado.py` tem, por tema, um adaptador que monta a partir das
+colunas `uf_*` o dicionário que a função de `plotting/` já lê, então o gráfico sai
+igual ao municipal (`GRAFICOS_ESTADO_POR_TEMA`, com os placeholders do Doc). Sem
+mapa de localização, a numeração começa na Figura 1 (`reset_figura_contador(com_mapa=False)`).
+Gráfico sem dado fica de fora com aviso no log, e a legenda some junto.
+
+- Demografia: pirâmide com as 12 faixas da matview (D9), cor ou raça com os
+  percentuais do texto e dinâmica populacional só com 2010 e 2022 (a matview não
+  tem 2000);
+- Educação: sem diferença de dado (as 6 faixas de analfabetismo e os 4 níveis de
+  instrução são os do municipal);
+- Economia e Renda: adaptadores em `services/graficos_estado_economia.py`. A
+  matview guarda PIB e VAB escalados ("96,96" + "bilhões"), e o adaptador os
+  devolve em reais; unidade desconhecida tira o gráfico em vez de desenhá-lo
+  1.000 vezes menor. Os rankings mostram 10 países na importação e 4 na
+  exportação, como o municipal, embora a matview traga a lista inteira;
+- Segurança Hídrica: tecnologias de acesso à água com 2010, 2020 e 2025, os anos
+  da matview e da legenda do Doc estadual (o municipal mostra também 2021 a 2024;
+  decisão de 12/11/2026);
+- Meio Ambiente: **o único gráfico que o municipal não tem.** O Doc estadual
+  usa o marcador `grafico_aridez_estadual` e compara 1991 com 2021
+  (`gerar_grafico_aridez_comparada` em `plotting/meio_ambiente.py`, mesmas
+  cores do municipal). 1991 some quando `uf_aridez_1991_valida` não é 1, e
+  classe sem área nos dois anos fica de fora;
+- Saúde: **uma das duas exceções à regra "tudo vem da matview"** (a outra é a
+  rosca de Infraestrutura). O público-alvo por
+  faixa etária e os estabelecimentos de 2020 a 2023 não estão na `est_saude`, e
+  vêm somados por estado das tabelas do painel (`COMPLEMENTOS_DO_PAINEL`,
+  `buscar_*_estado` em `utils/queries/saude.py`). Onde a matview também tem o
+  dado, a soma confere com ela nos 9 estados. Duas colunas da matview têm erro de
+  digitação (`uf_hebatite_b_30dias`, `uf_penumo10`); o adaptador lê as duas
+  formas.
+- Infraestrutura e Saneamento: adaptadores em
+  `services/graficos_estado_saneamento.py`. Dinâmica do esgoto (2000, 2010, 2022) e
+  coleta de lixo (2010, 2022) vêm da matview. A rosca de tipos de esgotamento segue
+  a flag `uf_distrib_esgoto_2022_completa`, como o texto do Doc: com ela em 1, as 7
+  categorias vêm somadas do painel (`buscar_esgotamento_sanitario_estado`); com ela
+  em 0 (os 9 estados em 12/11/2026, I6), a rosca não sai e a consulta nem roda.
+
+A área de interesse ainda não tem gráficos (colunas `area_*`).
+
 ## O que ainda não existe no estado
 
-- **Gráficos, no tema ainda sem eles (Infraestrutura):** `services/graficos_estado.py`
-  tem, por tema, um adaptador que monta a partir das colunas `uf_*` o dicionário que
-  a função de `plotting/` já lê; o gráfico sai igual ao municipal. Estão lá
-  (12/11/2026):
-  - Demografia: pirâmide com as 12 faixas da matview (D9), cor ou raça com os
-    percentuais do texto e dinâmica populacional só com 2010 e 2022 (a matview não
-    tem 2000);
-  - Educação: sem diferença de dado (as 6 faixas de analfabetismo e os 4 níveis de
-    instrução são os do municipal);
-  - Economia e Renda: adaptadores em `services/graficos_estado_economia.py`. A
-    matview guarda PIB e VAB escalados ("96,96" + "bilhões"), e o adaptador os
-    devolve em reais; unidade desconhecida tira o gráfico em vez de desenhá-lo
-    1.000 vezes menor. Os rankings mostram 10 países na importação e 4 na
-    exportação, como o municipal, embora a matview traga a lista inteira;
-  - Segurança Hídrica: tecnologias de acesso à água com 2010, 2020 e 2025, os anos
-    da matview e da legenda do Doc estadual (o municipal mostra também 2021 a 2024;
-    decisão de 12/11/2026);
-  - Meio Ambiente: **o único gráfico que o municipal não tem.** O Doc estadual
-    usa o marcador `grafico_aridez_estadual` e compara 1991 com 2021
-    (`gerar_grafico_aridez_comparada` em `plotting/meio_ambiente.py`, mesmas
-    cores do municipal). 1991 some quando `uf_aridez_1991_valida` não é 1, e
-    classe sem área nos dois anos fica de fora;
-  - Saúde: **a única exceção à regra "tudo vem da matview"**. O público-alvo por
-    faixa etária e os estabelecimentos de 2020 a 2023 não estão na `est_saude`, e
-    vêm somados por estado das tabelas do painel (`COMPLEMENTOS_DO_PAINEL`,
-    `buscar_*_estado` em `utils/queries/saude.py`). Onde a matview também tem o
-    dado, a soma confere com ela nos 9 estados. Duas colunas da matview têm erro de
-    digitação (`uf_hebatite_b_30dias`, `uf_penumo10`); o adaptador lê as duas
-    formas.
-
-  Para outro tema, acrescente a entrada em `GRAFICOS_ESTADO_POR_TEMA` com os mesmos
-  placeholders do Doc. A área de interesse ainda não tem gráficos (colunas `area_*`).
 - **Apresentação, Características Gerais, métricas e mapa da capa:** são municipais.
   Sem eles, o primeiro tema começa logo abaixo do título (`capaTemConteudo.js`); se
   o Doc estadual trouxer o bloco `resumo_cidade`, a capa volta a ter página própria.

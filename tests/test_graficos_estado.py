@@ -231,13 +231,14 @@ def _linha_saude_paraiba() -> dict:
 
 
 class ComplementoDoPainelFake:
-    """Troca a consulta às tabelas do painel: devolve a soma da Paraíba e guarda a sigla."""
+    """Troca a consulta às tabelas do painel: devolve a soma da Paraíba e guarda a
+    sigla da linha que recebeu."""
 
     def __init__(self) -> None:
         self.siglas: list[str] = []
 
-    def __call__(self, sigla_uf: str) -> dict:
-        self.siglas.append(sigla_uf)
+    def __call__(self, linha: dict) -> dict:
+        self.siglas.append(linha["uf_sigla_uf"])
         faixas = ("ao_nascer", "menor_1_ano", "1_ano", "multifaixa")
         publico = dict(zip(faixas, (197504, 296256, 395008, 943786)))
         doses = dict(zip(faixas, (180497, 249193, 333419, 525207)))
@@ -305,7 +306,7 @@ def test_gera_os_quatro_graficos_de_saude_com_o_painel(tmp_path: Path):
 
 def test_saude_sem_o_painel_perde_so_o_publico_etario(tmp_path: Path):
     graficos = gerar_graficos_do_estado(
-        "saude", _linha_saude_paraiba(), tmp_path, "estado_para_ba", complementos={"saude": lambda sigla: {}}
+        "saude", _linha_saude_paraiba(), tmp_path, "estado_para_ba", complementos={"saude": lambda linha: {}}
     )
 
     assert "grafico_publico_etario" not in graficos

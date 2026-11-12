@@ -21,7 +21,9 @@ services/graficos_estado_economia.py (valores escalados da matview viram absolut
 Saúde (12/11/2026): a est_saude não tem o público-alvo por faixa etária nem os
 estabelecimentos de 2020 a 2023. Por decisão de 12/11, esses dois vêm somados por
 estado das tabelas do painel (COMPLEMENTOS_DO_PAINEL); onde a matview também tem o
-dado, a soma confere com ela. É a única exceção à regra "tudo vem da matview".
+dado, a soma confere com ela. Infraestrutura (services/graficos_estado_saneamento.py)
+faz o mesmo com a rosca de esgotamento, só quando a matview diz que a distribuição
+está completa. Fora esses dois temas, tudo vem da matview.
 """
 
 import logging
@@ -48,6 +50,11 @@ from plotting.educacao import (
 )
 from plotting.hidraulica import gerar_grafico_tecnologias_acesso_agua
 from plotting.meio_ambiente import gerar_grafico_aridez_comparada
+from plotting.saneamento import (
+    gerar_grafico_coleta_lixo,
+    gerar_grafico_dinamica_esgoto,
+    gerar_grafico_esgotamento_sanitario,
+)
 from plotting.saude import (
     gerar_grafico_cobertura_vacinal,
     gerar_grafico_de_estabelecimento,
@@ -60,6 +67,12 @@ from services.graficos_estado_economia import (
     importacao_paises_do_estado,
     pib_serie_do_estado,
     vab_setores_do_estado,
+)
+from services.graficos_estado_saneamento import (
+    coleta_lixo_do_estado,
+    complemento_de_saneamento,
+    dinamica_esgoto_do_estado,
+    esgotamento_do_estado,
 )
 from utils.maps import normalizar_texto
 from utils.queries.saude import (
@@ -346,6 +359,18 @@ def _grafico_estabelecimentos(linha: dict, output_dir: pathlib.Path, safe_estado
     return gerar_grafico_de_estabelecimento(estabelecimentos_serie_do_estado(linha), output_dir, safe_estado)
 
 
+def _grafico_dinamica_esgoto(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
+    return gerar_grafico_dinamica_esgoto(dinamica_esgoto_do_estado(linha), output_dir, safe_estado)
+
+
+def _grafico_esgotamento(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
+    return gerar_grafico_esgotamento_sanitario(esgotamento_do_estado(linha), output_dir, safe_estado)
+
+
+def _grafico_coleta_lixo(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
+    return gerar_grafico_coleta_lixo(coleta_lixo_do_estado(linha), output_dir, safe_estado)
+
+
 @dataclass(frozen=True)
 class GraficoDoEstado:
     """Um gráfico estadual: o marcador `*<placeholder>` do Doc e a função que o gera."""
@@ -387,10 +412,16 @@ GRAFICOS_ESTADO_POR_TEMA: dict[str, tuple[GraficoDoEstado, ...]] = {
         GraficoDoEstado("grafico_taxa_mortalidade", _grafico_mortalidade),
         GraficoDoEstado("grafico_de_estabelecimento", _grafico_estabelecimentos),
     ),
+    "saneamento": (
+        GraficoDoEstado("grafico_domicilio", _grafico_dinamica_esgoto),
+        GraficoDoEstado("grafico_domicilio_por_tipo_esgosto", _grafico_esgotamento),
+        GraficoDoEstado("grafico_coleta_lixo", _grafico_coleta_lixo),
+    ),
 }
 
 
-def _complemento_de_saude(sigla_uf: str) -> dict[str, object]:
+def _complemento_de_saude(linha: dict) -> dict[str, object]:
+    sigla_uf = str(linha.get("uf_sigla_uf") or "")
     publico_etario = buscar_publico_etario_vacinas_estado(sigla_uf) or {}
     estabelecimentos = buscar_estabelecimentos_saude_serie_estado(sigla_uf) or {}
 
@@ -398,9 +429,12 @@ def _complemento_de_saude(sigla_uf: str) -> dict[str, object]:
 
 
 # Dados que a matview do tema não tem e que o gráfico precisa, somados por estado
-# nas tabelas do painel (decisão de 12/11/2026). Recebe a sigla do estado.
-COMPLEMENTOS_DO_PAINEL: dict[str, Callable[[str], dict[str, object]]] = {
+# nas tabelas do painel (decisão de 12/11/2026). Recebe a linha da matview, para
+# poder decidir se precisa consultar (saneamento só consulta com a flag em 1).
+ComplementoDoPainel = Callable[[dict], dict[str, object]]
+COMPLEMENTOS_DO_PAINEL: dict[str, ComplementoDoPainel] = {
     "saude": _complemento_de_saude,
+    "saneamento": complemento_de_saneamento,
 }
 
 
@@ -409,7 +443,7 @@ def gerar_graficos_do_estado(
     linha: dict,
     output_dir: pathlib.Path,
     safe_estado: str,
-    complementos: dict[str, Callable[[str], dict[str, object]]] = COMPLEMENTOS_DO_PAINEL,
+    complementos: dict[str, ComplementoDoPainel] = COMPLEMENTOS_DO_PAINEL,
 ) -> dict[str, str]:
     """{placeholder: arquivo PNG} dos gráficos do tema para o estado. Gráfico sem
     dado (a função levanta ValueError) fica de fora, com aviso no log, e some do
@@ -420,7 +454,7 @@ def gerar_graficos_do_estado(
     """
     complementar = complementos.get(slug)
     if complementar is not None:
-        linha = {**linha, **complementar(str(linha.get("uf_sigla_uf") or ""))}
+        linha = {**linha, **complementar(linha)}
     graficos: dict[str, str] = {}
     for grafico in GRAFICOS_ESTADO_POR_TEMA.get(slug, ()):
         try:
