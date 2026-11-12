@@ -172,15 +172,16 @@ com a capa.
   linha fora de uma condição é texto do relatório. Elas precisam sair do Doc. Uma
   instrução que cita "Figura X" ainda desalinha a numeração das figuras seguintes.
 - **Menções a figuras.** Em tema sem gráficos estaduais, "(Figura X)" some, mas
-  "conforme a Figura X" fica no texto. Em Demografia, a numeração começa na
-  Figura 1 (o estado não tem o mapa de localização, que é a Figura 1 do municipal).
+  "conforme a Figura X" fica no texto. Nos temas com gráficos, a numeração começa
+  na Figura 1 (o estado não tem o mapa de localização, que é a Figura 1 do municipal).
 
 ## O que ainda não existe no estado
 
-- **Gráficos, fora de Demografia:** `services/graficos_estado.py` tem, por tema, um
-  adaptador que monta a partir das colunas `uf_*` o dicionário que a função de
-  `plotting/` já lê; o gráfico sai igual ao municipal. Só Demografia está lá
-  (12/11/2026): pirâmide com as 12 faixas da matview (D9), cor ou raça com os
+- **Gráficos, fora de Demografia e Educação:** `services/graficos_estado.py` tem,
+  por tema, um adaptador que monta a partir das colunas `uf_*` o dicionário que a
+  função de `plotting/` já lê; o gráfico sai igual ao municipal. Estão lá
+  (12/11/2026): Educação, sem diferença de dado (as 6 faixas de analfabetismo e os
+  4 níveis de instrução são os do municipal), e Demografia: pirâmide com as 12 faixas da matview (D9), cor ou raça com os
   percentuais do texto e dinâmica populacional só com 2010 e 2022 (a matview não
   tem 2000). Para outro tema, acrescente a entrada em `GRAFICOS_ESTADO_POR_TEMA`
   com os mesmos placeholders do Doc. A área de interesse ainda não tem gráficos

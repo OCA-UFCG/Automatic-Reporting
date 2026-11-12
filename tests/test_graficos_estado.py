@@ -1,6 +1,7 @@
 """Gráficos do relatório por estado (12/11/2026): os adaptadores montam, a partir da
 linha `uf_*` da matview estadual, o dicionário que as funções de plotting/ leem.
-Nenhum teste toca o banco: a linha é um recorte da Paraíba em est_demografia."""
+Nenhum teste toca o banco: as linhas são recortes da Paraíba em est_demografia e
+est_educacao."""
 
 from decimal import Decimal
 from pathlib import Path
@@ -9,8 +10,10 @@ from plotting.demografia import _percentuais_cor_raca
 from services.graficos_estado import (
     faixas_etarias_sexo_do_estado,
     gerar_graficos_do_estado,
+    niveis_de_instrucao_do_estado,
     populacao_historica_do_estado,
     populacao_por_cor_raca_do_estado,
+    taxas_de_analfabetismo_do_estado,
 )
 from services.relatorio_estado import nome_de_arquivo_da_unidade
 
@@ -109,8 +112,87 @@ def test_grafico_sem_dado_fica_de_fora_sem_derrubar_os_outros(tmp_path: Path):
 
 
 def test_tema_sem_graficos_estaduais_devolve_vazio(tmp_path: Path):
-    assert gerar_graficos_do_estado("educacao", _linha_paraiba(), tmp_path, "estado_para_ba") == {}
+    assert gerar_graficos_do_estado("saude", _linha_paraiba(), tmp_path, "estado_para_ba") == {}
 
 
 def test_arquivo_do_estado_nao_colide_com_o_do_municipio():
     assert nome_de_arquivo_da_unidade("estado", "Paraíba") == "estado_para_ba"
+
+
+_FAIXAS_DE_ANALFABETISMO = (
+    "15 a 19 anos", "20 a 29 anos", "30 a 39 anos", "40 a 49 anos", "50 a 59 anos", "60 anos ou mais",
+)
+
+
+def _linha_educacao_paraiba() -> dict:
+    """Recorte de est_educacao para a Paraíba. As taxas por faixa são as reais da
+    cor preta; as outras cores repetem esses valores, só para o gráfico ter barras."""
+    taxas_preta = ("3.24", "4.06", "8.68", "21.64", "33.14", "50.21")
+    linha: dict = {
+        "uf_estado": "Paraíba",
+        "uf_pri_nivel_classe": "ensino fundamental incompleto ou sem instrução",
+        "uf_pri_nivel_per": Decimal("47.49"),
+        "uf_pri_nivel_pop": Decimal(1211253),
+        "uf_seg_nivel_classe": "ensino médio completo",
+        "uf_seg_nivel_per": Decimal("26.31"),
+        "uf_seg_nivel_pop": Decimal(671120),
+        "uf_ter_nivel_classe": "ensino superior completo",
+        "uf_ter_nivel_per": Decimal("14.51"),
+        "uf_ter_nivel_pop": Decimal(370167),
+        "uf_quar_nivel_classe": "ensino fundamental completo",
+        "uf_quar_nivel_per": Decimal("11.68"),
+        "uf_quar_nivel_pop": Decimal(297895),
+        # A matview reserva 8 posições; as duas últimas vêm vazias.
+        "uf_analf_faixa_etaria_2022_fx7": None,
+        "uf_analf_taxa_2022_preta_fx7": None,
+    }
+    for posicao, (faixa, taxa) in enumerate(zip(_FAIXAS_DE_ANALFABETISMO, taxas_preta), start=1):
+        linha[f"uf_analf_faixa_etaria_2022_fx{posicao}"] = faixa
+        for cor in ("branca", "preta", "amarela", "parda", "indigena"):
+            linha[f"uf_analf_taxa_2022_{cor}_fx{posicao}"] = Decimal(taxa)
+
+    return linha
+
+
+def test_niveis_de_instrucao_tiram_so_o_prefixo_uf():
+    niveis = niveis_de_instrucao_do_estado(_linha_educacao_paraiba())
+
+    assert niveis["pri_nivel_classe"] == "ensino fundamental incompleto ou sem instrução"
+    assert niveis["quar_nivel_pop"] == Decimal(297895)
+    assert "uf_estado" not in niveis and "estado" not in niveis
+
+
+def test_taxas_de_analfabetismo_casam_a_faixa_pelo_rotulo():
+    linha = _linha_educacao_paraiba()
+    # fx1 e fx6 trocadas: o rótulo manda, não a posição.
+    for cor in ("branca", "preta", "amarela", "parda", "indigena"):
+        linha[f"uf_analf_taxa_2022_{cor}_fx1"], linha[f"uf_analf_taxa_2022_{cor}_fx6"] = (
+            linha[f"uf_analf_taxa_2022_{cor}_fx6"], linha[f"uf_analf_taxa_2022_{cor}_fx1"],
+        )
+    linha["uf_analf_faixa_etaria_2022_fx1"] = "60 anos ou mais"
+    linha["uf_analf_faixa_etaria_2022_fx6"] = "15 a 19 anos"
+
+    taxas = taxas_de_analfabetismo_do_estado(linha)
+
+    assert taxas["taxa_mais60_preta"] == Decimal("50.21")
+    assert taxas["taxa_15_a_19_preta"] == Decimal("3.24")
+    assert len(taxas) == 30
+
+
+def test_gera_os_dois_graficos_de_educacao(tmp_path: Path):
+    graficos = gerar_graficos_do_estado("educacao", _linha_educacao_paraiba(), tmp_path, "estado_para_ba")
+
+    assert graficos == {
+        "grafico_cor_faixa_etaria": "grafico_cor_faixa_etaria_estado_para_ba.png",
+        "grafico_nivel_instrucao": "grafico_nivel_instrucao_estado_para_ba.png",
+    }
+    assert all((tmp_path / arquivo).is_file() for arquivo in graficos.values())
+
+
+def test_faixa_de_analfabetismo_faltando_tira_so_esse_grafico(tmp_path: Path):
+    linha = _linha_educacao_paraiba()
+    linha["uf_analf_faixa_etaria_2022_fx6"] = None
+
+    graficos = gerar_graficos_do_estado("educacao", linha, tmp_path, "estado_para_ba")
+
+    assert list(graficos) == ["grafico_nivel_instrucao"]

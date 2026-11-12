@@ -11,6 +11,9 @@ Diferenças de dado, decididas em 12/11/2026:
     depois), não as 9 do municipal. É com elas que a matview calcula a "maior
     concentração" citada no texto (D9 do registro de problemas);
   - dinâmica populacional: só 2010 e 2022, porque a matview não tem 2000.
+
+Educação (12/11/2026) não tem diferença de dado: as 6 faixas de analfabetismo e os
+4 níveis de instrução são os do municipal, nos 9 estados; só muda o nome da coluna.
 """
 
 import logging
@@ -24,12 +27,29 @@ from plotting.demografia import (
     gerar_grafico_faixa_etaria_e_sexo,
     gerar_grafico_visao_historica_populacao,
 )
+from plotting.educacao import (
+    gerar_grafico_cor_faixa_etaria,
+    gerar_grafico_nivel_instrucao,
+)
 
 logger = logging.getLogger(__name__)
 
 _PREFIXO_FAIXA = "uf_faixa_etaria_2022_"
 _POSICOES_COR_RACA = ("pri", "seg", "ter", "quar", "quin")
 _ANOS_CENSO_ESTADO = (2010, 2022)
+_NIVEIS_INSTRUCAO = ("pri_nivel", "seg_nivel", "ter_nivel", "quar_nivel")
+# Rótulo da faixa na matview -> sufixo da coluna municipal `taxa_<faixa>_<cor>`.
+_SUFIXO_POR_FAIXA_DE_ANALFABETISMO = {
+    "15 a 19 anos": "15_a_19",
+    "20 a 29 anos": "20_a_29",
+    "30 a 39 anos": "30_a_39",
+    "40 a 49 anos": "40_a_49",
+    "50 a 59 anos": "50_a_59",
+    "60 anos ou mais": "mais60",
+}
+_CORES_DO_ANALFABETISMO = ("branca", "preta", "amarela", "parda", "indigena")
+# A matview reserva 8 posições de faixa (fx1…fx8); hoje fx7 e fx8 vêm vazias.
+_POSICOES_DE_FAIXA_DE_ANALFABETISMO = range(1, 9)
 
 
 def faixas_etarias_sexo_do_estado(linha: dict) -> list[dict[str, object]]:
@@ -85,6 +105,39 @@ def populacao_historica_do_estado(linha: dict) -> dict[str, object]:
     return {f"pop_total_{ano}": linha.get(f"uf_pop_total_{ano}") for ano in _ANOS_CENSO_ESTADO}
 
 
+def niveis_de_instrucao_do_estado(linha: dict) -> dict[str, object]:
+    """`<posição>_nivel_classe/per/pop` como no municipal: a matview só põe `uf_` na
+    frente. Coluna que falta fica de fora, e a função municipal recusa o gráfico
+    com a lista das ausentes.
+
+    Ex.: niveis_de_instrucao_do_estado(linha)["pri_nivel_per"] == Decimal("47.49")
+    """
+    colunas = (f"{nivel}_{campo}" for nivel in _NIVEIS_INSTRUCAO for campo in ("classe", "per", "pop"))
+
+    return {coluna: linha[f"uf_{coluna}"] for coluna in colunas if f"uf_{coluna}" in linha}
+
+
+def taxas_de_analfabetismo_do_estado(linha: dict) -> dict[str, object]:
+    """`taxa_<faixa>_<cor>` como no municipal. A matview numera as faixas (fx1…fx8)
+    e dá o rótulo em `uf_analf_faixa_etaria_2022_fxN`; o casamento é pelo rótulo, e
+    não pela posição, para uma faixa a mais ou fora de ordem não trocar as barras.
+    Posição vazia ou rótulo desconhecido fica de fora; se faltar uma das 6 faixas,
+    a função municipal recusa o gráfico.
+
+    Ex.: taxas_de_analfabetismo_do_estado(linha)["taxa_mais60_preta"] == Decimal("50.21")
+    """
+    taxas: dict[str, object] = {}
+    for posicao in _POSICOES_DE_FAIXA_DE_ANALFABETISMO:
+        rotulo = linha.get(f"uf_analf_faixa_etaria_2022_fx{posicao}")
+        sufixo = _SUFIXO_POR_FAIXA_DE_ANALFABETISMO.get(rotulo)
+        if sufixo is None:
+            continue
+        for cor in _CORES_DO_ANALFABETISMO:
+            taxas[f"taxa_{sufixo}_{cor}"] = linha.get(f"uf_analf_taxa_2022_{cor}_fx{posicao}")
+
+    return taxas
+
+
 def _grafico_faixa_etaria(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
     cidade = {"faixas_etarias_sexo": faixas_etarias_sexo_do_estado(linha)}
 
@@ -99,6 +152,14 @@ def _grafico_visao_historica(linha: dict, output_dir: pathlib.Path, safe_estado:
     return gerar_grafico_visao_historica_populacao(
         populacao_historica_do_estado(linha), output_dir, safe_estado, anos_censo=_ANOS_CENSO_ESTADO
     )
+
+
+def _grafico_nivel_instrucao(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
+    return gerar_grafico_nivel_instrucao(niveis_de_instrucao_do_estado(linha), output_dir, safe_estado)
+
+
+def _grafico_analfabetismo(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
+    return gerar_grafico_cor_faixa_etaria(taxas_de_analfabetismo_do_estado(linha), output_dir, safe_estado)
 
 
 @dataclass(frozen=True)
@@ -116,6 +177,10 @@ GRAFICOS_ESTADO_POR_TEMA: dict[str, tuple[GraficoDoEstado, ...]] = {
         GraficoDoEstado("grafico_faixa_etaria_e_sexo", _grafico_faixa_etaria),
         GraficoDoEstado("grafico_composicao_cor_raca", _grafico_cor_raca),
         GraficoDoEstado("grafico_visao_historica", _grafico_visao_historica),
+    ),
+    "educacao": (
+        GraficoDoEstado("grafico_cor_faixa_etaria", _grafico_analfabetismo),
+        GraficoDoEstado("grafico_nivel_instrucao", _grafico_nivel_instrucao),
     ),
 }
 
