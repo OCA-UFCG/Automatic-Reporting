@@ -320,6 +320,17 @@ _ICONE_POR_CAMPO_DO_DOC = {
     "pop_ind_2022": "populacao_indigena",
     "pop_qui": "populacao_quilombola",
     "pop_rua_2026": "situacao_rua",
+    # Educação (Doc estadual de 11/11/2026). A taxa de alfabetização (`alfabetizado_per`)
+    # não tem ícone próprio e fica com o do tema, como no municipal.
+    "sem_instr_per_2022": "fundamental_incompleto",
+    "fund_comp_per": "fundamental_completo",
+    # O Doc usa o 2º nível mais frequente para "Médio completo": nos 9 estados ele é o
+    # médio, mas a matview não tem coluna própria do médio. Se ganhar, trocar aqui.
+    "seg_nivel_per": "medio_completo",
+    "sup_comp_per": "superior_completo",
+    # Ainda não existem na est_educacao (o Doc avisa); o ícone fica pronto para quando vierem.
+    "alfab_qui_per_2022": "quilombola_alfabetizada",
+    "alfab_ind_per_2022": "indigena_alfabetizada",
 }
 
 _CAMPO_DO_VALOR = re.compile(r"\$([A-Za-z0-9_]+)")

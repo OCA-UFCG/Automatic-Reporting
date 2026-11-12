@@ -539,3 +539,21 @@ def test_card_do_doc_sem_valor_no_contexto_sai_da_capa():
     cards = montar_indicadores_do_doc(PANORAMA_ESTADUAL, {"uf_pop_total_2022": 3974687}, "demografia")
 
     assert [card["nome"] for card in cards] == ["População residente"]
+
+
+def test_cards_de_educacao_do_doc_tem_icone_proprio_e_percentual_com_formato():
+    # Valores com `:2%`, como o Doc precisa escrever para o card sair com "%".
+    panorama = [
+        ("Taxa de alfabetização", "educacao.$uf_alfabetizado_per:2%"),
+        ("Fundamental incompleto ou sem instrução", "educacao.$uf_sem_instr_per_2022:2%"),
+        ("Superior completo", "educacao.$uf_sup_comp_per:2%"),
+    ]
+    contexto = {"uf_alfabetizado_per": 84.04, "uf_sem_instr_per_2022": 47.49, "uf_sup_comp_per": 14.51}
+
+    cards = montar_indicadores_do_doc(panorama, contexto, "educacao", "book")
+
+    assert [(card["valor"], card["icone"]) for card in cards] == [
+        ("84,04%", "book"),  # sem ícone próprio: fica o do tema
+        ("47,49%", "fundamental_incompleto"),
+        ("14,51%", "superior_completo"),
+    ]
