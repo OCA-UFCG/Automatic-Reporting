@@ -1,6 +1,7 @@
 import re
 from datetime import datetime
 
+from utils.external.docs import CardDoPanorama
 from utils.formatting import coerce_para_float, formatar_numero_ptbr
 from utils.geografia import separar_cidade_uf
 from utils.render.placeholders import substituir_placeholders
@@ -346,6 +347,9 @@ _ICONE_POR_CAMPO_DO_DOC = {
     "fob_exportado_ultimo": "exportacao",
     "fob_importado_ultimo": "importacao",
     "valor_balanca1_dado": "balanca",
+    # Infraestrutura e Saneamento (Doc estadual de 11/11/2026). Banheiro e coleta de
+    # lixo não têm ícone próprio e ficam com o do tema, como no municipal.
+    "esgoto_rede_2022": "esgoto",
 }
 
 _CAMPO_DO_VALOR = re.compile(r"\$([A-Za-z0-9_]+)")
@@ -357,34 +361,43 @@ _CAMPO_SEM_VALOR = re.compile(r"\$\s?[A-Za-z_]")
 
 
 def montar_indicadores_do_doc(
-    pares: list[tuple[str, str]],
+    cards_do_doc: list[CardDoPanorama],
     contexto: dict,
     macrotema_slug: str,
     macrotema_icone: str = "chart",
 ) -> list[dict[str, str]]:
-    """Cards do bloco "Panorama de indicadores" do Doc: o rótulo do Doc e o valor
-    resolvido contra o contexto. Valor vazio ou com `$campo` sem resolver omite o
-    card, como em montar_indicadores_macrotema: um card a menos é preferível a um
-    placeholder cru na capa. O Doc não traz fonte nem unidade, então elas saem vazias.
+    """Cards do bloco "Panorama de indicadores" do Doc: o rótulo do Doc, o valor
+    resolvido contra o contexto e, quando o Doc traz a legenda "fonte • unidade", a
+    fonte e o rodapé. Valor vazio ou com `$campo` sem resolver omite o card, como em
+    montar_indicadores_macrotema: um card a menos é preferível a um placeholder cru.
 
     Ex.: montar_indicadores_do_doc(
-        [("População residente", "demografia.$uf_pop_total_2022")],
+        [CardDoPanorama("População residente", "demografia.$uf_pop_total_2022")],
         {"uf_pop_total_2022": 3974687}, "demografia",
     )[0]["valor"] == "3.974.687"
     """
     cards: list[dict[str, str]] = []
-    for rotulo, modelo in pares:
-        valor = substituir_placeholders(modelo, contexto, macrotema_slug).strip()
-        if not valor or _CAMPO_SEM_VALOR.search(valor):
-            continue
-        cards.append({
-            "nome": rotulo,
-            "fonte": "",
-            "valor": valor,
-            "rodape": "",
-            "icone": _icone_do_card_do_doc(modelo, macrotema_icone),
-        })
+    for card_do_doc in cards_do_doc:
+        card = _card_do_doc(card_do_doc, contexto, macrotema_slug, macrotema_icone)
+        if card is not None:
+            cards.append(card)
     return cards
+
+
+def _card_do_doc(
+    card_do_doc: CardDoPanorama, contexto: dict, macrotema_slug: str, macrotema_icone: str
+) -> dict[str, str] | None:
+    valor = substituir_placeholders(card_do_doc.valor, contexto, macrotema_slug).strip()
+    if not valor or _CAMPO_SEM_VALOR.search(valor):
+        return None
+    fonte, _, rodape = card_do_doc.legenda.partition("•")
+    return {
+        "nome": card_do_doc.rotulo,
+        "fonte": fonte.strip(),
+        "valor": valor,
+        "rodape": rodape.strip(),
+        "icone": _icone_do_card_do_doc(card_do_doc.valor, macrotema_icone),
+    }
 
 
 def _icone_do_card_do_doc(modelo: str, macrotema_icone: str) -> str:
