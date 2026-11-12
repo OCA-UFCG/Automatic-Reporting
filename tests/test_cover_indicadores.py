@@ -557,3 +557,20 @@ def test_cards_de_educacao_do_doc_tem_icone_proprio_e_percentual_com_formato():
         ("47,49%", "fundamental_incompleto"),
         ("14,51%", "superior_completo"),
     ]
+
+
+def test_cards_de_saude_do_doc_usam_os_icones_das_bases_municipais():
+    panorama = [
+        ("Nascidos vivos", "saude.$uf_nascidos"),
+        ("Mortalidade infantil", "saude.$uf_mortalidade_2025:2"),
+        ("Unidades Básicas de Saúde", "saude.$uf_ubs_total"),
+    ]
+    contexto = {"uf_nascidos": 50711, "uf_mortalidade_2025": 12.3234, "uf_ubs_total": 1667}
+
+    cards = montar_indicadores_do_doc(panorama, contexto, "saude", "health")
+
+    assert [(card["valor"], card["icone"]) for card in cards] == [
+        ("50.711", "nascidos_vivos"),
+        ("12,32", "mortalidade_infantil"),
+        ("1.667", "unidades_basicas"),
+    ]

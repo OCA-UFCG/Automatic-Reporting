@@ -331,6 +331,15 @@ _ICONE_POR_CAMPO_DO_DOC = {
     # Ainda não existem na est_educacao (o Doc avisa); o ícone fica pronto para quando vierem.
     "alfab_qui_per_2022": "quilombola_alfabetizada",
     "alfab_ind_per_2022": "indigena_alfabetizada",
+    # Saúde (Doc estadual de 11/11/2026): os mesmos ícones das bases municipais
+    # equivalentes em _ICONE_POR_BASE.
+    "nascidos": "nascidos_vivos",
+    "mortalidade_2025": "mortalidade_infantil",
+    "dose_aplicada": "vacinas",
+    "estabelecimento_2025": "numero_estabelecimentos",
+    "ubs_total": "unidades_basicas",
+    # Ainda não existe na est_saude (o Doc avisa); o ícone fica pronto para quando vier.
+    "clinicas_total_2025": "posto_saude",
 }
 
 _CAMPO_DO_VALOR = re.compile(r"\$([A-Za-z0-9_]+)")
