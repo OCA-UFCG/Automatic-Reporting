@@ -828,6 +828,48 @@ def conferir_condicoes(texto: str) -> list[str]:
     return avisos
 
 
+# Relatório por estado (11/11/2026): nos Docs estaduais, cada "Para quando ...:" vale
+# só para a linha seguinte. A própria instrução da Síntese diz isso ("As condições
+# governam somente a frase seguinte"). interpretar_blocos_condicionais faz o bloco
+# simples valer até a primeira linha em branco, e o export dos Docs estaduais não tem
+# linhas em branco: o parágrafo sem condição logo depois era engolido pela condição
+# anterior e sumia quando ela era falsa (fechamentos de Síntese em 5 dos 7 temas, nos
+# 9 estados). A linha em branco inserida aqui fecha o bloco onde o Doc quer. Só o
+# estado usa: os Docs municipais têm as linhas em branco e blocos de vários
+# parágrafos (indígena/quilombola) que isto quebraria.
+_CONDICAO_EDITORIAL = re.compile(r"(?i)^para(?:\s+quando)?\s+(.+?):\s*(.*)$")
+
+
+def isolar_paragrafo_de_cada_condicao(texto: str) -> str:
+    """Põe uma linha em branco depois da linha que cada condição governa, para que
+    ela valha só para essa linha.
+
+    Ex.: isolar_paragrafo_de_cada_condicao("Para quando $x for igual a 1, então:\\nA\\nB")
+         == "Para quando $x for igual a 1, então:\\nA\\n\\nB"
+    """
+    saida: list[str] = []
+    aguardando_linha_da_condicao = False
+    for linha in texto.split("\n"):
+        saida.append(linha)
+        if _e_condicao_sem_texto_na_linha(linha):
+            aguardando_linha_da_condicao = True
+            continue
+        if aguardando_linha_da_condicao and linha.strip():
+            saida.append("")
+            aguardando_linha_da_condicao = False
+    return "\n".join(saida)
+
+
+def _e_condicao_sem_texto_na_linha(linha: str) -> bool:
+    """Mesmo reconhecimento de interpretar_blocos_condicionais: "Para quando ...:" com
+    um `$campo` na expressão. Condição com o parágrafo na mesma linha já vale só para
+    ela; "Para efeito de análise:", sem campo, é frase comum."""
+    condicao = _CONDICAO_EDITORIAL.match(_normalizar_condicao_editorial(linha))
+    if condicao is None or condicao.group(2):
+        return False
+    return _MARCADOR_CAMPO_CONDICIONAL.search(condicao.group(1)) is not None
+
+
 def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
     """Interpreta as instruções editoriais usadas nos documentos dos macrotemas.
 

@@ -202,3 +202,27 @@ def test_rotas_listam_estados_e_mandam_o_estado_ao_handler_estadual(monkeypatch)
     assert cliente.get("/estados").json() == list(ESTADOS_COM_RELATORIO)
     assert cliente.get("/relatorio/Paraíba?macrotema=saude&aguardar=nao").status_code == 200
     assert pedidos == [("Paraíba", "saude", False)]
+
+
+def test_paragrafo_sem_condicao_depois_de_condicao_falsa_sai_no_relatorio(ambiente_estadual, monkeypatch):
+    # Regressão (11/11/2026): no Doc estadual a condição vale só para a linha seguinte;
+    # antes, o fechamento sem condição sumia quando a última condição era falsa.
+    async def doc_com_condicoes(_url: str) -> str:
+        return (
+            "descricao_tema=“Para quando demografia.$uf_pop_total_2022 for maior que 1, então:\n"
+            "$uf_sujeito tinha $uf_pop_total_2022 habitantes.\n"
+            "Para quando demografia.$uf_pop_total_2022 for igual a 0, então:\n"
+            "Não havia habitantes.\n"
+            "Texto de fechamento sem condição.”@@\n"
+        )
+
+    _, _, ssr = ambiente_estadual
+    monkeypatch.setattr(relatorio_estado, "carregar_texto_do_docs", doc_com_condicoes)
+
+    asyncio.run(relatorio_estado.gerar_relatorio_estado_handler("Paraíba", "demografia"))
+
+    # descricao_html é o texto que vai para o PDF, com as condições já avaliadas.
+    texto = " ".join(ssr.props["cover"]["macrotemas"][0]["descricao_html"])
+    assert "A Paraíba tinha 3" in texto
+    assert "Não havia habitantes" not in texto
+    assert "Texto de fechamento sem condição." in texto

@@ -2,7 +2,10 @@ from decimal import Decimal
 
 import pytest
 
-from utils.render.placeholders import interpretar_blocos_condicionais
+from utils.render.placeholders import (
+    interpretar_blocos_condicionais,
+    isolar_paragrafo_de_cada_condicao,
+)
 from utils.render.renderer import (
     paragrafos_do_tema,
     render_descricao_tema_html,
@@ -2448,3 +2451,47 @@ def test_texto_final_do_tema_sai_como_no_relatorio():
         "[gráfico: grafico_x]\nFigura 2 – Legenda.",
         "- um\n- dois",
     ]
+
+
+# Doc estadual (11/11/2026): o export não tem linhas em branco, e cada condição vale só
+# para a linha seguinte. Formato copiado do Doc estadual de Educação (Síntese).
+DOC_ESTADUAL_SEM_LINHAS_EM_BRANCO = (
+    "Para quando educacao.$uf_qtd_faixas_analf_maior for igual a 1, então:\n"
+    "A maior taxa estava na faixa de educacao.$uf_analf_faixa_maior.\n"
+    "Para quando educacao.$uf_qtd_faixas_analf_maior for maior que 1, então:\n"
+    "As maiores taxas estavam nas faixas de educacao.$uf_analf_faixa_maior.\n"
+    "Essas informações oferecem subsídios para o planejamento."
+)
+
+
+def test_paragrafo_sem_condicao_some_sem_isolar_as_condicoes():
+    # Documenta o comportamento de interpretar_blocos_condicionais que motivou a
+    # função: a última condição é falsa e leva junto o fechamento sem condição.
+    contexto = {"uf_qtd_faixas_analf_maior": 1, "uf_analf_faixa_maior": "60 anos ou mais"}
+
+    texto = interpretar_blocos_condicionais(DOC_ESTADUAL_SEM_LINHAS_EM_BRANCO, contexto)
+
+    assert "Essas informações oferecem subsídios" not in texto
+
+
+def test_isolar_as_condicoes_preserva_o_paragrafo_sem_condicao():
+    contexto = {"uf_qtd_faixas_analf_maior": 1, "uf_analf_faixa_maior": "60 anos ou mais"}
+
+    texto = interpretar_blocos_condicionais(
+        isolar_paragrafo_de_cada_condicao(DOC_ESTADUAL_SEM_LINHAS_EM_BRANCO), contexto
+    )
+
+    assert "A maior taxa estava" in texto
+    assert "As maiores taxas" not in texto
+    assert "Essas informações oferecem subsídios" in texto
+
+
+def test_isolar_so_mexe_depois_da_linha_governada_por_condicao_com_campo():
+    texto = (
+        "Para efeito de análise:\n"  # sem campo: frase comum, não é condição
+        "Linha um.\n"
+        "Para quando saude.$uf_x for igual a 1, então: texto na mesma linha.\n"
+        "Linha dois."
+    )
+
+    assert isolar_paragrafo_de_cada_condicao(texto) == texto
