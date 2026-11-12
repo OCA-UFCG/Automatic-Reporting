@@ -177,15 +177,25 @@ com a capa.
 
 ## O que ainda não existe no estado
 
-- **Gráficos, fora de Demografia e Educação:** `services/graficos_estado.py` tem,
-  por tema, um adaptador que monta a partir das colunas `uf_*` o dicionário que a
-  função de `plotting/` já lê; o gráfico sai igual ao municipal. Estão lá
-  (12/11/2026): Educação, sem diferença de dado (as 6 faixas de analfabetismo e os
-  4 níveis de instrução são os do municipal), e Demografia: pirâmide com as 12 faixas da matview (D9), cor ou raça com os
-  percentuais do texto e dinâmica populacional só com 2010 e 2022 (a matview não
-  tem 2000). Para outro tema, acrescente a entrada em `GRAFICOS_ESTADO_POR_TEMA`
-  com os mesmos placeholders do Doc. A área de interesse ainda não tem gráficos
-  (colunas `area_*`).
+- **Gráficos, fora de Demografia, Educação e Saúde:** `services/graficos_estado.py`
+  tem, por tema, um adaptador que monta a partir das colunas `uf_*` o dicionário que
+  a função de `plotting/` já lê; o gráfico sai igual ao municipal. Estão lá
+  (12/11/2026):
+  - Demografia: pirâmide com as 12 faixas da matview (D9), cor ou raça com os
+    percentuais do texto e dinâmica populacional só com 2010 e 2022 (a matview não
+    tem 2000);
+  - Educação: sem diferença de dado (as 6 faixas de analfabetismo e os 4 níveis de
+    instrução são os do municipal);
+  - Saúde: **a única exceção à regra "tudo vem da matview"**. O público-alvo por
+    faixa etária e os estabelecimentos de 2020 a 2023 não estão na `est_saude`, e
+    vêm somados por estado das tabelas do painel (`COMPLEMENTOS_DO_PAINEL`,
+    `buscar_*_estado` em `utils/queries/saude.py`). Onde a matview também tem o
+    dado, a soma confere com ela nos 9 estados. Duas colunas da matview têm erro de
+    digitação (`uf_hebatite_b_30dias`, `uf_penumo10`); o adaptador lê as duas
+    formas.
+
+  Para outro tema, acrescente a entrada em `GRAFICOS_ESTADO_POR_TEMA` com os mesmos
+  placeholders do Doc. A área de interesse ainda não tem gráficos (colunas `area_*`).
 - **Apresentação, Características Gerais, métricas e mapa da capa:** são municipais.
   Sem eles, o primeiro tema começa logo abaixo do título (`capaTemConteudo.js`); se
   o Doc estadual trouxer o bloco `resumo_cidade`, a capa volta a ter página própria.

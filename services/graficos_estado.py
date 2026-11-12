@@ -14,10 +14,16 @@ Diferenças de dado, decididas em 12/11/2026:
 
 Educação (12/11/2026) não tem diferença de dado: as 6 faixas de analfabetismo e os
 4 níveis de instrução são os do municipal, nos 9 estados; só muda o nome da coluna.
+
+Saúde (12/11/2026): a est_saude não tem o público-alvo por faixa etária nem os
+estabelecimentos de 2020 a 2023. Por decisão de 12/11, esses dois vêm somados por
+estado das tabelas do painel (COMPLEMENTOS_DO_PAINEL); onde a matview também tem o
+dado, a soma confere com ela. É a única exceção à regra "tudo vem da matview".
 """
 
 import logging
 import pathlib
+import re
 import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -30,6 +36,17 @@ from plotting.demografia import (
 from plotting.educacao import (
     gerar_grafico_cor_faixa_etaria,
     gerar_grafico_nivel_instrucao,
+)
+from plotting.saude import (
+    gerar_grafico_cobertura_vacinal,
+    gerar_grafico_de_estabelecimento,
+    gerar_grafico_publico_etario,
+    gerar_grafico_taxa_mortalidade,
+)
+from utils.queries.saude import (
+    VACINA_COBERTURA_ROTULOS,
+    buscar_estabelecimentos_saude_serie_estado,
+    buscar_publico_etario_vacinas_estado,
 )
 
 logger = logging.getLogger(__name__)
@@ -50,6 +67,10 @@ _SUFIXO_POR_FAIXA_DE_ANALFABETISMO = {
 _CORES_DO_ANALFABETISMO = ("branca", "preta", "amarela", "parda", "indigena")
 # A matview reserva 8 posições de faixa (fx1…fx8); hoje fx7 e fx8 vêm vazias.
 _POSICOES_DE_FAIXA_DE_ANALFABETISMO = range(1, 9)
+# Colunas da est_saude com erro de digitação (12/11/2026). O nome certo é tentado
+# primeiro, para uma correção na matview não tirar a vacina do gráfico.
+_COLUNA_ALTERNATIVA_DA_VACINA = {"hepatite_b_30dias": "hebatite_b_30dias", "pneumo10": "penumo10"}
+_FAIXAS_DO_PUBLICO_ETARIO = ("ao_nascer", "menor_1_ano", "1_ano", "multifaixa")
 
 
 def faixas_etarias_sexo_do_estado(linha: dict) -> list[dict[str, object]]:
@@ -138,6 +159,86 @@ def taxas_de_analfabetismo_do_estado(linha: dict) -> dict[str, object]:
     return taxas
 
 
+def serie_anual_do_estado(linha: dict, campo: str) -> list[tuple[int, object]]:
+    """(ano, valor) das colunas `uf_<campo>_<AAAA>`, em ordem de ano. Sufixo que não
+    é ano (`uf_mortalidade_nordeste`) e valor nulo ficam de fora.
+
+    Ex.: serie_anual_do_estado(linha, "mortalidade")[0] == (2010, Decimal("14.43"))
+    """
+    padrao = re.compile(rf"^uf_{campo}_(\d{{4}})$")
+    anos = ((padrao.match(chave), valor) for chave, valor in linha.items())
+
+    return sorted((int(achado.group(1)), valor) for achado, valor in anos if achado and valor is not None)
+
+
+def mortalidade_infantil_serie_do_estado(linha: dict) -> dict[str, object]:
+    """`mortalidade_infantil_serie` do municipal, com os anos que a matview tem
+    (2010 e 2020 a 2025, os mesmos do municipal).
+
+    Ex.: mortalidade_infantil_serie_do_estado(linha)["mortalidade_infantil_serie"][0]["ano"] == 2010
+    """
+    serie = [{"ano": ano, "taxa_mortalidade": taxa} for ano, taxa in serie_anual_do_estado(linha, "mortalidade")]
+
+    return {"mortalidade_infantil_serie": serie}
+
+
+def estabelecimentos_serie_do_estado(linha: dict) -> dict[str, object]:
+    """`estabelecimentos_saude_serie` do municipal: a soma do painel (complemento)
+    quando veio; se a consulta falhou, os anos da matview (2010, 2024 e 2025).
+
+    Ex.: estabelecimentos_serie_do_estado(linha)["estabelecimentos_saude_serie"][0]["ano"] == 2010
+    """
+    if linha.get("estabelecimentos_saude_serie"):
+        return {"estabelecimentos_saude_serie": linha["estabelecimentos_saude_serie"]}
+    serie = [
+        {"ano": ano, "total_estabelecimentos": total}
+        for ano, total in serie_anual_do_estado(linha, "estabelecimento")
+    ]
+
+    return {"estabelecimentos_saude_serie": serie}
+
+
+def _coluna_da_vacina(linha: dict, campo: str) -> str | None:
+    for nome in (campo, _COLUNA_ALTERNATIVA_DA_VACINA.get(campo)):
+        if nome and linha.get(f"uf_{nome}") is not None:
+            return f"uf_{nome}"
+
+    return None
+
+
+def cobertura_vacinal_serie_do_estado(linha: dict) -> dict[str, object]:
+    """`cobertura_vacinal_serie` do municipal: as mesmas vacinas e rótulos
+    (VACINA_COBERTURA_ROTULOS), lidas de `uf_<vacina>` e `uf_<vacina>_meta`.
+
+    Ex.: cobertura_vacinal_serie_do_estado(linha)["cobertura_vacinal_serie"][0]["vacina"] == "BCG"
+    """
+    serie = []
+    for campo, rotulo in VACINA_COBERTURA_ROTULOS:
+        coluna = _coluna_da_vacina(linha, campo)
+        if coluna is None:
+            continue
+        serie.append({"vacina": rotulo, "cobertura_vacinal": linha[coluna], "meta": linha.get(f"{coluna}_meta")})
+
+    return {"cobertura_vacinal_serie": serie}
+
+
+def publico_etario_do_estado(linha: dict) -> dict[str, object]:
+    """Público-alvo e doses por faixa, com as chaves do municipal. Vêm do complemento
+    do painel; sem ele, ValueError com as chaves que faltam (o gráfico fica de fora).
+
+    Ex.: publico_etario_do_estado(linha)["publico_etario_1_ano"] == Decimal("395008")
+    """
+    chaves = [f"{tipo}_etario_{faixa}" for tipo in ("publico", "dose") for faixa in _FAIXAS_DO_PUBLICO_ETARIO]
+    faltando = [chave for chave in chaves if linha.get(chave) is None]
+    if faltando:
+        raise ValueError(
+            f"Público-alvo etário do estado indisponível: faltam {faltando}; esperava a soma "
+            "da view do painel (buscar_publico_etario_vacinas_estado)."
+        )
+
+    return {chave: linha[chave] for chave in chaves}
+
+
 def _grafico_faixa_etaria(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
     cidade = {"faixas_etarias_sexo": faixas_etarias_sexo_do_estado(linha)}
 
@@ -162,6 +263,22 @@ def _grafico_analfabetismo(linha: dict, output_dir: pathlib.Path, safe_estado: s
     return gerar_grafico_cor_faixa_etaria(taxas_de_analfabetismo_do_estado(linha), output_dir, safe_estado)
 
 
+def _grafico_publico_etario(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
+    return gerar_grafico_publico_etario(publico_etario_do_estado(linha), output_dir, safe_estado)
+
+
+def _grafico_cobertura_vacinal(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
+    return gerar_grafico_cobertura_vacinal(cobertura_vacinal_serie_do_estado(linha), output_dir, safe_estado)
+
+
+def _grafico_mortalidade(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
+    return gerar_grafico_taxa_mortalidade(mortalidade_infantil_serie_do_estado(linha), output_dir, safe_estado)
+
+
+def _grafico_estabelecimentos(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
+    return gerar_grafico_de_estabelecimento(estabelecimentos_serie_do_estado(linha), output_dir, safe_estado)
+
+
 @dataclass(frozen=True)
 class GraficoDoEstado:
     """Um gráfico estadual: o marcador `*<placeholder>` do Doc e a função que o gera."""
@@ -182,18 +299,46 @@ GRAFICOS_ESTADO_POR_TEMA: dict[str, tuple[GraficoDoEstado, ...]] = {
         GraficoDoEstado("grafico_cor_faixa_etaria", _grafico_analfabetismo),
         GraficoDoEstado("grafico_nivel_instrucao", _grafico_nivel_instrucao),
     ),
+    "saude": (
+        GraficoDoEstado("grafico_publico_etario", _grafico_publico_etario),
+        GraficoDoEstado("grafico_cobertura_vacinal", _grafico_cobertura_vacinal),
+        GraficoDoEstado("grafico_taxa_mortalidade", _grafico_mortalidade),
+        GraficoDoEstado("grafico_de_estabelecimento", _grafico_estabelecimentos),
+    ),
+}
+
+
+def _complemento_de_saude(sigla_uf: str) -> dict[str, object]:
+    publico_etario = buscar_publico_etario_vacinas_estado(sigla_uf) or {}
+    estabelecimentos = buscar_estabelecimentos_saude_serie_estado(sigla_uf) or {}
+
+    return {**publico_etario, **estabelecimentos}
+
+
+# Dados que a matview do tema não tem e que o gráfico precisa, somados por estado
+# nas tabelas do painel (decisão de 12/11/2026). Recebe a sigla do estado.
+COMPLEMENTOS_DO_PAINEL: dict[str, Callable[[str], dict[str, object]]] = {
+    "saude": _complemento_de_saude,
 }
 
 
 def gerar_graficos_do_estado(
-    slug: str, linha: dict, output_dir: pathlib.Path, safe_estado: str
+    slug: str,
+    linha: dict,
+    output_dir: pathlib.Path,
+    safe_estado: str,
+    complementos: dict[str, Callable[[str], dict[str, object]]] = COMPLEMENTOS_DO_PAINEL,
 ) -> dict[str, str]:
     """{placeholder: arquivo PNG} dos gráficos do tema para o estado. Gráfico sem
     dado (a função levanta ValueError) fica de fora, com aviso no log, e some do
-    relatório junto com a menção "(Figura X)", como no municipal.
+    relatório junto com a menção "(Figura X)", como no municipal. `complementos`
+    é a costura dos testes para as consultas ao painel.
 
     Ex.: gerar_graficos_do_estado("demografia", linha, OUTPUT_DIR, "estado_para_ba")
     """
+    complementar = complementos.get(slug)
+    if complementar is not None:
+        linha = {**linha, **complementar(str(linha.get("uf_sigla_uf") or ""))}
     graficos: dict[str, str] = {}
     for grafico in GRAFICOS_ESTADO_POR_TEMA.get(slug, ()):
         try:

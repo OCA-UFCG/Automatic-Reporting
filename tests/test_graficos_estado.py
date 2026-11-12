@@ -6,13 +6,19 @@ est_educacao."""
 from decimal import Decimal
 from pathlib import Path
 
+import pytest
+
 from plotting.demografia import _percentuais_cor_raca
 from services.graficos_estado import (
+    cobertura_vacinal_serie_do_estado,
+    estabelecimentos_serie_do_estado,
     faixas_etarias_sexo_do_estado,
     gerar_graficos_do_estado,
+    mortalidade_infantil_serie_do_estado,
     niveis_de_instrucao_do_estado,
     populacao_historica_do_estado,
     populacao_por_cor_raca_do_estado,
+    publico_etario_do_estado,
     taxas_de_analfabetismo_do_estado,
 )
 from services.relatorio_estado import nome_de_arquivo_da_unidade
@@ -112,7 +118,7 @@ def test_grafico_sem_dado_fica_de_fora_sem_derrubar_os_outros(tmp_path: Path):
 
 
 def test_tema_sem_graficos_estaduais_devolve_vazio(tmp_path: Path):
-    assert gerar_graficos_do_estado("saude", _linha_paraiba(), tmp_path, "estado_para_ba") == {}
+    assert gerar_graficos_do_estado("cultura", _linha_paraiba(), tmp_path, "estado_para_ba") == {}
 
 
 def test_arquivo_do_estado_nao_colide_com_o_do_municipio():
@@ -196,3 +202,110 @@ def test_faixa_de_analfabetismo_faltando_tira_so_esse_grafico(tmp_path: Path):
     graficos = gerar_graficos_do_estado("educacao", linha, tmp_path, "estado_para_ba")
 
     assert list(graficos) == ["grafico_nivel_instrucao"]
+
+
+def _linha_saude_paraiba() -> dict:
+    """Recorte de est_saude para a Paraíba, com os dois nomes de coluna errados da
+    matview (hebatite, penumo) e sem os dados que vêm do painel."""
+    return {
+        "uf_estado": "Paraíba",
+        "uf_sigla_uf": "PB",
+        "uf_mortalidade_2025": Decimal("12.32"),
+        "uf_mortalidade_2010": Decimal("14.43"),
+        "uf_mortalidade_2020": Decimal("12.68"),
+        # Comparações, não anos: não entram na série.
+        "uf_mortalidade_nordeste": Decimal("13.11"),
+        "uf_mortalidade_brasil": Decimal("12.15"),
+        "uf_estabelecimento_2010": Decimal(4318),
+        "uf_estabelecimento_2025": Decimal(9020),
+        "uf_bcg": Decimal("106.85"),
+        "uf_bcg_meta": Decimal(90),
+        "uf_hebatite_b_30dias": Decimal("107.90"),
+        "uf_hebatite_b_30dias_meta": Decimal(95),
+        "uf_penumo10": Decimal("89.74"),
+        "uf_penumo10_meta": Decimal(95),
+        "uf_hepatite_b_1dia": Decimal("66.43"),
+        "uf_hepatite_b_1dia_meta": None,
+    }
+
+
+class ComplementoDoPainelFake:
+    """Troca a consulta às tabelas do painel: devolve a soma da Paraíba e guarda a sigla."""
+
+    def __init__(self) -> None:
+        self.siglas: list[str] = []
+
+    def __call__(self, sigla_uf: str) -> dict:
+        self.siglas.append(sigla_uf)
+        faixas = ("ao_nascer", "menor_1_ano", "1_ano", "multifaixa")
+        publico = dict(zip(faixas, (197504, 296256, 395008, 943786)))
+        doses = dict(zip(faixas, (180497, 249193, 333419, 525207)))
+        return {
+            **{f"publico_etario_{faixa}": valor for faixa, valor in publico.items()},
+            **{f"dose_etario_{faixa}": valor for faixa, valor in doses.items()},
+            "estabelecimentos_saude_serie": [
+                {"ano": 2010, "total_estabelecimentos": 4318},
+                {"ano": 2020, "total_estabelecimentos": 6616},
+                {"ano": 2025, "total_estabelecimentos": 9020},
+            ],
+        }
+
+
+def test_mortalidade_do_estado_le_so_as_colunas_de_ano_em_ordem():
+    serie = mortalidade_infantil_serie_do_estado(_linha_saude_paraiba())["mortalidade_infantil_serie"]
+
+    assert [ponto["ano"] for ponto in serie] == [2010, 2020, 2025]
+
+
+def test_cobertura_le_as_colunas_com_erro_de_digitacao_da_matview():
+    serie = cobertura_vacinal_serie_do_estado(_linha_saude_paraiba())["cobertura_vacinal_serie"]
+    por_vacina = {item["vacina"]: item for item in serie}
+
+    assert por_vacina["Hepatite B (até 30 dias)"]["cobertura_vacinal"] == Decimal("107.90")
+    assert por_vacina["Pneumo 10"]["meta"] == Decimal(95)
+    assert por_vacina["Hepatite B (até 1 dia de vida)"]["meta"] is None
+
+
+def test_cobertura_prefere_o_nome_certo_quando_a_matview_for_corrigida():
+    linha = {**_linha_saude_paraiba(), "uf_pneumo10": Decimal("90.00"), "uf_pneumo10_meta": Decimal(95)}
+
+    serie = cobertura_vacinal_serie_do_estado(linha)["cobertura_vacinal_serie"]
+
+    assert {item["vacina"]: item["cobertura_vacinal"] for item in serie}["Pneumo 10"] == Decimal("90.00")
+
+
+def test_estabelecimentos_sem_o_painel_usam_os_anos_da_matview():
+    serie = estabelecimentos_serie_do_estado(_linha_saude_paraiba())["estabelecimentos_saude_serie"]
+
+    assert [ponto["ano"] for ponto in serie] == [2010, 2025]
+
+
+def test_publico_etario_sem_o_painel_recusa_o_grafico():
+    with pytest.raises(ValueError, match="publico_etario_ao_nascer"):
+        publico_etario_do_estado(_linha_saude_paraiba())
+
+
+def test_gera_os_quatro_graficos_de_saude_com_o_painel(tmp_path: Path):
+    painel = ComplementoDoPainelFake()
+
+    graficos = gerar_graficos_do_estado(
+        "saude", _linha_saude_paraiba(), tmp_path, "estado_para_ba", complementos={"saude": painel}
+    )
+
+    assert painel.siglas == ["PB"]
+    assert list(graficos) == [
+        "grafico_publico_etario",
+        "grafico_cobertura_vacinal",
+        "grafico_taxa_mortalidade",
+        "grafico_de_estabelecimento",
+    ]
+    assert all((tmp_path / arquivo).is_file() for arquivo in graficos.values())
+
+
+def test_saude_sem_o_painel_perde_so_o_publico_etario(tmp_path: Path):
+    graficos = gerar_graficos_do_estado(
+        "saude", _linha_saude_paraiba(), tmp_path, "estado_para_ba", complementos={"saude": lambda sigla: {}}
+    )
+
+    assert "grafico_publico_etario" not in graficos
+    assert len(graficos) == 3

@@ -2,8 +2,9 @@ import re
 
 from utils.queries.base import executar_query, executar_query_dict
 
-PUBLICO_ETARIO_VACINAS = """
-    SELECT
+# Colunas do gráfico de público-alvo etário, iguais no município e no estado: só o
+# FROM/WHERE muda (o estado soma os municípios dele na mesma view do painel).
+_COLUNAS_PUBLICO_ETARIO = """
         -- Público-alvo por faixa etária
         COALESCE(SUM(CASE WHEN i.categoria = 'Ao nascer' THEN i.populacao ELSE 0 END), 0) as publico_etario_ao_nascer,
         COALESCE(SUM(CASE WHEN i.categoria = 'Menores de 1 ano de idade' THEN i.populacao ELSE 0 END), 0) as publico_etario_menor_1_ano,
@@ -14,11 +15,24 @@ PUBLICO_ETARIO_VACINAS = """
         COALESCE(SUM(CASE WHEN i.categoria = 'Menores de 1 ano de idade' THEN i.doses_aplicadas ELSE 0 END), 0) as dose_etario_menor_1_ano,
         COALESCE(SUM(CASE WHEN i.categoria = '1 ano de idade' THEN i.doses_aplicadas ELSE 0 END), 0) as dose_etario_1_ano,
         COALESCE(SUM(CASE WHEN i.categoria = 'Multifaixa etária' THEN i.doses_aplicadas ELSE 0 END), 0) as dose_etario_multifaixa
+"""
+
+PUBLICO_ETARIO_VACINAS = f"""
+    SELECT {_COLUNAS_PUBLICO_ETARIO}
     FROM sau_imunizacao.vw_imunizacao_anual_2025 i
     JOIN carac_mun.caracteristicas_municipais c
         ON i.cd_mun = c.cd_mun::int
     WHERE c.nm_mun = %s
       AND c.sigla_uf = %s
+"""
+
+# Relatório por estado (12/11/2026): a est_saude não tem o público-alvo por faixa.
+# A soma dos municípios desta view confere com a matview onde as duas têm o dado:
+# doses por faixa e uf_pop_alvo_vacina, na Paraíba.
+PUBLICO_ETARIO_VACINAS_ESTADO = f"""
+    SELECT {_COLUNAS_PUBLICO_ETARIO}
+    FROM sau_imunizacao.vw_imunizacao_anual_2025 i
+    WHERE i.sigla_uf = %s
 """
 
 
@@ -77,6 +91,25 @@ ESTABELECIMENTOS_SAUDE_SERIE = """
     ORDER BY ano
 """
 
+# Relatório por estado (12/11/2026): a est_saude só tem 2010, 2024 e 2025, e a soma
+# por estado desta tabela confere com ela nesses anos. Mesmo dedup do municipal
+# (linhas triplicadas, ver acima), mas com cd_mun dentro do DISTINCT: sem ele, dois
+# municípios com o mesmo tipo e o mesmo total no ano virariam uma linha só.
+ESTABELECIMENTOS_SAUDE_SERIE_ESTADO = """
+    SELECT
+        ano,
+        SUM(total) AS total_estabelecimentos
+    FROM (
+        SELECT DISTINCT e.cd_mun, e.ano, e.tipo_estab, e.total
+        FROM sau_estabelecimento_de_saude.estabelecimento_saude e
+        JOIN carac_mun.caracteristicas_municipais c
+            ON e.cd_mun = c.cd_mun::int
+        WHERE c.sigla_uf = %s
+    ) linhas_distintas
+    GROUP BY ano
+    ORDER BY ano
+"""
+
 
 def buscar_estabelecimentos_saude_serie(
     nome_municipio: str, sigla_uf: str
@@ -87,6 +120,26 @@ def buscar_estabelecimentos_saude_serie(
         f"série histórica de estabelecimentos de saúde de '{nome_municipio} ({sigla_uf})'",
         buscar_todas=True,
     )
+    return _serie_de_estabelecimentos(linhas)
+
+
+def buscar_estabelecimentos_saude_serie_estado(sigla_uf: str) -> dict[str, object] | None:
+    """Série de estabelecimentos de saúde do estado (soma dos municípios), com a
+    mesma chave do municipal. None se o banco falhar ou não houver linha.
+
+    Ex.: buscar_estabelecimentos_saude_serie_estado("PB")["estabelecimentos_saude_serie"][0]
+         == {"ano": 2010, "total_estabelecimentos": 4318}
+    """
+    linhas = executar_query(
+        ESTABELECIMENTOS_SAUDE_SERIE_ESTADO,
+        (sigla_uf,),
+        f"série histórica de estabelecimentos de saúde do estado '{sigla_uf}'",
+        buscar_todas=True,
+    )
+    return _serie_de_estabelecimentos(linhas)
+
+
+def _serie_de_estabelecimentos(linhas: list[tuple] | None) -> dict[str, object] | None:
     if not linhas:
         return None
 
@@ -429,9 +482,22 @@ def buscar_publico_etario_vacinas(
         (nome_municipio, sigla_uf),
         f"público-etário de vacinas de '{nome_municipio} ({sigla_uf})'",
     )
-    if linha is None:
-        return None
+    return None if linha is None else _publico_etario_da_linha(linha)
 
+
+def buscar_publico_etario_vacinas_estado(sigla_uf: str) -> dict[str, object] | None:
+    """Público-alvo e doses por faixa etária do estado, somando os municípios na view
+    do painel, com as mesmas chaves do municipal. None se o banco falhar.
+
+    Ex.: buscar_publico_etario_vacinas_estado("PB")["publico_etario_ao_nascer"] == Decimal("197504")
+    """
+    linha = executar_query(
+        PUBLICO_ETARIO_VACINAS_ESTADO, (sigla_uf,), f"público-etário de vacinas do estado '{sigla_uf}'"
+    )
+    return None if linha is None else _publico_etario_da_linha(linha)
+
+
+def _publico_etario_da_linha(linha: tuple) -> dict[str, object]:
     (
         publico_etario_ao_nascer,
         publico_etario_menor_1_ano,
