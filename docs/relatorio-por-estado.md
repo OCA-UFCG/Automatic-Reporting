@@ -6,7 +6,7 @@ os tropeços que já custaram tempo. O fluxo municipal está em
 [ARCHITECTURE.md](ARCHITECTURE.md); as regras de escrita do Doc estão em
 [editorial/](editorial/).
 
-Estado em 11/11/2026: **Demografia**, **Educação**, **Saúde**, **Economia e Renda** e **Infraestrutura e Saneamento** têm Doc estadual de verdade.
+Estado em 11/11/2026: **Demografia**, **Educação**, **Saúde**, **Economia e Renda**, **Infraestrutura e Saneamento** e **Segurança Hídrica** têm Doc estadual de verdade.
 Os outros temas têm Docs de rascunho. Um tema novo costuma precisar só do Doc e do
 secret; no código, em geral só os ícones dos cards (`_ICONE_POR_CAMPO_DO_DOC` em
 `utils/cover.py`).

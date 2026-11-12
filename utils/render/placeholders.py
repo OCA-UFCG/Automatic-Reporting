@@ -1187,8 +1187,12 @@ _CAMPOS_ANO = {
     "ultimo_junho",
     "ultimo_jun",
     "ano_referencia_finalidade",
-    # Relatório por estado (est_economia): vem como inteiro e saía "agosto de 2.026".
+    # Relatório por estado: os campos de ano inteiros das matviews auto_relatorios_est
+    # (varredura de 11/11/2026). Saíam "agosto de 2.026" e "em 2.010". Os
+    # uf_*_etario_*_ano de est_saude terminam em "ano", mas são contagem de doses.
     "uf_balanca_ano",
+    "uf_historico_ano_inicial",
+    "uf_ano",
 }
 
 # Contagens que a view de educação entrega como texto (a coluna precisa ser text
