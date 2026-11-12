@@ -1,7 +1,9 @@
+import re
 from datetime import datetime
 
 from utils.formatting import coerce_para_float, formatar_numero_ptbr
 from utils.geografia import separar_cidade_uf
+from utils.render.placeholders import substituir_placeholders
 
 
 def formatar_data_extenso(data: datetime) -> str:
@@ -305,6 +307,60 @@ def montar_indicadores_macrotema(
             cards.append(card)
 
     return cards
+
+
+# Ícone dos cards declarados no Doc (bloco "Panorama de indicadores", só no Doc
+# estadual por enquanto), pelo campo do valor sem o prefixo `uf_` da matview
+# estadual. _ICONE_POR_BASE não serve: é chaveado pelas bases da vw_indicadores, que
+# o Doc não cita. Campo fora da lista cai no ícone do macrotema.
+_ICONE_POR_CAMPO_DO_DOC = {
+    "pop_total_2022": "populacao_residente",
+    "pop_homem": "populacao_masculina",
+    "pop_mulher": "populacao_feminina",
+    "pop_ind_2022": "populacao_indigena",
+    "pop_qui": "populacao_quilombola",
+    "pop_rua_2026": "situacao_rua",
+}
+
+_CAMPO_DO_VALOR = re.compile(r"\$([A-Za-z0-9_]+)")
+
+
+def montar_indicadores_do_doc(
+    pares: list[tuple[str, str]],
+    contexto: dict,
+    macrotema_slug: str,
+    macrotema_icone: str = "chart",
+) -> list[dict[str, str]]:
+    """Cards do bloco "Panorama de indicadores" do Doc: o rótulo do Doc e o valor
+    resolvido contra o contexto. Valor vazio ou com `$campo` sem resolver omite o
+    card, como em montar_indicadores_macrotema: um card a menos é preferível a um
+    placeholder cru na capa. O Doc não traz fonte nem unidade, então elas saem vazias.
+
+    Ex.: montar_indicadores_do_doc(
+        [("População residente", "demografia.$uf_pop_total_2022")],
+        {"uf_pop_total_2022": 3974687}, "demografia",
+    )[0]["valor"] == "3.974.687"
+    """
+    cards: list[dict[str, str]] = []
+    for rotulo, modelo in pares:
+        valor = substituir_placeholders(modelo, contexto, macrotema_slug).strip()
+        if not valor or "$" in valor:
+            continue
+        cards.append({
+            "nome": rotulo,
+            "fonte": "",
+            "valor": valor,
+            "rodape": "",
+            "icone": _icone_do_card_do_doc(modelo, macrotema_icone),
+        })
+    return cards
+
+
+def _icone_do_card_do_doc(modelo: str, macrotema_icone: str) -> str:
+    campo = _CAMPO_DO_VALOR.search(modelo)
+    if campo is None:
+        return macrotema_icone
+    return _ICONE_POR_CAMPO_DO_DOC.get(campo.group(1).removeprefix("uf_"), macrotema_icone)
 
 
 def montar_score_macrotema(linha: dict) -> dict[str, str]:

@@ -292,6 +292,56 @@ def extrair_referencias(texto: str) -> tuple[list[str], str]:
     return referencias, texto_restante
 
 
+# Bloco "Panorama de indicadores" do Doc estadual de Demografia (11/11/2026): os cards
+# do tema vêm declarados no próprio Doc, como pares rótulo / `$campo`, antes de
+# `descricao_tema`. O relatório municipal não lê este bloco: os cards dele vêm da
+# vw_indicadores (utils/cover.py). Sem extrair, o bloco caía no resto do Doc e saía
+# como texto solto acima da caixa de Fontes.
+_TITULO_PANORAMA = re.compile(r"(?im)^[ \t]*(?:#!\s*)?panorama de indicadores[ \t]*$")
+# O que encerra o bloco mesmo formando par: um título `#!` (Fontes, Conteúdos
+# relacionados) ou um marcador de bloco (`descricao_tema =`).
+_FIM_DO_PANORAMA = re.compile(r"^(?:#!|[a-z_]+\s*=)")
+
+
+def extrair_panorama_indicadores(texto: str) -> tuple[list[tuple[str, str]], str]:
+    """Os pares (rótulo, valor com `$campo`) do bloco "Panorama de indicadores" e o
+    texto sem o bloco. Sem o título, devolve ([], texto) intacto.
+
+    Ex.: extrair_panorama_indicadores("Panorama de indicadores\\nPopulação\\n$uf_pop")
+         == ([("População", "$uf_pop")], "")
+    """
+    titulo = _TITULO_PANORAMA.search(texto)
+    if titulo is None:
+        return [], texto
+    linhas = texto[titulo.end():].split("\n")
+    pares, fim = _pares_do_panorama(linhas)
+    return pares, (texto[:titulo.start()] + "\n".join(linhas[fim:])).strip()
+
+
+def _pares_do_panorama(linhas: list[str]) -> tuple[list[tuple[str, str]], int]:
+    """Lê pares rótulo / `$campo`, pulando linhas em branco (o export do .docx traz
+    linhas só com tab). Para na primeira linha que não fecha um par e devolve o
+    índice logo depois do último par: um rótulo sem valor fica no texto."""
+    pares: list[tuple[str, str]] = []
+    rotulo: str | None = None
+    fim = 0
+    for indice, linha in enumerate(linhas):
+        limpa = linha.strip()
+        if not limpa:
+            continue
+        if _FIM_DO_PANORAMA.match(limpa):
+            break
+        tem_campo = "$" in limpa
+        if rotulo is None and not tem_campo:
+            rotulo = limpa
+            continue
+        if rotulo is None or not tem_campo:
+            break
+        pares.append((rotulo, limpa))
+        rotulo, fim = None, indice + 1
+    return pares, fim
+
+
 def remover_titulos_docs(texto: str, *titulos: str) -> str:
     if not titulos:
         return texto

@@ -1,5 +1,6 @@
 from utils.cover import (
     INDICADORES_POR_MACROTEMA,
+    montar_indicadores_do_doc,
     montar_indicadores_macrotema,
     montar_score_macrotema,
 )
@@ -508,3 +509,33 @@ def test_card_sem_dado_nao_ganha_unidade():
     cards = montar_indicadores_macrotema("meio-ambiente", contexto)
 
     assert cards[0]["valor"] == "Não há dados"
+
+
+# Cards do bloco "Panorama de indicadores" do Doc estadual (11/11/2026): rótulo do
+# Doc, valor da linha da matview estadual.
+PANORAMA_ESTADUAL = [
+    ("População residente", "demografia.$uf_pop_total_2022"),
+    ("População quilombola", "demografia.$uf_pop_qui"),
+    ("Campo que a matview não tem", "demografia.$uf_campo_inexistente"),
+]
+
+
+def test_cards_do_doc_resolvem_o_valor_e_escolhem_o_icone_pelo_campo():
+    cards = montar_indicadores_do_doc(
+        PANORAMA_ESTADUAL, {"uf_pop_total_2022": 3974687, "uf_pop_qui": 16765}, "demografia", "people"
+    )
+
+    assert cards[0] == {
+        "nome": "População residente",
+        "fonte": "",
+        "valor": "3.974.687",
+        "rodape": "",
+        "icone": "populacao_residente",
+    }
+    assert cards[1]["icone"] == "populacao_quilombola"
+
+
+def test_card_do_doc_sem_valor_no_contexto_sai_da_capa():
+    cards = montar_indicadores_do_doc(PANORAMA_ESTADUAL, {"uf_pop_total_2022": 3974687}, "demografia")
+
+    assert [card["nome"] for card in cards] == ["População residente"]

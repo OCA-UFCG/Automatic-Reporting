@@ -3,6 +3,7 @@ from utils.external.docs import (
     extrair_inicio_relatorio,
     extrair_introducao,
     extrair_legenda_mapa_localizacao,
+    extrair_panorama_indicadores,
     extrair_referencias,
     extrair_relatorio_geral,
     extrair_resumo_relatorio,
@@ -146,3 +147,44 @@ def test_google_docs_comments_and_exported_footnotes_are_removed():
         "1. Uma lista numerada legítima.\n"
         "1 Demografia"
     )
+
+
+# Formato do Doc estadual de Demografia (11/11/2026), como sai do export em txt do
+# .docx: rótulos com tab na frente, linhas só com tab entre os pares.
+PANORAMA_DOC_ESTADUAL = (
+    "Panorama de indicadores\n"
+    "População residente\n"
+    "demografia.$uf_pop_total_2022\n"
+    "\tPopulação masculina\n"
+    "demografia.$uf_pop_homem\n"
+    "\t\n"
+    "\n"
+    "#!Fontes\n"
+    "Os dados deste relatório foram extraídos do painel = https://exemplo\n"
+)
+
+
+def test_panorama_vira_pares_e_sai_do_texto():
+    pares, restante = extrair_panorama_indicadores(PANORAMA_DOC_ESTADUAL)
+
+    assert pares == [
+        ("População residente", "demografia.$uf_pop_total_2022"),
+        ("População masculina", "demografia.$uf_pop_homem"),
+    ]
+    assert restante.startswith("#!Fontes")
+    assert "Panorama" not in restante
+
+
+def test_doc_sem_panorama_volta_intacto():
+    texto = "#!Fontes\nPainel = https://exemplo"
+
+    assert extrair_panorama_indicadores(texto) == ([], texto)
+
+
+def test_rotulo_sem_valor_encerra_o_panorama_e_fica_no_texto():
+    texto = "Panorama de indicadores\nPopulação\n$uf_pop\nRótulo solto\nOutra linha"
+
+    pares, restante = extrair_panorama_indicadores(texto)
+
+    assert pares == [("População", "$uf_pop")]
+    assert restante == "Rótulo solto\nOutra linha"
