@@ -632,3 +632,20 @@ def test_cards_de_seguranca_hidrica_do_doc_usam_os_icones_das_cisternas():
         ("123.556", "cisternas"),
         ("1.097", "cisterna_escolar"),
     ]
+
+
+def test_cards_de_meio_ambiente_do_doc_usam_os_icones_das_bases_municipais():
+    cards = montar_indicadores_do_doc(
+        [
+            CardDoPanorama("Área suscetível à desertificação", "ambiente.$uf_asd_2021:2 km²"),
+            CardDoPanorama("UCs de Proteção Integral", "ambiente.$uf_n_protecao_pi"),
+        ],
+        {"uf_asd_2021": 51947.37, "uf_n_protecao_pi": 12},
+        "meio-ambiente",
+        "leaf",
+    )
+
+    assert [(card["valor"], card["icone"]) for card in cards] == [
+        ("51.947,37 km²", "desertificacao"),
+        ("12", "protecao_integral"),
+    ]
