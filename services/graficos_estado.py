@@ -46,6 +46,7 @@ from plotting.educacao import (
     gerar_grafico_cor_faixa_etaria,
     gerar_grafico_nivel_instrucao,
 )
+from plotting.hidraulica import gerar_grafico_tecnologias_acesso_agua
 from plotting.saude import (
     gerar_grafico_cobertura_vacinal,
     gerar_grafico_de_estabelecimento,
@@ -250,6 +251,19 @@ def publico_etario_do_estado(linha: dict) -> dict[str, object]:
     return {chave: linha[chave] for chave in chaves}
 
 
+def tecnologias_acesso_agua_do_estado(linha: dict) -> dict[str, object]:
+    """`tecnologias_acesso_agua_serie` e `total_2025` do municipal, com os anos de
+    `uf_total_<AAAA>`: 2010, 2020 e 2025, os da legenda do Doc estadual. O municipal
+    mostra também 2021 a 2024; por decisão de 12/11/2026 o estado fica com os 3 anos
+    da matview.
+
+    Ex.: tecnologias_acesso_agua_do_estado(linha)["tecnologias_acesso_agua_serie"][0] == {"ano": 2010, …}
+    """
+    serie = [{"ano": ano, "total": total} for ano, total in serie_anual_do_estado(linha, "total")]
+
+    return {"tecnologias_acesso_agua_serie": serie, "total_2025": linha.get("uf_total_2025")}
+
+
 def _grafico_faixa_etaria(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
     cidade = {"faixas_etarias_sexo": faixas_etarias_sexo_do_estado(linha)}
 
@@ -284,6 +298,10 @@ def _grafico_cobertura_vacinal(linha: dict, output_dir: pathlib.Path, safe_estad
 
 def _grafico_mortalidade(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
     return gerar_grafico_taxa_mortalidade(mortalidade_infantil_serie_do_estado(linha), output_dir, safe_estado)
+
+
+def _grafico_tecnologias_acesso_agua(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
+    return gerar_grafico_tecnologias_acesso_agua(tecnologias_acesso_agua_do_estado(linha), output_dir, safe_estado)
 
 
 def _grafico_pib(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
@@ -336,6 +354,9 @@ GRAFICOS_ESTADO_POR_TEMA: dict[str, tuple[GraficoDoEstado, ...]] = {
         GraficoDoEstado("grafico_fob", _grafico_importacao),
         GraficoDoEstado("grafico_exportacao", _grafico_exportacao),
         GraficoDoEstado("grafico_balanca", _grafico_balanca),
+    ),
+    "hidraulica": (
+        GraficoDoEstado("grafico_tecnologias_acesso_agua", _grafico_tecnologias_acesso_agua),
     ),
     "saude": (
         GraficoDoEstado("grafico_publico_etario", _grafico_publico_etario),

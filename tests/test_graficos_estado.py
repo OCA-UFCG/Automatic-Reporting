@@ -1,7 +1,6 @@
 """Gráficos do relatório por estado (12/11/2026): os adaptadores montam, a partir da
 linha `uf_*` da matview estadual, o dicionário que as funções de plotting/ leem.
-Nenhum teste toca o banco: as linhas são recortes da Paraíba em est_demografia e
-est_educacao."""
+Nenhum teste toca o banco: as linhas são recortes da Paraíba nas matviews estaduais."""
 
 from decimal import Decimal
 from pathlib import Path
@@ -20,6 +19,7 @@ from services.graficos_estado import (
     populacao_por_cor_raca_do_estado,
     publico_etario_do_estado,
     taxas_de_analfabetismo_do_estado,
+    tecnologias_acesso_agua_do_estado,
 )
 from services.relatorio_estado import nome_de_arquivo_da_unidade
 
@@ -309,3 +309,35 @@ def test_saude_sem_o_painel_perde_so_o_publico_etario(tmp_path: Path):
 
     assert "grafico_publico_etario" not in graficos
     assert len(graficos) == 3
+
+
+def _linha_hidraulica_paraiba() -> dict:
+    return {
+        "uf_estado": "Paraíba",
+        "uf_sigla_uf": "PB",
+        "uf_total_2025": Decimal(123556),
+        "uf_total_2010": Decimal(48456),
+        "uf_total_2020": Decimal(114220),
+        # Texto, não ano: não entra na série.
+        "uf_total_tecnologia_txt": "tecnologias sociais de acesso à água",
+    }
+
+
+def test_tecnologias_usam_os_tres_anos_da_matview_em_ordem():
+    dados = tecnologias_acesso_agua_do_estado(_linha_hidraulica_paraiba())
+
+    assert [ponto["ano"] for ponto in dados["tecnologias_acesso_agua_serie"]] == [2010, 2020, 2025]
+    assert dados["total_2025"] == Decimal(123556)
+
+
+def test_gera_o_grafico_de_seguranca_hidrica(tmp_path: Path):
+    graficos = gerar_graficos_do_estado("hidraulica", _linha_hidraulica_paraiba(), tmp_path, "estado_para_ba")
+
+    assert graficos == {"grafico_tecnologias_acesso_agua": "grafico_tecnologias_acesso_agua_estado_para_ba.png"}
+
+
+def test_tecnologias_com_total_2025_zero_ficam_de_fora(tmp_path: Path):
+    # Mesma regra do municipal: o Doc descreve o caso em prosa e o gráfico some.
+    linha = {**_linha_hidraulica_paraiba(), "uf_total_2025": 0}
+
+    assert gerar_graficos_do_estado("hidraulica", linha, tmp_path, "estado_para_ba") == {}

@@ -177,7 +177,7 @@ com a capa.
 
 ## O que ainda não existe no estado
 
-- **Gráficos, fora de Demografia, Educação, Saúde e Economia e Renda:** `services/graficos_estado.py`
+- **Gráficos, nos temas ainda sem eles (Meio Ambiente e Infraestrutura):** `services/graficos_estado.py`
   tem, por tema, um adaptador que monta a partir das colunas `uf_*` o dicionário que
   a função de `plotting/` já lê; o gráfico sai igual ao municipal. Estão lá
   (12/11/2026):
@@ -191,6 +191,9 @@ com a capa.
     devolve em reais; unidade desconhecida tira o gráfico em vez de desenhá-lo
     1.000 vezes menor. Os rankings mostram 10 países na importação e 4 na
     exportação, como o municipal, embora a matview traga a lista inteira;
+  - Segurança Hídrica: tecnologias de acesso à água com 2010, 2020 e 2025, os anos
+    da matview e da legenda do Doc estadual (o municipal mostra também 2021 a 2024;
+    decisão de 12/11/2026);
   - Saúde: **a única exceção à regra "tudo vem da matview"**. O público-alvo por
     faixa etária e os estabelecimentos de 2020 a 2023 não estão na `est_saude`, e
     vêm somados por estado das tabelas do painel (`COMPLEMENTOS_DO_PAINEL`,
