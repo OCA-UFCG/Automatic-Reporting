@@ -58,6 +58,7 @@ from utils.maps import buscar_mapa_estatico
 from utils.render.placeholders import (
     _numero_do_campo,
     conferir_condicoes,
+    isolar_paragrafo_de_cada_condicao,
     nomes_resolvidos_sem_coluna,
     registrar_versoes,
     substituir_placeholders,
@@ -89,6 +90,18 @@ def com_csv(contextos: dict[str, dict], csv: dict[str, dict] | None) -> dict[str
     return {**contextos, **{
         cidade: {**contextos.get(cidade, {}), **linha, "nm_mun": cidade} for cidade, linha in csv.items()
     }}
+
+
+def texto_da_unidade(texto: str, unidade: str) -> str:
+    """O texto do Doc como o relatório da unidade o lê: no estado, cada condição vale
+    só para a linha seguinte (services/relatorio_estado.py). Sem isto o painel
+    mostraria parágrafos que o PDF de estado mostra, ou o contrário.
+
+    Ex.: texto_da_unidade(doc, "municipio") is doc
+    """
+    if unidade == "estado":
+        return isolar_paragrafo_de_cada_condicao(texto)
+    return texto
 
 
 def ler_csv(slug: str, texto: str, unidade: str = "municipio") -> dict | None:
@@ -310,7 +323,7 @@ def _rodar(
                     _gravar(id_conferencia, {"estado": "rodando", "feitos": feitos, "total": total})
 
             _gravar(id_conferencia, {"estado": "rodando", "feitos": 0, "total": len(contextos)})
-            resultado = conferir_doc(doc_texto, slug, contextos, progresso)
+            resultado = conferir_doc(texto_da_unidade(doc_texto, unidade), slug, contextos, progresso)
             # Cidades da lista do relatório sem dado nenhum neste tema: ficam fora do
             # snapshot e da conferência, e a tela precisa dizer isso (cobertura).
             resultado["ausentes"] = snapshot.get("metadados", {}).get("ausentes", [])
@@ -384,7 +397,7 @@ def texto_do_municipio(
     contexto = com_csv({cidade: municipio["contexto"]} if municipio else {}, csv).get(cidade)
     if contexto is None:
         return None
-    secoes, _ = separar_secoes_do_tema(doc_texto, slug)
+    secoes, _ = separar_secoes_do_tema(texto_da_unidade(doc_texto, unidade), slug)
     if unidade != "municipio":
         # Os gráficos (GRAFICOS_POR_TEMA) leem colunas municipais: estado fica sem
         # gráfico, e a menção "(Figura X)" some como num gráfico sem dado.
@@ -577,6 +590,7 @@ def ler_com_cada_valor(
     if snapshot is None:
         return None
     contextos = com_csv({cidade: m["contexto"] for cidade, m in snapshot["municipios"].items()}, csv)
+    trecho = texto_da_unidade(trecho, unidade)
     usadas = set(_CAMPO_CRU.findall(trecho))
     so_as_usadas = {c: {k: v for k, v in ctx.items() if k in usadas} for c, ctx in contextos.items()}
     colunas = [

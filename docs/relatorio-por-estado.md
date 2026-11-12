@@ -73,6 +73,12 @@ com a capa.
 - Uma variável por tema: `DEMOGRAFIA_DOCS_URL` vira `DEMOGRAFIA_ESTADO_DOCS_URL`.
 - Mesma linguagem do Doc municipal: `descricao_tema = “…”@@`, `Para quando … então:`,
   `*grafico_…`, `Síntese`, `#!Fontes`, `#!Conteúdos relacionados`.
+- **Diferença importante: no Doc estadual, cada `Para quando … então:` vale só para a
+  linha seguinte** (`isolar_paragrafo_de_cada_condicao`, em
+  `utils/render/placeholders.py`). A linha depois dela já é texto sem condição. Para
+  condicionar dois parágrafos, repita a condição antes de cada um. No municipal o
+  bloco vai até a linha em branco; no estado não dá, porque o export não tem linhas
+  em branco, e o parágrafo seguinte sumia junto com uma condição falsa.
 - Os campos são escritos com o tema na frente e o prefixo `uf_`:
   `demografia.$uf_pop_total_2022`, `demografia.$uf_pop_mulher_per:2%`.
 - **Panorama de indicadores** (cards do tema): antes de `descricao_tema`, cada card
@@ -161,8 +167,10 @@ com a capa.
   cru): o renderer só separa parágrafos onde há linha em branco. Ponha um parágrafo
   vazio entre os títulos e os blocos, e `*` só nos itens de lista, como no Doc
   municipal.
-- **Linhas de instrução para quem programa** ("Implementação da síntese: …") saem
-  impressas. Elas precisam sair do Doc.
+- **Linhas de instrução para quem programa** ("Implementação da síntese: …", "Usar o
+  mesmo módulo…", "Exibir a Figura X… somente quando…") saem impressas, porque toda
+  linha fora de uma condição é texto do relatório. Elas precisam sair do Doc. Uma
+  instrução que cita "Figura X" ainda desalinha a numeração das figuras seguintes.
 - **Menções a figuras.** O estado ainda não gera gráficos: "(Figura X)" some, mas
   "conforme a Figura X" fica no texto.
 

@@ -610,3 +610,14 @@ def test_painel_traz_a_primeira_pagina_so_em_municipio(monkeypatch, tmp_path):
 
     # Fora do painel (conferência, "ler com cada valor"), sem capa.
     assert laboratorio.texto_do_municipio("demografia", doc, "Nova (PB)")["html"] == html[1:]
+
+
+def test_laboratorio_le_o_doc_de_estado_como_o_relatorio_de_estado():
+    # O PDF de estado isola o parágrafo de cada condição (relatorio_estado.py); o
+    # painel com unidade=estado precisa ler igual, e o municipal não muda.
+    doc = "Para quando demografia.$uf_x for igual a 1, então:\nA\nB"
+
+    assert laboratorio.texto_da_unidade(doc, "municipio") is doc
+    assert laboratorio.texto_da_unidade(doc, "estado") == (
+        "Para quando demografia.$uf_x for igual a 1, então:\nA\n\nB"
+    )

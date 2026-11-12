@@ -50,7 +50,10 @@ from utils.data.estados import resolver_estado
 from utils.data.macrotemas import TODOS_MACROTEMAS_ORDEM
 from utils.external.docs import carregar_texto_do_docs, extrair_panorama_indicadores
 from utils.queries.estado import buscar_contexto_estado
-from utils.render.placeholders import substituir_placeholders
+from utils.render.placeholders import (
+    isolar_paragrafo_de_cada_condicao,
+    substituir_placeholders,
+)
 from utils.render.renderer import (
     render_descricao_tema_html,
     reset_figura_contador,
@@ -179,7 +182,9 @@ async def tema_do_estado(
         texto_do_doc = await carregar_texto_do_docs(url_do_doc)
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
-    secoes, _ = separar_secoes_do_tema(texto_do_doc, slug)
+    # No Doc estadual cada condição vale só para a linha seguinte (ver
+    # isolar_paragrafo_de_cada_condicao); o Laboratório faz o mesmo com unidade=estado.
+    secoes, _ = separar_secoes_do_tema(isolar_paragrafo_de_cada_condicao(texto_do_doc), slug)
     return TemaDoEstado(item_do_tema(slug, secoes, contexto, safe_report), contexto, secoes)
 
 
