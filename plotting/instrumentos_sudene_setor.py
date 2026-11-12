@@ -38,7 +38,7 @@ SETORES_ECONOMICOS = (
 # textos diferentes os dois pareciam descrever gráficos distintos (revisão do PR).
 # Se o Doc mudar a legenda, mude aqui também.
 TITULO_CARD_SETOR = "Quantidade de contratações e valor investido por tipo de setor econômico"
-# Cores medidas do design. São as mesmas das pizzas de porte
+# Cores medidas do design. São as mesmas do gráfico de porte
 # (`plotting/instrumentos_sudene_porte.py`): laranja = contratações, verde = valor.
 _COR_QUANTIDADE = "#DD7402"
 _COR_VALOR = "#018F39"
