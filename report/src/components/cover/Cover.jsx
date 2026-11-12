@@ -69,9 +69,10 @@ export default function Cover({ cover }) {
           </section>
         )}
 
-        {/* No estado, a seção só existe se o Doc trouxer o bloco resumo_cidade: os
-            cards e o mapa abaixo são municipais (services/relatorio_estado.py). */}
-        {(cover.unidade !== 'estado' || cover.resumo_cidade_html?.length > 0) && (
+        {/* No estado e na área (os que mandam `unidade`), a seção só existe se o Doc
+            trouxer o bloco resumo_cidade: os cards e o mapa abaixo são municipais
+            (services/relatorio_estado.py). */}
+        {(!cover.unidade || cover.resumo_cidade_html?.length > 0) && (
           <div className="cover-kicker">Características Gerais</div>
         )}
 

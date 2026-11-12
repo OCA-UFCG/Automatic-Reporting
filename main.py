@@ -12,8 +12,10 @@ from services import (
     apagar_relatorio_handler,
     gerar_relatorio_estado_handler,
     gerar_relatorio_handler,
+    gerar_relatorio_unidade_handler,
     listar_relatorios_handler,
 )
+from utils.data.areas import AREAS_COM_RELATORIO, resolver_area
 from utils.data.cities import carregar_cidades
 from utils.data.estados import ESTADOS_COM_RELATORIO, resolver_estado
 from utils.data.macrotemas import (
@@ -152,6 +154,12 @@ async def listar_estados():
     return list(ESTADOS_COM_RELATORIO)
 
 
+# As áreas de interesse (12/11/2026), à parte pelo mesmo motivo dos estados.
+@app.get("/areas")
+async def listar_areas():
+    return list(AREAS_COM_RELATORIO)
+
+
 @app.get("/macrotemas")
 async def listar_macrotemas():
     return [
@@ -177,10 +185,13 @@ def apagar_relatorio(arquivo_pdf: str):
 async def gerar_relatorio(
     cidade: str, macrotema: str = "demografia", aguardar: str = "sim"
 ):
-    # Município e estado dividem a rota: o portal manda o nome escolhido na busca, e
-    # os nomes não colidem ("Paraíba" x "João Pessoa (PB)"; município sempre com UF).
+    # Município, estado e área dividem a rota: o portal manda o nome escolhido na busca,
+    # e os nomes não colidem ("Paraíba" x "João Pessoa (PB)" x "Semiárido"; município
+    # sempre com UF; estado x área, tests/test_relatorio_area.py).
     if resolver_estado(cidade) is not None:
         return await gerar_relatorio_estado_handler(cidade, macrotema, aguardar=aguardar != "nao")
+    if resolver_area(cidade) is not None:
+        return await gerar_relatorio_unidade_handler("area", cidade, macrotema, aguardar=aguardar != "nao")
     return await gerar_relatorio_handler(cidade, macrotema, aguardar=aguardar != "nao")
 
 

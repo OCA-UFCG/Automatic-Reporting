@@ -416,7 +416,10 @@ def _icone_do_card_do_doc(modelo: str, macrotema_icone: str) -> str:
     campo = _CAMPO_DO_VALOR.search(modelo)
     if campo is None:
         return macrotema_icone
-    return _ICONE_POR_CAMPO_DO_DOC.get(campo.group(1).removeprefix("uf_"), macrotema_icone)
+    # O mapa é pelo nome municipal da coluna: tira o prefixo do estado (`uf_`) ou da área
+    # de interesse (`area_`, 12/11/2026), que têm as mesmas colunas.
+    nome = re.sub(r"^(?:uf|area)_", "", campo.group(1))
+    return _ICONE_POR_CAMPO_DO_DOC.get(nome, macrotema_icone)
 
 
 def montar_score_macrotema(linha: dict) -> dict[str, str]:
