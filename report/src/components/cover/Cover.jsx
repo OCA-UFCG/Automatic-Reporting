@@ -5,6 +5,7 @@ import MacrothemeCard from './MacrothemeCard.jsx';
 import MetricCard from './MetricCard.jsx';
 import ThemeDetail from '../ThemeDetail.jsx';
 import { rotuloDaUnidade } from '../rotuloDaUnidade.js';
+import { capaTemConteudo } from './capaTemConteudo.js';
 
 const LIGHT_BADGE_COLORS = new Set(['#FFD65A', '#B0CC41']);
 
@@ -20,10 +21,13 @@ export default function Cover({ cover }) {
     ? cover.macrotemas_tags
     : macrotemas;
   const cidade = [cover.cidade_nome, cover.uf].filter(Boolean).join(' - ');
+  // Sem conteúdo abaixo do título (relatório de estado), o primeiro tema sobe para a
+  // página da capa em vez de deixá-la quase vazia (capaTemConteudo.js).
+  const soTitulo = !capaTemConteudo(cover, hasMaps);
 
   return (
     <>
-    <section className="report-cover">
+    <section className={soTitulo ? 'report-cover report-cover--so-titulo' : 'report-cover'}>
       <div className="cover-header">
         <div className="cover-meta">
           <CoverBrand />
@@ -52,6 +56,7 @@ export default function Cover({ cover }) {
         )}
       </header>
 
+      {!soTitulo && (
       <div className="cover-content">
         {cover.relatorio_geral_html?.length > 0 && (
           <section className="cover-presentation">
@@ -98,10 +103,14 @@ export default function Cover({ cover }) {
         </div>
 
       </div>
+      )}
     </section>
 
     {macrotemas.map((macrotema, idx) => (
-      <section className="theme-detail-page" key={idx}>
+      <section
+        className={soTitulo && idx === 0 ? 'theme-detail-page theme-detail-page--apos-titulo' : 'theme-detail-page'}
+        key={idx}
+      >
         <div className="theme-detail-top">
           <MacrothemeCard macrotema={macrotema} />
 
