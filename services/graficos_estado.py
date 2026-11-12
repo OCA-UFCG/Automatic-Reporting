@@ -47,6 +47,7 @@ from plotting.educacao import (
     gerar_grafico_nivel_instrucao,
 )
 from plotting.hidraulica import gerar_grafico_tecnologias_acesso_agua
+from plotting.meio_ambiente import gerar_grafico_aridez_comparada
 from plotting.saude import (
     gerar_grafico_cobertura_vacinal,
     gerar_grafico_de_estabelecimento,
@@ -264,6 +265,19 @@ def tecnologias_acesso_agua_do_estado(linha: dict) -> dict[str, object]:
     return {"tecnologias_acesso_agua_serie": serie, "total_2025": linha.get("uf_total_2025")}
 
 
+def aridez_do_estado(linha: dict) -> dict[str, object]:
+    """As colunas de aridez sem o prefixo `uf_` (`area_semiarida2021_per`,
+    `aridez_1991_valida`…), que é o que gerar_grafico_aridez_comparada lê.
+
+    Ex.: aridez_do_estado(linha)["area_semiarida2021_per"] == Decimal("83.62")
+    """
+    return {
+        chave.removeprefix("uf_"): valor
+        for chave, valor in linha.items()
+        if chave.startswith(("uf_area_", "uf_aridez_"))
+    }
+
+
 def _grafico_faixa_etaria(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
     cidade = {"faixas_etarias_sexo": faixas_etarias_sexo_do_estado(linha)}
 
@@ -302,6 +316,10 @@ def _grafico_mortalidade(linha: dict, output_dir: pathlib.Path, safe_estado: str
 
 def _grafico_tecnologias_acesso_agua(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
     return gerar_grafico_tecnologias_acesso_agua(tecnologias_acesso_agua_do_estado(linha), output_dir, safe_estado)
+
+
+def _grafico_aridez(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
+    return gerar_grafico_aridez_comparada(aridez_do_estado(linha), output_dir, safe_estado)
 
 
 def _grafico_pib(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
@@ -357,6 +375,11 @@ GRAFICOS_ESTADO_POR_TEMA: dict[str, tuple[GraficoDoEstado, ...]] = {
     ),
     "hidraulica": (
         GraficoDoEstado("grafico_tecnologias_acesso_agua", _grafico_tecnologias_acesso_agua),
+    ),
+    # Único gráfico que o municipal não tem: o Doc estadual compara 1991 e 2021
+    # (decisão de 12/11/2026) com um marcador próprio.
+    "meio-ambiente": (
+        GraficoDoEstado("grafico_aridez_estadual", _grafico_aridez),
     ),
     "saude": (
         GraficoDoEstado("grafico_publico_etario", _grafico_publico_etario),

@@ -9,6 +9,7 @@ import pytest
 
 from plotting.demografia import _percentuais_cor_raca
 from services.graficos_estado import (
+    aridez_do_estado,
     cobertura_vacinal_serie_do_estado,
     estabelecimentos_serie_do_estado,
     faixas_etarias_sexo_do_estado,
@@ -341,3 +342,28 @@ def test_tecnologias_com_total_2025_zero_ficam_de_fora(tmp_path: Path):
     linha = {**_linha_hidraulica_paraiba(), "uf_total_2025": 0}
 
     assert gerar_graficos_do_estado("hidraulica", linha, tmp_path, "estado_para_ba") == {}
+
+
+def test_aridez_do_estado_tira_o_prefixo_e_ignora_o_resto():
+    linha = {
+        "uf_estado": "Paraíba",
+        "uf_aridez_1991_valida": 1,
+        "uf_area_semiarida2021_per": Decimal("83.62"),
+        "uf_asd_per_2021": Decimal("90.00"),
+    }
+
+    assert aridez_do_estado(linha) == {"aridez_1991_valida": 1, "area_semiarida2021_per": Decimal("83.62")}
+
+
+def test_meio_ambiente_usa_o_marcador_proprio_do_doc_estadual(tmp_path: Path):
+    linha = {
+        "uf_sigla_uf": "PB",
+        "uf_aridez_1991_valida": 1,
+        "uf_aridez_2021_valida": 1,
+        "uf_area_semiarida1991_per": Decimal("60.35"),
+        "uf_area_semiarida2021_per": Decimal("83.62"),
+    }
+
+    graficos = gerar_graficos_do_estado("meio-ambiente", linha, tmp_path, "estado_para_ba")
+
+    assert graficos == {"grafico_aridez_estadual": "grafico_aridez_comparada_estado_para_ba.png"}

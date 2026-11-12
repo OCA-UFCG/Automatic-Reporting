@@ -177,7 +177,7 @@ com a capa.
 
 ## O que ainda não existe no estado
 
-- **Gráficos, nos temas ainda sem eles (Meio Ambiente e Infraestrutura):** `services/graficos_estado.py`
+- **Gráficos, no tema ainda sem eles (Infraestrutura):** `services/graficos_estado.py`
   tem, por tema, um adaptador que monta a partir das colunas `uf_*` o dicionário que
   a função de `plotting/` já lê; o gráfico sai igual ao municipal. Estão lá
   (12/11/2026):
@@ -194,6 +194,11 @@ com a capa.
   - Segurança Hídrica: tecnologias de acesso à água com 2010, 2020 e 2025, os anos
     da matview e da legenda do Doc estadual (o municipal mostra também 2021 a 2024;
     decisão de 12/11/2026);
+  - Meio Ambiente: **o único gráfico que o municipal não tem.** O Doc estadual
+    usa o marcador `grafico_aridez_estadual` e compara 1991 com 2021
+    (`gerar_grafico_aridez_comparada` em `plotting/meio_ambiente.py`, mesmas
+    cores do municipal). 1991 some quando `uf_aridez_1991_valida` não é 1, e
+    classe sem área nos dois anos fica de fora;
   - Saúde: **a única exceção à regra "tudo vem da matview"**. O público-alvo por
     faixa etária e os estabelecimentos de 2020 a 2023 não estão na `est_saude`, e
     vêm somados por estado das tabelas do painel (`COMPLEMENTOS_DO_PAINEL`,
