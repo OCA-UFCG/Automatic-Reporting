@@ -171,14 +171,20 @@ com a capa.
   mesmo módulo…", "Exibir a Figura X… somente quando…") saem impressas, porque toda
   linha fora de uma condição é texto do relatório. Elas precisam sair do Doc. Uma
   instrução que cita "Figura X" ainda desalinha a numeração das figuras seguintes.
-- **Menções a figuras.** O estado ainda não gera gráficos: "(Figura X)" some, mas
-  "conforme a Figura X" fica no texto.
+- **Menções a figuras.** Em tema sem gráficos estaduais, "(Figura X)" some, mas
+  "conforme a Figura X" fica no texto. Em Demografia, a numeração começa na
+  Figura 1 (o estado não tem o mapa de localização, que é a Figura 1 do municipal).
 
 ## O que ainda não existe no estado
 
-- **Gráficos:** os `plotting/` leem colunas municipais. A matview de demografia já
-  tem colunas para faixa etária por sexo (`uf_pop_faixa_*`) e para cor ou raça
-  (`uf_cor_*`); a visão histórica só tem 2010 e 2022.
+- **Gráficos, fora de Demografia:** `services/graficos_estado.py` tem, por tema, um
+  adaptador que monta a partir das colunas `uf_*` o dicionário que a função de
+  `plotting/` já lê; o gráfico sai igual ao municipal. Só Demografia está lá
+  (12/11/2026): pirâmide com as 12 faixas da matview (D9), cor ou raça com os
+  percentuais do texto e dinâmica populacional só com 2010 e 2022 (a matview não
+  tem 2000). Para outro tema, acrescente a entrada em `GRAFICOS_ESTADO_POR_TEMA`
+  com os mesmos placeholders do Doc. A área de interesse ainda não tem gráficos
+  (colunas `area_*`).
 - **Apresentação, Características Gerais, métricas e mapa da capa:** são municipais.
   Sem eles, o primeiro tema começa logo abaixo do título (`capaTemConteudo.js`); se
   o Doc estadual trouxer o bloco `resumo_cidade`, a capa volta a ter página própria.

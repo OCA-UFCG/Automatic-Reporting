@@ -175,15 +175,22 @@ def gerar_grafico_visao_historica_populacao(
     cidade: dict,
     OUTPUT_DIR: pathlib.Path,
     safe_city: str,
+    anos_censo: tuple[int, ...] = _ANOS_VISAO_HISTORICA,
 ) -> str:
-    populacao_por_ano = {
-        ano: cidade.get(f"pop_total_{ano}") for ano in _ANOS_VISAO_HISTORICA
-    }
-    if any(valor is None for valor in populacao_por_ano.values()):
-        raise ValueError("Dados de visão histórica da população não disponíveis.")
+    """Barras da população em cada ano de `anos_censo` (`pop_total_<ano>`).
 
-    anos = [str(ano) for ano in _ANOS_VISAO_HISTORICA]
-    valores = [float(populacao_por_ano[ano]) for ano in _ANOS_VISAO_HISTORICA]
+    O estado passa (2010, 2022): a matview estadual não tem 2000 (12/11/2026).
+    Ex.: gerar_grafico_visao_historica_populacao(linha, OUTPUT_DIR, "campina_grande_pb")
+    """
+    populacao_por_ano = {ano: cidade.get(f"pop_total_{ano}") for ano in anos_censo}
+    if any(valor is None for valor in populacao_por_ano.values()):
+        raise ValueError(
+            f"Dados de visão histórica da população não disponíveis: esperava "
+            f"pop_total_<ano> para {anos_censo}, recebeu {populacao_por_ano}."
+        )
+
+    anos = [str(ano) for ano in anos_censo]
+    valores = [float(populacao_por_ano[ano]) for ano in anos_censo]
 
     # A unidade é escolhida a partir do maior valor da série (municípios
     # pequenos ficam na casa do "mil", não de "Mi" — dividir tudo por milhão

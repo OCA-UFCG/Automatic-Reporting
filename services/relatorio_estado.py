@@ -11,9 +11,11 @@ costurado em gerar_relatorio_handler, para não arriscar o relatório municipal:
 estado divide com ele só o gate de cache, a fila de geração, o SSR e o PDF
 (responder_sem_gerar e gravar_relatorio em services/generation.py).
 
+Gráficos desde 12/11/2026: GRAFICOS_ESTADO_POR_TEMA (services/graficos_estado.py)
+alimenta as funções de plotting/ com a linha da matview. Tema sem entrada lá sai sem
+gráficos, e a menção "(Figura X)" do Doc some como num gráfico sem dado.
+
 Fica de fora por enquanto, como no Laboratório com unidade=estado:
-  - gráficos: GRAFICOS_POR_TEMA lê colunas municipais; a menção "(Figura X)" do Doc
-    some como num gráfico sem dado;
   - mapa de localização e Características Gerais: leem o município (shapefile por
     município, vw_indicadores).
 
@@ -31,6 +33,7 @@ from zoneinfo import ZoneInfo
 from fastapi import HTTPException
 from fastapi.responses import HTMLResponse
 
+from config import OUTPUT_DIR
 from services.cache import (
     adquirir_geracao,
     invalidar_query_cache_se_dados_mudaram,
@@ -45,6 +48,7 @@ from services.generation import (
     responder_sem_gerar,
     separar_secoes_do_tema,
 )
+from services.graficos_estado import gerar_graficos_do_estado
 from services.macrotemas import (
     docs_url,
     get_macrotema,
@@ -182,7 +186,8 @@ async def gerar_relatorio_unidade_handler(
 
 async def _gerar(unidade: str, nome: str, slugs: list[str], safe_report: str) -> HTMLResponse:
     # Escopo de render, como no municipal: o contador de figuras vive num ContextVar.
-    reset_figura_contador()
+    # Sem mapa de localização, a Figura 1 é o primeiro gráfico do Doc.
+    reset_figura_contador(com_mapa=False)
     # Fuso fixo: o container roda em UTC (ver gerar_relatorio_handler).
     gerado_em = datetime.now(ZoneInfo("America/Fortaleza"))
     temas = [
@@ -236,13 +241,39 @@ async def tema_da_unidade(
     # isolar_paragrafo_de_cada_condicao), e o mesmo vale para as outras unidades; o
     # Laboratório faz o mesmo com unidade=estado.
     secoes, _ = separar_secoes_do_tema(isolar_paragrafo_de_cada_condicao(texto_do_doc), slug)
-    return TemaDoEstado(item_do_tema(slug, secoes, contexto, safe_report), contexto, secoes)
+    # Só o estado tem gráficos: as funções leem colunas `uf_*`, e a matview de área
+    # usa o prefixo `area_` (services/graficos_estado.py).
+    graficos = (
+        gerar_graficos_do_estado(slug, linha, OUTPUT_DIR, nome_de_arquivo_da_unidade(unidade, nome))
+        if unidade == "estado"
+        else {}
+    )
+    return TemaDoEstado(item_do_tema(slug, secoes, contexto, safe_report, graficos), contexto, secoes)
 
 
-def item_do_tema(slug: str, secoes: SecoesTema, contexto: dict, safe_report: str) -> dict[str, object]:
-    """O item de `cover.macrotemas` com as mesmas chaves do municipal. Sem gráficos
-    (`graficos_por_placeholder={}`); os cards de indicadores vêm do bloco "Panorama
-    de indicadores" do Doc, que sai do resto para não ir parar na caixa de Fontes."""
+def nome_de_arquivo_da_unidade(unidade: str, nome: str) -> str:
+    """Sufixo dos PNGs da unidade. O prefixo com a unidade impede que o gráfico de
+    um estado reaproveite o de um município de mesmo nome (reusar_grafico olha só o
+    nome do arquivo).
+
+    Ex.: nome_de_arquivo_da_unidade("estado", "Paraíba") == "estado_para_ba"
+    """
+    safe_nome, _ = montar_safe_report(nome, "", [])
+    return f"{unidade}_{safe_nome}"
+
+
+def item_do_tema(
+    slug: str,
+    secoes: SecoesTema,
+    contexto: dict,
+    safe_report: str,
+    graficos: dict[str, str] | None = None,
+) -> dict[str, object]:
+    """O item de `cover.macrotemas` com as mesmas chaves do municipal. `graficos` é
+    {placeholder: PNG} de gerar_graficos_do_estado; os cards de indicadores vêm do
+    bloco "Panorama de indicadores" do Doc, que sai do resto para não ir parar na
+    caixa de Fontes."""
+    graficos = graficos or {}
     dados_do_tema = get_macrotema(slug)
     descricao = secoes.descricao_tema or ""
     panorama, resto = extrair_panorama_indicadores(secoes.resto)
@@ -255,10 +286,10 @@ def item_do_tema(slug: str, secoes: SecoesTema, contexto: dict, safe_report: str
         "descricao": substituir_placeholders(descricao, contexto, slug),
         "descricao_paragrafos": paragrafos_com_valores(descricao, contexto, slug),
         "descricao_html": render_descricao_tema_html(
-            descricao, contexto, namespace=slug, safe_report=safe_report, graficos_por_placeholder={}
+            descricao, contexto, namespace=slug, safe_report=safe_report, graficos_por_placeholder=graficos
         ) if descricao else [],
         "fontes_html": texto_para_html(
-            resto, contexto, namespace=slug, graficos_por_placeholder={}, safe_report=safe_report
+            resto, contexto, namespace=slug, graficos_por_placeholder=graficos, safe_report=safe_report
         ),
         "score": None,
         "indicadores": montar_indicadores_do_doc(panorama, contexto, slug, dados_do_tema["icone"]),
