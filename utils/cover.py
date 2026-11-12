@@ -340,9 +340,20 @@ _ICONE_POR_CAMPO_DO_DOC = {
     "ubs_total": "unidades_basicas",
     # Ainda não existe na est_saude (o Doc avisa); o ícone fica pronto para quando vier.
     "clinicas_total_2025": "posto_saude",
+    # Economia e Renda (Doc estadual de 11/11/2026). PIB e VAB do maior setor não têm
+    # ícone próprio e ficam com o do tema, como o PIB no municipal.
+    "pibcapita_2023": "pib_capita",
+    "fob_exportado_ultimo": "exportacao",
+    "fob_importado_ultimo": "importacao",
+    "valor_balanca1_dado": "balanca",
 }
 
 _CAMPO_DO_VALOR = re.compile(r"\$([A-Za-z0-9_]+)")
+# `$campo` que sobrou sem valor depois de substituir_placeholders: `$` seguido do
+# começo de um nome de campo, com ou sem espaço (o Doc de Educação tem
+# "educacao.$ uf_seg_nivel_per"). Um `$` qualquer não serve: os cards de Economia
+# são moeda ("R$ 96,96 bilhões", "US$ -17.551.669") e sumiam todos (11/11/2026).
+_CAMPO_SEM_VALOR = re.compile(r"\$\s?[A-Za-z_]")
 
 
 def montar_indicadores_do_doc(
@@ -364,7 +375,7 @@ def montar_indicadores_do_doc(
     cards: list[dict[str, str]] = []
     for rotulo, modelo in pares:
         valor = substituir_placeholders(modelo, contexto, macrotema_slug).strip()
-        if not valor or "$" in valor:
+        if not valor or _CAMPO_SEM_VALOR.search(valor):
             continue
         cards.append({
             "nome": rotulo,

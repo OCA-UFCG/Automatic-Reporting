@@ -1977,6 +1977,7 @@ def test_campo_ano_nao_ganha_separador_de_milhar():
         "ultimo_jun",
         "ano_menor_mortalidade",
         "ano_referencia_finalidade",
+        "uf_balanca_ano",  # est_economia, relatório por estado
     ):
         resultado = substituir_placeholders(
             f"dados de economia.${campo}", {campo: 2023}, "economia-renda"
