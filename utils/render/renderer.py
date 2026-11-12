@@ -170,10 +170,22 @@ def _html_figura_grafico(
     )
 
 
-def reset_figura_contador() -> None:
+def reset_figura_contador(com_mapa: bool = True) -> None:
+    """Começa a numeração de figuras de um render de relatório.
+
+    `contador` guarda o último número usado. No municipal ele nasce em 1 porque a
+    Figura 1 é sempre o mapa de localização (render_mapa_marker), e a primeira
+    legenda de gráfico sai como Figura 2. O relatório por estado não tem mapa e
+    passa com_mapa=False, para a primeira legenda sair como Figura 1 (12/11/2026).
+
+    Ex.: reset_figura_contador(com_mapa=False)
+    """
     # Objeto novo, não zerar o atual: o atual pode ser o de outro render que
     # passou o contexto adiante (asyncio.run e to_thread copiam o contexto).
-    _estado_figuras.set(_EstadoFiguras())
+    ultima_figura = 1 if com_mapa else 0
+    _estado_figuras.set(
+        _EstadoFiguras(contador=ultima_figura, proxima_referencia_inline=ultima_figura)
+    )
 
 
 # Sem `(?i)` de propósito: o flag global tornaria `[A-Zx]` insensível a

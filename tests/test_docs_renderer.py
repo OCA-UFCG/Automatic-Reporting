@@ -1031,6 +1031,22 @@ def test_inline_figure_reference_is_replaced_with_the_real_figure_number():
     assert "Figura X" not in html
 
 
+def test_relatorio_sem_mapa_numera_o_primeiro_grafico_como_figura_1():
+    # Relatório por estado (12/11/2026): sem mapa de localização, não pode
+    # pular a Figura 1, que no municipal é sempre o mapa.
+    reset_figura_contador(com_mapa=False)
+    texto = (
+        "A maior concentração estava na faixa de 30 a 39 anos (Figura X).\n"
+        "\n"
+        "Figura X- População por faixa etária e sexo."
+    )
+
+    html = texto_para_html(texto, {}, graficos_por_placeholder={})
+
+    assert "(Figura 1)" in html
+    assert "Figura 1 – População" in html
+
+
 def test_inline_reference_to_an_already_numbered_figure_is_not_rewritten():
     reset_figura_contador()
     texto = (

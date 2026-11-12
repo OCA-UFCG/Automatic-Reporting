@@ -33,3 +33,24 @@ def buscar_esgotamento_sanitario(nome_municipio: str, sigla_uf: str) -> dict | N
         return None
     return {chave: linha[coluna] for chave, coluna in
             (("esg_total", "esg_total"), *CATEGORIAS_ESGOTAMENTO)}
+
+
+def buscar_esgotamento_sanitario_estado(sigla_uf: str) -> dict | None:
+    """A mesma distribuição de buscar_esgotamento_sanitario, somando os municípios
+    do estado (relatório por estado, 12/11/2026). A est_infraestrutura não traz
+    fossa séptica nem "sem banheiro"; nas categorias que ela tem, e no total, a soma
+    desta view confere com ela. None se o banco falhar.
+
+    Ex.: buscar_esgotamento_sanitario_estado("PB")["esg_fossa_septica_ou_fossa_filtro"] == 251638
+    """
+    somas = ", ".join(f"SUM({coluna}) AS {coluna}" for _, coluna in CATEGORIAS_ESGOTAMENTO)
+    query = f"""
+        SELECT SUM(total) AS esg_total, {somas}
+        FROM infra_esgotamento_sanitario.view_esgotamento_2022
+        WHERE sigla_uf = %s
+    """
+    linha = executar_query_dict(query, (sigla_uf,), f"esgotamento sanitário 2022 do estado '{sigla_uf}'")
+    if not linha or linha.get("esg_total") is None:
+        return None
+    return {chave: linha[coluna] for chave, coluna in
+            (("esg_total", "esg_total"), *CATEGORIAS_ESGOTAMENTO)}

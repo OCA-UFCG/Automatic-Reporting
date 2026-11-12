@@ -173,3 +173,49 @@ def test_perfil_saude_sem_metas_mantem_a_serie(monkeypatch):
 
     assert len(serie) == 19
     assert all(item["meta"] is None for item in serie)
+
+
+class ConsultaEstadualFake:
+    """Troca saude.executar_query: devolve `resposta` e guarda os parâmetros."""
+
+    def __init__(self, resposta: object) -> None:
+        self.resposta = resposta
+        self.parametros: list[tuple] = []
+
+    def __call__(self, sql: str, parametros: tuple, *args: object, **kwargs: object) -> object:
+        self.parametros.append(parametros)
+        return self.resposta
+
+
+def test_publico_etario_do_estado_soma_pela_sigla_com_as_chaves_do_municipal(monkeypatch):
+    # Paraíba, view do painel (12/11/2026): público-alvo e doses por faixa.
+    consulta = ConsultaEstadualFake((197504, 296256, 395008, 943786, 180497, 249193, 333419, 525207))
+    monkeypatch.setattr(saude, "executar_query", consulta)
+
+    dados = saude.buscar_publico_etario_vacinas_estado("PB")
+
+    assert consulta.parametros == [("PB",)]
+    assert dados["publico_etario_ao_nascer"] == 197504
+    assert dados["dose_etario_multifaixa"] == 525207
+
+
+def test_estabelecimentos_do_estado_vem_em_serie_anual(monkeypatch):
+    consulta = ConsultaEstadualFake([(2010, 4318), (2020, 6616), (2025, 9020)])
+    monkeypatch.setattr(saude, "executar_query", consulta)
+
+    dados = saude.buscar_estabelecimentos_saude_serie_estado("PB")
+
+    assert consulta.parametros == [("PB",)]
+    assert dados["estabelecimentos_saude_serie"][1] == {"ano": 2020, "total_estabelecimentos": 6616}
+
+
+def test_estabelecimentos_do_estado_sem_banco_devolve_none(monkeypatch):
+    monkeypatch.setattr(saude, "executar_query", ConsultaEstadualFake(None))
+
+    assert saude.buscar_estabelecimentos_saude_serie_estado("PB") is None
+
+
+def test_dedup_estadual_de_estabelecimentos_separa_municipios():
+    # Sem cd_mun no DISTINCT, dois municípios com o mesmo tipo e total no ano
+    # virariam uma linha só e a soma do estado sairia menor.
+    assert "SELECT DISTINCT e.cd_mun, e.ano" in saude.ESTABELECIMENTOS_SAUDE_SERIE_ESTADO

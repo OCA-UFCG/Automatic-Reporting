@@ -120,3 +120,129 @@ def gerar_grafico_aridez(
 
     salvar_card_grafico(fig, chart_file)
     return chart_file.name
+
+
+# Gráfico comparado do relatório por estado (12/11/2026): as classes do municipal
+# mais a hiperárida, que a matview estadual traz (zerada nos 9 estados nessa data).
+_CATEGORIAS_ARIDEZ_COMPARADA = (
+    ("area_hiperarida", "Hiperárido", "#7B241C"),
+    *((campo.removesuffix("2021_per"), rotulo, cor) for campo, rotulo, cor in _CATEGORIAS_ARIDEZ),
+)
+_COR_LEGENDA_POR_ANO = {1991: "#C9C6C8", 2021: "#514C50"}
+_OPACIDADE_1991 = 0.4
+
+
+def _anos_da_aridez(cidade: dict) -> tuple[int, ...]:
+    if cidade.get("aridez_2021_valida") != 1:
+        raise ValueError(
+            f"Aridez de 2021 inválida (aridez_2021_valida={cidade.get('aridez_2021_valida')!r}); "
+            "esperava 1 para gerar o gráfico comparado."
+        )
+
+    return (1991, 2021) if cidade.get("aridez_1991_valida") == 1 else (2021,)
+
+
+def _percentuais_da_aridez(cidade: dict, anos: tuple[int, ...]) -> list[tuple[str, str, dict[int, float]]]:
+    """(rótulo, cor, {ano: %}) das classes com área em algum dos anos."""
+    classes = []
+    for campo, rotulo, cor in _CATEGORIAS_ARIDEZ_COMPARADA:
+        por_ano = {ano: float(cidade.get(f"{campo}{ano}_per") or 0) for ano in anos}
+        if any(por_ano.values()):
+            classes.append((rotulo, cor, por_ano))
+
+    return classes
+
+
+def _rotular_barras_da_aridez(ax, barras, valores: list[float], tamanho_fonte: float) -> None:
+    for barra, valor in zip(barras, valores):
+        ax.text(
+            barra.get_x() + barra.get_width() / 2,
+            barra.get_height() + 2,
+            f"{valor:.2f}%".replace(".", ","),
+            ha="center",
+            va="bottom",
+            fontsize=tamanho_fonte,
+            fontweight=600,
+            color="#514C50",
+        )
+
+
+def gerar_grafico_aridez_comparada(
+    cidade: dict,
+    OUTPUT_DIR: pathlib.Path,
+    safe_city: str,
+) -> str:
+    """Percentual da área em cada classe de aridez em 2021 e, quando
+    `aridez_1991_valida` é 1, em 1991 (barra mais clara ao lado). Lê
+    `area_<classe><ano>_per`; classe sem área nos dois anos fica de fora.
+
+    Pedido pelo Doc estadual de Meio Ambiente (marcador `grafico_aridez_estadual`),
+    que compara os dois anos; o municipal (gerar_grafico_aridez) só tem 2021.
+
+    Ex.: gerar_grafico_aridez_comparada(contexto, OUTPUT_DIR, "estado_para_ba")
+    """
+    anos = _anos_da_aridez(cidade)
+    classes = _percentuais_da_aridez(cidade, anos)
+    if not classes:
+        raise ValueError(f"Nenhuma classe de aridez com área em {anos}.")
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    chart_file = OUTPUT_DIR / f"grafico_aridez_comparada_{safe_city}.png"
+    reuso = reusar_grafico(chart_file)
+    if reuso is not None:
+        return reuso
+
+    fig, ax = iniciar_card_grafico((8, 4.4), "Condições de aridez")
+    # Faixa abaixo do eixo para os nomes das classes e a legenda dos anos.
+    posicao = ax.get_position()
+    altura_legenda = posicao.height * 0.2
+    ax.set_position(
+        (posicao.x0, posicao.y0 + altura_legenda, posicao.width, posicao.height - altura_legenda)
+    )
+
+    x = np.arange(len(classes))
+    largura = 0.8 / len(anos)
+    tamanho_rotulo = FONTE_ROTULO_VALOR * ESCALA_FONTE * (0.8 if len(anos) > 1 else 1)
+    for indice, ano in enumerate(anos):
+        deslocamento = (indice - (len(anos) - 1) / 2) * largura
+        valores = [por_ano[ano] for _, _, por_ano in classes]
+        barras = ax.bar(
+            x + deslocamento,
+            # Altura travada em 100%, como no municipal: arredondamento da view
+            # (100,01%) não desenha a barra acima da linha; o rótulo mostra o real.
+            [min(valor, 100.0) for valor in valores],
+            width=largura * 0.92,
+            color=[cor for _, cor, _ in classes],
+            alpha=_OPACIDADE_1991 if ano == 1991 else 1,
+            zorder=3,
+        )
+        _rotular_barras_da_aridez(ax, barras, valores, tamanho_rotulo)
+
+    ax.set_ylim(0, 112)
+    ax.set_yticks([0, 25, 50, 75, 100])
+    ax.set_ylabel("Área do estado", fontsize=FONTE_ROTULO_EIXO * ESCALA_FONTE)
+    ax.set_xticks(x)
+    ax.set_xticklabels([rotulo for rotulo, _, _ in classes], fontsize=FONTE_TICK * ESCALA_FONTE)
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _: f"{valor:.0f}%"))
+    ax.grid(axis="y", linestyle=(0, (1, 4)), linewidth=0.8, color="#D9D9D9", zorder=0)
+    ax.tick_params(axis="both", length=0, colors="#514C50", labelsize=FONTE_TICK * ESCALA_FONTE)
+    for lado in ("left", "right", "bottom", "top"):
+        ax.spines[lado].set_visible(False)
+
+    if len(anos) > 1:
+        marcadores = [
+            Line2D([0], [0], marker="s", linestyle="", markersize=9, color=_COR_LEGENDA_POR_ANO[ano])
+            for ano in anos
+        ]
+        ax.legend(
+            marcadores,
+            [str(ano) for ano in anos],
+            loc="upper center",
+            bbox_to_anchor=(0.5, -0.16),
+            ncol=len(anos),
+            frameon=False,
+            fontsize=9 * ESCALA_FONTE,
+        )
+
+    salvar_card_grafico(fig, chart_file)
+    return chart_file.name
