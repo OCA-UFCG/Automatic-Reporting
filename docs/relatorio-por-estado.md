@@ -177,7 +177,7 @@ com a capa.
 
 ## O que ainda não existe no estado
 
-- **Gráficos, fora de Demografia, Educação e Saúde:** `services/graficos_estado.py`
+- **Gráficos, fora de Demografia, Educação, Saúde e Economia e Renda:** `services/graficos_estado.py`
   tem, por tema, um adaptador que monta a partir das colunas `uf_*` o dicionário que
   a função de `plotting/` já lê; o gráfico sai igual ao municipal. Estão lá
   (12/11/2026):
@@ -186,6 +186,11 @@ com a capa.
     tem 2000);
   - Educação: sem diferença de dado (as 6 faixas de analfabetismo e os 4 níveis de
     instrução são os do municipal);
+  - Economia e Renda: adaptadores em `services/graficos_estado_economia.py`. A
+    matview guarda PIB e VAB escalados ("96,96" + "bilhões"), e o adaptador os
+    devolve em reais; unidade desconhecida tira o gráfico em vez de desenhá-lo
+    1.000 vezes menor. Os rankings mostram 10 países na importação e 4 na
+    exportação, como o municipal, embora a matview traga a lista inteira;
   - Saúde: **a única exceção à regra "tudo vem da matview"**. O público-alvo por
     faixa etária e os estabelecimentos de 2020 a 2023 não estão na `est_saude`, e
     vêm somados por estado das tabelas do painel (`COMPLEMENTOS_DO_PAINEL`,

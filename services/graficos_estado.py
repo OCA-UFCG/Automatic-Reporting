@@ -15,6 +15,9 @@ Diferenças de dado, decididas em 12/11/2026:
 Educação (12/11/2026) não tem diferença de dado: as 6 faixas de analfabetismo e os
 4 níveis de instrução são os do municipal, nos 9 estados; só muda o nome da coluna.
 
+Economia e Renda (12/11/2026): os adaptadores moram em
+services/graficos_estado_economia.py (valores escalados da matview viram absolutos).
+
 Saúde (12/11/2026): a est_saude não tem o público-alvo por faixa etária nem os
 estabelecimentos de 2020 a 2023. Por decisão de 12/11, esses dois vêm somados por
 estado das tabelas do painel (COMPLEMENTOS_DO_PAINEL); onde a matview também tem o
@@ -24,7 +27,6 @@ dado, a soma confere com ela. É a única exceção à regra "tudo vem da matvie
 import logging
 import pathlib
 import re
-import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -32,6 +34,13 @@ from plotting.demografia import (
     gerar_grafico_composicao_cor_raca,
     gerar_grafico_faixa_etaria_e_sexo,
     gerar_grafico_visao_historica_populacao,
+)
+from plotting.economia_renda import (
+    gerar_grafico_balanca,
+    gerar_grafico_exportacao,
+    gerar_grafico_fob,
+    gerar_grafico_pib,
+    gerar_grafico_vab,
 )
 from plotting.educacao import (
     gerar_grafico_cor_faixa_etaria,
@@ -43,6 +52,14 @@ from plotting.saude import (
     gerar_grafico_publico_etario,
     gerar_grafico_taxa_mortalidade,
 )
+from services.graficos_estado_economia import (
+    balanca_do_estado,
+    exportacao_paises_do_estado,
+    importacao_paises_do_estado,
+    pib_serie_do_estado,
+    vab_setores_do_estado,
+)
+from utils.maps import normalizar_texto
 from utils.queries.saude import (
     VACINA_COBERTURA_ROTULOS,
     buscar_estabelecimentos_saude_serie_estado,
@@ -93,12 +110,6 @@ def faixas_etarias_sexo_do_estado(linha: dict) -> list[dict[str, object]]:
     ]
 
 
-def _sem_acento(texto: str) -> str:
-    decomposto = unicodedata.normalize("NFKD", texto)
-
-    return "".join(letra for letra in decomposto if not unicodedata.combining(letra))
-
-
 def populacao_por_cor_raca_do_estado(linha: dict) -> dict[str, object]:
     """`pop_<cor>` e `pop_total_2022` como no municipal, a partir do ranking da
     matview (`uf_cor_raca_pri_class` + `uf_cor_pri_pop` … `uf_cor_quin_*`). A
@@ -113,7 +124,7 @@ def populacao_por_cor_raca_do_estado(linha: dict) -> dict[str, object]:
         classe = linha.get(coluna_classe)
         if not classe:
             continue
-        populacao[f"pop_{_sem_acento(str(classe)).lower()}"] = linha.get(f"uf_cor_{posicao}_pop")
+        populacao[f"pop_{normalizar_texto(classe)}"] = linha.get(f"uf_cor_{posicao}_pop")
 
     return populacao
 
@@ -275,6 +286,26 @@ def _grafico_mortalidade(linha: dict, output_dir: pathlib.Path, safe_estado: str
     return gerar_grafico_taxa_mortalidade(mortalidade_infantil_serie_do_estado(linha), output_dir, safe_estado)
 
 
+def _grafico_pib(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
+    return gerar_grafico_pib(pib_serie_do_estado(linha), output_dir, safe_estado)
+
+
+def _grafico_vab(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
+    return gerar_grafico_vab(vab_setores_do_estado(linha), output_dir, safe_estado)
+
+
+def _grafico_importacao(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
+    return gerar_grafico_fob(importacao_paises_do_estado(linha), output_dir, safe_estado)
+
+
+def _grafico_exportacao(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
+    return gerar_grafico_exportacao(exportacao_paises_do_estado(linha), output_dir, safe_estado)
+
+
+def _grafico_balanca(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
+    return gerar_grafico_balanca(balanca_do_estado(linha), output_dir, safe_estado)
+
+
 def _grafico_estabelecimentos(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
     return gerar_grafico_de_estabelecimento(estabelecimentos_serie_do_estado(linha), output_dir, safe_estado)
 
@@ -298,6 +329,13 @@ GRAFICOS_ESTADO_POR_TEMA: dict[str, tuple[GraficoDoEstado, ...]] = {
     "educacao": (
         GraficoDoEstado("grafico_cor_faixa_etaria", _grafico_analfabetismo),
         GraficoDoEstado("grafico_nivel_instrucao", _grafico_nivel_instrucao),
+    ),
+    "economia-renda": (
+        GraficoDoEstado("grafico_pib", _grafico_pib),
+        GraficoDoEstado("grafico_vab", _grafico_vab),
+        GraficoDoEstado("grafico_fob", _grafico_importacao),
+        GraficoDoEstado("grafico_exportacao", _grafico_exportacao),
+        GraficoDoEstado("grafico_balanca", _grafico_balanca),
     ),
     "saude": (
         GraficoDoEstado("grafico_publico_etario", _grafico_publico_etario),

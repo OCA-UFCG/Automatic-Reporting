@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 # A view emite a unidade no singular quando o valor arredonda para 1 ("milhão"):
 # sem essa forma aqui o valor entra no gráfico 1.000.000x menor.
-_UNIDADE_MULTIPLICADOR = {
+UNIDADE_MULTIPLICADOR = {
     "bilhões": 1_000_000_000,
     "bilhão": 1_000_000_000,
     "milhões": 1_000_000,
@@ -63,7 +63,7 @@ _ALIASES_BALANCA_CEDILHA = {
 def _valor_absoluto(valor: object, unidade: object) -> float | None:
     if valor is None:
         return None
-    if unidade not in _UNIDADE_MULTIPLICADOR:
+    if unidade not in UNIDADE_MULTIPLICADOR:
         # Multiplicador 1 por engano encolhe o valor 1.000x no gráfico, sem
         # erro. '' é o normal em município sem comércio, por isso não avisa.
         if unidade is not None and str(unidade).strip():
@@ -71,10 +71,10 @@ def _valor_absoluto(valor: object, unidade: object) -> float | None:
                 "Unidade de valor desconhecida em exportação: %r "
                 "(esperado um de %s); valor usado sem multiplicador.",
                 unidade,
-                sorted(_UNIDADE_MULTIPLICADOR),
+                sorted(UNIDADE_MULTIPLICADOR),
             )
         return float(valor)
-    return float(valor) * _UNIDADE_MULTIPLICADOR[unidade]
+    return float(valor) * UNIDADE_MULTIPLICADOR[unidade]
 
 
 def buscar_comercio_exterior_economia(
