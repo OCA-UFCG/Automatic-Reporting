@@ -615,3 +615,20 @@ def test_legenda_do_card_vira_fonte_e_rodape():
         "IBGE Censo 2022",
         "coleta direta e em caçamba",
     )
+
+
+def test_cards_de_seguranca_hidrica_do_doc_usam_os_icones_das_cisternas():
+    cards = montar_indicadores_do_doc(
+        [
+            CardDoPanorama("Cisternas e outras tecnologias sociais", "seg_hidrica.$uf_total_2025"),
+            CardDoPanorama("Atividades escolares", "seg_hidrica.$uf_escolares_qtd"),
+        ],
+        {"uf_total_2025": 123556, "uf_escolares_qtd": 1097},
+        "hidraulica",
+        "drop",
+    )
+
+    assert [(card["valor"], card["icone"]) for card in cards] == [
+        ("123.556", "cisternas"),
+        ("1.097", "cisterna_escolar"),
+    ]

@@ -350,6 +350,11 @@ _ICONE_POR_CAMPO_DO_DOC = {
     # Infraestrutura e Saneamento (Doc estadual de 11/11/2026). Banheiro e coleta de
     # lixo não têm ícone próprio e ficam com o do tema, como no municipal.
     "esgoto_rede_2022": "esgoto",
+    # Segurança Hídrica (Doc estadual de 11/11/2026): os ícones das cisternas do municipal.
+    "total_2025": "cisternas",
+    "primeira_agua_qtd": "cisterna_1_agua",
+    "segunda_agua_qtd": "cisterna_2_agua",
+    "escolares_qtd": "cisterna_escolar",
 }
 
 _CAMPO_DO_VALOR = re.compile(r"\$([A-Za-z0-9_]+)")
