@@ -16,7 +16,14 @@ from utils.data.estados import ESTADOS_COM_RELATORIO, resolver_estado
 from utils.queries import estado as consulta_estado
 
 DOC_DEMOGRAFIA_ESTADUAL = (
+    "Demografia\n"
+    "Panorama de indicadores\n"
+    "População residente\n"
+    "demografia.$uf_pop_total_2022\n"
+    "\t\n"
     "descricao_tema=“$uf_sujeito tinha $uf_pop_total_2022 habitantes em 2022.”@@\n"
+    "#!Fontes\n"
+    "Perfil demográfico = https://datanordeste.sudene.gov.br/data-panel/populacao\n"
 )
 
 LINHA_PARAIBA = {
@@ -142,6 +149,19 @@ def test_relatorio_do_estado_resolve_o_doc_com_a_linha_da_matview(ambiente_estad
     descricao = capa["macrotemas"][0]["descricao"]
     assert descricao.startswith("A Paraíba tinha 3")
     assert "$" not in descricao  # nenhum placeholder ficou cru
+
+
+def test_panorama_do_doc_estadual_vira_card_e_sai_das_fontes(ambiente_estadual):
+    _, _, ssr = ambiente_estadual
+
+    asyncio.run(relatorio_estado.gerar_relatorio_estado_handler("Paraíba", "demografia"))
+
+    tema = ssr.props["cover"]["macrotemas"][0]
+    assert [(card["nome"], card["valor"]) for card in tema["indicadores"]] == [
+        ("População residente", "3.974.495")
+    ]
+    assert "Panorama" not in tema["fontes_html"]
+    assert "Perfil demográfico" in tema["fontes_html"]
 
 
 def test_sem_nenhum_tema_da_503_e_nao_grava_relatorio_vazio(ambiente_estadual):

@@ -10,8 +10,12 @@ estado divide com ele só o gate de cache, a fila de geração, o SSR e o PDF
 Fica de fora por enquanto, como no Laboratório com unidade=estado:
   - gráficos: GRAFICOS_POR_TEMA lê colunas municipais; a menção "(Figura X)" do Doc
     some como num gráfico sem dado;
-  - mapa de localização, Características Gerais e os cards de indicadores da capa:
-    todos leem o município (vw_indicadores, shapefile por município).
+  - mapa de localização e Características Gerais: leem o município (shapefile por
+    município, vw_indicadores).
+
+Os cards do tema ("Panorama de indicadores") vêm do próprio Doc estadual desde
+11/11/2026: pares rótulo / `$campo` resolvidos contra a linha da matview
+(montar_indicadores_do_doc em utils/cover.py).
 """
 
 import logging
@@ -41,10 +45,10 @@ from services.macrotemas import (
     get_macrotema,
     get_macrotema_slugs_para_relatorio,
 )
-from utils.cover import montar_capa_relatorio
+from utils.cover import montar_capa_relatorio, montar_indicadores_do_doc
 from utils.data.estados import resolver_estado
 from utils.data.macrotemas import TODOS_MACROTEMAS_ORDEM
-from utils.external.docs import carregar_texto_do_docs
+from utils.external.docs import carregar_texto_do_docs, extrair_panorama_indicadores
 from utils.queries.estado import buscar_contexto_estado
 from utils.render.placeholders import substituir_placeholders
 from utils.render.renderer import (
@@ -181,9 +185,11 @@ async def tema_do_estado(
 
 def item_do_tema(slug: str, secoes: SecoesTema, contexto: dict, safe_report: str) -> dict[str, object]:
     """O item de `cover.macrotemas` com as mesmas chaves do municipal. Sem gráficos
-    (`graficos_por_placeholder={}`) e sem cards de indicadores, que leem o município."""
+    (`graficos_por_placeholder={}`); os cards de indicadores vêm do bloco "Panorama
+    de indicadores" do Doc, que sai do resto para não ir parar na caixa de Fontes."""
     dados_do_tema = get_macrotema(slug)
     descricao = secoes.descricao_tema or ""
+    panorama, resto = extrair_panorama_indicadores(secoes.resto)
     return {
         "nome": dados_do_tema["nome"],
         "slug": slug,
@@ -196,10 +202,10 @@ def item_do_tema(slug: str, secoes: SecoesTema, contexto: dict, safe_report: str
             descricao, contexto, namespace=slug, safe_report=safe_report, graficos_por_placeholder={}
         ) if descricao else [],
         "fontes_html": texto_para_html(
-            secoes.resto, contexto, namespace=slug, graficos_por_placeholder={}, safe_report=safe_report
+            resto, contexto, namespace=slug, graficos_por_placeholder={}, safe_report=safe_report
         ),
         "score": None,
-        "indicadores": [],
+        "indicadores": montar_indicadores_do_doc(panorama, contexto, slug, dados_do_tema["icone"]),
     }
 
 
