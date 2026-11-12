@@ -355,6 +355,13 @@ _ICONE_POR_CAMPO_DO_DOC = {
     "primeira_agua_qtd": "cisterna_1_agua",
     "segunda_agua_qtd": "cisterna_2_agua",
     "escolares_qtd": "cisterna_escolar",
+    # Meio Ambiente (Doc estadual de 11/11/2026): os mesmos ícones das bases municipais.
+    "asd_2021": "desertificacao",
+    "asd_variacao_pp_txt": "variacao_area_suscetivel_desertificacao",
+    "n_uc": "unidades_conservacao",
+    "area_uc_uf_ha": "area_conservacao",
+    "n_protecao_pi": "protecao_integral",
+    "n_protecao_us": "uso_sustentavel",
 }
 
 _CAMPO_DO_VALOR = re.compile(r"\$([A-Za-z0-9_]+)")
