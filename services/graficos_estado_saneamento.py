@@ -5,12 +5,17 @@
 A dinâmica do esgoto (2000, 2010, 2022) e a coleta de lixo (2010, 2022) têm os
 mesmos anos do municipal e vêm da matview.
 
-A rosca de tipos de esgotamento precisa das 7 categorias, e a matview não tem
-fossa séptica nem "sem banheiro" (I6 do registro): uf_distrib_esgoto_2022_completa
-vale 0 nos 9 estados, e o Doc estadual escreve, nesse caso, que a distribuição não
-está completa. Decisão de 12/11/2026: seguir essa flag. Com ela em 1, as 7
-categorias vêm somadas por estado da view do painel; com ela em 0, a rosca não sai
-e nem a consulta roda.
+A rosca de tipos de esgotamento precisa das 7 categorias. Em 12/11/2026 a matview
+não tinha fossa séptica (I6 do registro) e uf_distrib_esgoto_2022_completa valia 0
+nos 9 estados; o Doc estadual escreve, nesse caso, que a distribuição não está
+completa. Decisão de 12/11/2026: seguir essa flag. Com ela em 1, as 7 categorias
+vêm somadas por estado da view do painel; com ela em 0, a rosca não sai e nem a
+consulta roda.
+
+Desde 13/11/2026 a matview tem uf_esgoto_fossa_septica_2022qtd e a flag vale 1 nos
+9 estados (I13 da revisão). A soma da view do painel confere com a matview,
+categoria por categoria; ler a rosca direto da matview ficaria mais simples, mas
+não foi feito.
 """
 
 from utils.queries.saneamento import (

@@ -6,6 +6,7 @@ from plotting.economia_renda import (
     _atribuir_cores_por_ranking,
     _dispor_setores_por_valor,
     _escolher_unidade,
+    _titulo_das_origens,
     gerar_grafico_balanca,
     gerar_grafico_fob,
     gerar_grafico_pib,
@@ -243,3 +244,10 @@ def test_setor_estreito_demais_vai_pra_legenda_externa(tmp_path: Path, monkeypat
     assert not any("Agropecu" in texto for texto in textos_eixo)
     assert "Agropecuária — R$ 5,41 milhões" in textos_legenda
     assert "Serviços" in textos_eixo
+
+
+def test_titulo_das_origens_no_singular_e_no_plural():
+    # C19 (13/11/2026): o título dizia "Origem(ns)" com qualquer número de países.
+    assert _titulo_das_origens([("China", 1.0)]).startswith("Origem das importações")
+    assert _titulo_das_origens([("China", 1.0), ("Peru", None)]).startswith("Origem das")
+    assert _titulo_das_origens([("China", 2.0), ("Peru", 1.0)]).startswith("Origens das importações")

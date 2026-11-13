@@ -162,7 +162,8 @@ def gerar_grafico_pib(
     ax.yaxis.set_major_formatter(
         FuncFormatter(lambda valor, _: f"R$ {valor / divisor_eixo:.0f}{sufixo_eixo}")
     )
-    ax.set_ylabel("Produto interno", fontsize=20 * ESCALA_FONTE)
+    # "Produto interno" era o nome cortado; os ticks já dizem "R$ … bilhões" (C19).
+    ax.set_ylabel("PIB", fontsize=20 * ESCALA_FONTE)
     ax.tick_params(axis="both", labelsize=20 * ESCALA_FONTE)
 
     salvar_card_grafico(fig, chart_file, dpi=270)
@@ -278,16 +279,30 @@ def _gerar_grafico_ranking_paises(
     return chart_file.name
 
 
+def _titulo_das_origens(paises: list[tuple[str, object]]) -> str:
+    """Título do ranking de importações no singular ou no plural. Antes era sempre
+    "Origem(ns)…" (C19, revisão de 13/11/2026); a conta segue o mesmo filtro de
+    _gerar_grafico_ranking_paises, que descarta nome ou valor vazio.
+
+    Ex.: _titulo_das_origens([("China", 1.0)]) == "Origem das importações pelo valor líquido FOB"
+    """
+    validos = [nome for nome, valor in paises if nome is not None and valor is not None]
+    palavra = "Origem" if len(validos) == 1 else "Origens"
+
+    return f"{palavra} das importações pelo valor líquido FOB"
+
+
 def gerar_grafico_fob(
     cidade: dict,
     OUTPUT_DIR: pathlib.Path,
     safe_city: str,
 ) -> str:
+    paises = cidade.get("importacao_paises") or []
     return _gerar_grafico_ranking_paises(
-        cidade.get("importacao_paises") or [],
+        paises,
         OUTPUT_DIR / f"grafico_fob_{safe_city}.png",
         "Dados de países de importação não disponíveis.",
-        "Origem(ns) das importações pelo valor líquido FOB",
+        _titulo_das_origens(paises),
     )
 
 
