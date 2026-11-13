@@ -162,4 +162,12 @@ MACROTEMA_SECOES = {
         "titulo": "Segurança Hídrica",
         "aliases": ["hidraulica", "hidráulica", "seguranca hidrica", "segurança hídrica"],
     },
+    # M6 (13/11/2026): o Doc estadual de Meio Ambiente abre com a linha "Meio
+    # Ambiente". Sem o tema aqui, ela não era reconhecida como título e saía solta,
+    # em letra pequena, depois da Síntese (junto do resto do Doc, na caixa de Fontes).
+    "meio-ambiente": {
+        "numero": "07",
+        "titulo": "Meio Ambiente",
+        "aliases": ["meio ambiente", "meio-ambiente"],
+    },
 }

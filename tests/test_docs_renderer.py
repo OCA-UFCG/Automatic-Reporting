@@ -2511,3 +2511,12 @@ def test_isolar_so_mexe_depois_da_linha_governada_por_condicao_com_campo():
     )
 
     assert isolar_paragrafo_de_cada_condicao(texto) == texto
+
+
+def test_titulo_do_doc_de_meio_ambiente_nao_sai_solto():
+    # M6 (13/11/2026): a linha "Meio Ambiente" no topo do Doc estadual saía como
+    # parágrafo depois da Síntese, porque o tema faltava em MACROTEMA_SECOES.
+    html = texto_para_html("Meio Ambiente\nTexto do tema.", {}, namespace="meio-ambiente")
+
+    assert "Meio Ambiente" not in html
+    assert "Texto do tema." in html
