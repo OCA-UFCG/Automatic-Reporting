@@ -142,10 +142,10 @@ Saldo nulo.
 Para quando economia.$movimentacoes_tri_atual for igual a 0:
 Sem movimentação.
 
-Para quando economia.$saldo_acumulado_ano_anterior for maior que 0:
+Para quando economia.$saldo_acumulado_ano_anterior for maior ou igual a 30:
 Variação de economia.$variacao_acumulado_per:1%.
 
-Para quando economia.$saldo_acumulado_ano_anterior for menor ou igual a 0:
+Para quando economia.$saldo_acumulado_ano_anterior for menor que 30:
 Ante economia.$saldo_acumulado_ano_anterior.
 
 Para quando economia.$movimentacoes_tri_atual for maior ou igual a 30:
@@ -190,6 +190,13 @@ def test_acumulado_do_ano_anterior_negativo_nao_mostra_percentual():
     assert "Variação" not in saida
 
 
+def test_acumulado_do_ano_anterior_pequeno_nao_mostra_percentual():
+    # Passagem (PB): de 1 para -5 virava "variação de -600,0%" (revisão 13/11).
+    saida = _render(saldo_acumulado_ano_anterior=Decimal(1), variacao_acumulado_per=Decimal("-600.0"))
+    assert "Ante 1." in saida
+    assert "Variação" not in saida
+
+
 def test_saldo_nulo_com_poucas_movimentacoes():
     saida = _render(saldo_tri_atual=Decimal(0), movimentacoes_tri_atual=Decimal(12),
                     analise_saldo_tri_atual="nulo")
@@ -223,3 +230,10 @@ def test_escolaridade_e_ocupacoes_escolhem_a_versao_certa():
 def test_titulos_cbo_tem_codigos_com_zero_a_esquerda():
     # A matview faz lpad(cd_cbo, 6, '0'): o CAGED grava 10105, a lista oficial 010105.
     assert economia_caged._titulos_cbo()["010105"] == "Oficial general da aeronáutica"
+
+
+def test_titulos_cbo_sem_espaco_duplo():
+    # A lista oficial grava "Cortador de calçados, a  máquina (...)" (dois espaços).
+    titulos = economia_caged._titulos_cbo()
+    assert not [t for t in titulos.values() if "  " in t]
+    assert titulos["764105"].startswith("Cortador de calçados, a máquina")

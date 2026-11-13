@@ -26,7 +26,12 @@ _CBO_CSV = Path(__file__).resolve().parent.parent / "data" / "cbo2002_ocupacao.c
 @cache
 def _titulos_cbo() -> dict[str, str]:
     with _CBO_CSV.open(encoding="utf-8", newline="") as arquivo:
-        return {linha["CODIGO"]: linha["TITULO"] for linha in csv.DictReader(arquivo, delimiter=";")}
+        # " ".join(split()): 41 títulos da lista oficial têm espaço duplo
+        # ("Cortador de calçados, a  máquina"), que saía igual no relatório.
+        return {
+            linha["CODIGO"]: " ".join(linha["TITULO"].split())
+            for linha in csv.DictReader(arquivo, delimiter=";")
+        }
 
 
 def _ocupacoes_com_titulo_oficial(linha: dict) -> dict:
