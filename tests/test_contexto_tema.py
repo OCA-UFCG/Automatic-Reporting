@@ -14,7 +14,7 @@ CHAVES_EXTRAS = (
     "publico_etario", "mortalidade_infantil", "estabelecimentos_saude",
     "perfil_saude", "taxas_educacao", "tecnologias_acesso_agua", "esgotamento",
     "perfil_desenvolvimento_social", "pib", "indicadores_economia", "importacao",
-    "comercio_exterior", "rua", "indicadores",
+    "comercio_exterior", "caged", "rua", "indicadores",
 )
 EXTRAS_VAZIOS = dict.fromkeys(CHAVES_EXTRAS)
 EXTRAS_COM_RUA = {**EXTRAS_VAZIOS, "rua": {"pop_rua_2026": 454}}

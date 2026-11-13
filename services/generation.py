@@ -33,6 +33,7 @@ from plotting.economia_renda import (
     gerar_grafico_fob,
     gerar_grafico_pib,
     gerar_grafico_vab,
+    gerar_grafico_visao_mensal,
 )
 from plotting.educacao import (
     gerar_grafico_cor_faixa_etaria,
@@ -115,6 +116,7 @@ from utils.queries.demografia import (
 from utils.queries.desenvolvimento_social import (
     buscar_perfil_desenvolvimento_social,
 )
+from utils.queries.economia_caged import buscar_caged_municipal
 from utils.queries.economia_exportacao import buscar_comercio_exterior_economia
 from utils.queries.economia_importacao import (
     buscar_linhas_importacao,
@@ -190,6 +192,7 @@ GRAFICOS_POR_TEMA: dict[str, tuple[tuple[str, Callable[..., str], tuple[type[Exc
         ("grafico_fob", gerar_grafico_fob, _SO_VALOR),
         ("grafico_exportacao", gerar_grafico_exportacao, _SO_VALOR),
         ("grafico_balanca", gerar_grafico_balanca, _SO_VALOR),
+        ("grafico_visao_mensal", gerar_grafico_visao_mensal, _SO_VALOR),
     ),
     # Sem entrada em GRAFICOS_AUTO_MARCADOR de propósito: o Doc do tema traz os
     # marcadores `*grafico_...` acima de cada legenda, e é só por eles que os
@@ -303,6 +306,17 @@ GRAFICOS_AUTO_MARCADOR = {
             (
                 r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
                 r"Vis[aã]o\s+mensal\s+da\s+balan[cç]a\s+comercial[^\n]*)$"
+            ),
+        ),
+        (
+            # O Doc já traz *grafico_visao_mensal acima da legenda (aí esta entrada
+            # é pulada); a regex só cobre o marcador apagado numa edição. Aceita a
+            # legenda nova (12/11/2026) e a antiga ("Visão mensal do saldo...").
+            "grafico_visao_mensal",
+            (
+                r"(?im)^(\s*Figura\s+[A-Za-z0-9&]+\s*[-–]\s*"
+                r"(?:Saldo\s+mensal|Vis[aã]o\s+mensal\s+do\s+saldo)\s+de\s+"
+                r"empregos\s+formais[^\n]*)$"
             ),
         ),
     ),
@@ -711,7 +725,7 @@ def buscar_extras_municipio(
             "publico_etario", "mortalidade_infantil", "estabelecimentos_saude",
             "perfil_saude", "taxas_educacao", "tecnologias_acesso_agua",
             "esgotamento", "perfil_desenvolvimento_social", "pib",
-            "indicadores_economia", "importacao", "comercio_exterior", "rua",
+            "indicadores_economia", "importacao", "comercio_exterior", "caged", "rua",
             "indicadores",
         )
     )
@@ -753,6 +767,7 @@ def buscar_extras_municipio(
         extras["comercio_exterior"] = buscar_comercio_exterior_economia(
             nome_cidade_db, uf_db
         )
+        extras["caged"] = buscar_caged_municipal(nome_cidade_db, uf_db)
     extras["rua"] = buscar_populacao_rua(nome_cidade_db, uf_db)
     # Painel de indicadores da capa: uma única linha em vw_indicadores
     # cobre todos os macrotemas, então a busca fica fora dos ifs.
@@ -842,6 +857,9 @@ def montar_contexto_tema(
 
     if "economia-renda" in macrotema_slugs and extras["comercio_exterior"]:
         linha.update(extras["comercio_exterior"])
+
+    if "economia-renda" in macrotema_slugs and extras["caged"]:
+        linha.update(extras["caged"])
 
     return linha
 
