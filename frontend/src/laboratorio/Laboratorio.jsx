@@ -92,13 +92,13 @@ const UNIDADES = {
   estado: {
     chave: 'estado', nome: 'Estado', um: 'estado', varios: 'estados', nenhum: 'nenhum estado',
     numa: 'num estado', nesta: 'neste estado', escolha: 'Escolha um estado',
-    digite: 'Digite o nome do estado…', comoSai: 'no relatório dele (sem gráficos: eles são só municipais)',
+    digite: 'Digite o nome do estado…', comoSai: 'no relatório dele, com os gráficos',
     os: 'os', todos: 'todos os', nenhuma: 'nenhum', conferido: 'conferido',
   },
   area: {
     chave: 'area', nome: 'Área', um: 'área', varios: 'áreas', nenhum: 'nenhuma área',
     numa: 'numa área', nesta: 'nesta área', escolha: 'Escolha uma área de interesse',
-    digite: 'Digite o nome da área…', comoSai: 'no relatório dela (sem gráficos: eles são só municipais)',
+    digite: 'Digite o nome da área…', comoSai: 'no relatório dela (sem gráficos: o relatório de área ainda não tem)',
     os: 'as', todos: 'todas as', nenhuma: 'nenhuma', conferido: 'conferida',
   },
 }

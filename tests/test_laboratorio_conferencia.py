@@ -621,3 +621,65 @@ def test_laboratorio_le_o_doc_de_estado_como_o_relatorio_de_estado():
     assert laboratorio.texto_da_unidade(doc, "estado") == (
         "Para quando demografia.$uf_x for igual a 1, então:\nA\n\nB"
     )
+
+
+def test_laboratorio_le_o_doc_de_area_como_o_relatorio_de_area():
+    # O relatório de área também isola o parágrafo de cada condição
+    # (relatorio_estado.tema_da_unidade); até 13/11/2026 a prévia de área não isolava.
+    doc = "Para quando demografia.$area_x for igual a 1, então:\nA\nB"
+
+    assert laboratorio.texto_da_unidade(doc, "area") == (
+        "Para quando demografia.$area_x for igual a 1, então:\nA\n\nB"
+    )
+
+
+def test_previa_de_estado_sai_como_o_relatorio_de_estado(monkeypatch, snapshot_estadual, tmp_path):
+    # Gráficos do estado, figura começando em 1 (sem mapa), Panorama como cards e
+    # não como texto nas Fontes, e a capa da primeira página estadual (13/11/2026).
+    monkeypatch.setattr(laboratorio, "OUTPUT_DIR", tmp_path)
+    pedidos = []
+
+    def graficos_falsos(slug, linha, _saida, safe):
+        pedidos.append((slug, linha["uf_sujeito"], safe))
+        return {"grafico_teste": "teste.png"}
+
+    async def primeira_pagina_falsa(nome, _safe):
+        return {"relatorio_geral_html": [f"<p>Apresentação de {nome}</p>"]}
+
+    monkeypatch.setattr(laboratorio, "gerar_graficos_do_estado", graficos_falsos)
+    monkeypatch.setattr(laboratorio, "primeira_pagina_do_estado", primeira_pagina_falsa)
+    doc = (
+        "Panorama de indicadores\nPopulação\ndemografia.$uf_pop\nIBGE • pessoas\n\n"
+        "descricao_tema = “$uf_sujeito tem um gráfico (Figura X).\n\n*grafico_teste\n\n"
+        "Figura X – Legenda do teste.” @@\n"
+    )
+
+    html = "".join(laboratorio.texto_do_municipio("demografia", doc, "Ceará", com_graficos=True, unidade="estado")["html"])
+
+    assert pedidos and pedidos[0][:2] == ("demografia", "O Ceará")
+    assert pedidos[0][2].startswith("lab_estado_cear")
+    assert "teste.png" in html and "Figura 1" in html and "Figura 2" not in html
+    assert "Panorama de indicadores" in html and "<strong>População</strong>: 5" in html
+    assert "demografia.$uf_pop" not in html
+    assert html.index("Apresentação de Ceará") < html.index("O Ceará tem um gráfico")
+    # Sem o painel, o tema começa em html[0] e o Panorama continua fora das Fontes.
+    sem_painel = laboratorio.texto_do_municipio("demografia", doc, "Ceará", unidade="estado")["html"]
+    assert "O Ceará tem um gráfico" in sem_painel[0]
+    assert "Panorama" not in "".join(sem_painel)
+
+
+def test_previa_de_area_tem_capa_do_doc_do_tema_e_nenhum_grafico(monkeypatch, snapshot_falso, tmp_path):
+    (tmp_path / "area").mkdir()
+    areas = {"Caatinga": {"fonte": "view", "contexto": {"area_sujeito": "A Caatinga"}}}
+    with gzip.open(tmp_path / "area" / "demografia.json.gz", "wt", encoding="utf-8") as arquivo:
+        json.dump({"gerado_em": "2026-11-13T04:30:00+00:00", "municipios": codificar(areas)}, arquivo)
+    monkeypatch.setattr(laboratorio, "gerar_graficos_do_estado", lambda *a: pytest.fail("área não tem gráfico"))
+    doc = (
+        "resumo_cidade = “Resumo de $area_sujeito.” @@\n"
+        "descricao_tema = “$area_sujeito (Figura X).\n\n*grafico_teste\n\nFigura X – Legenda.” @@\n"
+    )
+
+    html = "".join(laboratorio.texto_do_municipio("demografia", doc, "Caatinga", com_graficos=True, unidade="area")["html"])
+
+    assert "Características Gerais" in html and "Resumo de A Caatinga." in html
+    assert "Figura" not in html
