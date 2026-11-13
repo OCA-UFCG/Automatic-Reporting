@@ -61,6 +61,51 @@ def test_serie_mensal_nao_corta_em_mes_sem_movimentacao(monkeypatch):
     assert serie[1] == ("fev", Decimal(20), 0)
 
 
+def _consultas(principal: dict | None, detalhe: dict | None):
+    """executar_query_dict falso: devolve a linha certa para cada matview."""
+    def executar(query, _params, _contexto):
+        return detalhe if "mv_caged_municipal_detalhe" in query else principal
+    return executar
+
+
+def test_ocupacoes_saem_com_titulo_oficial_da_cbo(monkeypatch):
+    detalhe = {
+        "nm_mun": "Petrolina", "cd_mun": 2611101, "sigla_uf": "PE",
+        "escolaridade_maior_saldo": "ensino médio completo",
+        "escolaridade_maior_saldo_postos": Decimal(900),
+        # Como a base grava: sem acento e com marca de cadastro.
+        "ocupacao_maior_saldo1": "alimentador de linha de producao",
+        "ocupacao_maior_saldo1_cbo": "784205", "ocupacao_maior_saldo1_valor": Decimal(40),
+        "ocupacao_maior_saldo2": "faxineiro (desativado em 2010)",
+        "ocupacao_maior_saldo2_cbo": "514320", "ocupacao_maior_saldo2_valor": Decimal(30),
+        # Código fora da lista oficial de 2002: fica o nome da base.
+        "ocupacao_maior_saldo3": "massoterapeuta",
+        "ocupacao_maior_saldo3_cbo": "322120", "ocupacao_maior_saldo3_valor": Decimal(5),
+        "ocupacao_maior_saldo4": None, "ocupacao_maior_saldo4_cbo": None,
+        "ocupacao_maior_saldo4_valor": Decimal(0),
+    }
+    monkeypatch.setattr(economia_caged, "executar_query_dict", _consultas(_linha_mv(), detalhe))
+
+    dados = economia_caged.buscar_caged_municipal("Petrolina (PE)", "PE")
+
+    assert dados["ocupacao_maior_saldo1"] == "alimentador de linha de produção"
+    assert dados["ocupacao_maior_saldo2"] == "faxineiro"
+    assert dados["ocupacao_maior_saldo3"] == "massoterapeuta"
+    assert dados["ocupacao_maior_saldo4"] is None
+    assert dados["escolaridade_maior_saldo"] == "ensino médio completo"
+    assert dados["saldo_tri_atual"] == 1471  # a linha principal continua lá
+    assert "nm_mun" not in dados
+
+
+def test_sem_matview_de_detalhe_os_marcadores_principais_continuam(monkeypatch):
+    monkeypatch.setattr(economia_caged, "executar_query_dict", _consultas(_linha_mv(), None))
+
+    dados = economia_caged.buscar_caged_municipal("Petrolina (PE)", "PE")
+
+    assert dados["saldo_tri_atual"] == 1471
+    assert "ocupacao_maior_saldo1" not in dados
+
+
 def test_buscar_sem_linha_ou_sem_uf_devolve_none(monkeypatch):
     monkeypatch.setattr(economia_caged, "executar_query_dict", lambda *a, **k: None)
     assert economia_caged.buscar_caged_municipal("Petrolina", "PE") is None
@@ -106,6 +151,15 @@ Ante economia.$saldo_acumulado_ano_anterior.
 Para quando economia.$movimentacoes_tri_atual for maior ou igual a 30:
 Setores: economia.$setores_saldo_lista.
 
+Para quando economia.$movimentacoes_tri_atual for maior ou igual a 30 e economia.$escolaridade_maior_saldo_postos for maior que 0 e economia.$escolaridade_menor_saldo_postos for maior que 0:
+Escolaridade: +economia.$escolaridade_maior_saldo_postos e -economia.$escolaridade_menor_saldo_postos.
+
+Para quando economia.$movimentacoes_tri_atual for maior ou igual a 30 e economia.$escolaridade_maior_saldo_postos for maior que 0 e economia.$escolaridade_menor_saldo_postos for igual a 0:
+Escolaridade só positiva.
+
+Para quando economia.$movimentacoes_tri_atual for maior ou igual a 30 e economia.$ocupacao_maior_saldo4_valor for maior que 0:
+Ocupações: economia.$ocupacao_maior_saldo1.
+
 Para quando economia.$movimentacoes_tri_atual for menor que 30 e economia.$movimentacoes_tri_atual for maior que 0:
 Poucas movimentações.
 """
@@ -148,3 +202,24 @@ def test_sem_movimentacao_no_trimestre():
                     analise_saldo_tri_atual="nulo")
     assert "Sem movimentação." in saida
     assert "Saldo nulo" not in saida and "Poucas" not in saida
+
+
+def test_escolaridade_e_ocupacoes_escolhem_a_versao_certa():
+    base = {"escolaridade_maior_saldo_postos": Decimal(900), "ocupacao_maior_saldo1": "faxineiro",
+            "ocupacao_maior_saldo4_valor": Decimal(3)}
+    saida = _render(**base, escolaridade_menor_saldo_postos=Decimal(12))
+    assert "Escolaridade: +900 e -12." in saida and "Ocupações: faxineiro." in saida
+    assert "só positiva" not in saida
+
+    saida = _render(**base, escolaridade_menor_saldo_postos=Decimal(0))
+    assert "Escolaridade só positiva." in saida and "Escolaridade: +" not in saida
+
+    # Menos de 4 ocupações positivas: a frase das 4 ocupações não sai.
+    saida = _render(**{**base, "ocupacao_maior_saldo4_valor": Decimal(0)},
+                    escolaridade_menor_saldo_postos=Decimal(12))
+    assert "Ocupações" not in saida
+
+
+def test_titulos_cbo_tem_codigos_com_zero_a_esquerda():
+    # A matview faz lpad(cd_cbo, 6, '0'): o CAGED grava 10105, a lista oficial 010105.
+    assert economia_caged._titulos_cbo()["010105"] == "Oficial general da aeronáutica"

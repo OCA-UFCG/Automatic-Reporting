@@ -7,11 +7,41 @@ a matview (refresh noturno em scripts/refresh_matviews.sh) e nenhuma conta aqui.
 Decisões e razões: Documentacao-OCA, HANDOFF-CAGED-ECONOMIA.md.
 """
 
+import csv
+from functools import cache
+from pathlib import Path
+
 from utils.queries.base import executar_query_dict
 
 # Identificação já chega ao contexto pela view de perfil; sobrescrever o nm_mun
 # canonicalizado em services/generation.py quebraria os joins seguintes.
 _COLUNAS_IDENTIFICACAO = ("cd_mun", "nm_mun", "sigla_uf")
+
+# Lista oficial da CBO 2002 (MTE, "Estrutura CBO (CSV)", baixada em 13/11/2026). A base
+# do CAGED grava os títulos sem acento ("Alimentador de Linha de Producao") e com
+# marcas de cadastro ("Faxineiro (Desativado em 2010)"); o título oficial entra no lugar.
+_CBO_CSV = Path(__file__).resolve().parent.parent / "data" / "cbo2002_ocupacao.csv"
+
+
+@cache
+def _titulos_cbo() -> dict[str, str]:
+    with _CBO_CSV.open(encoding="utf-8", newline="") as arquivo:
+        return {linha["CODIGO"]: linha["TITULO"] for linha in csv.DictReader(arquivo, delimiter=";")}
+
+
+def _ocupacoes_com_titulo_oficial(linha: dict) -> dict:
+    """ocupacao_maior_saldoN pelo título oficial do código (ocupacao_maior_saldoN_cbo),
+    com a inicial minúscula porque o Doc cita no meio da frase. Código fora da lista
+    oficial (ocupação criada depois, como "massoterapeuta") fica com o nome da base,
+    que a matview já entrega em minúsculas."""
+    titulos = _titulos_cbo()
+    corrigida = dict(linha)
+    for posicao in range(1, 5):
+        titulo = titulos.get(linha.get(f"ocupacao_maior_saldo{posicao}_cbo") or "")
+        if titulo:
+            corrigida[f"ocupacao_maior_saldo{posicao}"] = titulo[:1].lower() + titulo[1:]
+    return corrigida
+
 
 _MESES = ("jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez")
 _FIM_DO_TRIMESTRE = {"março": 3, "junho": 6, "setembro": 9, "dezembro": 12}
@@ -52,14 +82,23 @@ def buscar_caged_municipal(nome_municipio: str, sigla_uf: str) -> dict | None:
           AND sigla_uf = %s
         LIMIT 1
     """
-    linha = executar_query_dict(
-        query, (nome_municipio, sigla_uf), f"CAGED de '{nome_municipio} ({sigla_uf})'"
-    )
+    params = (nome_municipio, sigla_uf)
+    linha = executar_query_dict(query, params, f"CAGED de '{nome_municipio} ({sigla_uf})'")
     if not linha:
         return None
+    # Escolaridade e ocupações ficam numa matview à parte (db/2026-11-13-
+    # mv_caged_municipal_detalhe.sql): somadas à principal, o refresh passava de 10 min.
+    # Sem ela, o parágrafo some pelas condições do Doc (campos ausentes valem 0).
+    detalhe = executar_query_dict(
+        query.replace("mv_caged_municipal", "mv_caged_municipal_detalhe"),
+        params,
+        f"CAGED (escolaridade/ocupação) de '{nome_municipio} ({sigla_uf})'",
+    )
 
     marcadores = {
-        coluna: valor for coluna, valor in linha.items() if coluna not in _COLUNAS_IDENTIFICACAO
+        coluna: valor
+        for coluna, valor in {**linha, **_ocupacoes_com_titulo_oficial(detalhe or {})}.items()
+        if coluna not in _COLUNAS_IDENTIFICACAO
     }
     marcadores["caged_serie_mensal"] = _serie_mensal(linha)
     return marcadores
