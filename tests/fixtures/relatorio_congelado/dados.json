@@ -9864,5 +9864,16 @@
     "unid_uc_uso": "Unidade(s)"
    }
   }
+ ],
+ "buscar_caged_municipal": [
+  {
+   "args": {
+    "__tuple__": [
+     "Campina Grande",
+     "PB"
+    ]
+   },
+   "retorno": null
+  }
  ]
 }

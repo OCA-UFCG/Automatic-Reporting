@@ -647,3 +647,64 @@ def gerar_grafico_balanca(
 
     salvar_card_grafico(fig, chart_file)
     return chart_file.name
+
+
+_COR_ANO_ANTERIOR = "#F8D9B8"
+
+
+def gerar_grafico_visao_mensal(
+    cidade: dict,
+    OUTPUT_DIR: pathlib.Path,
+    safe_city: str,
+) -> str:
+    """Figura X3 do trecho CAGED: saldo mensal de empregos formais, janeiro até o
+    fim do trimestre de referência, ano anterior × ano atual (barras lado a lado).
+    A série vem pronta de utils/queries/economia_caged.py (caged_serie_mensal)."""
+    serie = cidade.get("caged_serie_mensal") or []
+    if not serie:
+        raise ValueError("Série mensal do CAGED não disponível.")
+    ano_anterior = cidade.get("ano_anterior") or "Ano anterior"
+    ano_atual = cidade.get("ano_atual") or "Ano atual"
+
+    meses = [f"{mes}." for mes, _ant, _atual in serie]
+    anteriores = [_numero(ant) or 0 for _mes, ant, _atual in serie]
+    atuais = [_numero(atual) or 0 for _mes, _ant, atual in serie]
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    chart_file = OUTPUT_DIR / f"grafico_visao_mensal_{safe_city}.png"
+    reuso = reusar_grafico(chart_file)
+    if reuso is not None:
+        return reuso
+
+    fig, ax = iniciar_card_grafico((10, 4.5), "Saldo mensal de empregos formais")
+    _reservar_espaco_rotulo_x(fig, ax)
+
+    largura = 0.4
+    posicoes = list(range(len(serie)))
+    ax.bar([p - largura / 2 for p in posicoes], anteriores, largura,
+           color=_COR_ANO_ANTERIOR, label=str(ano_anterior), zorder=3)
+    ax.bar([p + largura / 2 for p in posicoes], atuais, largura,
+           color=_COR_LINHA, label=str(ano_atual), zorder=3)
+    ax.set_xticks(posicoes)
+    ax.set_xticklabels(meses, fontsize=13 * ESCALA_FONTE)
+    ax.axhline(0, color="#4A4A4A", linewidth=1, zorder=3)
+
+    ax.set_ylabel("Admissões menos desligamentos", fontsize=13 * ESCALA_FONTE)
+    ax.tick_params(axis="y", labelsize=13 * ESCALA_FONTE)
+    ax.yaxis.set_major_formatter(
+        FuncFormatter(lambda valor, _: formatar_numero_ptbr(valor, decimais=0))
+    )
+    for lado in ("top", "right", "left"):
+        ax.spines[lado].set_visible(False)
+    ax.grid(axis="y", linestyle=":", color="#CCCCCC", zorder=0)
+    ax.set_axisbelow(True)
+    ax.legend(frameon=False, fontsize=12 * ESCALA_FONTE, loc="upper left", ncol=2)
+
+    # Folga acima das barras para a legenda não cobrir os meses de maior saldo.
+    valor_minimo = min(0, *anteriores, *atuais)
+    valor_maximo = max(0, *anteriores, *atuais)
+    amplitude = valor_maximo - valor_minimo or 1.0
+    ax.set_ylim(valor_minimo - amplitude * 0.08, valor_maximo + amplitude * 0.25)
+
+    salvar_card_grafico(fig, chart_file)
+    return chart_file.name

@@ -49,6 +49,9 @@ BUSCAS: tuple[str, ...] = (
     "buscar_linhas_pib_municipal",
     "buscar_linhas_importacao",
     "buscar_comercio_exterior_economia",
+    # Gravado como None: a gravação (26/10/2026) é anterior à mv_caged_municipal, e o
+    # Doc gravado não tem os marcadores novos. Regravar no gamma traz os valores.
+    "buscar_caged_municipal",
     "buscar_populacao_rua",
     "buscar_indicadores_municipio",
 )
