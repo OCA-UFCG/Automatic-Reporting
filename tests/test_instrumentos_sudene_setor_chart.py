@@ -1,4 +1,5 @@
 from decimal import Decimal
+from itertools import pairwise
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -99,7 +100,7 @@ def test_rotulos_do_eixo_x_nao_se_sobrepoem(tipo):
     caixas = [rotulo.get_window_extent(renderer) for rotulo in fig.axes[0].get_xticklabels()]
     plt.close(fig)
 
-    assert all(esquerda.x1 < direita.x0 for esquerda, direita in zip(caixas, caixas[1:]))
+    assert all(esquerda.x1 < direita.x0 for esquerda, direita in pairwise(caixas))
 
 
 @pytest.mark.parametrize(
