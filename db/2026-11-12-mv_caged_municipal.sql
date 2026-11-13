@@ -3,7 +3,8 @@
 -- Decisões e razões: Documentacao-OCA data-nordeste/automatic-reporting/HANDOFF-CAGED-ECONOMIA.md
 --
 -- APLICADO no gamma (oca_db) em 2026-11-12 (310 s, 2.074 linhas) e incluído no
--- ~/scripts/refresh_matviews.sh de lá. Beta e prod: ainda não.
+-- ~/scripts/refresh_matviews.sh de lá; recriado em 2026-11-13 com o coalesce da
+-- variação (db/2026-11-13-recria-mv_caged.sql). Beta e prod: ainda não.
 --
 -- Fonte: eco_caged.tb_caged_catalogo (microdado, 1 linha por movimentação; cd_movi +1
 -- admissão, -1 desligamento). Agregar a tabela leva minutos, por isso matview com refresh
@@ -196,7 +197,10 @@ linhas AS (
         coalesce(m.acum_ant, 0) AS saldo_acumulado_ano_anterior,
         -- Só com base positiva: com base negativa ou zero o percentual inverte o sentido
         -- ou divide por zero (decisão C). O Doc só usa esta coluna sob essa condição.
-        CASE WHEN m.acum_ant > 0 THEN round((m.acum - m.acum_ant) * 100.0 / m.acum_ant, 1) END
+        -- coalesce: sem movimentação no ano atual o acumulado é NULL e a variação saía
+        -- vazia, deixando o marcador cru no texto (Milagres do Maranhão, Ruy Barbosa;
+        -- revisão de 13/11). Sem movimentação = acumulado 0 = variação de -100%.
+        CASE WHEN m.acum_ant > 0 THEN round((coalesce(m.acum, 0) - m.acum_ant) * 100.0 / m.acum_ant, 1) END
             AS variacao_acumulado_per,
         s.setores_saldo_lista,
         sc.secao_maior_saldo,
