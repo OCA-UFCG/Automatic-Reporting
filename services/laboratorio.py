@@ -40,16 +40,21 @@ from services.generation import (
     gerar_graficos_do_tema,
     separar_secoes_do_tema,
 )
+from services.graficos_estado import gerar_graficos_do_estado
 from services.laboratorio_snapshot import SNAPSHOT_DIR, carregar_snapshot
 
 # docs_env/docs_url moram em services.macrotemas desde o relatório por estado (05/11/2026);
 # importados aqui porque main.py e os testes do laboratório os pedem a este módulo.
 from services.macrotemas import docs_env, docs_url  # noqa: F401
+from services.primeira_pagina_estado import primeira_pagina_do_estado
+from services.relatorio_estado import _BLOCOS_DA_CAPA, nome_de_arquivo_da_unidade
+from utils.cover import montar_indicadores_do_doc
 from utils.data.cities import filtrar_linhas_por_cidade, separar_cidade_uf
 from utils.external.docs import (
     baixar_doc,
     carregar_texto_do_docs,
     extrair_legenda_mapa_localizacao,
+    extrair_panorama_indicadores,
     extrair_relatorio_geral,
     extrair_resumo_cidade,
 )
@@ -68,6 +73,7 @@ from utils.render.renderer import (
     html_do_tema,
     html_para_texto,
     render_descricao_tema_html,
+    reset_figura_contador,
     resolver_referencia_figura_do_mapa,
     texto_para_html,
 )
@@ -93,13 +99,15 @@ def com_csv(contextos: dict[str, dict], csv: dict[str, dict] | None) -> dict[str
 
 
 def texto_da_unidade(texto: str, unidade: str) -> str:
-    """O texto do Doc como o relatório da unidade o lê: no estado, cada condição vale
-    só para a linha seguinte (services/relatorio_estado.py). Sem isto o painel
-    mostraria parágrafos que o PDF de estado mostra, ou o contrário.
+    """O texto do Doc como o relatório da unidade o lê: no estado e na área, cada
+    condição vale só para a linha seguinte (services/relatorio_estado.py,
+    tema_da_unidade). Sem isto o painel mostraria parágrafos que o PDF da unidade
+    mostra, ou o contrário. Até 13/11/2026 só o estado passava por aqui, e a prévia
+    de área divergia do relatório de área.
 
     Ex.: texto_da_unidade(doc, "municipio") is doc
     """
-    if unidade == "estado":
+    if unidade != "municipio":
         return isolar_paragrafo_de_cada_condicao(texto)
     return texto
 
@@ -166,14 +174,19 @@ def ler_csv(slug: str, texto: str, unidade: str = "municipio") -> dict | None:
 
 
 def conferir_municipio(
-    descricao_tema: str, contexto: dict, slug: str, graficos: dict[str, str] | None = None
+    descricao_tema: str,
+    contexto: dict,
+    slug: str,
+    graficos: dict[str, str] | None = None,
+    com_mapa: bool = True,
 ) -> dict:
     """Texto final do tema num município (em texto e em HTML de relatório), as
     versões avaliadas (condição, disparou) na ordem do texto e os campos que ficaram
     crus. `graficos`: os gerados de verdade (graficos_do_municipio); sem eles, supõe
-    todo gráfico gerado (html_do_tema)."""
+    todo gráfico gerado (html_do_tema). `com_mapa=False` para estado e área, que não
+    têm mapa: a primeira legenda sai como Figura 1, como no relatório da unidade."""
     with registrar_versoes() as versoes:
-        html = html_do_tema(descricao_tema, contexto, slug, graficos)
+        html = html_do_tema(descricao_tema, contexto, slug, graficos, com_mapa)
     partes = [texto for texto in map(html_para_texto, html) if texto]
     return {
         "partes": partes,
@@ -368,9 +381,23 @@ def graficos_do_municipio(slug: str, contexto: dict, cidade: str) -> dict[str, s
     o painel mostraria o gráfico de antes (ou, sem a cidade no nome, o de outra).
     Medido em 01/11: 0,1 a 1,8 s por tema na 1ª vez de uma cidade; editar o texto
     não gera de novo."""
-    chave = hashlib.sha256(json.dumps(codificar(contexto), sort_keys=True).encode()).hexdigest()[:12]
-    safe_city = f"lab_{re.sub(r'[^a-zA-Z0-9_-]+', '_', cidade.strip().lower())}_{chave}"
+    safe_city = f"lab_{re.sub(r'[^a-zA-Z0-9_-]+', '_', cidade.strip().lower())}_{_chave_do_contexto(contexto)}"
     graficos = gerar_graficos_do_tema(slug, contexto, OUTPUT_DIR, safe_city, f"laboratório: {cidade}")
+    evict_graficos_if_needed()
+    return graficos
+
+
+def _chave_do_contexto(contexto: dict) -> str:
+    return hashlib.sha256(json.dumps(codificar(contexto), sort_keys=True).encode()).hexdigest()[:12]
+
+
+def graficos_do_estado(slug: str, contexto: dict, estado: str) -> dict[str, str]:
+    """Os gráficos do tema para o estado, pela mesma função do relatório de estado
+    (gerar_graficos_do_estado), com "lab" e o hash do contexto no nome pelo mesmo
+    motivo de graficos_do_municipio. O contexto do snapshot é a linha da matview, a
+    mesma que o relatório passa. Área não tem gráfico nem no relatório."""
+    safe = f"lab_{nome_de_arquivo_da_unidade('estado', estado)}_{_chave_do_contexto(contexto)}"
+    graficos = gerar_graficos_do_estado(slug, contexto, OUTPUT_DIR, safe)
     evict_graficos_if_needed()
     return graficos
 
@@ -398,26 +425,91 @@ def texto_do_municipio(
     if contexto is None:
         return None
     secoes, _ = separar_secoes_do_tema(texto_da_unidade(doc_texto, unidade), slug)
-    if unidade != "municipio":
-        # Os gráficos (GRAFICOS_POR_TEMA) leem colunas municipais: estado fica sem
-        # gráfico, e a menção "(Figura X)" some como num gráfico sem dado.
-        graficos = {}
-    else:
+    if unidade == "municipio":
         graficos = graficos_do_municipio(slug, contexto, cidade) if com_graficos else None
-    resultado = conferir_municipio(secoes.descricao_tema or "", contexto, slug, graficos)
+    elif unidade == "estado":
+        # Desde 12/11/2026 o relatório de estado desenha os gráficos do Doc
+        # (services/relatorio_estado.py, tema_da_unidade); a prévia faz o mesmo.
+        graficos = graficos_do_estado(slug, contexto, cidade) if com_graficos else None
+    else:
+        # Área: sem gráfico também no relatório; "(Figura X)" some como num gráfico sem dado.
+        graficos = {}
+    resultado = conferir_municipio(
+        secoes.descricao_tema or "", contexto, slug, graficos, com_mapa=unidade == "municipio"
+    )
+    resto = secoes.resto
+    if unidade != "municipio":
+        # No relatório da unidade, o "Panorama de indicadores" do Doc vira os cards do
+        # tema e sai do resto (relatorio_estado.item_do_tema). Sem isto ele aparecia
+        # como texto na caixa de Fontes da prévia.
+        panorama, resto = extrair_panorama_indicadores(resto)
+        cards = _cards_do_panorama_html(montar_indicadores_do_doc(panorama, contexto, slug))
+        if cards:
+            resultado["html"].insert(0, cards)
     # O relatório fecha o tema com a caixa "Fontes / Conteúdos relacionados", o que
     # sobra do Doc depois do "@@" (generation.py, fontes_html). Só no HTML do painel:
     # "partes" e a conferência seguem só com o texto do tema.
-    if secoes.resto.strip():
-        resultado["html"].append(texto_para_html(secoes.resto, contexto, namespace=slug))
+    if resto.strip():
+        resultado["html"].append(texto_para_html(resto, contexto, namespace=slug))
     # A primeira página do relatório, acima do tema (André, 09/11/2026). Só no painel
-    # (com_graficos) e só em município: estado e área não têm Doc de Características
-    # nem mapa. Fica fora da conferência, das "partes" e do "ler com cada valor".
-    if unidade == "municipio" and com_graficos:
-        capa = primeira_pagina_html(slug, contexto, cidade)
+    # (com_graficos). Fica fora da conferência, das "partes" e do "ler com cada valor".
+    if com_graficos:
+        capa = (
+            primeira_pagina_html(slug, contexto, cidade)
+            if unidade == "municipio"
+            else primeira_pagina_da_unidade_html(unidade, secoes, contexto, slug, cidade)
+        )
         if capa:
             resultado["html"].insert(0, capa)
     return resultado
+
+
+def _cards_do_panorama_html(indicadores: list[dict[str, str]]) -> str:
+    """Os cards do Panorama como uma lista simples: rótulo, valor e a legenda "fonte •
+    unidade" quando o Doc a traz. O desenho dos cards é do SSR do relatório."""
+    if not indicadores:
+        return ""
+    itens = "".join(
+        f"<li><strong>{escape(card['nome'])}</strong>: {escape(card['valor'])}"
+        + (f" <small>({escape(card['fonte'])})</small>" if card.get("fonte") else "")
+        + "</li>"
+        for card in indicadores
+    )
+    return f'<section class="panorama-indicadores"><div class="cover-kicker">Panorama de indicadores</div><ul>{itens}</ul></section>'
+
+
+def primeira_pagina_da_unidade_html(
+    unidade: str, secoes, contexto: dict, slug: str, nome: str
+) -> str | None:
+    """A capa de estado e área como o relatório monta (relatorio_estado.capa_da_unidade):
+    os blocos de capa do Doc do tema e, no estado, o Doc da primeira página
+    (CARACTERISTICAS_ESTADO_DOCS_URL), que tem precedência. Sem os cards de área e
+    população, como na primeira página municipal do painel."""
+
+    def renderizar() -> dict[str, object]:
+        reset_figura_contador(com_mapa=False)
+        capa: dict[str, object] = {}
+        for bloco in _BLOCOS_DA_CAPA:
+            texto = getattr(secoes, bloco)
+            if texto:
+                capa[f"{bloco}_html"] = render_descricao_tema_html(texto, contexto, namespace=slug)
+        if unidade == "estado":
+            try:
+                capa.update(asyncio.run(primeira_pagina_do_estado(nome, "laboratorio")))
+            except Exception:  # sem a primeira página, a capa fica com os blocos do tema
+                logger.warning("Primeira página de %s indisponível no painel", nome, exc_info=True)
+        return capa
+
+    # Contexto copiado: a capa não mexe na numeração de figuras do tema.
+    capa = copy_context().run(renderizar)
+    partes: list[str] = []
+    if capa.get("relatorio_geral_html"):
+        partes += ['<div class="cover-kicker">Apresentação</div>', *capa["relatorio_geral_html"]]
+    if capa.get("resumo_cidade_html"):
+        partes += ['<div class="cover-kicker">Características Gerais</div>', *capa["resumo_cidade_html"]]
+    if not partes:
+        return None
+    return '<section class="primeira-pagina">' + "".join(partes) + "</section>"
 
 
 @lru_cache(maxsize=4096)

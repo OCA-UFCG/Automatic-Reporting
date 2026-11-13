@@ -884,7 +884,11 @@ def html_para_texto(html: str) -> str:
 
 
 def html_do_tema(
-    descricao_tema: str, contexto: dict, namespace: str, graficos: dict[str, str] | None = None
+    descricao_tema: str,
+    contexto: dict,
+    namespace: str,
+    graficos: dict[str, str] | None = None,
+    com_mapa: bool = True,
 ) -> list[str]:
     """O tema como sai no relatório, em HTML, uma parte por item (título, parágrafo,
     lista, gráfico). É o laboratório quem usa: o painel de texto pronto mostra o HTML,
@@ -903,7 +907,8 @@ def html_do_tema(
     sai sem gráficos e com outra numeração.
 
     Roda num contexto copiado com a numeração zerada, como num relatório de um
-    tema só, para não mexer na numeração de um relatório em andamento.
+    tema só, para não mexer na numeração de um relatório em andamento. `com_mapa`
+    vai para reset_figura_contador: estado e área não têm mapa e começam na Figura 1.
     """
     if graficos is None:
         graficos = {
@@ -914,7 +919,7 @@ def html_do_tema(
         }
 
     def renderizar() -> list[str]:
-        reset_figura_contador()
+        reset_figura_contador(com_mapa=com_mapa)
         return render_descricao_tema_html(
             descricao_tema, contexto, namespace, graficos_por_placeholder=graficos
         )
