@@ -35,3 +35,18 @@ def buscar_contexto_estado(slug: str, estado: str) -> dict | None:
         (estado,),
         f"contexto estadual de {slug} para {estado!r}",
     )
+
+
+def buscar_caracteristicas_estado(estado: str) -> dict | None:
+    """A linha do estado em est_caract_mun: área, população, sigla e as formas do nome
+    (`uf_de`) que o Doc da primeira página usa com o prefixo `geral.`. As colunas não
+    têm o prefixo `uf_` das matviews de tema. None se o estado não está lá ou o banco
+    falhou (executar_query_dict engole o erro, como em buscar_contexto_estado).
+
+    Ex.: buscar_caracteristicas_estado("Paraíba")["sigla_uf"] == "PB"
+    """
+    return executar_query_dict(
+        "SELECT * FROM auto_relatorios_est.est_caract_mun WHERE estado = %s",
+        (estado,),
+        f"características gerais de {estado!r}",
+    )
