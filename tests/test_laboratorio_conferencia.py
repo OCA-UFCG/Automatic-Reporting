@@ -662,6 +662,10 @@ def test_previa_de_estado_sai_como_o_relatorio_de_estado(monkeypatch, snapshot_e
     assert "Panorama de indicadores" in html and "<strong>População</strong>: 5" in html
     assert "demografia.$uf_pop" not in html
     assert html.index("Apresentação de Ceará") < html.index("O Ceará tem um gráfico")
+    # Sem o painel, o tema começa em html[0] e o Panorama continua fora das Fontes.
+    sem_painel = laboratorio.texto_do_municipio("demografia", doc, "Ceará", unidade="estado")["html"]
+    assert "O Ceará tem um gráfico" in sem_painel[0]
+    assert "Panorama" not in "".join(sem_painel)
 
 
 def test_previa_de_area_tem_capa_do_doc_do_tema_e_nenhum_grafico(monkeypatch, snapshot_falso, tmp_path):

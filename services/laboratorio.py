@@ -442,8 +442,10 @@ def texto_do_municipio(
         # No relatório da unidade, o "Panorama de indicadores" do Doc vira os cards do
         # tema e sai do resto (relatorio_estado.item_do_tema). Sem isto ele aparecia
         # como texto na caixa de Fontes da prévia.
+        # Os cards, como a capa, só no painel (com_graficos): quem lê "html" sem o painel
+        # espera o tema começando em html[0].
         panorama, resto = extrair_panorama_indicadores(resto)
-        cards = _cards_do_panorama_html(montar_indicadores_do_doc(panorama, contexto, slug))
+        cards = _cards_do_panorama_html(montar_indicadores_do_doc(panorama, contexto, slug)) if com_graficos else ""
         if cards:
             resultado["html"].insert(0, cards)
     # O relatório fecha o tema com a caixa "Fontes / Conteúdos relacionados", o que
