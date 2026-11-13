@@ -14,19 +14,24 @@ from utils.queries.base import executar_query_dict
 _COLUNAS_IDENTIFICACAO = ("cd_mun", "nm_mun", "sigla_uf")
 
 _MESES = ("jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez")
+_FIM_DO_TRIMESTRE = {"março": 3, "junho": 6, "setembro": 9, "dezembro": 12}
 
 
 def _serie_mensal(linha: dict) -> list[tuple[str, object, object]]:
     """(mês, saldo no ano anterior, saldo no ano atual) de janeiro até o último mês
-    do trimestre de referência — o recorte da Figura X3. A matview deixa NULL os
-    meses do ano atual depois do trimestre; ali a série acaba."""
-    serie = []
-    for numero, mes in enumerate(_MESES, start=1):
-        atual = linha.get(f"saldo_mes{numero:02d}_ano_atual")
-        if atual is None:
-            break
-        serie.append((mes, linha.get(f"saldo_mes{numero:02d}_ano_anterior") or 0, atual))
-    return serie
+    do trimestre de referência — o recorte da Figura X3. O fim vem de
+    `ultimo_mes_tri`, não do primeiro NULL: mês sem nenhuma movimentação também é
+    NULL na matview (soma de nada) e cortava a série no meio (Milagres do Maranhão,
+    sem movimentação em 2026, ficava sem gráfico). NULL dentro da série é saldo 0."""
+    meses = _FIM_DO_TRIMESTRE.get(linha.get("ultimo_mes_tri"), 0)
+    return [
+        (
+            mes,
+            linha.get(f"saldo_mes{numero:02d}_ano_anterior") or 0,
+            linha.get(f"saldo_mes{numero:02d}_ano_atual") or 0,
+        )
+        for numero, mes in enumerate(_MESES[:meses], start=1)
+    ]
 
 
 def buscar_caged_municipal(nome_municipio: str, sigla_uf: str) -> dict | None:

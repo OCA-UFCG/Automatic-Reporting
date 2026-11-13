@@ -49,6 +49,18 @@ def test_buscar_tira_identificacao_e_monta_serie_ate_o_fim_do_trimestre(monkeypa
     assert dados["caged_serie_mensal"][0] == ("jan", Decimal(10), Decimal(20))
 
 
+def test_serie_mensal_nao_corta_em_mes_sem_movimentacao(monkeypatch):
+    # Mês sem movimentação também é NULL na matview; a série vai até ultimo_mes_tri.
+    linha = _linha_mv(saldo_mes02_ano_atual=None, saldo_mes01_ano_anterior=None)
+    monkeypatch.setattr(economia_caged, "executar_query_dict", lambda *a, **k: linha)
+
+    serie = economia_caged.buscar_caged_municipal("Petrolina", "PE")["caged_serie_mensal"]
+
+    assert len(serie) == 6
+    assert serie[0] == ("jan", 0, Decimal(20))
+    assert serie[1] == ("fev", Decimal(20), 0)
+
+
 def test_buscar_sem_linha_ou_sem_uf_devolve_none(monkeypatch):
     monkeypatch.setattr(economia_caged, "executar_query_dict", lambda *a, **k: None)
     assert economia_caged.buscar_caged_municipal("Petrolina", "PE") is None
@@ -65,9 +77,13 @@ def test_grafico_visao_mensal_gera_png(tmp_path: Path):
     assert (tmp_path / arquivo).is_file()
 
 
-def test_grafico_visao_mensal_exige_serie():
+def test_grafico_visao_mensal_exige_serie_com_algum_saldo():
     with pytest.raises(ValueError):
         gerar_grafico_visao_mensal({}, Path("/tmp"), "sem_dados")
+    with pytest.raises(ValueError):
+        gerar_grafico_visao_mensal(
+            {"caged_serie_mensal": [("jan", 0, 0), ("fev", 0, 0)]}, Path("/tmp"), "zerado"
+        )
 
 
 # Trecho do Doc aprovado em 12/11/2026 (texto-caged.txt), reduzido às regras que

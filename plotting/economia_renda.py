@@ -661,8 +661,10 @@ def gerar_grafico_visao_mensal(
     fim do trimestre de referência, ano anterior × ano atual (barras lado a lado).
     A série vem pronta de utils/queries/economia_caged.py (caged_serie_mensal)."""
     serie = cidade.get("caged_serie_mensal") or []
-    if not serie:
-        raise ValueError("Série mensal do CAGED não disponível.")
+    # Série toda zerada (município sem nenhuma movimentação nos dois anos): o gráfico
+    # seria uma linha no zero; sem ele, a legenda sai junto e o texto já diz isso.
+    if not any(_numero(ant) or _numero(atual) for _mes, ant, atual in serie):
+        raise ValueError("Série mensal do CAGED vazia ou toda zerada.")
     ano_anterior = cidade.get("ano_anterior") or "Ano anterior"
     ano_atual = cidade.get("ano_atual") or "Ano atual"
 
