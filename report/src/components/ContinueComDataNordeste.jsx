@@ -1,6 +1,7 @@
 import React from 'react';
 import { QR_CODE_CATALOGO_DADOS } from '../assets/qrCodeCatalogoDados.js';
 import { QR_CODE_MONTE_RELATORIO } from '../assets/qrCodeMonteRelatorio.js';
+import { escolhaDaUnidade } from './rotuloDaUnidade.js';
 
 const LINK_CATALOGO_DADOS = 'https://datanordeste.sudene.gov.br/catalog';
 const LINK_MONTE_RELATORIO = 'https://datanordeste.sudene.gov.br/relatorio';
@@ -43,7 +44,7 @@ function ContinueCtaCard({ icon, titulo, descricao, texto_botao, href, qrCode, q
   );
 }
 
-export default function ContinueComDataNordeste() {
+export default function ContinueComDataNordeste({ cover }) {
   return (
     <div className="continue-cta-wrap">
       <section className="continue-cta">
@@ -68,7 +69,7 @@ export default function ContinueComDataNordeste() {
           <ContinueCtaCard
             icon={<IconMonteRelatorio />}
             titulo="Monte seu relatório"
-            descricao="Escolha o município e gere um relatório como este."
+            descricao={escolhaDaUnidade(cover)}
             texto_botao="Criar relatório"
             href={LINK_MONTE_RELATORIO}
             qrCode={QR_CODE_MONTE_RELATORIO}
