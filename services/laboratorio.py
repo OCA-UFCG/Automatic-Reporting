@@ -452,7 +452,15 @@ def texto_do_municipio(
     # sobra do Doc depois do "@@" (generation.py, fontes_html). Só no HTML do painel:
     # "partes" e a conferência seguem só com o texto do tema.
     if resto.strip():
-        resultado["html"].append(texto_para_html(resto, contexto, namespace=slug))
+        # Numeração própria, como html_do_tema: sem isto o resto herdava o contador do
+        # processo (com mapa) e um Doc de área sem `descricao_tema` saía com Figura 2.
+        # ponytail: recomeça a numeração em vez de continuar a do tema; o resto quase
+        # nunca tem figura quando o tema tem.
+        def resto_html() -> str:
+            reset_figura_contador(com_mapa=unidade == "municipio")
+            return texto_para_html(resto, contexto, namespace=slug)
+
+        resultado["html"].append(copy_context().run(resto_html))
     # A primeira página do relatório, acima do tema (André, 09/11/2026). Só no painel
     # (com_graficos). Fica fora da conferência, das "partes" e do "ler com cada valor".
     if com_graficos:
