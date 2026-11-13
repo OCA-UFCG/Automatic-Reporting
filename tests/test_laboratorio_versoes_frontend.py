@@ -171,3 +171,27 @@ def test_colar_um_bloco_no_doc_por_cima_das_linhas_mantem_o_tema():
         antes = _versoes_do_backend((DOCS / f"{tema}.txt").read_text(), tema)
         for numero, doc in enumerate(colados[tema], start=1):
             assert _versoes_do_backend(doc, tema) == antes, f"{tema}, bloco {numero}"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="sem Node")
+def test_marcador_junta_nao_muda_as_versoes_que_o_frontend_acha(tmp_path):
+    # "[junta com o próximo]" fica no fim do texto da versão, nunca na linha da
+    # condição: as duas leituras têm que continuar achando as mesmas versões.
+    linhas = (DOCS / "economia-renda.txt").read_text().split("\n")
+    marcado = [
+        linha + " [junta com o próximo]"
+        if i and linhas[i - 1].lstrip().casefold().startswith("para quando") and linha.strip()
+        else linha
+        for i, linha in enumerate(linhas)
+    ]
+    assert marcado != linhas
+    (tmp_path / "economia-renda.txt").write_text("\n".join(marcado))
+    modelo = (RAIZ / "frontend" / "src" / "laboratorio" / "modelo.js").as_uri()
+    saida = subprocess.run(
+        ["node", "--input-type=module", "-e", _SCRIPT % modelo, str(tmp_path), "economia-renda"],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    descricao = separar_secoes_do_tema("\n".join(marcado), "economia-renda")[0].descricao_tema
+    with registrar_versoes() as versoes:
+        interpretar_blocos_condicionais(descricao or "", {})
+    assert json.loads(saida)["economia-renda"] == [condicao for condicao, _ in versoes]

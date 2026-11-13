@@ -221,6 +221,43 @@ _CAMPO_CONTINUA_PARAGRAFO_ANTERIOR = "centro_pop"
 _TERMINA_EM_FRASE = re.compile(r"[.!?…]+[\"'”’)]*$")
 
 
+# "[junta com o próximo]" no fim de um parágrafo do Doc: o próximo parágrafo que
+# sair cola neste, em vez de virar <p> próprio (pedido da editoria, CAGED,
+# 13/11/2026). A marca fica no parágrafo de cima, em cada versão dele, porque só
+# assim dá pra saber se o de baixo tem a quem colar: quando nenhuma versão marcada
+# saiu, o de baixo sai sozinho, não grudado no parágrafo que veio antes. Sem isso,
+# juntar parágrafos com condições diferentes exigia uma versão por combinação.
+_MARCADOR_JUNTA = re.compile(r"\s*\\?\[\s*junta com o pr[oó]ximo\s*\\?\]\s*$", re.IGNORECASE)
+
+
+def _separar_marcador_junta(linha: str) -> tuple[str, bool]:
+    sem_marcador = _MARCADOR_JUNTA.sub("", linha)
+    return sem_marcador, sem_marcador != linha
+
+
+# Mesma regra de legenda de renderer._LEGENDA_LINHA (renderer importa este módulo,
+# então não dá para importar de lá).
+_LEGENDA_FIGURA = re.compile(r"(?i)^figura\s+[A-Za-z]\s*[–-]")
+
+
+def _emitir_paragrafo(resultado: list[str], texto: str, alvo: int | None) -> None:
+    """Cola ``texto`` no parágrafo marcado ``alvo`` se nada saiu depois dele
+    (só linhas em branco) e se ``texto`` é prosa — título sem ponto, legenda e
+    item de lista ficam fora, como em renderer.unir_paragrafos_da_sintese.
+    Senão, ``texto`` sai como parágrafo próprio."""
+    limpo = texto.strip()
+    if (
+        alvo is not None
+        and not any(linha.strip() for linha in resultado[alvo + 1 :])
+        and _TERMINA_EM_FRASE.search(limpo)
+        and not _LEGENDA_FIGURA.match(limpo)
+        and not limpo.startswith(("-", "*", "•"))
+        and _anexar_ao_ultimo_paragrafo(resultado, texto)
+    ):
+        return
+    resultado.append(texto)
+
+
 def _anexar_ao_ultimo_paragrafo(resultado: list[str], texto: str) -> bool:
     """Cola ``texto`` na última linha não vazia de ``resultado``.
 
@@ -899,8 +936,12 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
     # Primeira linha do bloco de Centro POP ainda por colar no parágrafo
     # anterior (ver _CAMPO_CONTINUA_PARAGRAFO_ANTERIOR).
     anexar_ao_anterior = False
+    # Índice em `resultado` do último parágrafo marcado com "[junta com o
+    # próximo]" que saiu; None quando o próximo parágrafo deve sair sozinho.
+    alvo_junta: int | None = None
 
     for linha in texto.splitlines():
+        linha, junta = _separar_marcador_junta(linha)
         limpa = _normalizar_condicao_editorial(linha)
 
         # Os marcadores de gráfico ficam depois das alternativas condicionais
@@ -974,7 +1015,11 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                         anexar_ao_anterior
                         and _anexar_ao_ultimo_paragrafo(resultado, condicao.group(2))
                     ):
-                        resultado.append(condicao.group(2))
+                        _emitir_paragrafo(resultado, condicao.group(2), alvo_junta)
+                    if bloco_ativo:
+                        alvo_junta = len(resultado) - 1 if junta else None
+                    elif not junta:
+                        alvo_junta = None
                     anexar_ao_anterior = False
                     bloco_ativo = True
                     aguardando_fim_de_bloco_simples = False
@@ -1075,7 +1120,16 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
                 anexar_ao_anterior = False
                 if _anexar_ao_ultimo_paragrafo(resultado, linha):
                     continue
-            resultado.append(linha)
+            if not limpa:
+                resultado.append(linha)
+                continue
+            _emitir_paragrafo(resultado, linha, alvo_junta)
+            alvo_junta = len(resultado) - 1 if junta else None
+        elif limpa and not junta:
+            # Versão não marcada que não saiu: o parágrafo marcado acima não é o
+            # "de cima" do próximo, que sai sozinho. Versões marcadas que não
+            # saíram mantêm o alvo (são alternativas do mesmo parágrafo).
+            alvo_junta = None
 
     return "\n".join(resultado)
 
