@@ -38,6 +38,9 @@ def _linha_paraiba() -> dict:
         "uf_faixa_etaria_2022_00_04": "0 a 4 anos",
         "uf_pop_faixa_mulher_2022_00_04": Decimal(130135),
         "uf_pop_faixa_homem_2022_00_04": Decimal(134750),
+        "uf_faixa_etaria_2022_05_09": "5 a 9 anos",
+        "uf_pop_faixa_mulher_2022_05_09": Decimal(135380),
+        "uf_pop_faixa_homem_2022_05_09": Decimal(141221),
         "uf_faixa_etaria_2022_30_39": "30 a 39 anos",
         "uf_pop_faixa_mulher_2022_30_39": Decimal(315854),
         "uf_pop_faixa_homem_2022_30_39": Decimal(293220),
@@ -65,8 +68,20 @@ def _linha_paraiba() -> dict:
 def test_faixas_saem_da_mais_nova_a_mais_velha_sem_a_faixa_indigena():
     faixas = faixas_etarias_sexo_do_estado(_linha_paraiba())
 
-    assert [faixa["faixa"] for faixa in faixas] == ["0 a 4 anos", "30 a 39 anos", "80 anos ou mais"]
-    assert faixas[0] == {"faixa": "0 a 4 anos", "mulheres": Decimal(130135), "homens": Decimal(134750)}
+    assert [faixa["faixa"] for faixa in faixas] == ["0 a 9 anos", "30 a 39 anos", "80 anos ou mais"]
+
+
+def test_faixas_de_5_anos_viram_faixas_de_10_como_no_texto():
+    # D16 (13/11/2026): o texto cita a "maior concentração" em faixas de 10 anos
+    # ("10 a 19 anos" no MA); com 0–4 e 5–9 separadas, essa barra não existia.
+    faixas = faixas_etarias_sexo_do_estado(_linha_paraiba())
+
+    assert faixas[0] == {
+        "faixa": "0 a 9 anos",
+        "mulheres": Decimal(130135) + Decimal(135380),
+        "homens": Decimal(134750) + Decimal(141221),
+    }
+    assert faixas[1] == {"faixa": "30 a 39 anos", "mulheres": Decimal(315854), "homens": Decimal(293220)}
 
 
 def test_cor_raca_tira_o_acento_da_classe_para_a_chave_municipal():

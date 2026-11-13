@@ -7,9 +7,13 @@ um adaptador que monta, a partir das colunas `uf_*`, o dicionário que a funçã
 municipal já sabe ler. Assim o gráfico do estado tem a mesma cara do municipal.
 
 Diferenças de dado, decididas em 12/11/2026:
-  - pirâmide etária: as 12 faixas da matview (de 5 em 5 anos até 29, de 10 em 10
-    depois), não as 9 do municipal. É com elas que a matview calcula a "maior
-    concentração" citada no texto (D9 do registro de problemas);
+  - pirâmide etária: a matview tem 12 faixas (de 5 em 5 anos até 29, de 10 em 10
+    depois). Em 12/11 a pirâmide usava as 12, porque era com elas que a matview
+    calculava a "maior concentração" citada no texto. Em 13/11 a matview passou a
+    calcular com faixas de 10 anos (D9), e o texto de MA, CE, AL e SE começou a
+    citar "10 a 19 anos" ou "20 a 29 anos", barras que não existiam na figura (D16).
+    Desde então o adaptador soma as faixas de 5 anos em faixas de 10 anos: são as 9
+    faixas do municipal e as mesmas do texto;
   - dinâmica populacional: só 2010 e 2022, porque a matview não tem 2000.
 
 Educação (12/11/2026) não tem diferença de dado: as 6 faixas de analfabetismo e os
@@ -105,23 +109,43 @@ _COLUNA_ALTERNATIVA_DA_VACINA = {"hepatite_b_30dias": "hebatite_b_30dias", "pneu
 _FAIXAS_DO_PUBLICO_ETARIO = ("ao_nascer", "menor_1_ano", "1_ano", "multifaixa")
 
 
+def _decada_da_faixa(sufixo: str) -> int:
+    # "05_09" e "00_04" caem na década 0; "80_mais", na 80.
+    return int(sufixo.split("_")[0]) // 10 * 10
+
+
+def _soma_das_faixas(linha: dict, sexo: str, sufixos: list[str]) -> object:
+    valores = [linha.get(f"uf_pop_faixa_{sexo}_2022_{sufixo}") for sufixo in sufixos]
+    if all(valor is None for valor in valores):
+        return None
+
+    return sum(valor for valor in valores if valor is not None)
+
+
 def faixas_etarias_sexo_do_estado(linha: dict) -> list[dict[str, object]]:
     """As faixas da pirâmide, da mais nova à mais velha, no formato de
-    `faixas_etarias_sexo` do municipal. O sufixo da coluna ("00_04", "80_mais")
-    ordena as faixas; o rótulo vem da própria matview ("0 a 4 anos").
+    `faixas_etarias_sexo` do municipal, em faixas de 10 anos (D16, 13/11/2026):
+    "0 a 4" + "5 a 9" viram "0 a 9 anos", e assim até 29. As faixas que a matview
+    já tem de 10 anos ("30 a 39 anos", "80 anos ou mais") mantêm o rótulo dela.
 
-    Ex.: faixas_etarias_sexo_do_estado(linha)[0]["faixa"] == "0 a 4 anos"
+    Ex.: faixas_etarias_sexo_do_estado(linha)[0]["faixa"] == "0 a 9 anos"
     """
     sufixos = sorted(
         chave.removeprefix(_PREFIXO_FAIXA) for chave in linha if chave.startswith(_PREFIXO_FAIXA)
     )
+    sufixos_por_decada: dict[int, list[str]] = {}
+    for sufixo in sufixos:
+        sufixos_por_decada.setdefault(_decada_da_faixa(sufixo), []).append(sufixo)
+
     return [
         {
-            "faixa": linha[f"{_PREFIXO_FAIXA}{sufixo}"],
-            "mulheres": linha.get(f"uf_pop_faixa_mulher_2022_{sufixo}"),
-            "homens": linha.get(f"uf_pop_faixa_homem_2022_{sufixo}"),
+            "faixa": (
+                linha[f"{_PREFIXO_FAIXA}{do_grupo[0]}"] if len(do_grupo) == 1 else f"{decada} a {decada + 9} anos"
+            ),
+            "mulheres": _soma_das_faixas(linha, "mulher", do_grupo),
+            "homens": _soma_das_faixas(linha, "homem", do_grupo),
         }
-        for sufixo in sufixos
+        for decada, do_grupo in sufixos_por_decada.items()
     ]
 
 
