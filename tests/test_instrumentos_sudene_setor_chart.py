@@ -1,4 +1,5 @@
 from decimal import Decimal
+from itertools import pairwise
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -30,23 +31,40 @@ def _linha_da_view(contratos: list[str], valores: list[str]) -> dict:
 
 
 # Recife/PE na view do Gamma em 06/11/2026: os números do exemplo do design.
+# Agricultura e infraestrutura zeradas (view de 13/11/2026).
 RECIFE = _linha_da_view(
-    ["3", "4045", "129", "23", "48", "93"],
-    ["154528.6", "359580433.74", "25884853.43", "302000", "1804690.89", "18407853.45"],
+    ["0", "3", "4045", "129", "0", "23", "48", "93"],
+    ["0", "154528.6", "359580433.74", "25884853.43", "0", "302000", "1804690.89", "18407853.45"],
 )
-# Igaci/AL: agroindústria e turismo zerados.
+# Igaci/AL: agroindústria, infraestrutura e turismo zerados; agricultura de 13/11/2026.
 IGACI = _linha_da_view(
-    ["0", "401", "1", "956", "2", "0"],
-    ["0", "3013505.85", "4729.41", "15930324.2", "35899", "0"],
+    ["31", "0", "401", "1", "0", "956", "2", "0"],
+    ["4286320.12", "0", "3013505.85", "4729.41", "0", "15930324.2", "35899", "0"],
 )
 
 
 def test_setores_seguem_a_ordem_alfabetica_do_design():
     assert [setor for setor, _ in SETORES_ECONOMICOS] == [
-        "agro", "comercio", "industria", "pecuaria", "pessoaf", "turismo",
+        "agri", "agro", "comercio", "industria", "infra", "pecuaria", "pessoaf", "turismo",
     ]
-    assert totais_por_setor(RECIFE, "{setor}_contrato") == [3.0, 4045.0, 129.0, 23.0, 48.0, 93.0]
-    assert totais_por_setor(RECIFE, "valor_{setor}_contrato")[1] == 359580433.74
+    assert totais_por_setor(RECIFE, "{setor}_contrato") == [0.0, 3.0, 4045.0, 129.0, 0.0, 23.0, 48.0, 93.0]
+    assert totais_por_setor(RECIFE, "valor_{setor}_contrato")[2] == 359580433.74
+
+
+def test_setores_cobrem_os_8_da_origem_do_fne():
+    # Regressão de 13/11/2026: sem agricultura e infraestrutura, a soma das
+    # barras ficava abaixo de `contrato2025` em 2.003 municípios. Igaci/AL tem
+    # 31 contratações de agricultura e 401 + 1 + 956 + 2 nos outros setores.
+    assert sum(totais_por_setor(IGACI, "{setor}_contrato")) == 1391.0
+    assert totais_por_setor(IGACI, "valor_{setor}_contrato")[0] == 4286320.12
+
+
+def test_linha_sem_coluna_de_agricultura_vira_value_error():
+    linha = dict(RECIFE)
+    del linha["agri_contrato"]
+
+    with pytest.raises(ValueError, match="agri_contrato"):
+        totais_por_setor(linha, "{setor}_contrato")
 
 
 def test_coluna_ausente_vira_value_error_com_a_chave():
@@ -61,16 +79,28 @@ def test_coluna_ausente_vira_value_error_com_a_chave():
 def test_serie_zerada_tira_so_o_proprio_card(tmp_path: Path, gerar):
     # Cada série tem o próprio card agora: zerada, ela some sozinha do
     # relatório (`_SO_VALOR`) e o card da outra série continua.
-    zerado = _linha_da_view(["0"] * 6, ["0"] * 6)
+    zerado = _linha_da_view(["0"] * 8, ["0"] * 8)
 
     with pytest.raises(ValueError, match="zeradas"):
         gerar(zerado, tmp_path, "zerado")
 
 
 def test_card_sai_mesmo_com_a_outra_serie_zerada(tmp_path: Path):
-    so_valor = _linha_da_view(["0"] * 6, ["0", "3013505.85", "4729.41", "15930324.2", "35899", "0"])
+    so_valor = _linha_da_view(["0"] * 8, ["0", "0", "3013505.85", "4729.41", "0", "15930324.2", "35899", "0"])
 
     assert gerar_grafico_valor_total_tipo(so_valor, tmp_path, "so_valor").endswith(".png")
+
+
+@pytest.mark.parametrize("tipo", ["quantidade", "valor"])
+def test_rotulos_do_eixo_x_nao_se_sobrepoem(tipo):
+    # Com 8 setores (13/11/2026) os grupos ficaram estreitos e "Agroindústria"
+    # e "Infraestrutura" inteiros invadiam o rótulo vizinho.
+    fig = desenhar_barras_por_setor(totais_por_setor(RECIFE, SERIES_SETOR[tipo].coluna), SERIES_SETOR[tipo])
+    renderer = fig.canvas.get_renderer()
+    caixas = [rotulo.get_window_extent(renderer) for rotulo in fig.axes[0].get_xticklabels()]
+    plt.close(fig)
+
+    assert all(esquerda.x1 < direita.x0 for esquerda, direita in pairwise(caixas))
 
 
 @pytest.mark.parametrize(
@@ -128,9 +158,9 @@ def test_barra_minima_para_valor_pequeno_e_zero_sem_barra():
     recife = alturas_das_barras(totais_por_setor(RECIFE, "valor_{setor}_contrato"), 4e8)
     igaci = alturas_das_barras(totais_por_setor(IGACI, "valor_{setor}_contrato"), 2e7)
 
-    assert recife[1] == 359580433.74
-    assert recife[0] == 4e8 * 0.012
-    assert igaci[0] == igaci[5] == 0.0
+    assert recife[2] == 359580433.74
+    assert recife[1] == 4e8 * 0.012
+    assert igaci[1] == igaci[7] == 0.0
 
 
 @pytest.mark.parametrize(

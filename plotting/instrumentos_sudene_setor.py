@@ -36,11 +36,18 @@ from utils.formatting import arredondar_meio_para_cima, formatar_numero_ptbr
 
 # (sufixo da coluna na view, rótulo no eixo X). INTENTIONAL: ordem alfabética,
 # como no design. A quebra de linha mantém os nomes longos dentro da largura
-# do grupo de barras.
+# do grupo de barras: com 8 setores cada grupo tem ~1 polegada, e
+# "Agroindústria"/"Infraestrutura" inteiros invadiam o vizinho.
+# IMPORTANT: os 8 setores de `instrsudene_fne.fne_indicadores` (a soma deles é
+# `fne_qtd_total`). Até 13/11/2026 a view só expunha 6 — sem agricultura e
+# infraestrutura, 2.003 municípios tinham barras somando menos que `contrato2025`.
+# Setor novo na origem precisa entrar aqui e na view, senão as barras não fecham.
 SETORES_ECONOMICOS = (
-    ("agro", "Agroindústria"),
-    ("comercio", "Comércio e\nServiços"),
+    ("agri", "Agri-\ncultura"),
+    ("agro", "Agro-\nindústria"),
+    ("comercio", "Comércio\ne Serviços"),
     ("industria", "Indústria"),
+    ("infra", "Infra-\nestrutura"),
     ("pecuaria", "Pecuária"),
     ("pessoaf", "Pessoa\nFísica"),
     ("turismo", "Turismo"),
