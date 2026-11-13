@@ -219,11 +219,29 @@ Gráfico sem dado fica de fora com aviso no log, e a legenda some junto.
 
 A área de interesse ainda não tem gráficos (colunas `area_*`).
 
+## Primeira página (Apresentação, cards e Características Gerais)
+
+Desde 13/11/2026 o estado tem um Doc próprio para a primeira página,
+`CARACTERISTICAS_ESTADO_DOCS_URL` (`services/primeira_pagina_estado.py`). É o
+equivalente estadual do `CARACTERISTICAS_DOCS_URL` do município, com os mesmos blocos:
+
+- `Panorama de indicadores` + pares rótulo / `geral.$campo`: os dois cards da capa
+  (área e população). Unidade depois do campo (`geral.$area:3 km²`) vira o sufixo do card.
+- `apresentacao = “…” @@`: a Apresentação.
+- `resumo_cidade = “…” @@`: Características Gerais, com um `Para quando
+  geral.$cd_uf for igual a …` por estado.
+
+Os campos `geral.$…` vêm de `auto_relatorios_est.est_caract_mun` (sem prefixo `uf_`:
+`cd_uf`, `estado`, `sigla_uf`, `uf_de`, `area`, `pop_total_2022`…), filtrada pelo
+`estado`. Sem a variável ou sem a linha do estado, a capa fica como antes (blocos de
+capa do Doc do primeiro tema). O secret entra só no `cd-gamma.yaml`, como os outros
+Docs estaduais, e o `scripts/atualizar_docs.py` também atualiza o cache dele.
+
 ## O que ainda não existe no estado
 
-- **Apresentação, Características Gerais, métricas e mapa da capa:** são municipais.
-  Sem eles, o primeiro tema começa logo abaixo do título (`capaTemConteudo.js`); se
-  o Doc estadual trouxer o bloco `resumo_cidade`, a capa volta a ter página própria.
+- **Mapa de localização do estado:** o shapefile lido hoje é por município. Enquanto
+  não existe, a menção "(Figura X)" de Características Gerais sai do texto
+  (`services/primeira_pagina_estado.py`), para não roubar o número do primeiro gráfico.
 - **Fonte e unidade nos cards do Panorama:** só aparecem quando o Doc traz a legenda "fonte • unidade" (Infraestrutura já traz; os outros temas ainda não).
 - **CSV de fallback:** o estado só lê a matview.
 - **Minas Gerais:** espera a equipe de dados incluí-lo nas matviews.

@@ -37,7 +37,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from config import CARACTERISTICAS_DOCS_URL
+from config import CARACTERISTICAS_DOCS_URL, CARACTERISTICAS_ESTADO_DOCS_URL
 from services.macrotemas import docs_url
 from utils.data.macrotemas import MACROTEMAS
 from utils.external.docs import baixar_e_salvar_doc
@@ -63,6 +63,8 @@ def _docs_configurados() -> list[tuple[str, str]]:
     )
     if CARACTERISTICAS_DOCS_URL:
         docs.append(("caracteristicas", CARACTERISTICAS_DOCS_URL))
+    if CARACTERISTICAS_ESTADO_DOCS_URL:
+        docs.append(("caracteristicas (estado)", CARACTERISTICAS_ESTADO_DOCS_URL))
     return docs
 
 

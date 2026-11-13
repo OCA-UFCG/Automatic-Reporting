@@ -273,6 +273,7 @@ jobs:
           HIDRAULICA_ESTADO_DOCS_URL: ${{ secrets.HIDRAULICA_ESTADO_DOCS_URL }}
           DESENVOLVIMENTO_SOCIAL_ESTADO_DOCS_URL: ${{ secrets.DESENVOLVIMENTO_SOCIAL_ESTADO_DOCS_URL }}
           MEIO_AMBIENTE_ESTADO_DOCS_URL: ${{ secrets.MEIO_AMBIENTE_ESTADO_DOCS_URL }}
+          CARACTERISTICAS_ESTADO_DOCS_URL: ${{ secrets.CARACTERISTICAS_ESTADO_DOCS_URL }}
           DEMOGRAFIA_AREA_DOCS_URL: ${{ secrets.DEMOGRAFIA_AREA_DOCS_URL }}
           EDUCACAO_AREA_DOCS_URL: ${{ secrets.EDUCACAO_AREA_DOCS_URL }}
           SAUDE_AREA_DOCS_URL: ${{ secrets.SAUDE_AREA_DOCS_URL }}
@@ -286,6 +287,7 @@ jobs:
           # (spec do laboratório, "Acesso"). O acesso de fora é pelo gamma-lab.oca-portal.com,
           # com basic auth no nginx do beta.
           # <TEMA>_ESTADO_DOCS_URL: Docs estaduais do laboratório (?unidade=estado).
+          # CARACTERISTICAS_ESTADO_DOCS_URL: primeira página do relatório por estado.
           # <TEMA>_AREA_DOCS_URL: Docs de área de interesse (?unidade=area); sem desenvolvimento
           # social, que não tem matview de área.
           sudo docker run \
@@ -314,6 +316,7 @@ jobs:
             -e HIDRAULICA_ESTADO_DOCS_URL="$HIDRAULICA_ESTADO_DOCS_URL" \
             -e DESENVOLVIMENTO_SOCIAL_ESTADO_DOCS_URL="$DESENVOLVIMENTO_SOCIAL_ESTADO_DOCS_URL" \
             -e MEIO_AMBIENTE_ESTADO_DOCS_URL="$MEIO_AMBIENTE_ESTADO_DOCS_URL" \
+            -e CARACTERISTICAS_ESTADO_DOCS_URL="$CARACTERISTICAS_ESTADO_DOCS_URL" \
             -e DEMOGRAFIA_AREA_DOCS_URL="$DEMOGRAFIA_AREA_DOCS_URL" \
             -e EDUCACAO_AREA_DOCS_URL="$EDUCACAO_AREA_DOCS_URL" \
             -e SAUDE_AREA_DOCS_URL="$SAUDE_AREA_DOCS_URL" \

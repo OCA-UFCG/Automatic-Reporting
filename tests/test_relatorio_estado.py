@@ -11,7 +11,13 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from services import cache, generation, handlers, relatorio_estado
+from services import (
+    cache,
+    generation,
+    handlers,
+    primeira_pagina_estado,
+    relatorio_estado,
+)
 from utils.data.estados import ESTADOS_COM_RELATORIO, resolver_estado
 from utils.queries import estado as consulta_estado
 
@@ -78,6 +84,9 @@ def ambiente_estadual(tmp_path, monkeypatch):
     monkeypatch.setattr(relatorio_estado, "buscar_contexto_estado", matview.buscar)
     monkeypatch.setattr(relatorio_estado, "render_react_ssr", ssr.render)
     monkeypatch.setattr(relatorio_estado, "carregar_texto_do_docs", _doc_fake)
+    # Sem primeira página: com CARACTERISTICAS_ESTADO_DOCS_URL no .env, o teste iria ao
+    # banco e ao Google (tests/test_primeira_pagina_estado.py a liga com fakes).
+    monkeypatch.setattr(primeira_pagina_estado, "CARACTERISTICAS_ESTADO_DOCS_URL", None)
     # Só demografia tem Doc estadual, como no Drive em 05/11/2026.
     monkeypatch.setattr(
         relatorio_estado,

@@ -15,9 +15,11 @@ Gráficos desde 12/11/2026: GRAFICOS_ESTADO_POR_TEMA (services/graficos_estado.p
 alimenta as funções de plotting/ com a linha da matview. Tema sem entrada lá sai sem
 gráficos, e a menção "(Figura X)" do Doc some como num gráfico sem dado.
 
+Primeira página do estado desde 13/11/2026 (Apresentação, cards de área e população,
+Características Gerais): Doc próprio, services/primeira_pagina_estado.py.
+
 Fica de fora por enquanto, como no Laboratório com unidade=estado:
-  - mapa de localização e Características Gerais: leem o município (shapefile por
-    município, vw_indicadores).
+  - mapa de localização: o shapefile lido hoje é por município.
 
 Os cards do tema ("Panorama de indicadores") vêm do próprio Doc estadual desde
 11/11/2026: pares rótulo / `$campo` resolvidos contra a linha da matview
@@ -54,6 +56,7 @@ from services.macrotemas import (
     get_macrotema,
     get_macrotema_slugs_para_relatorio,
 )
+from services.primeira_pagina_estado import primeira_pagina_do_estado
 from utils.cover import montar_capa_relatorio, montar_indicadores_do_doc
 from utils.data.areas import resolver_area
 from utils.data.estados import resolver_estado
@@ -206,8 +209,10 @@ async def _gerar(unidade: str, nome: str, slugs: list[str], safe_report: str) ->
             ),
         )
     referencias = [ref for tema in temas for ref in tema.secoes.referencias]
+    # Só o estado tem Doc de primeira página (services/primeira_pagina_estado.py).
+    primeira_pagina = await primeira_pagina_do_estado(nome, safe_report) if unidade == "estado" else {}
     html_content = await render_react_ssr({
-        "cover": capa_da_unidade(unidade, nome, temas, gerado_em, safe_report),
+        "cover": capa_da_unidade(unidade, nome, temas, gerado_em, safe_report, primeira_pagina),
         "docsHtml": html_das_referencias(referencias, safe_report) or "",
         "dados": [temas[0].contexto],
     })
@@ -297,11 +302,18 @@ def item_do_tema(
 
 
 def capa_da_unidade(
-    unidade: str, nome: str, temas: list[TemaDoEstado], gerado_em: datetime, safe_report: str
+    unidade: str,
+    nome: str,
+    temas: list[TemaDoEstado],
+    gerado_em: datetime,
+    safe_report: str,
+    primeira_pagina: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """A capa: título com o nome e a sigla, tags dos temas e os blocos de capa do Doc
     do primeiro tema. `unidade` diz ao SSR para trocar "Dados municipais" pelo rótulo
-    da unidade (report/src/components/rotuloDaUnidade.js)."""
+    da unidade (report/src/components/rotuloDaUnidade.js). `primeira_pagina` (só no
+    estado) vem do Doc próprio da primeira página e tem precedência sobre os blocos do
+    Doc do tema."""
     primeiro = temas[0]
     coluna_sigla = UNIDADES_DO_RELATORIO[unidade].coluna_sigla
     cover = montar_capa_relatorio(primeiro.contexto, gerado_em, primeiro.item["nome"], primeiro.item["slug"])
@@ -326,4 +338,5 @@ def capa_da_unidade(
         cover[f"{bloco}_html"] = render_descricao_tema_html(
             texto, primeiro.contexto, namespace=primeiro.item["slug"], safe_report=safe_report
         )
+    cover.update(primeira_pagina or {})
     return cover
