@@ -18,7 +18,7 @@ export default function Report({ cover, docsHtml }) {
         <PdfPageHeader label={rotuloDaUnidade(cover)} />
         <Cover cover={cover} />
         <div className="doc-content" dangerouslySetInnerHTML={{ __html: docsHtml }} />
-        <ContinueComDataNordeste />
+        <ContinueComDataNordeste cover={cover} />
         <PdfFooter data={cover.data_extenso} />
       </body>
     </html>
