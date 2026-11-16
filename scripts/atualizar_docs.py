@@ -41,6 +41,7 @@ from config import CARACTERISTICAS_DOCS_URL, CARACTERISTICAS_ESTADO_DOCS_URL
 from services.macrotemas import docs_url
 from utils.data.macrotemas import MACROTEMAS
 from utils.external.docs import baixar_e_salvar_doc
+from utils.queries.area import AREAS_DO_TEMA_DE_TEXTO_FIXO, MATVIEW_AREA_POR_MACROTEMA
 from utils.queries.estado import MATVIEW_ESTADUAL_POR_MACROTEMA
 from utils.render.placeholders import conferir_condicoes
 
@@ -60,6 +61,14 @@ def _docs_configurados() -> list[tuple[str, str]]:
         (f"{slug} (estado)", url)
         for slug in MATVIEW_ESTADUAL_POR_MACROTEMA
         if (url := docs_url(slug, "estado"))
+    )
+    # Os Docs de área (Nordeste, Caatinga…), 16/11/2026: sem eles aqui, o Doc de área
+    # ficava congelado no cache e a correção das Fontes no Google não aparecia. Os
+    # temas de texto fixo não têm matview de área, mas têm Doc de área.
+    docs.extend(
+        (f"{slug} (área)", url)
+        for slug in (*MATVIEW_AREA_POR_MACROTEMA, *AREAS_DO_TEMA_DE_TEXTO_FIXO)
+        if (url := docs_url(slug, "area"))
     )
     if CARACTERISTICAS_DOCS_URL:
         docs.append(("caracteristicas", CARACTERISTICAS_DOCS_URL))
