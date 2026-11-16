@@ -189,6 +189,8 @@ Gráfico sem dado fica de fora com aviso no log, e a legenda some junto.
   tem 2000);
 - Educação: sem diferença de dado (as 6 faixas de analfabetismo e os 4 níveis de
   instrução são os do municipal);
+- Desenvolvimento Social (16/11/2026): evolução do IDHM com 1991, 2000 e 2010,
+  os mesmos anos do municipal (`uf_idhm_<ano>` → `idhm_<ano>`);
 - Economia e Renda: adaptadores em `services/graficos_estado_economia.py`. A
   matview guarda PIB e VAB escalados ("96,96" + "bilhões"), e o adaptador os
   devolve em reais; unidade desconhecida tira o gráfico em vez de desenhá-lo

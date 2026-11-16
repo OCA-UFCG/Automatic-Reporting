@@ -14,6 +14,7 @@ from services.graficos_estado import (
     estabelecimentos_serie_do_estado,
     faixas_etarias_sexo_do_estado,
     gerar_graficos_do_estado,
+    idhm_serie_do_estado,
     mortalidade_infantil_serie_do_estado,
     niveis_de_instrucao_do_estado,
     populacao_historica_do_estado,
@@ -383,3 +384,27 @@ def test_meio_ambiente_usa_o_marcador_proprio_do_doc_estadual(tmp_path: Path):
     graficos = gerar_graficos_do_estado("meio-ambiente", linha, tmp_path, "estado_para_ba")
 
     assert graficos == {"grafico_aridez_estadual": "grafico_aridez_comparada_estado_para_ba.png"}
+
+
+def test_idhm_do_estado_tira_o_prefixo_uf_dos_tres_anos():
+    linha = {"uf_idhm_1991": Decimal("0.382"), "uf_idhm_2000": Decimal("0.506"), "uf_idhm_2010": Decimal("0.658")}
+
+    assert idhm_serie_do_estado(linha) == {
+        "idhm_1991": Decimal("0.382"),
+        "idhm_2000": Decimal("0.506"),
+        "idhm_2010": Decimal("0.658"),
+    }
+
+
+def test_gera_o_grafico_de_desenvolvimento_social(tmp_path: Path):
+    linha = {"uf_idhm_1991": Decimal("0.382"), "uf_idhm_2000": Decimal("0.506"), "uf_idhm_2010": Decimal("0.658")}
+
+    graficos = gerar_graficos_do_estado("desenvolvimento-social", linha, tmp_path, "estado_para_ba")
+
+    assert graficos == {
+        "grafico_de_desenvolvimento_social": "grafico_de_desenvolvimento_social_estado_para_ba.png"
+    }
+
+
+def test_desenvolvimento_social_sem_idhm_fica_sem_grafico(tmp_path: Path):
+    assert gerar_graficos_do_estado("desenvolvimento-social", {"uf_sigla_uf": "PB"}, tmp_path, "estado_para_ba") == {}

@@ -28,6 +28,9 @@ estado das tabelas do painel (COMPLEMENTOS_DO_PAINEL); onde a matview também te
 dado, a soma confere com ela. Infraestrutura (services/graficos_estado_saneamento.py)
 faz o mesmo com a rosca de esgotamento, só quando a matview diz que a distribuição
 está completa. Fora esses dois temas, tudo vem da matview.
+
+Desenvolvimento Social (16/11/2026): a est_desen_social tem o IDHM de 1991, 2000 e
+2010, os mesmos 3 anos do gráfico municipal; só muda o prefixo da coluna.
 """
 
 import logging
@@ -41,6 +44,7 @@ from plotting.demografia import (
     gerar_grafico_faixa_etaria_e_sexo,
     gerar_grafico_visao_historica_populacao,
 )
+from plotting.desenvolvimento_social import gerar_grafico_de_desenvolvimento_social
 from plotting.economia_renda import (
     gerar_grafico_balanca,
     gerar_grafico_exportacao,
@@ -107,6 +111,7 @@ _POSICOES_DE_FAIXA_DE_ANALFABETISMO = range(1, 9)
 # primeiro, para uma correção na matview não tirar a vacina do gráfico.
 _COLUNA_ALTERNATIVA_DA_VACINA = {"hepatite_b_30dias": "hebatite_b_30dias", "pneumo10": "penumo10"}
 _FAIXAS_DO_PUBLICO_ETARIO = ("ao_nascer", "menor_1_ano", "1_ano", "multifaixa")
+_ANOS_DO_IDHM = (1991, 2000, 2010)
 
 
 def _decada_da_faixa(sufixo: str) -> int:
@@ -315,10 +320,23 @@ def aridez_do_estado(linha: dict) -> dict[str, object]:
     }
 
 
+def idhm_serie_do_estado(linha: dict) -> dict[str, object]:
+    """`idhm_<ano>` como no municipal, a partir de `uf_idhm_<ano>`. Ano nulo vai
+    como None, e a função municipal tira a barra; sem nenhum ano, ela recusa o gráfico.
+
+    Ex.: idhm_serie_do_estado(linha) == {"idhm_1991": …, "idhm_2000": …, "idhm_2010": …}
+    """
+    return {f"idhm_{ano}": linha.get(f"uf_idhm_{ano}") for ano in _ANOS_DO_IDHM}
+
+
 def _grafico_faixa_etaria(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
     cidade = {"faixas_etarias_sexo": faixas_etarias_sexo_do_estado(linha)}
 
     return gerar_grafico_faixa_etaria_e_sexo(cidade, output_dir, safe_estado)
+
+
+def _grafico_idhm(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
+    return gerar_grafico_de_desenvolvimento_social(idhm_serie_do_estado(linha), output_dir, safe_estado)
 
 
 def _grafico_cor_raca(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
@@ -414,6 +432,9 @@ GRAFICOS_ESTADO_POR_TEMA: dict[str, tuple[GraficoDoEstado, ...]] = {
     "educacao": (
         GraficoDoEstado("grafico_cor_faixa_etaria", _grafico_analfabetismo),
         GraficoDoEstado("grafico_nivel_instrucao", _grafico_nivel_instrucao),
+    ),
+    "desenvolvimento-social": (
+        GraficoDoEstado("grafico_de_desenvolvimento_social", _grafico_idhm),
     ),
     "economia-renda": (
         GraficoDoEstado("grafico_pib", _grafico_pib),
