@@ -308,6 +308,11 @@ _FIM_DO_PANORAMA = re.compile(r"^(?:#!|[a-z_]+\s*=)")
 # é o rótulo do próximo card. Adivinhar pela posição confundiria a legenda com as
 # linhas "Implementação dos big numbers…" que vêm depois do bloco em Educação e Saúde.
 _SEPARADOR_DA_LEGENDA = "•"
+# Valor fixo de card, sem `$campo`: Doc de área de desenvolvimento social (16/11/2026),
+# de texto fixo por decisão da Rayane ("0,588", "R$ 259,30", "61,26%"). Só número,
+# com R$ ou % opcionais: uma frase depois do bloco nunca casa e continua encerrando
+# o Panorama.
+_VALOR_FIXO_DO_CARD = re.compile(r"^(?:R\$\s?)?-?\d[\d.,]*\s?%?$")
 
 
 class CardDoPanorama(NamedTuple):
@@ -347,15 +352,23 @@ def _linhas_do_panorama(linhas: list[str]) -> list[tuple[int, str]]:
     return candidatas
 
 
+def _e_valor_de_card(linha: str) -> bool:
+    """Se a linha é o valor de um card: um `$campo` ou um número fixo.
+
+    Ex.: _e_valor_de_card("0,588") is True; _e_valor_de_card("Mediana do IDHM") is False
+    """
+    return "$" in linha or _VALOR_FIXO_DO_CARD.match(linha) is not None
+
+
 def _cards_do_panorama(candidatas: list[tuple[int, str]]) -> tuple[list[CardDoPanorama], int]:
-    """Lê rótulo / `$campo` / legenda opcional. Para na primeira linha que não fecha um
+    """Lê rótulo / valor (`$campo` ou número fixo) / legenda opcional. Para na primeira linha que não fecha um
     card e devolve o índice logo depois do último card: um rótulo sem valor fica no
     texto."""
     cards: list[CardDoPanorama] = []
     fim = posicao = 0
     while posicao + 1 < len(candidatas):
         (_, rotulo), (indice_valor, valor) = candidatas[posicao], candidatas[posicao + 1]
-        if "$" in rotulo or "$" not in valor:
+        if "$" in rotulo or not _e_valor_de_card(valor):
             break
         posicao, fim, legenda = posicao + 2, indice_valor + 1, ""
         if posicao < len(candidatas) and _SEPARADOR_DA_LEGENDA in candidatas[posicao][1]:

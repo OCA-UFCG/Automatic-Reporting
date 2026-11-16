@@ -281,6 +281,7 @@ jobs:
           SANEAMENTO_AREA_DOCS_URL: ${{ secrets.SANEAMENTO_AREA_DOCS_URL }}
           HIDRAULICA_AREA_DOCS_URL: ${{ secrets.HIDRAULICA_AREA_DOCS_URL }}
           MEIO_AMBIENTE_AREA_DOCS_URL: ${{ secrets.MEIO_AMBIENTE_AREA_DOCS_URL }}
+          DESENVOLVIMENTO_SOCIAL_AREA_DOCS_URL: ${{ secrets.DESENVOLVIMENTO_SOCIAL_AREA_DOCS_URL }}
         run: |
           # LABORATORIO_HABILITADO liga as rotas e a página do Laboratório de Temas.
           # Só aqui, no gamma: beta e prod não setam a flag, e as rotas não existem lá
@@ -288,8 +289,9 @@ jobs:
           # com basic auth no nginx do beta.
           # <TEMA>_ESTADO_DOCS_URL: Docs estaduais do laboratório (?unidade=estado).
           # CARACTERISTICAS_ESTADO_DOCS_URL: primeira página do relatório por estado.
-          # <TEMA>_AREA_DOCS_URL: Docs de área de interesse (?unidade=area); sem desenvolvimento
-          # social, que não tem matview de área.
+          # <TEMA>_AREA_DOCS_URL: Docs de área de interesse (?unidade=area). O de
+          # desenvolvimento social é de texto fixo e vale só para o Nordeste
+          # (AREAS_DO_TEMA_DE_TEXTO_FIXO em utils/queries/area.py).
           sudo docker run \
             --name ${{ vars.CONTAINER_NAME_GAMMA }} \
             --restart unless-stopped \
@@ -324,6 +326,7 @@ jobs:
             -e SANEAMENTO_AREA_DOCS_URL="$SANEAMENTO_AREA_DOCS_URL" \
             -e HIDRAULICA_AREA_DOCS_URL="$HIDRAULICA_AREA_DOCS_URL" \
             -e MEIO_AMBIENTE_AREA_DOCS_URL="$MEIO_AMBIENTE_AREA_DOCS_URL" \
+            -e DESENVOLVIMENTO_SOCIAL_AREA_DOCS_URL="$DESENVOLVIMENTO_SOCIAL_AREA_DOCS_URL" \
             -d ${{ vars.DOCKER_IMAGE_GAMMA }}:latest
 
       - name: Validate files inside running container

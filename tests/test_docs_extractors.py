@@ -218,3 +218,26 @@ def test_rotulo_sem_valor_encerra_o_panorama_e_fica_no_texto():
 
     assert cards == [CardDoPanorama("População", "$uf_pop")]
     assert restante == "Rótulo solto\nOutra linha"
+
+
+# Doc de área de desenvolvimento social (16/11/2026): valores fixos, sem `$campo`.
+PANORAMA_COM_VALOR_FIXO = (
+    "Panorama de indicadores\n"
+    "Mediana do IDHM municipal\n"
+    "0,588\n"
+    "PNUD / FJP / Ipea (2010) • Índice, escala de 0 a 1\n"
+    "\tMediana da renda per capita municipal\n"
+    "R$ 259,30\n"
+    "\t\n"
+    "Indicadores de desenvolvimento social permitem analisar as condições de vida.\n"
+)
+
+
+def test_valor_fixo_vira_card_e_a_frase_seguinte_encerra_o_panorama():
+    cards, restante = extrair_panorama_indicadores(PANORAMA_COM_VALOR_FIXO)
+
+    assert cards == [
+        CardDoPanorama("Mediana do IDHM municipal", "0,588", "PNUD / FJP / Ipea (2010) • Índice, escala de 0 a 1"),
+        CardDoPanorama("Mediana da renda per capita municipal", "R$ 259,30"),
+    ]
+    assert restante == "Indicadores de desenvolvimento social permitem analisar as condições de vida."
