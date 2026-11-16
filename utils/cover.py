@@ -321,8 +321,10 @@ _ICONE_POR_CAMPO_DO_DOC = {
     "pop_ind_2022": "populacao_indigena",
     "pop_qui": "populacao_quilombola",
     "pop_rua_2026": "situacao_rua",
-    # Educação (Doc estadual de 11/11/2026). A taxa de alfabetização (`alfabetizado_per`)
-    # não tem ícone próprio e fica com o do tema, como no municipal.
+    # Educação (Doc estadual de 11/11/2026). A taxa de alfabetização usa o ícone laranja
+    # de Educação que não tinha uso (16/11/2026): com o ícone do tema ("book", traço em
+    # currentColor e sem a cor do tema), ela era o único card preto do Panorama.
+    "alfabetizado_per": "reducao_alfabetizados",
     "sem_instr_per_2022": "fundamental_incompleto",
     "fund_comp_per": "fundamental_completo",
     # O Doc usa o 2º nível mais frequente para "Médio completo": nos 9 estados ele é o
