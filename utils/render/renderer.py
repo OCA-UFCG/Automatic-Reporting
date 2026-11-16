@@ -389,6 +389,17 @@ _LINHA_FONTE = re.compile(
     r"(?i)^([a-z][\w-]*\.\s*.+?)\s*=\s*(https?://\S+|\[[^\]]*\]\(https?://[^\s)]+\))$"
 )
 
+# Fonte com o nome escrito à mão, sem `tema.$campo` (Doc de área de Demografia,
+# 16/11/2026: os area_nm_* estão vazios, então o Doc traz "Perfil demográfico =
+# url"). Só vale para link do portal: o tipo do badge sai da rota (_ROTULO_POR_URL),
+# e um "IBGE = https://www.ibge.gov.br" continua frase comum.
+_LINHA_FONTE_NOME_FIXO = re.compile(
+    r"^(.+?)\s*=\s*(https://datanordeste\.sudene\.gov\.br/\S+)$"
+)
+# "Boletim: Terceira idade" — o tipo já vai em negrito no badge; sem tirar daqui,
+# sairia "Boletim: Boletim: Terceira idade".
+_TIPO_ANTES_DO_NOME = re.compile(r"(?i)^(?:painel de dados|painel|narrativa de dados|boletim)\s*:\s*")
+
 # O tipo do conteúdo vive no nome do campo ($nm_boletim1, $nm_datastory2,
 # $painel3), e não em nada que sobre depois de substituir_placeholders — daí
 # rotular a linha antes da substituição, em _rotular_linhas_de_fonte.
@@ -504,7 +515,7 @@ def _rotular_linhas_de_fonte(texto: str) -> str:
             continue
         fonte = _LINHA_FONTE.match(linha_normalizada)
         if not fonte:
-            linhas.append(linha)
+            linhas.append(_badge_de_fonte_com_nome_fixo(linha_normalizada) or linha)
             continue
         campo, url = fonte.group(1), fonte.group(2)
         link = re.fullmatch(r"\[[^\]]*\]\((https?://[^\s)]+)\)", url)
@@ -513,6 +524,20 @@ def _rotular_linhas_de_fonte(texto: str) -> str:
         campo_limpo = campo.replace("“", "").replace("”", "").replace('"', "").strip()
         linhas.append(f"[{_rotulo_da_fonte(campo, url)}: {campo_limpo}]({url})")
     return "\n".join(linhas)
+
+
+def _badge_de_fonte_com_nome_fixo(linha: str) -> str | None:
+    """"Perfil demográfico = https://datanordeste…/data-panel/populacao" na forma
+    de badge, ou None se a linha não é fonte do portal com nome fixo.
+
+    Ex.: "Boletim: Terceira idade = https://datanordeste.sudene.gov.br/boletim/x"
+    → "[Boletim: Terceira idade](https://datanordeste.sudene.gov.br/boletim/x)"
+    """
+    fonte = _LINHA_FONTE_NOME_FIXO.match(linha)
+    if not fonte:
+        return None
+    nome, url = _TIPO_ANTES_DO_NOME.sub("", fonte.group(1)).strip(), fonte.group(2)
+    return f"[{_rotulo_da_fonte('', url)}: {nome}]({url})"
 
 
 def _renderizar_badge_fonte(rotulo: str, nome: str, url: str) -> str | None:
