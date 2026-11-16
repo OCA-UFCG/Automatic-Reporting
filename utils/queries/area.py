@@ -18,13 +18,26 @@ MATVIEW_AREA_POR_MACROTEMA = {
 }
 
 
+# INTENTIONAL: temas de área com Doc de texto fixo, sem `$area_*` (Rayane, 16/11/2026).
+# Não há matview do tema e não vai haver: o contexto é só a linha da areaint_geral, que
+# basta para a capa. O texto fala de uma área só (o de desenvolvimento social cita os
+# 1.794 municípios do Nordeste), então o tema vale só para as áreas listadas; nas
+# outras ele some do relatório, em vez de sair com os números de outra área.
+AREAS_DO_TEMA_DE_TEXTO_FIXO: dict[str, tuple[str, ...]] = {
+    "desenvolvimento-social": ("Nordeste",),
+}
+
+
 def buscar_contexto_area(slug: str, area: str) -> dict | None:
     """A linha da área na matview de área do tema, como contexto do relatório. None
     quando o tema não tem matview de área, a área não está nela ou o banco falhou
-    (executar_query_dict engole o erro: o relatório degrada, não dá 500).
+    (executar_query_dict engole o erro: o relatório degrada, não dá 500). Tema de
+    texto fixo lê a areaint_geral, e só nas áreas de AREAS_DO_TEMA_DE_TEXTO_FIXO.
 
     Ex.: buscar_contexto_area("demografia", "Caatinga")["area_sujeito"] == "A Caatinga"
     """
+    if slug in AREAS_DO_TEMA_DE_TEXTO_FIXO:
+        return _contexto_do_tema_de_texto_fixo(slug, area)
     view = MATVIEW_AREA_POR_MACROTEMA.get(slug)
     if view is None:
         return None
@@ -33,4 +46,15 @@ def buscar_contexto_area(slug: str, area: str) -> dict | None:
         f"SELECT * FROM auto_relatorios_areaint.{view} WHERE area_nome = %s",
         (area,),
         f"contexto de área de {slug} para {area!r}",
+    )
+
+
+def _contexto_do_tema_de_texto_fixo(slug: str, area: str) -> dict | None:
+    """A linha da área na areaint_geral, ou None fora das áreas do tema."""
+    if area not in AREAS_DO_TEMA_DE_TEXTO_FIXO[slug]:
+        return None
+    return executar_query_dict(
+        "SELECT * FROM auto_relatorios_areaint.areaint_geral WHERE area_nome = %s",
+        (area,),
+        f"contexto de área de {slug} (texto fixo) para {area!r}",
     )

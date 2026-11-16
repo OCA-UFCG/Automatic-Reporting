@@ -122,6 +122,24 @@ def test_tema_sem_matview_de_area_nao_consulta_o_banco(monkeypatch):
     assert consulta_area.buscar_contexto_area("desenvolvimento-social", "Caatinga") is None
 
 
+def test_tema_de_texto_fixo_le_a_areaint_geral_so_no_nordeste(monkeypatch):
+    consultas: list[tuple[str, tuple]] = []
+
+    def executar_fake(query: str, params: tuple, _contexto: str) -> dict:
+        consultas.append((query, params))
+        return {"area_nome": params[0], "area_sujeito": "O Nordeste"}
+
+    monkeypatch.setattr(consulta_area, "executar_query_dict", executar_fake)
+
+    assert consulta_area.buscar_contexto_area("desenvolvimento-social", "Nordeste") == {
+        "area_nome": "Nordeste",
+        "area_sujeito": "O Nordeste",
+    }
+    assert consultas == [
+        ("SELECT * FROM auto_relatorios_areaint.areaint_geral WHERE area_nome = %s", ("Nordeste",))
+    ]
+
+
 def test_area_desconhecida_da_404(ambiente_de_area):
     with pytest.raises(HTTPException) as erro:
         asyncio.run(relatorio_estado.gerar_relatorio_unidade_handler("area", "Paraíba", "demografia"))
