@@ -50,6 +50,7 @@ from services.generation import (
     responder_sem_gerar,
     separar_secoes_do_tema,
 )
+from services.graficos_area import gerar_graficos_da_area
 from services.graficos_estado import gerar_graficos_do_estado
 from services.macrotemas import (
     docs_url,
@@ -246,14 +247,25 @@ async def tema_da_unidade(
     # isolar_paragrafo_de_cada_condicao), e o mesmo vale para as outras unidades; o
     # Laboratório faz o mesmo com unidade=estado.
     secoes, _ = separar_secoes_do_tema(isolar_paragrafo_de_cada_condicao(texto_do_doc), slug)
-    # Só o estado tem gráficos: as funções leem colunas `uf_*`, e a matview de área
-    # usa o prefixo `area_` (services/graficos_estado.py).
-    graficos = (
-        gerar_graficos_do_estado(slug, linha, OUTPUT_DIR, nome_de_arquivo_da_unidade(unidade, nome))
-        if unidade == "estado"
-        else {}
-    )
+    graficos = graficos_da_unidade(unidade, slug, nome, linha)
     return TemaDoEstado(item_do_tema(slug, secoes, contexto, safe_report, graficos), contexto, secoes)
+
+
+def graficos_da_unidade(unidade: str, slug: str, nome: str, linha: dict) -> dict[str, str]:
+    """{marcador: PNG} do tema na unidade. O estado monta os gráficos das colunas
+    `uf_*`; a área tem os seus em services/graficos_area.py (a matview de área usa
+    `area_*`, e os adaptadores do estado não servem).
+
+    Ex.: graficos_da_unidade("area", "desenvolvimento-social", "Nordeste", linha)
+         == {"grafico_idhm_componentes": "grafico_idhm_componentes_area_nordeste.png"}
+    """
+    sufixo = nome_de_arquivo_da_unidade(unidade, nome)
+    if unidade == "estado":
+        return gerar_graficos_do_estado(slug, linha, OUTPUT_DIR, sufixo)
+    if unidade == "area":
+        return gerar_graficos_da_area(slug, nome, OUTPUT_DIR, sufixo)
+
+    return {}
 
 
 def nome_de_arquivo_da_unidade(unidade: str, nome: str) -> str:

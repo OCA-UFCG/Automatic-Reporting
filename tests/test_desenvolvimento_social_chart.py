@@ -2,7 +2,11 @@ from pathlib import Path
 
 import pytest
 
-from plotting.desenvolvimento_social import gerar_grafico_de_desenvolvimento_social
+from plotting.desenvolvimento_social import (
+    gerar_grafico_de_desenvolvimento_social,
+    gerar_grafico_idhm_e_componentes,
+    rotulo_do_indice,
+)
 
 
 def test_gera_grafico_com_serie_historica_do_idhm(tmp_path: Path):
@@ -19,3 +23,24 @@ def test_gera_grafico_com_serie_historica_do_idhm(tmp_path: Path):
 def test_grafico_exige_ao_menos_um_ano_de_idhm(tmp_path: Path):
     with pytest.raises(ValueError, match="Dados históricos"):
         gerar_grafico_de_desenvolvimento_social({}, tmp_path, "sem_dados")
+
+
+def test_rotulo_do_indice_arredonda_como_o_texto_do_doc():
+    # 0.7575 em float fica um pouco abaixo; o texto do Doc diz 0,758.
+    assert rotulo_do_indice(0.7575) == "0,758"
+    assert rotulo_do_indice(0.4825) == "0,483"
+    assert rotulo_do_indice(0.42) == "0,420"
+
+
+def test_grafico_idhm_e_componentes_gera_png(tmp_path: Path):
+    series = {"IDHM": (0.291, 0.42, 0.588), "Educação": (0.108, 0.238, 0.4825)}
+
+    arquivo = gerar_grafico_idhm_e_componentes(("1991", "2000", "2010"), series, tmp_path, "area_nordeste")
+
+    assert arquivo == "grafico_idhm_componentes_area_nordeste.png"
+    assert (tmp_path / arquivo).is_file()
+
+
+def test_grafico_idhm_e_componentes_recusa_serie_de_tamanho_errado(tmp_path: Path):
+    with pytest.raises(ValueError, match="tamanho diferente"):
+        gerar_grafico_idhm_e_componentes(("1991", "2010"), {"IDHM": (0.291,)}, tmp_path, "x")
