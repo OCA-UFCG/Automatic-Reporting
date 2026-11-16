@@ -170,4 +170,12 @@ MACROTEMA_SECOES = {
         "titulo": "Meio Ambiente",
         "aliases": ["meio ambiente", "meio-ambiente"],
     },
+    # DS8 (16/11/2026): o mesmo do M6 no Doc estadual de Desenvolvimento Social, que
+    # abre com "Desenvolvimento Social". Títulos de uma palavra (Saúde, Demografia)
+    # não precisavam disto por acaso: o renderer já descarta essas linhas.
+    "desenvolvimento-social": {
+        "numero": "08",
+        "titulo": "Desenvolvimento Social",
+        "aliases": ["desenvolvimento social", "desenvolvimento-social"],
+    },
 }
