@@ -2520,3 +2520,14 @@ def test_titulo_do_doc_de_meio_ambiente_nao_sai_solto():
 
     assert "Meio Ambiente" not in html
     assert "Texto do tema." in html
+
+
+def test_titulo_do_doc_de_desenvolvimento_social_nao_sai_solto():
+    # DS8 (16/11/2026): a linha "Desenvolvimento Social" no topo do Doc estadual saía
+    # como parágrafo antes da caixa de Fontes, como no M6.
+    html = texto_para_html(
+        "Desenvolvimento Social\n\n\n#!Fontes\n\nTexto das fontes.", {}, namespace="desenvolvimento-social"
+    )
+
+    assert "Desenvolvimento Social" not in html
+    assert "Texto das fontes." in html
