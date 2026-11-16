@@ -554,7 +554,8 @@ def test_cards_de_educacao_do_doc_tem_icone_proprio_e_percentual_com_formato():
     cards = montar_indicadores_do_doc(panorama, contexto, "educacao", "book")
 
     assert [(card["valor"], card["icone"]) for card in cards] == [
-        ("84,04%", "book"),  # sem ícone próprio: fica o do tema
+        # Com o "book" do tema o card saía preto, o único do Panorama (16/11/2026).
+        ("84,04%", "reducao_alfabetizados"),
         ("47,49%", "fundamental_incompleto"),
         ("14,51%", "superior_completo"),
     ]
