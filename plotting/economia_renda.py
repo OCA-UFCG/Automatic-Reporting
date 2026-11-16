@@ -665,6 +665,7 @@ def gerar_grafico_balanca(
 
 
 _COR_ANO_ANTERIOR = "#F8D9B8"
+_MESES_SEM_INCLINAR = 6
 
 
 def gerar_grafico_visao_mensal(
@@ -683,7 +684,7 @@ def gerar_grafico_visao_mensal(
     ano_anterior = cidade.get("ano_anterior") or "Ano anterior"
     ano_atual = cidade.get("ano_atual") or "Ano atual"
 
-    meses = [f"{mes}." for mes, _ant, _atual in serie]
+    meses = [mes for mes, _ant, _atual in serie]
     anteriores = [_numero(ant) or 0 for _mes, ant, _atual in serie]
     atuais = [_numero(atual) or 0 for _mes, _ant, atual in serie]
 
@@ -694,7 +695,12 @@ def gerar_grafico_visao_mensal(
         return reuso
 
     fig, ax = iniciar_card_grafico((10, 4.5), "Saldo mensal de empregos formais")
-    _reservar_espaco_rotulo_x(fig, ax)
+    # Com o nome do mês por extenso, a partir do 2º trimestre (7+ meses) os rótulos
+    # se sobrepõem na horizontal: inclinados, pedem uma faixa mais alta.
+    inclinar_meses = len(serie) > _MESES_SEM_INCLINAR
+    altura_rotulos = 0.85 if inclinar_meses else 0.4
+    # Abaixo dos meses ainda vem a legenda, centralizada como nos demais gráficos.
+    _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas=altura_rotulos + 0.35)
 
     largura = 0.4
     posicoes = list(range(len(serie)))
@@ -703,10 +709,16 @@ def gerar_grafico_visao_mensal(
     ax.bar([p + largura / 2 for p in posicoes], atuais, largura,
            color=_COR_LINHA, label=str(ano_atual), zorder=3)
     ax.set_xticks(posicoes)
-    ax.set_xticklabels(meses, fontsize=13 * ESCALA_FONTE)
+    ax.set_xticklabels(
+        meses,
+        fontsize=13 * ESCALA_FONTE,
+        rotation=30 if inclinar_meses else 0,
+        ha="right" if inclinar_meses else "center",
+        rotation_mode="anchor",
+    )
     ax.axhline(0, color="#4A4A4A", linewidth=1, zorder=3)
 
-    ax.set_ylabel("Admissões menos desligamentos", fontsize=13 * ESCALA_FONTE)
+    ax.set_ylabel("Saldo líquido de emprego", fontsize=13 * ESCALA_FONTE)
     ax.tick_params(axis="y", labelsize=13 * ESCALA_FONTE)
     ax.yaxis.set_major_formatter(
         FuncFormatter(lambda valor, _: formatar_numero_ptbr(valor, decimais=0))
@@ -715,13 +727,16 @@ def gerar_grafico_visao_mensal(
         ax.spines[lado].set_visible(False)
     ax.grid(axis="y", linestyle=":", color="#CCCCCC", zorder=0)
     ax.set_axisbelow(True)
-    ax.legend(frameon=False, fontsize=12 * ESCALA_FONTE, loc="upper left", ncol=2)
+    # Legenda ancorada na figura logo abaixo da faixa dos rótulos, que muda de
+    # altura conforme a inclinação.
+    y_legenda = ax.get_position().y0 - altura_rotulos / fig.get_size_inches()[1]
+    ax.legend(frameon=False, fontsize=12 * ESCALA_FONTE, loc="upper center",
+              bbox_to_anchor=(0.5, y_legenda), bbox_transform=fig.transFigure, ncol=2)
 
-    # Folga acima das barras para a legenda não cobrir os meses de maior saldo.
     valor_minimo = min(0, *anteriores, *atuais)
     valor_maximo = max(0, *anteriores, *atuais)
     amplitude = valor_maximo - valor_minimo or 1.0
-    ax.set_ylim(valor_minimo - amplitude * 0.08, valor_maximo + amplitude * 0.25)
+    ax.set_ylim(valor_minimo - amplitude * 0.08, valor_maximo + amplitude * 0.08)
 
     salvar_card_grafico(fig, chart_file)
     return chart_file.name

@@ -48,7 +48,11 @@ def _ocupacoes_com_titulo_oficial(linha: dict) -> dict:
     return corrigida
 
 
-_MESES = ("jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez")
+# Nome por extenso: é o rótulo do eixo X da Figura X3 (pedido da revisão de 16/11/2026).
+_MESES = (
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+)
 _FIM_DO_TRIMESTRE = {"março": 3, "junho": 6, "setembro": 9, "dezembro": 12}
 
 

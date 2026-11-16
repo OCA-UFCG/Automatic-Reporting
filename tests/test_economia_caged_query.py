@@ -44,9 +44,9 @@ def test_buscar_tira_identificacao_e_monta_serie_ate_o_fim_do_trimestre(monkeypa
     assert "nm_mun" not in dados and "cd_mun" not in dados and "sigla_uf" not in dados
     assert dados["saldo_tri_atual"] == 1471
     assert [mes for mes, _ant, _atual in dados["caged_serie_mensal"]] == [
-        "jan", "fev", "mar", "abr", "mai", "jun",
+        "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
     ]
-    assert dados["caged_serie_mensal"][0] == ("jan", Decimal(10), Decimal(20))
+    assert dados["caged_serie_mensal"][0] == ("Janeiro", Decimal(10), Decimal(20))
 
 
 def test_serie_mensal_nao_corta_em_mes_sem_movimentacao(monkeypatch):
@@ -57,8 +57,8 @@ def test_serie_mensal_nao_corta_em_mes_sem_movimentacao(monkeypatch):
     serie = economia_caged.buscar_caged_municipal("Petrolina", "PE")["caged_serie_mensal"]
 
     assert len(serie) == 6
-    assert serie[0] == ("jan", 0, Decimal(20))
-    assert serie[1] == ("fev", Decimal(20), 0)
+    assert serie[0] == ("Janeiro", 0, Decimal(20))
+    assert serie[1] == ("Fevereiro", Decimal(20), 0)
 
 
 def _consultas(principal: dict | None, detalhe: dict | None):
