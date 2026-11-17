@@ -255,15 +255,17 @@ jobs:
         run: |
           PASTA="${{ env.PASTA_CONGELADA }}"
           if [ ! -d "$PASTA" ]; then
-            echo "Pasta congelada $PASTA não existe na VM: copie textos/, congelado/ e graficos/ antes do deploy."
+            echo "Pasta congelada $PASTA não existe na VM: copie textos/, congelado/, graficos/ e mapas/ antes do deploy."
             exit 1
           fi
           TEXTOS=$(find "$PASTA/textos" -name "*.txt" 2>/dev/null | wc -l || true)
           LINHAS=$(find "$PASTA/congelado" -name "*.json" 2>/dev/null | wc -l || true)
           PNGS=$(find "$PASTA/graficos" -name "*.png" 2>/dev/null | wc -l || true)
-          echo "Textos: $TEXTOS / linhas: $LINHAS / PNGs: $PNGS em $PASTA"
-          if [ "$TEXTOS" -lt 100 ] || [ "$LINHAS" -lt 122 ] || [ "$PNGS" -lt 257 ]; then
-            echo "Esperado >= 100 textos, >= 122 linhas e >= 257 PNGs na pasta congelada."
+          MAPAS=$(find "$PASTA/mapas" -name "*.png" 2>/dev/null | wc -l || true)
+          echo "Textos: $TEXTOS / linhas: $LINHAS / PNGs: $PNGS / mapas: $MAPAS em $PASTA"
+          # 113 textos = 100 de tema + 13 de primeira página (17/11/2026).
+          if [ "$TEXTOS" -lt 113 ] || [ "$LINHAS" -lt 122 ] || [ "$PNGS" -lt 257 ] || [ "$MAPAS" -lt 13 ]; then
+            echo "Esperado >= 113 textos, >= 122 linhas, >= 257 PNGs e >= 13 mapas na pasta congelada."
             exit 1
           fi
 
