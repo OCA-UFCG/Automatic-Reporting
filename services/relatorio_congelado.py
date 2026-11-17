@@ -19,6 +19,7 @@ falta faz o tema sumir do relatório, como um tema sem Doc no relatório de hoje
 
 import json
 import logging
+import os
 import re
 import shutil
 import unicodedata
@@ -34,8 +35,10 @@ logger = logging.getLogger(__name__)
 # AREAS_DO_TEMA_DE_TEXTO_FIXO (utils/queries/area.py): DS de área lê a areaint_geral.
 _PASTA_DA_LINHA: dict[tuple[str, str], str] = {("area", "desenvolvimento-social"): "geral"}
 
-_INTEIRO = re.compile(r"^-?\d+$")
-_DECIMAL = re.compile(r"^-?\d+\.\d+$")
+# Só as colunas `numeric` do banco foram gravadas como texto ("56467.243", "3974687"):
+# inteiros e textos de verdade vieram como int e str no JSON. Por isso o texto numérico
+# volta a Decimal, como o psycopg2 entregaria, e não a int.
+_NUMERICO = re.compile(r"^-?\d+(\.\d+)?$")
 
 
 def ativo() -> bool:
@@ -54,20 +57,26 @@ def _pasta() -> Path:
 
 
 def _tipar(valor: object) -> object:
-    """O congelamento gravou números como texto ("56467.243"). Volta a número, para os
-    placeholders formatarem como fazem com o banco (milhar e casas decimais)."""
-    if isinstance(valor, str):
-        if _INTEIRO.match(valor):
-            return int(valor)
-        if _DECIMAL.match(valor):
-            return Decimal(valor)
+    """Texto numérico do congelamento volta a Decimal, para os placeholders formatarem
+    como com o banco (milhar e casas decimais).
+
+    Ex.: _tipar("3974687") == Decimal(3974687); _tipar(2025) == 2025; _tipar("PB") == "PB"
+    """
+    if isinstance(valor, str) and _NUMERICO.match(valor):
+        return Decimal(valor)
     return valor
 
 
 def _ler_linha(caminho: Path) -> dict | None:
+    """A linha do JSON congelado, ou None se não há arquivo. Arquivo ilegível também dá
+    None, com aviso: o tema some, como quando o banco falha (executar_query_dict)."""
     if not caminho.is_file():
         return None
-    linha = json.loads(caminho.read_text(encoding="utf-8"))["linha"]
+    try:
+        linha = json.loads(caminho.read_text(encoding="utf-8"))["linha"]
+    except (ValueError, KeyError, TypeError) as err:
+        logger.warning("Linha congelada ilegível em %s: %r", caminho, err)
+        return None
     return {coluna: _tipar(valor) for coluna, valor in linha.items()}
 
 
@@ -102,6 +111,10 @@ def graficos_do_tema(unidade: str, slug: str, nome: str, output_dir: Path, sufix
     graficos: dict[str, str] = {}
     for png in sorted(pasta.glob("*.png")):
         destino = f"{png.stem}_{sufixo}.png"
-        shutil.copyfile(png, output_dir / destino)
+        # Cópia para um temporário e troca atômica: uma geração simultânea da mesma
+        # unidade nunca lê o PNG pela metade.
+        temporario = output_dir / f".{destino}.{os.getpid()}.tmp"
+        shutil.copyfile(png, temporario)
+        os.replace(temporario, output_dir / destino)
         graficos[png.stem] = destino
     return graficos

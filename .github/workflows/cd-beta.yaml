@@ -65,6 +65,9 @@ jobs:
   push-beta:
     needs: build-image
     runs-on: [self-hosted, datane-beta-runner]
+    env:
+      # Pasta da VM com o relatório congelado de estado e área (copiada à mão).
+      PASTA_CONGELADA: /home/ubuntu/relatorio-congelado
 
     steps:
       - name: Checkout repository
@@ -245,15 +248,22 @@ jobs:
       # gráficos estáticos ficam numa pasta da VM, copiada à mão (não vêm do git), e
       # entram read-only no container. Sem ela, estado e área sumiriam do relatório
       # em silêncio; por isso o deploy para aqui. Ver services/relatorio_congelado.py.
+      # Efeito colateral aceito: sem a pasta, nenhum deploy do beta passa (nem um
+      # hotfix do municipal), inclusive num rollback.
       - name: Validate frozen report folder
         shell: bash
         run: |
-          PASTA=/home/ubuntu/relatorio-congelado
-          TEXTOS=$(find "$PASTA/textos" -name "*.txt" 2>/dev/null | wc -l)
-          PNGS=$(find "$PASTA/graficos" -name "*.png" 2>/dev/null | wc -l)
-          echo "Textos: $TEXTOS / PNGs: $PNGS em $PASTA"
-          if [ "$TEXTOS" -lt 100 ] || [ "$PNGS" -lt 257 ]; then
-            echo "Esperado >= 100 textos e >= 257 PNGs na pasta congelada."
+          PASTA="${{ env.PASTA_CONGELADA }}"
+          if [ ! -d "$PASTA" ]; then
+            echo "Pasta congelada $PASTA não existe na VM: copie textos/, congelado/ e graficos/ antes do deploy."
+            exit 1
+          fi
+          TEXTOS=$(find "$PASTA/textos" -name "*.txt" 2>/dev/null | wc -l || true)
+          LINHAS=$(find "$PASTA/congelado" -name "*.json" 2>/dev/null | wc -l || true)
+          PNGS=$(find "$PASTA/graficos" -name "*.png" 2>/dev/null | wc -l || true)
+          echo "Textos: $TEXTOS / linhas: $LINHAS / PNGs: $PNGS em $PASTA"
+          if [ "$TEXTOS" -lt 100 ] || [ "$LINHAS" -lt 122 ] || [ "$PNGS" -lt 257 ]; then
+            echo "Esperado >= 100 textos, >= 122 linhas e >= 257 PNGs na pasta congelada."
             exit 1
           fi
 
@@ -286,7 +296,7 @@ jobs:
             -v ${{ vars.VOLUME_NAME }}:/app/output \
             -v ${{ vars.MAP_SHAPE_VOLUME_NAME }}:/app/map_shape \
             -v ${{ vars.MAPAS_VOLUME_NAME }}:/app/mapas/Mapas_png:ro \
-            -v /home/ubuntu/relatorio-congelado:/app/relatorio_congelado:ro \
+            -v "${{ env.PASTA_CONGELADA }}":/app/relatorio_congelado:ro \
             --network ${{ vars.NETWORK_NAME }} \
             --add-host=host.docker.internal:host-gateway \
             -e DB_HOST="$DB_HOST" \

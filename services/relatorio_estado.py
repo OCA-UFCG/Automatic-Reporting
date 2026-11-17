@@ -206,8 +206,12 @@ async def _gerar(unidade: str, nome: str, slugs: list[str], safe_report: str) ->
         raise HTTPException(
             status_code=503,
             detail=(
-                f"Sem dados de '{nome}' para '{','.join(slugs)}': esperava a linha na "
-                f"matview do tema e o <TEMA>_{unidade.upper()}_DOCS_URL configurado."
+                f"Sem dados de '{nome}' para '{','.join(slugs)}': esperava "
+                + (
+                    "o texto e a linha na pasta congelada (RELATORIO_CONGELADO_DIR)."
+                    if relatorio_congelado.ativo()
+                    else f"a linha na matview do tema e o <TEMA>_{unidade.upper()}_DOCS_URL configurado."
+                )
             ),
         )
     referencias = [ref for tema in temas for ref in tema.secoes.referencias]

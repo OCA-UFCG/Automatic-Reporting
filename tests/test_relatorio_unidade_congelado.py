@@ -120,3 +120,32 @@ def test_primeira_pagina_do_estado_le_a_linha_congelada(pasta: Path, monkeypatch
 
     capa = asyncio.run(primeira_pagina_estado.primeira_pagina_do_estado("Paraíba", "r"))
     assert "56.467,24 km²" in capa["relatorio_geral"]
+
+
+def test_texto_numerico_volta_a_decimal_e_inteiro_do_json_fica():
+    linha = {"pop": "3974687", "area": "56467.243", "ano_area": 2025, "sigla": "PB", "cd": "PB-25"}
+    tipada = {coluna: relatorio_congelado._tipar(valor) for coluna, valor in linha.items()}
+    assert tipada == {"pop": Decimal(3974687), "area": Decimal("56467.243"), "ano_area": 2025,
+                      "sigla": "PB", "cd": "PB-25"}
+
+
+def test_linha_ilegivel_faz_o_tema_sumir_sem_500(pasta: Path):
+    (pasta / "congelado/estado/demografia/paraiba.json").write_text("{quebrado", encoding="utf-8")
+    assert _tema("estado", "demografia", "Paraíba") is None
+
+
+def test_linha_sem_texto_vai_ao_doc_e_sem_doc_some(pasta: Path, monkeypatch: pytest.MonkeyPatch):
+    (pasta / "textos/estado/demografia/paraiba.txt").unlink()
+    monkeypatch.setattr(relatorio_estado, "docs_url", lambda slug, unidade: None)
+    assert _tema("estado", "demografia", "Paraíba") is None
+
+
+def test_texto_sem_linha_some(pasta: Path):
+    (pasta / "congelado/estado/demografia/paraiba.json").unlink()
+    assert _tema("estado", "demografia", "Paraíba") is None
+
+
+def test_grafico_sem_png_some_com_a_mencao(pasta: Path):
+    (pasta / "graficos/estado/demografia/paraiba/grafico_visao_historica.png").unlink()
+    html = " ".join(_tema("estado", "demografia", "Paraíba").item["descricao_html"])
+    assert "Figura" not in html and "3.974.687 habitantes em 2022." in html
