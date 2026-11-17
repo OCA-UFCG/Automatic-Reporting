@@ -11,10 +11,14 @@ mesmo formato dos Docs de tema.
 Sem a variável configurada ou sem a linha do estado, a capa fica como antes: os blocos
 de capa do Doc do primeiro tema (services/relatorio_estado.py, capa_da_unidade).
 
-Fica para depois: o mapa de localização do estado. Enquanto ele não existe, a menção
-"(Figura X)" do texto sai (ver _sem_mencao_ao_mapa).
+Mapa de localização desde 17/11/2026, só no modo congelado (beta): um PNG por unidade na
+pasta congelada, que vira a Figura 1. Sem mapa, a menção "(Figura X)" do texto sai (ver
+_sem_mencao_ao_mapa). No modo congelado a primeira página de estado e de área também vem
+de um texto estático (primeira_pagina_da_unidade); o Doc de área ainda não segue o formato
+deste módulo.
 """
 
+import html
 import logging
 import re
 
@@ -35,7 +39,11 @@ from utils.render.placeholders import (
     isolar_paragrafo_de_cada_condicao,
     substituir_placeholders,
 )
-from utils.render.renderer import render_descricao_tema_html
+from utils.render.renderer import (
+    _legenda_mapa_localizacao_html,
+    render_descricao_tema_html,
+    resolver_referencia_figura_do_mapa,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +52,8 @@ NAMESPACE_PRIMEIRA_PAGINA = "geral"
 # O ícone do card na capa (report/src/components/cover/MetricIcon.jsx) pelo campo do
 # Doc: os mesmos dois do municipal (utils/cover.py, `metricas`).
 _ICONE_DA_METRICA = {"area": "area", "pop_total_2022": "populacao"}
+# O texto estático traz o valor fixo, sem `$campo`: o ícone sai pelo rótulo.
+_ICONE_DO_ROTULO = {"Área territorial": "area", "População residente": "populacao"}
 _CAMPO_DO_CARD = re.compile(r"\$(\w+)")
 # "56.467,243 km²" → valor "56.467,243", sufixo "km²": a capa desenha a unidade menor.
 _VALOR_COM_UNIDADE = re.compile(r"^(.*\d)\s+(\D+)$")
@@ -52,6 +62,8 @@ _VALOR_COM_UNIDADE = re.compile(r"^(.*\d)\s+(\D+)$")
 # estado existir, trocar por resolver_referencia_figura_do_mapa (utils/render/renderer.py),
 # como no municipal.
 _MENCAO_AO_MAPA = re.compile(r"\s*\(Figura\s+X\)")
+# "Figura X – Localização da Paraíba (PB)." depois do bloco resumo_cidade.
+_LEGENDA_DO_MAPA = re.compile(r"(?im)^[ \t]*Figura\s+\S+\s*[–-]\s*Localiza[cç][aã]o\b.*$")
 
 
 async def primeira_pagina_do_estado(estado: str, safe_report: str) -> dict[str, object]:
@@ -78,7 +90,45 @@ async def primeira_pagina_do_estado(estado: str, safe_report: str) -> dict[str, 
     return montar_primeira_pagina(texto_do_doc, linha, safe_report)
 
 
-def montar_primeira_pagina(texto_do_doc: str, contexto: dict, safe_report: str) -> dict[str, object]:
+async def primeira_pagina_da_unidade(
+    unidade: str, nome: str, safe_report: str, mapa: str | None = None
+) -> dict[str, object]:
+    """As chaves da capa da primeira página de um estado ou área. No modo congelado vem do
+    texto estático da unidade, com o mapa (`mapa`, PNG já em output); sem texto estático,
+    o estado cai no Doc (primeira_pagina_do_estado) e a área fica sem primeira página.
+
+    Ex.: (await primeira_pagina_da_unidade("area", "Caatinga", "r", "mapa_area_caatinga.png"))["mapa_principal"]
+    """
+    if relatorio_congelado.ativo():
+        texto = relatorio_congelado.primeira_pagina(unidade, nome)
+        if texto is not None:
+            return montar_primeira_pagina(texto, {}, safe_report, mapa=mapa, nome=nome)
+    capa = await primeira_pagina_do_estado(nome, safe_report) if unidade == "estado" else {}
+    if mapa:
+        # Sem texto estático, o mapa ainda é a Figura 1 (o contador já contou com ele).
+        capa["mapa_principal"] = figura_do_mapa(mapa, None, nome)
+    return capa
+
+
+def figura_do_mapa(mapa: str, legenda: str | None, nome: str) -> str:
+    """O mapa de localização como Figura 1, no mesmo HTML do mapa municipal
+    (render_mapa_marker), com o PNG em /output/.
+
+    Ex.: "Figura 1 – Localização da Caatinga." in figura_do_mapa("m.png", "Figura X – Localização da Caatinga.", "Caatinga")
+    """
+    legenda_html = _legenda_mapa_localizacao_html(legenda or f"Figura 1 – Localização: {nome}.")
+    return (
+        '<figure class="map-block map-block--region">'
+        f'<img class="region-map-image" src="/output/{html.escape(mapa)}" '
+        f'alt="Mapa de localização: {html.escape(nome)}">'
+        f"<figcaption>{legenda_html}</figcaption>"
+        "</figure>"
+    )
+
+
+def montar_primeira_pagina(
+    texto_do_doc: str, contexto: dict, safe_report: str, mapa: str | None = None, nome: str = ""
+) -> dict[str, object]:
     """Fatia o Doc e resolve cada parte contra a linha do estado. Bloco ausente no Doc
     não vira chave, e a capa mantém o que tinha.
 
@@ -91,12 +141,18 @@ def montar_primeira_pagina(texto_do_doc: str, contexto: dict, safe_report: str) 
     texto = isolar_paragrafo_de_cada_condicao(texto_do_doc)
     cards, texto = extrair_panorama_indicadores(texto)
     apresentacao, texto = extrair_relatorio_geral(texto)
-    resumo, _ = extrair_resumo_cidade(texto)
+    resumo, resto = extrair_resumo_cidade(texto)
     capa: dict[str, object] = {}
     metricas = metricas_da_primeira_pagina(cards, contexto)
     if metricas:
         capa["metricas"] = metricas
-    blocos = (("relatorio_geral", apresentacao), ("resumo_cidade", _sem_mencao_ao_mapa(resumo)))
+    if mapa:
+        legenda = _LEGENDA_DO_MAPA.search(resto)
+        capa["mapa_principal"] = figura_do_mapa(mapa, legenda.group(0).strip() if legenda else None, nome)
+        resumo = resolver_referencia_figura_do_mapa(resumo) if resumo else resumo
+    else:
+        resumo = _sem_mencao_ao_mapa(resumo)
+    blocos = (("relatorio_geral", apresentacao), ("resumo_cidade", resumo))
     for chave, bloco in blocos:
         if bloco:
             capa.update(_bloco_da_capa(chave, bloco, contexto, safe_report))
@@ -134,7 +190,7 @@ def _metrica(card: CardDoPanorama, indicador: dict[str, str]) -> dict[str, str]:
         "sufixo": sufixo,
         "fonte": indicador["fonte"],
         "caption": indicador["rodape"],
-        "icone": _ICONE_DA_METRICA.get(campo.group(1) if campo else "", ""),
+        "icone": _ICONE_DA_METRICA.get(campo.group(1), "") if campo else _ICONE_DO_ROTULO.get(indicador["nome"], ""),
     }
 
 

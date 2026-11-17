@@ -312,7 +312,8 @@ _SEPARADOR_DA_LEGENDA = "•"
 # de texto fixo por decisão da Rayane ("0,588", "R$ 259,30", "61,26%"). Só número,
 # com R$ ou % opcionais: uma frase depois do bloco nunca casa e continua encerrando
 # o Panorama.
-_VALOR_FIXO_DO_CARD = re.compile(r"^(?:R\$\s?)?-?\d[\d.,]*\s?%?$")
+# "km²": cards de área territorial com valor fixo (1ª página estática de estado e área, 17/11/2026).
+_VALOR_FIXO_DO_CARD = re.compile(r"^(?:R\$\s?)?-?\d[\d.,]*\s?(?:%|km²)?$")
 
 
 class CardDoPanorama(NamedTuple):

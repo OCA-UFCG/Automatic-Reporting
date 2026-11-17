@@ -149,3 +149,83 @@ def test_grafico_sem_png_some_com_a_mencao(pasta: Path):
     (pasta / "graficos/estado/demografia/paraiba/grafico_visao_historica.png").unlink()
     html = " ".join(_tema("estado", "demografia", "Paraíba").item["descricao_html"])
     assert "Figura" not in html and "3.974.687 habitantes em 2022." in html
+
+
+PRIMEIRA_PAGINA_PB = (
+    "Panorama de indicadores\n"
+    "Área territorial\n"
+    "56.467,243 km²\n"
+    "IBGE (2025) • Extensão territorial\n"
+    "População residente\n"
+    "3.974.687\n"
+    "Censo demográfico (IBGE, 2022) • Pessoas residentes\n"
+    "\n"
+    "apresentacao = “Este relatório apresenta um panorama geral da Paraíba (PB).” @@\n"
+    "\n"
+    "resumo_cidade = “A Paraíba (Figura X) tem João Pessoa como capital.” @@\n"
+    "\n"
+    "Figura X – Localização da Paraíba (PB).\n"
+)
+
+
+def _gerar_capturando(monkeypatch: pytest.MonkeyPatch, unidade: str, nome: str) -> dict:
+    """Roda _gerar até o SSR e devolve as props que iriam para o React."""
+    props: dict = {}
+
+    async def ssr(p: dict) -> str:
+        props.update(p)
+        return "<html></html>"
+
+    async def gravar(_html: str, _safe: str) -> str:
+        return "ok"
+
+    monkeypatch.setattr(relatorio_estado, "render_react_ssr", ssr)
+    monkeypatch.setattr(relatorio_estado, "gravar_relatorio", gravar)
+    asyncio.run(relatorio_estado._gerar(unidade, nome, ["demografia"], "r"))
+    return props
+
+
+def test_primeira_pagina_estatica_com_mapa_e_o_grafico_vira_figura_2(pasta: Path, monkeypatch: pytest.MonkeyPatch):
+    (pasta / "textos/estado/primeira-pagina").mkdir(parents=True)
+    (pasta / "textos/estado/primeira-pagina/paraiba.txt").write_text(PRIMEIRA_PAGINA_PB, encoding="utf-8")
+    (pasta / "mapas/estado").mkdir(parents=True)
+    (pasta / "mapas/estado/paraiba.png").write_bytes(b"MAPA")
+    # O texto estático vence o Doc: o Doc não pode ser baixado.
+    monkeypatch.setattr(primeira_pagina_estado, "carregar_texto_do_docs", _proibido)
+
+    capa = _gerar_capturando(monkeypatch, "estado", "Paraíba")["cover"]
+
+    assert [(m["valor"], m["sufixo"], m["icone"], m["fonte"]) for m in capa["metricas"]] == [
+        ("56.467,243", "km²", "area", "IBGE (2025)"),
+        ("3.974.687", "", "populacao", "Censo demográfico (IBGE, 2022)"),
+    ]
+    assert capa["relatorio_geral"] == "Este relatório apresenta um panorama geral da Paraíba (PB)."
+    assert "A Paraíba (Figura 1) tem João Pessoa" in " ".join(capa["resumo_cidade_html"])
+    assert "Figura 1 – Localização da Paraíba (PB)." in capa["mapa_principal"]
+    assert 'src="/output/mapa_estado_para_ba.png"' in capa["mapa_principal"]
+    assert (pasta / "output/mapa_estado_para_ba.png").read_bytes() == b"MAPA"
+    # O mapa é a Figura 1: o gráfico do tema passa a ser a Figura 2.
+    tema = " ".join(capa["macrotemas"][0]["descricao_html"])
+    assert "Figura 2" in tema and "Figura 1" not in tema
+
+
+def test_area_le_primeira_pagina_e_mapa_e_sem_mapa_a_mencao_sai(pasta: Path, monkeypatch: pytest.MonkeyPatch):
+    for caminho, conteudo in [
+        ("textos/area/demografia/caatinga.txt", TEXTO_DEMOGRAFIA_PB),
+        ("congelado/area/demografia/caatinga.json", json.dumps({"linha": {"area_nome": "Caatinga"}})),
+        ("textos/area/primeira-pagina/caatinga.txt",
+         "resumo_cidade = “Na Caatinga (Figura X), a leitura territorial.” @@\n\nFigura X – Localização da Caatinga.\n"),
+        ("mapas/area/caatinga.png", "MAPA"),
+    ]:
+        (pasta / caminho).parent.mkdir(parents=True, exist_ok=True)
+        (pasta / caminho).write_text(conteudo, encoding="utf-8")
+
+    capa = _gerar_capturando(monkeypatch, "area", "Caatinga")["cover"]
+    assert "Na Caatinga (Figura 1), a leitura territorial." in " ".join(capa["resumo_cidade_html"])
+    assert "Figura 1 – Localização da Caatinga." in capa["mapa_principal"]
+
+    # Sem o PNG: sem mapa, e a menção ao mapa sai do texto.
+    (pasta / "mapas/area/caatinga.png").unlink()
+    capa = _gerar_capturando(monkeypatch, "area", "Caatinga")["cover"]
+    assert capa["mapa_principal"] == ""
+    assert "Na Caatinga, a leitura territorial." in " ".join(capa["resumo_cidade_html"])

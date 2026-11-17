@@ -12,6 +12,9 @@ Liga com RELATORIO_CONGELADO_DIR (só o cd-beta define). A pasta tem:
     congelado/area/geral/<unidade>.json            linha da areaint_geral (DS de área)
     congelado/estado/caract-mun/<unidade>.json     linha da est_caract_mun (1ª página)
     graficos/<estado|area>/<tema>/<unidade>/<marcador>.png
+    textos/<estado|area>/primeira-pagina/<unidade>.txt  Apresentação, cards e
+                                                   Características Gerais (17/11/2026)
+    mapas/<estado|area>/<unidade>.png              mapa de localização (17/11/2026)
 
 `<unidade>` é o nome sem acento, em minúsculas, com hífens (nome_de_arquivo). Arquivo que
 falta faz o tema sumir do relatório, como um tema sem Doc no relatório de hoje.
@@ -107,14 +110,27 @@ def graficos_do_tema(unidade: str, slug: str, nome: str, output_dir: Path, sufix
     pasta = _pasta() / "graficos" / unidade / slug / nome_de_arquivo(nome)
     if not pasta.is_dir():
         return {}
+    return {png.stem: _copiar(png, output_dir, f"{png.stem}_{sufixo}.png") for png in sorted(pasta.glob("*.png"))}
+
+
+def primeira_pagina(unidade: str, nome: str) -> str | None:
+    """O texto estático da primeira página da unidade, ou None se não há arquivo."""
+    caminho = _pasta() / "textos" / unidade / "primeira-pagina" / f"{nome_de_arquivo(nome)}.txt"
+    return caminho.read_text(encoding="utf-8") if caminho.is_file() else None
+
+
+def mapa_da_unidade(unidade: str, nome: str, output_dir: Path, sufixo: str) -> str | None:
+    """O mapa de localização da unidade copiado para output_dir (`mapa_<sufixo>.png`), ou
+    None se não há PNG: aí o relatório sai sem mapa, como antes de 17/11/2026."""
+    png = _pasta() / "mapas" / unidade / f"{nome_de_arquivo(nome)}.png"
+    return _copiar(png, output_dir, f"mapa_{sufixo}.png") if png.is_file() else None
+
+
+def _copiar(png: Path, output_dir: Path, destino: str) -> str:
+    """Cópia para um temporário e troca atômica: uma geração simultânea da mesma unidade
+    nunca lê o PNG pela metade."""
     output_dir.mkdir(parents=True, exist_ok=True)
-    graficos: dict[str, str] = {}
-    for png in sorted(pasta.glob("*.png")):
-        destino = f"{png.stem}_{sufixo}.png"
-        # Cópia para um temporário e troca atômica: uma geração simultânea da mesma
-        # unidade nunca lê o PNG pela metade.
-        temporario = output_dir / f".{destino}.{os.getpid()}.tmp"
-        shutil.copyfile(png, temporario)
-        os.replace(temporario, output_dir / destino)
-        graficos[png.stem] = destino
-    return graficos
+    temporario = output_dir / f".{destino}.{os.getpid()}.tmp"
+    shutil.copyfile(png, temporario)
+    os.replace(temporario, output_dir / destino)
+    return destino

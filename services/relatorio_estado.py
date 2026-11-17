@@ -18,8 +18,9 @@ gráficos, e a menção "(Figura X)" do Doc some como num gráfico sem dado.
 Primeira página do estado desde 13/11/2026 (Apresentação, cards de área e população,
 Características Gerais): Doc próprio, services/primeira_pagina_estado.py.
 
-Fica de fora por enquanto, como no Laboratório com unidade=estado:
-  - mapa de localização: o shapefile lido hoje é por município.
+Mapa de localização desde 17/11/2026, só no modo congelado (beta): um PNG por unidade na
+pasta congelada (relatorio_congelado.mapa_da_unidade). Fora dele, o relatório segue sem
+mapa: o shapefile lido hoje é por município.
 
 Os cards do tema ("Panorama de indicadores") vêm do próprio Doc estadual desde
 11/11/2026: pares rótulo / `$campo` resolvidos contra a linha da matview
@@ -58,7 +59,7 @@ from services.macrotemas import (
     get_macrotema,
     get_macrotema_slugs_para_relatorio,
 )
-from services.primeira_pagina_estado import primeira_pagina_do_estado
+from services.primeira_pagina_estado import primeira_pagina_da_unidade
 from utils.cover import montar_capa_relatorio, montar_indicadores_do_doc
 from utils.data.areas import resolver_area
 from utils.data.estados import resolver_estado
@@ -190,9 +191,15 @@ async def gerar_relatorio_unidade_handler(
 
 
 async def _gerar(unidade: str, nome: str, slugs: list[str], safe_report: str) -> HTMLResponse:
-    # Escopo de render, como no municipal: o contador de figuras vive num ContextVar.
-    # Sem mapa de localização, a Figura 1 é o primeiro gráfico do Doc.
-    reset_figura_contador(com_mapa=False)
+    # Mapa de localização só no modo congelado (17/11/2026). Escopo de render, como no
+    # municipal: o contador de figuras vive num ContextVar. Com mapa, ele é a Figura 1;
+    # sem mapa, a Figura 1 é o primeiro gráfico do Doc.
+    mapa = (
+        relatorio_congelado.mapa_da_unidade(unidade, nome, OUTPUT_DIR, nome_de_arquivo_da_unidade(unidade, nome))
+        if relatorio_congelado.ativo()
+        else None
+    )
+    reset_figura_contador(com_mapa=mapa is not None)
     # Fuso fixo: o container roda em UTC (ver gerar_relatorio_handler).
     gerado_em = datetime.now(ZoneInfo("America/Fortaleza"))
     temas = [
@@ -215,8 +222,7 @@ async def _gerar(unidade: str, nome: str, slugs: list[str], safe_report: str) ->
             ),
         )
     referencias = [ref for tema in temas for ref in tema.secoes.referencias]
-    # Só o estado tem Doc de primeira página (services/primeira_pagina_estado.py).
-    primeira_pagina = await primeira_pagina_do_estado(nome, safe_report) if unidade == "estado" else {}
+    primeira_pagina = await primeira_pagina_da_unidade(unidade, nome, safe_report, mapa)
     html_content = await render_react_ssr({
         "cover": capa_da_unidade(unidade, nome, temas, gerado_em, safe_report, primeira_pagina),
         "docsHtml": html_das_referencias(referencias, safe_report) or "",
@@ -366,8 +372,8 @@ def capa_da_unidade(
 ) -> dict[str, object]:
     """A capa: título com o nome e a sigla, tags dos temas e os blocos de capa do Doc
     do primeiro tema. `unidade` diz ao SSR para trocar "Dados municipais" pelo rótulo
-    da unidade (report/src/components/rotuloDaUnidade.js). `primeira_pagina` (só no
-    estado) vem do Doc próprio da primeira página e tem precedência sobre os blocos do
+    da unidade (report/src/components/rotuloDaUnidade.js). `primeira_pagina` (estado; e
+    área no modo congelado) vem do Doc ou do texto estático da primeira página e tem precedência sobre os blocos do
     Doc do tema."""
     primeiro = temas[0]
     coluna_sigla = UNIDADES_DO_RELATORIO[unidade].coluna_sigla
