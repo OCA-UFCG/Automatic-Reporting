@@ -650,3 +650,66 @@ def test_cards_de_meio_ambiente_do_doc_usam_os_icones_das_bases_municipais():
         ("51.947,37 km²", "desertificacao"),
         ("12", "protecao_integral"),
     ]
+
+
+def test_balanca_do_doc_estadual_com_c_cedilha_tem_icone_proprio():
+    # Regressão (17/11/2026): o nome da coluna tem ç e a busca do campo parava em
+    # `valor_balan`, então o card caía no ícone do tema.
+    cards = montar_indicadores_do_doc(
+        [CardDoPanorama("Saldo da balança comercial", "US$ economia.$uf_valor_balança1:2")],
+        {"uf_valor_balança1": 1234.5},
+        "economia-renda",
+        "dollar",
+    )
+
+    assert cards[0]["icone"] == "balanca"
+
+
+def test_campos_do_doc_de_area_tem_icone_proprio():
+    cards = montar_indicadores_do_doc(
+        [
+            CardDoPanorama("Saldo da balança comercial", "US$ economia.$area_valor_balanca1_abs"),
+            CardDoPanorama("Área abrangida por UCs", "ambiente.$area_area_uc_ha:2 ha"),
+            CardDoPanorama("Alfabetização indígena e quilombola", "educacao.$area_alfab_ind_qui_txt"),
+        ],
+        {"area_valor_balanca1_abs": 10, "area_area_uc_ha": 20, "area_alfab_ind_qui_txt": "80%"},
+        "area",
+        "chart",
+    )
+
+    assert [card["icone"] for card in cards] == [
+        "balanca",
+        "area_conservacao",
+        "indigena_alfabetizada",
+    ]
+
+
+def test_card_com_valor_fixo_no_doc_escolhe_o_icone_pelo_rotulo():
+    # O Doc de Desenvolvimento Social da área digita as medianas, sem `$campo`.
+    panorama = [
+        CardDoPanorama("Mediana do IDHM municipal", "0,588"),
+        CardDoPanorama("Mediana do IDHM Educação", "0,483"),
+        CardDoPanorama("Mediana do IDHM Longevidade", "0,758"),
+        CardDoPanorama("Mediana do IDHM Renda", "0,559"),
+        CardDoPanorama("Mediana da renda per capita municipal", "R$ 259,30"),
+        CardDoPanorama("Mediana dos Ginis municipais", "0,52"),
+    ]
+
+    cards = montar_indicadores_do_doc(panorama, {}, "desenvolvimento-social", "social")
+
+    assert [card["icone"] for card in cards] == [
+        "idhm",
+        "idhm_educacao",
+        "idhm_longevidade",
+        "idhm_renda",
+        "social",
+        "gini",
+    ]
+
+
+def test_campo_fora_do_mapa_e_sem_rotulo_conhecido_fica_com_o_icone_do_tema():
+    cards = montar_indicadores_do_doc(
+        [CardDoPanorama("PIB", "R$ economia.$uf_pib_2023:2")], {"uf_pib_2023": 96.96}, "economia-renda", "dollar"
+    )
+
+    assert cards[0]["icone"] == "dollar"

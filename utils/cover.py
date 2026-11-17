@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from datetime import datetime
 
 from utils.external.docs import CardDoPanorama
@@ -334,6 +335,8 @@ _ICONE_POR_CAMPO_DO_DOC = {
     # Ainda não existem na est_educacao (o Doc avisa); o ícone fica pronto para quando vierem.
     "alfab_qui_per_2022": "quilombola_alfabetizada",
     "alfab_ind_per_2022": "indigena_alfabetizada",
+    # O Doc de área junta indígena e quilombola num card só, em texto (17/11/2026).
+    "alfab_ind_qui_txt": "indigena_alfabetizada",
     # Saúde (Doc estadual de 11/11/2026): os mesmos ícones das bases municipais
     # equivalentes em _ICONE_POR_BASE.
     "nascidos": "nascidos_vivos",
@@ -349,6 +352,10 @@ _ICONE_POR_CAMPO_DO_DOC = {
     "fob_exportado_ultimo": "exportacao",
     "fob_importado_ultimo": "importacao",
     "valor_balanca1_dado": "balanca",
+    # O Doc estadual escreve `$uf_valor_balança1`, com ç (é o nome da coluna na matview);
+    # _icone_do_card_do_doc tira o acento antes de procurar aqui. O de área usa o _abs.
+    "valor_balanca1": "balanca",
+    "valor_balanca1_abs": "balanca",
     # Infraestrutura e Saneamento (Doc estadual de 11/11/2026). Banheiro e coleta de
     # lixo não têm ícone próprio e ficam com o do tema, como no municipal.
     "esgoto_rede_2022": "esgoto",
@@ -362,11 +369,27 @@ _ICONE_POR_CAMPO_DO_DOC = {
     "asd_variacao_pp_txt": "variacao_area_suscetivel_desertificacao",
     "n_uc": "unidades_conservacao",
     "area_uc_uf_ha": "area_conservacao",
+    # O Doc de área usa `$area_area_uc_ha`, sem o `_uf` (17/11/2026).
+    "area_uc_ha": "area_conservacao",
     "n_protecao_pi": "protecao_integral",
     "n_protecao_us": "uso_sustentavel",
 }
 
-_CAMPO_DO_VALOR = re.compile(r"\$([A-Za-z0-9_]+)")
+# Ícone pelo rótulo, para card com valor fixo no Doc e sem `$campo` (o Doc de
+# Desenvolvimento Social da área digita as medianas, 17/11/2026). Os mesmos ícones das
+# bases municipais em _ICONE_POR_BASE. A ordem importa: "idhm" casa com os componentes,
+# então vem depois deles. Renda per capita não tem ícone próprio, como no municipal.
+_ICONE_POR_ROTULO_DO_DOC = (
+    ("idhm educa", "idhm_educacao"),
+    ("idhm longevidade", "idhm_longevidade"),
+    ("idhm renda", "idhm_renda"),
+    ("idhm", "idhm"),
+    ("gini", "gini"),
+)
+
+# `\w` e não `[A-Za-z0-9_]`: a coluna `valor_balança1` tem ç, e a classe ASCII cortava
+# o nome em `valor_balan`, que não está no mapa (17/11/2026).
+_CAMPO_DO_VALOR = re.compile(r"\$(\w+)")
 # `$campo` que sobrou sem valor depois de substituir_placeholders: `$` seguido do
 # começo de um nome de campo, com ou sem espaço (o Doc de Educação tem
 # "educacao.$ uf_seg_nivel_per"). Um `$` qualquer não serve: os cards de Economia
@@ -410,18 +433,41 @@ def _card_do_doc(
         "fonte": fonte.strip(),
         "valor": valor,
         "rodape": rodape.strip(),
-        "icone": _icone_do_card_do_doc(card_do_doc.valor, macrotema_icone),
+        "icone": _icone_do_card_do_doc(card_do_doc, macrotema_icone),
     }
 
 
-def _icone_do_card_do_doc(modelo: str, macrotema_icone: str) -> str:
+def _icone_do_card_do_doc(card_do_doc: CardDoPanorama, macrotema_icone: str) -> str:
+    """Ícone pelo campo do valor; sem campo no mapa, pelo rótulo; senão, o do tema.
+
+    Ex.: _icone_do_card_do_doc(CardDoPanorama("Saldo", "US$ $uf_valor_balança1"), "dollar")
+         == "balanca"
+    """
+    icone = _icone_pelo_campo(card_do_doc.valor) or _icone_pelo_rotulo(card_do_doc.rotulo)
+    return icone or macrotema_icone
+
+
+def _icone_pelo_campo(modelo: str) -> str | None:
     campo = _CAMPO_DO_VALOR.search(modelo)
     if campo is None:
-        return macrotema_icone
+        return None
     # O mapa é pelo nome municipal da coluna: tira o prefixo do estado (`uf_`) ou da área
     # de interesse (`area_`, 12/11/2026), que têm as mesmas colunas.
-    nome = re.sub(r"^(?:uf|area)_", "", campo.group(1))
-    return _ICONE_POR_CAMPO_DO_DOC.get(nome, macrotema_icone)
+    nome = re.sub(r"^(?:uf|area)_", "", _sem_acento(campo.group(1)))
+    return _ICONE_POR_CAMPO_DO_DOC.get(nome)
+
+
+def _icone_pelo_rotulo(rotulo: str) -> str | None:
+    rotulo_normalizado = _sem_acento(rotulo).lower()
+    for trecho, icone in _ICONE_POR_ROTULO_DO_DOC:
+        if trecho in rotulo_normalizado:
+            return icone
+    return None
+
+
+def _sem_acento(texto: str) -> str:
+    decomposto = unicodedata.normalize("NFKD", texto)
+    return "".join(c for c in decomposto if not unicodedata.combining(c))
 
 
 def montar_score_macrotema(linha: dict) -> dict[str, str]:
