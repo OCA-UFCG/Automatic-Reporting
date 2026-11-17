@@ -21,6 +21,7 @@ import re
 from fastapi import HTTPException
 
 from config import CARACTERISTICAS_ESTADO_DOCS_URL
+from services import relatorio_congelado
 from utils.cover import montar_indicadores_do_doc
 from utils.external.docs import (
     CardDoPanorama,
@@ -62,7 +63,11 @@ async def primeira_pagina_do_estado(estado: str, safe_report: str) -> dict[str, 
     """
     if not CARACTERISTICAS_ESTADO_DOCS_URL:
         return {}
-    linha = buscar_caracteristicas_estado(estado)
+    # Modo congelado (beta): a linha vem da pasta congelada, sem banco.
+    if relatorio_congelado.ativo():
+        linha = relatorio_congelado.caracteristicas_do_estado(estado)
+    else:
+        linha = buscar_caracteristicas_estado(estado)
     if linha is None:
         logger.warning("Relatório de %s: sem linha em est_caract_mun. Capa sem primeira página.", estado)
         return {}

@@ -42,6 +42,10 @@ CARACTERISTICAS_DOCS_URL = get_config_value("CARACTERISTICAS_DOCS_URL")
 # Primeira página do relatório por estado (Apresentação, cards e Características
 # Gerais), 13/11/2026: o equivalente estadual de CARACTERISTICAS_DOCS_URL.
 CARACTERISTICAS_ESTADO_DOCS_URL = get_config_value("CARACTERISTICAS_ESTADO_DOCS_URL")
+# Relatório de estado e de área com texto, dados e gráficos congelados (beta, 16/11/2026):
+# caminho da pasta, montada como volume. Sem ela, estado e área leem banco e Docs como
+# sempre. Ver services/relatorio_congelado.py.
+RELATORIO_CONGELADO_DIR = get_config_value("RELATORIO_CONGELADO_DIR")
 DEMOGRAFIA_DOCS_URL = get_config_value("DEMOGRAFIA_DOCS_URL") or DEFAULT_DOCS_URL
 EDUCACAO_DOCS_URL = get_config_value("EDUCACAO_DOCS_URL")
 SAUDE_DOCS_URL = get_config_value("SAUDE_DOCS_URL")

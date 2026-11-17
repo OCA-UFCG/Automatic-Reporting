@@ -36,6 +36,7 @@ from fastapi import HTTPException
 from fastapi.responses import HTMLResponse
 
 from config import OUTPUT_DIR
+from services import relatorio_congelado
 from services.cache import (
     adquirir_geracao,
     invalidar_query_cache_se_dados_mudaram,
@@ -205,8 +206,12 @@ async def _gerar(unidade: str, nome: str, slugs: list[str], safe_report: str) ->
         raise HTTPException(
             status_code=503,
             detail=(
-                f"Sem dados de '{nome}' para '{','.join(slugs)}': esperava a linha na "
-                f"matview do tema e o <TEMA>_{unidade.upper()}_DOCS_URL configurado."
+                f"Sem dados de '{nome}' para '{','.join(slugs)}': esperava "
+                + (
+                    "o texto e a linha na pasta congelada (RELATORIO_CONGELADO_DIR)."
+                    if relatorio_congelado.ativo()
+                    else f"a linha na matview do tema e o <TEMA>_{unidade.upper()}_DOCS_URL configurado."
+                )
             ),
         )
     referencias = [ref for tema in temas for ref in tema.secoes.referencias]
@@ -225,30 +230,68 @@ async def tema_da_unidade(
 ) -> TemaDoEstado | None:
     """O tema pronto para o SSR, ou None (com aviso no log) quando falta o Doc do
     tema na unidade ou a linha da unidade na matview: o tema some do relatório, como
-    um tema sem Doc no municipal."""
-    url_do_doc = docs_url(slug, unidade)
-    if not url_do_doc:
-        logger.warning("Relatório de %s: tema '%s' sem Doc de %s configurado. Pulando.", nome, slug, unidade)
+    um tema sem Doc no municipal. Com o modo congelado ligado (beta), texto, linha e
+    gráficos vêm da pasta congelada (services/relatorio_congelado.py)."""
+    if relatorio_congelado.ativo():
+        fontes = await _fontes_congeladas(unidade, slug, nome)
+    else:
+        fontes = await _fontes_do_banco(unidade, slug, nome)
+    if fontes is None:
         return None
-    linha = UNIDADES_DO_RELATORIO[unidade].buscar(slug, nome)
-    if linha is None:
-        logger.warning("Relatório de %s: tema '%s' sem linha na matview de %s. Pulando.", nome, slug, unidade)
-        return None
+    texto_do_doc, linha, graficos = fontes
     contexto = {
         **linha,
         "data_relatorio": gerado_em.strftime("%d/%m/%Y"),
         "hora_relatorio": gerado_em.strftime("%H:%M"),
     }
-    try:
-        texto_do_doc = await carregar_texto_do_docs(url_do_doc)
-    except ValueError as err:
-        raise HTTPException(status_code=400, detail=str(err)) from err
     # No Doc estadual cada condição vale só para a linha seguinte (ver
     # isolar_paragrafo_de_cada_condicao), e o mesmo vale para as outras unidades; o
     # Laboratório faz o mesmo com unidade=estado.
     secoes, _ = separar_secoes_do_tema(isolar_paragrafo_de_cada_condicao(texto_do_doc), slug)
-    graficos = graficos_da_unidade(unidade, slug, nome, linha)
     return TemaDoEstado(item_do_tema(slug, secoes, contexto, safe_report, graficos), contexto, secoes)
+
+
+def _avisar_sem_doc(unidade: str, slug: str, nome: str) -> None:
+    logger.warning("Relatório de %s: tema '%s' sem Doc de %s configurado. Pulando.", nome, slug, unidade)
+
+
+async def _texto_do_doc(url_do_doc: str) -> str:
+    try:
+        return await carregar_texto_do_docs(url_do_doc)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+
+
+async def _fontes_do_banco(unidade: str, slug: str, nome: str) -> tuple[str, dict, dict[str, str]] | None:
+    """(texto do Doc, linha da matview, gráficos gerados), como sempre foi."""
+    url_do_doc = docs_url(slug, unidade)
+    if not url_do_doc:
+        _avisar_sem_doc(unidade, slug, nome)
+        return None
+    linha = UNIDADES_DO_RELATORIO[unidade].buscar(slug, nome)
+    if linha is None:
+        logger.warning("Relatório de %s: tema '%s' sem linha na matview de %s. Pulando.", nome, slug, unidade)
+        return None
+    return await _texto_do_doc(url_do_doc), linha, graficos_da_unidade(unidade, slug, nome, linha)
+
+
+async def _fontes_congeladas(unidade: str, slug: str, nome: str) -> tuple[str, dict, dict[str, str]] | None:
+    """(texto, linha, gráficos) da pasta congelada, sem banco. O texto estático tem
+    precedência; sem ele (DS de área, Doc fixo da Rayane), vale o Doc de sempre com a
+    linha congelada. Sem linha congelada, o tema some."""
+    linha = relatorio_congelado.linha_do_tema(unidade, slug, nome)
+    if linha is None:
+        logger.warning("Relatório de %s: tema '%s' sem linha congelada de %s. Pulando.", nome, slug, unidade)
+        return None
+    texto = relatorio_congelado.texto_do_tema(unidade, slug, nome)
+    if texto is None:
+        url_do_doc = docs_url(slug, unidade)
+        if not url_do_doc:
+            _avisar_sem_doc(unidade, slug, nome)
+            return None
+        texto = await _texto_do_doc(url_do_doc)
+    sufixo = nome_de_arquivo_da_unidade(unidade, nome)
+    return texto, linha, relatorio_congelado.graficos_do_tema(unidade, slug, nome, OUTPUT_DIR, sufixo)
 
 
 def graficos_da_unidade(unidade: str, slug: str, nome: str, linha: dict) -> dict[str, str]:

@@ -65,6 +65,9 @@ jobs:
   push-beta:
     needs: build-image
     runs-on: [self-hosted, datane-beta-runner]
+    env:
+      # Pasta da VM com o relatório congelado de estado e área (copiada à mão).
+      PASTA_CONGELADA: /home/ubuntu/relatorio-congelado
 
     steps:
       - name: Checkout repository
@@ -241,6 +244,29 @@ jobs:
             exit 1
           fi
 
+      # Relatório de estado e de área em modo congelado (16/11/2026): textos, linhas e
+      # gráficos estáticos ficam numa pasta da VM, copiada à mão (não vêm do git), e
+      # entram read-only no container. Sem ela, estado e área sumiriam do relatório
+      # em silêncio; por isso o deploy para aqui. Ver services/relatorio_congelado.py.
+      # Efeito colateral aceito: sem a pasta, nenhum deploy do beta passa (nem um
+      # hotfix do municipal), inclusive num rollback.
+      - name: Validate frozen report folder
+        shell: bash
+        run: |
+          PASTA="${{ env.PASTA_CONGELADA }}"
+          if [ ! -d "$PASTA" ]; then
+            echo "Pasta congelada $PASTA não existe na VM: copie textos/, congelado/ e graficos/ antes do deploy."
+            exit 1
+          fi
+          TEXTOS=$(find "$PASTA/textos" -name "*.txt" 2>/dev/null | wc -l || true)
+          LINHAS=$(find "$PASTA/congelado" -name "*.json" 2>/dev/null | wc -l || true)
+          PNGS=$(find "$PASTA/graficos" -name "*.png" 2>/dev/null | wc -l || true)
+          echo "Textos: $TEXTOS / linhas: $LINHAS / PNGs: $PNGS em $PASTA"
+          if [ "$TEXTOS" -lt 100 ] || [ "$LINHAS" -lt 122 ] || [ "$PNGS" -lt 257 ]; then
+            echo "Esperado >= 100 textos, >= 122 linhas e >= 257 PNGs na pasta congelada."
+            exit 1
+          fi
+
       - name: Pull the latest beta image
         run: sudo docker pull ${{ vars.DOCKER_IMAGE_BETA }}:${{ github.ref_name }}
 
@@ -255,7 +281,12 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_PORT: ${{ secrets.DB_PORT }}
           DB_SSLMODE: ${{ secrets.DB_SSLMODE }}
+          CARACTERISTICAS_ESTADO_DOCS_URL: ${{ secrets.CARACTERISTICAS_ESTADO_DOCS_URL }}
+          DESENVOLVIMENTO_SOCIAL_AREA_DOCS_URL: ${{ secrets.DESENVOLVIMENTO_SOCIAL_AREA_DOCS_URL }}
         run: |
+          # RELATORIO_CONGELADO_DIR: estado e área leem a pasta congelada (sem banco).
+          # CARACTERISTICAS_ESTADO_DOCS_URL: primeira página do estado (linha congelada).
+          # DESENVOLVIMENTO_SOCIAL_AREA_DOCS_URL: Doc fixo de DS, só no Nordeste.
           sudo docker run \
             --name ${{ vars.CONTAINER_NAME_BETA }} \
             --restart unless-stopped \
@@ -265,6 +296,7 @@ jobs:
             -v ${{ vars.VOLUME_NAME }}:/app/output \
             -v ${{ vars.MAP_SHAPE_VOLUME_NAME }}:/app/map_shape \
             -v ${{ vars.MAPAS_VOLUME_NAME }}:/app/mapas/Mapas_png:ro \
+            -v "${{ env.PASTA_CONGELADA }}":/app/relatorio_congelado:ro \
             --network ${{ vars.NETWORK_NAME }} \
             --add-host=host.docker.internal:host-gateway \
             -e DB_HOST="$DB_HOST" \
@@ -273,6 +305,9 @@ jobs:
             -e DB_PASSWORD="$DB_PASSWORD" \
             -e DB_PORT="$DB_PORT" \
             -e DB_SSLMODE="$DB_SSLMODE" \
+            -e RELATORIO_CONGELADO_DIR=/app/relatorio_congelado \
+            -e CARACTERISTICAS_ESTADO_DOCS_URL="$CARACTERISTICAS_ESTADO_DOCS_URL" \
+            -e DESENVOLVIMENTO_SOCIAL_AREA_DOCS_URL="$DESENVOLVIMENTO_SOCIAL_AREA_DOCS_URL" \
             -d ${{ vars.DOCKER_IMAGE_BETA }}:${{ github.ref_name }}
 
       - name: Validate files inside running container
