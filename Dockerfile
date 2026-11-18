@@ -3,11 +3,11 @@ FROM node:18-alpine AS deps
 
 WORKDIR /app
 
-COPY package.json ./
+COPY package.json package-lock.json ./
 COPY frontend/package.json ./frontend/
 COPY report/package.json ./report/
 
-RUN npm install
+RUN npm ci
 
 
 ### Stage 2: Build frontend SPA
