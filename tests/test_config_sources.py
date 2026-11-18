@@ -7,6 +7,7 @@ from config import (
     resolve_csv_source,
 )
 from services.macrotemas import get_macrotema_slugs_para_relatorio
+from services.relatorio_estado import slugs_em_ordem_ou_400
 from utils.cover import montar_capa_relatorio
 from utils.data.macrotemas import MACROTEMAS
 
@@ -32,10 +33,10 @@ def test_all_macrothemes_use_the_expected_colors_and_order():
         ("educacao", "#FFD65A"),
         ("saude", "#E5333F"),
         ("economia-renda", "#F79339"),
-        ("hidraulica", "#35B2DB"),
-        ("desenvolvimento-social", "#7C46E1"),
-        ("meio-ambiente", "#B0CC41"),
         ("saneamento", "#001A72"),
+        ("desenvolvimento-social", "#7C46E1"),
+        ("hidraulica", "#35B2DB"),
+        ("meio-ambiente", "#B0CC41"),
         ("instrumentos-sudene", "#018F39"),
     ]
 
@@ -43,6 +44,17 @@ def test_all_macrothemes_use_the_expected_colors_and_order():
     assert [MACROTEMAS[slug]["cor"] for slug, _ in expected] == [
         color for _, color in expected
     ]
+
+
+def test_selecionar_todos_do_estado_sai_no_pdf_na_ordem_do_menu_do_portal():
+    # Regressão 18/11/2026: o portal manda os temas na ordem do menu, e o PDF
+    # reordenava pondo Segurança Hídrica logo após Economia.
+    menu_do_portal = (
+        "demografia,educacao,saude,economia-renda,saneamento,"
+        "desenvolvimento-social,hidraulica,meio-ambiente"
+    )
+
+    assert slugs_em_ordem_ou_400(menu_do_portal) == menu_do_portal.split(",")
 
 
 def test_cover_does_not_use_lorem_ipsum_when_diagnostic_is_missing():

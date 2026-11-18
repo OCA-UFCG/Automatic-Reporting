@@ -119,15 +119,20 @@ MACROTEMAS: dict[str, Macrotema] = {
 
 TODOS_MACROTEMAS_SLUG = "todos"
 TODOS_MACROTEMAS_NOME = "Todos"
+# IMPORTANT: mesma ordem do menu de temas do portal (THEMES_NAVIGATION_ORDER em
+# data-nordeste-frontend/src/features/macrothemes/constants.ts). O formulário do
+# relatório lista os temas nessa ordem e o PDF reordena por esta lista; com as
+# duas diferentes, "Selecionar todos" mostrava Saneamento em 5º e o PDF trazia
+# Segurança Hídrica logo após Economia (18/11/2026). Mudou uma, mude a outra.
 TODOS_MACROTEMAS_ORDEM = [
     "demografia",
     "educacao",
     "saude",
     "economia-renda",
-    "hidraulica",
-    "desenvolvimento-social",
-    "meio-ambiente",
     "saneamento",
+    "desenvolvimento-social",
+    "hidraulica",
+    "meio-ambiente",
     "instrumentos-sudene",
 ]
 
