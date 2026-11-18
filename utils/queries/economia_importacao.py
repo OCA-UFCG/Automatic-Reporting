@@ -42,7 +42,11 @@ _CO_MUN_DO_NOME = """ANY (ARRAY(
           WHERE LOWER(nn.nm_mun) = LOWER(%s) AND (m.sg_uf = %s OR m.co_mun IS NULL)
       ))"""
 
+# 30 s só nesta consulta (o padrão da conexão é 15 s): com o cache do Postgres frio,
+# os maiores importadores ainda leem milhares de páginas da fato pelo índice e podem
+# passar dos 15 s; com cache quente a mesma consulta leva milissegundos.
 DADOS_IMPORTACAO_MUNICIPAL = f"""
+    SET LOCAL statement_timeout = '30s';
     SELECT
         co_ano,
         co_mes,
