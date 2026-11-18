@@ -245,6 +245,12 @@ def test_buscar_linhas_importacao_pre_filtra_por_co_mun_com_um_parametro_por_pla
     assert query.count("m.sg_uf = %s") == 4
 
 
+def test_consulta_de_importacao_tem_timeout_proprio_de_30s():
+    # Com o cache frio, os maiores importadores passam dos 15 s padrão da conexão.
+    query = economia_importacao.DADOS_IMPORTACAO_MUNICIPAL
+    assert query.lstrip().startswith("SET LOCAL statement_timeout = '30s';")
+
+
 def _dublar_banco(monkeypatch, linhas_banco, dicionario):
     def executar_query(query, *args, **kwargs):
         return dicionario if query == economia_importacao.DICIONARIO_SH4 else linhas_banco
