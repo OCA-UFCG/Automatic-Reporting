@@ -3,14 +3,12 @@ from utils.queries import economia_importacao
 
 def test_buscar_linhas_importacao_mapeia_colunas_da_consulta(monkeypatch):
     linhas_banco = [
-        (2026, "06", "junho", "País A", "Seção X", "Produto 1", 1000.0, 40000.0, "0101"),
+        (2026, "06", "junho", "País A", "Seção X", "Produto 1", 1000.0, 40000.0),
     ]
     monkeypatch.setattr(
         economia_importacao,
         "executar_query",
-        lambda query, *args, **kwargs: (
-            [("9999", "Outro")] if query == economia_importacao.DICIONARIO_SH4 else linhas_banco
-        ),
+        lambda query, *args, **kwargs: linhas_banco,
     )
 
     linhas = economia_importacao.buscar_linhas_importacao("Fortaleza", "CE")
@@ -224,9 +222,8 @@ def test_processar_importacao_concorda_unidade_e_poe_de_no_peso():
     assert dados["kg_importado_produtounid1"] == "milhões de"
 
 
-def test_buscar_linhas_importacao_pre_filtra_por_co_mun_com_um_parametro_por_placeholder(monkeypatch):
-    # Regressão: sem o pré-filtro por co_mun a consulta varre a fato inteira e estoura o
-    # statement_timeout; com parâmetro sobrando ou faltando, o fail-soft devolve vazio.
+def test_buscar_linhas_importacao_le_da_matview_por_nome_e_uf(monkeypatch):
+    # A UF no filtro: só pelo nome, Belém (AL) traria as linhas de Belém (PA).
     chamadas = []
     monkeypatch.setattr(
         economia_importacao,
@@ -234,51 +231,22 @@ def test_buscar_linhas_importacao_pre_filtra_por_co_mun_com_um_parametro_por_pla
         lambda query, params, *args, **kwargs: chamadas.append((query, params)) or [],
     )
 
-    economia_importacao.buscar_linhas_importacao("Patos", "PB")
+    economia_importacao.buscar_linhas_importacao("Belém", "AL")
 
     query, params = chamadas[0]
-    assert query.count("co_mun = ANY (ARRAY(") == 2
+    assert "FROM relatorios_auto.mv_importacao_municipal" in query
+    assert "impexp_completa" not in query
+    assert params == ("Belém", "AL")
     assert query.count("%s") == len(params)
-    pre_filtro = ("Patos", "PB", "Patos", "PB")
-    assert params == ("Patos", *pre_filtro, "PB", *pre_filtro, "PB")
-    # a UF no pré-filtro: só pelo nome, Belém (AL) lia as linhas de Belém (PA)
-    assert query.count("m.sg_uf = %s") == 4
 
 
 def test_consulta_de_importacao_tem_timeout_proprio_de_30s():
-    # Com o cache frio, os maiores importadores passam dos 15 s padrão da conexão.
     query = economia_importacao.DADOS_IMPORTACAO_MUNICIPAL
     assert query.lstrip().startswith("SET LOCAL statement_timeout = '30s';")
 
 
-def _dublar_banco(monkeypatch, linhas_banco, dicionario):
-    def executar_query(query, *args, **kwargs):
-        return dicionario if query == economia_importacao.DICIONARIO_SH4 else linhas_banco
-
-    monkeypatch.setattr(economia_importacao, "executar_query", executar_query)
-
-
-def test_buscar_linhas_importacao_aplica_o_dicionario_do_sh4(monkeypatch):
-    # Regressão: o dicionário saiu do JOIN para o Python (timeouts no snapshot do laboratório);
-    # sem ele o nome cortado da impexp_completa ("…de cerâmi") voltaria ao texto.
-    linha = (2026, "06", "junho", "País A", "Seção X", "Obras de cerâmi", 1.0, 2.0)
-    _dublar_banco(
-        monkeypatch,
-        [linha + ("6914",), linha + ("0101",), linha + ("0202",)],
-        [("6914", "Obras de cerâmica"), ("0101", None)],
-    )
-
-    linhas = economia_importacao.buscar_linhas_importacao("Maceió", "AL")
-
-    # como o COALESCE: corrigido quando há, cru quando o dicionário tem NULL ou não tem
-    assert [linha["desc_sh4"] for linha in linhas] == [
-        "Obras de cerâmica", "Obras de cerâmi", "Obras de cerâmi"
-    ]
-    assert "sh4" not in linhas[0]
-
-
-def test_buscar_linhas_importacao_sem_dicionario_sai_vazia(monkeypatch):
-    linha = (2026, "06", "junho", "País A", "Seção X", "Obras de cerâmi", 1.0, 2.0, "6914")
-    _dublar_banco(monkeypatch, [linha], None)
+def test_buscar_linhas_importacao_com_falha_na_consulta_sai_vazia(monkeypatch):
+    # executar_query devolve None em erro/timeout (ou matview inexistente).
+    monkeypatch.setattr(economia_importacao, "executar_query", lambda *a, **k: None)
 
     assert economia_importacao.buscar_linhas_importacao("Maceió", "AL") == []
