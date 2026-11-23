@@ -58,3 +58,22 @@ def _contexto_do_tema_de_texto_fixo(slug: str, area: str) -> dict | None:
         (area,),
         f"contexto de área de {slug} (texto fixo) para {area!r}",
     )
+
+
+def buscar_caracteristicas_area(area: str) -> dict | None:
+    """A linha da área para a primeira página: a areaint_geral (area_cd, area_de, área
+    territorial) com a de Demografia por cima, que traz a população
+    (`demografia.$area_pop_total_2022` no Doc). None se a área não está em nenhuma
+    das duas ou o banco falhou.
+
+    Ex.: buscar_caracteristicas_area("Caatinga")["area_de"] == "da Caatinga"
+    """
+    geral = executar_query_dict(
+        "SELECT * FROM auto_relatorios_areaint.areaint_geral WHERE area_nome = %s",
+        (area,),
+        f"características gerais da área {area!r}",
+    )
+    demografia = buscar_contexto_area("demografia", area)
+    if geral is None and demografia is None:
+        return None
+    return {**(geral or {}), **(demografia or {})}

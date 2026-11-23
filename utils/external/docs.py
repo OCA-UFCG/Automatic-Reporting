@@ -353,10 +353,10 @@ def _linhas_do_panorama(linhas: list[str]) -> list[tuple[int, str]]:
     return candidatas
 
 
-def _e_valor_de_card(linha: str) -> bool:
+def e_valor_de_card(linha: str) -> bool:
     """Se a linha é o valor de um card: um `$campo` ou um número fixo.
 
-    Ex.: _e_valor_de_card("0,588") is True; _e_valor_de_card("Mediana do IDHM") is False
+    Ex.: e_valor_de_card("0,588") is True; e_valor_de_card("Mediana do IDHM") is False
     """
     return "$" in linha or _VALOR_FIXO_DO_CARD.match(linha) is not None
 
@@ -369,7 +369,7 @@ def _cards_do_panorama(candidatas: list[tuple[int, str]]) -> tuple[list[CardDoPa
     fim = posicao = 0
     while posicao + 1 < len(candidatas):
         (_, rotulo), (indice_valor, valor) = candidatas[posicao], candidatas[posicao + 1]
-        if "$" in rotulo or not _e_valor_de_card(valor):
+        if "$" in rotulo or not e_valor_de_card(valor):
             break
         posicao, fim, legenda = posicao + 2, indice_valor + 1, ""
         if posicao < len(candidatas) and _SEPARADOR_DA_LEGENDA in candidatas[posicao][1]:
