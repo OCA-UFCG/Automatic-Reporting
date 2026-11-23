@@ -430,11 +430,27 @@ def _card_do_doc(
     fonte, _, rodape = card_do_doc.legenda.partition("•")
     return {
         "nome": card_do_doc.rotulo,
-        "fonte": fonte.strip(),
+        "fonte": _fonte_do_card(fonte.strip(), contexto, macrotema_slug),
         "valor": valor,
         "rodape": rodape.strip(),
         "icone": _icone_do_card_do_doc(card_do_doc, macrotema_icone),
     }
+
+
+def _fonte_do_card(fonte: str, contexto: dict, macrotema_slug: str) -> str:
+    """A fonte da legenda do card. Com `$campo` (Doc de economia de área, 23/11/2026:
+    "SECEX (economia.$area_balanca_mes_final de economia.$area_balanca_ano)"), passa
+    pelos placeholders; campo sem valor deixa a fonte vazia, e o card fica. Sem `$`, a
+    fonte sai como está no Doc.
+
+    Ex.: _fonte_do_card("SECEX ($uf_balanca_mes_final de $uf_balanca_ano)",
+                        {"uf_balanca_mes_final": "agosto", "uf_balanca_ano": 2026}, "economia-renda")
+         == "SECEX (agosto de 2026)"
+    """
+    if "$" not in fonte:
+        return fonte
+    resolvida = substituir_placeholders(fonte, contexto, macrotema_slug).strip()
+    return "" if _CAMPO_SEM_VALOR.search(resolvida) else resolvida
 
 
 def _icone_do_card_do_doc(card_do_doc: CardDoPanorama, macrotema_icone: str) -> str:

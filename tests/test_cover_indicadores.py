@@ -713,3 +713,28 @@ def test_campo_fora_do_mapa_e_sem_rotulo_conhecido_fica_com_o_icone_do_tema():
     )
 
     assert cards[0]["icone"] == "dollar"
+
+
+# Fonte do card com placeholder (Doc de economia de área, 23/11/2026).
+
+def _card_da_balanca(legenda: str, contexto: dict) -> dict:
+    card = CardDoPanorama("Exportações", "US$ economia.$area_valor_exp", legenda)
+    return montar_indicadores_do_doc([card], {"area_valor_exp": 798, **contexto}, "economia-renda")[0]
+
+
+def test_fonte_por_extenso_sai_como_esta_no_doc():
+    card = _card_da_balanca("SECEX (agosto de 2026) • Dólares FOB", {})
+    assert (card["fonte"], card["rodape"]) == ("SECEX (agosto de 2026)", "Dólares FOB")
+
+
+def test_fonte_com_placeholder_e_resolvida_com_ano_sem_milhar():
+    card = _card_da_balanca(
+        "SECEX (economia.$area_balanca_mes_final de economia.$area_balanca_ano) • Dólares FOB",
+        {"area_balanca_mes_final": "agosto", "area_balanca_ano": 2026},
+    )
+    assert (card["fonte"], card["rodape"]) == ("SECEX (agosto de 2026)", "Dólares FOB")
+
+
+def test_fonte_com_campo_sem_valor_fica_vazia_e_o_card_continua():
+    card = _card_da_balanca("SECEX (economia.$area_inexistente) • Dólares FOB", {})
+    assert (card["fonte"], card["valor"], card["rodape"]) == ("", "US$ 798", "Dólares FOB")

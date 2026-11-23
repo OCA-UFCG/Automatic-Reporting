@@ -1307,6 +1307,17 @@ _CAMPOS_CONTAGEM_EM_TEXTO = {
 _TEXTO_INTEIRO = re.compile(r"^-?\d+$")
 
 
+def _e_campo_de_ano(campo: str) -> bool:
+    """Se o campo é ano. A área de interesse (auto_relatorios_areaint) tem as colunas
+    do estado com `area_` no lugar de `uf_` (23/11/2026: saía "em 2.010" em
+    Segurança Hídrica de área).
+
+    Ex.: _e_campo_de_ano("area_historico_ano_inicial") is True; _e_campo_de_ano("area_x") is False
+    """
+    nome = campo.lower()
+    return nome in _CAMPOS_ANO or "uf_" + nome.removeprefix("area_") in _CAMPOS_ANO
+
+
 def _formatar_valor(valor: object, decimais: int | None = None, campo: str = "") -> str:
     if isinstance(valor, bool):
         return str(valor)
@@ -1322,7 +1333,7 @@ def _formatar_valor(valor: object, decimais: int | None = None, campo: str = "")
         numero = float(valor)
         if decimais is None:
             decimais = 0 if numero == int(numero) else 2
-        if campo.lower() in _CAMPOS_ANO and decimais == 0:
+        if _e_campo_de_ano(campo) and decimais == 0:
             return str(int(numero))
         return formatar_numero_ptbr(valor, decimais=decimais)
     return str(valor)
