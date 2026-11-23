@@ -684,6 +684,24 @@ def test_campos_do_doc_de_area_tem_icone_proprio():
     ]
 
 
+def test_alfabetizacao_indigena_e_quilombola_curta_da_area_nao_cai_no_icone_do_tema():
+    # Regressão de 23/11/2026: o Doc de área trocou para o campo curto, e o card saía
+    # com o ícone do tema (preto).
+    cards = montar_indicadores_do_doc(
+        [
+            CardDoPanorama(
+                "Alfabetização indígena e quilombola", "educacao.$area_alfab_ind_qui_curto_txt"
+            )
+        ],
+        {"area_alfab_ind_qui_curto_txt": "80,80% e 77,22%"},
+        "educacao",
+        "book",
+    )
+
+    assert cards[0]["valor"] == "80,80% e 77,22%"
+    assert cards[0]["icone"] == "indigena_alfabetizada"
+
+
 def test_card_com_valor_fixo_no_doc_escolhe_o_icone_pelo_rotulo():
     # O Doc de Desenvolvimento Social da área digita as medianas, sem `$campo`.
     panorama = [
