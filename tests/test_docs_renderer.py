@@ -2000,6 +2000,10 @@ def test_campo_ano_nao_ganha_separador_de_milhar():
         "uf_balanca_ano",
         "uf_historico_ano_inicial",
         "uf_ano",
+        # Relatório por área: as mesmas colunas com `area_` (23/11/2026).
+        "area_balanca_ano",
+        "area_historico_ano_inicial",
+        "area_ano",
     ):
         resultado = substituir_placeholders(
             f"dados de economia.${campo}", {campo: 2023}, "economia-renda"
@@ -2013,6 +2017,15 @@ def test_contagem_com_ano_no_nome_mantem_separador_de_milhar():
     # tentar trocar _CAMPOS_ANO por um startswith/endswith.
     resultado = substituir_placeholders(
         "foram saude.$dose_etario_1_ano doses", {"dose_etario_1_ano": 32211}, "saude"
+    )
+
+    assert resultado == "foram 32.211 doses"
+
+
+def test_contagem_de_area_com_ano_no_nome_mantem_separador_de_milhar():
+    # O equivalente `area_` só vale para os campos de ano do estado.
+    resultado = substituir_placeholders(
+        "foram saude.$area_dose_etario_1_ano doses", {"area_dose_etario_1_ano": 32211}, "saude"
     )
 
     assert resultado == "foram 32.211 doses"
