@@ -8,7 +8,13 @@ from pathlib import Path
 import pytest
 from fastapi import HTTPException
 
-from services import cache, generation, laboratorio_snapshot, relatorio_estado
+from services import (
+    cache,
+    generation,
+    laboratorio_snapshot,
+    primeira_pagina_area,
+    relatorio_estado,
+)
 from utils.data.areas import AREAS_COM_RELATORIO, resolver_area
 from utils.data.estados import ESTADOS_COM_RELATORIO
 from utils.queries import area as consulta_area
@@ -79,6 +85,9 @@ def ambiente_de_area(tmp_path, monkeypatch):
     monkeypatch.setattr(relatorio_estado, "render_react_ssr", ssr.render)
     monkeypatch.setattr(relatorio_estado, "carregar_texto_do_docs", _doc_fake)
     monkeypatch.setattr(relatorio_estado, "docs_url", docs_url_fake)
+    # Sem primeira página: com CARACTERISTICAS_AREA_DOCS_URL no .env, o teste iria ao
+    # banco e ao Google (tests/test_primeira_pagina_area.py a liga com fakes).
+    monkeypatch.setattr(primeira_pagina_area, "CARACTERISTICAS_AREA_DOCS_URL", None)
     return tmp_path, matview, ssr, docs_pedidos
 
 

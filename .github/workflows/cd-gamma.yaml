@@ -274,6 +274,7 @@ jobs:
           DESENVOLVIMENTO_SOCIAL_ESTADO_DOCS_URL: ${{ secrets.DESENVOLVIMENTO_SOCIAL_ESTADO_DOCS_URL }}
           MEIO_AMBIENTE_ESTADO_DOCS_URL: ${{ secrets.MEIO_AMBIENTE_ESTADO_DOCS_URL }}
           CARACTERISTICAS_ESTADO_DOCS_URL: ${{ secrets.CARACTERISTICAS_ESTADO_DOCS_URL }}
+          CARACTERISTICAS_AREA_DOCS_URL: ${{ secrets.CARACTERISTICAS_AREA_DOCS_URL }}
           DEMOGRAFIA_AREA_DOCS_URL: ${{ secrets.DEMOGRAFIA_AREA_DOCS_URL }}
           EDUCACAO_AREA_DOCS_URL: ${{ secrets.EDUCACAO_AREA_DOCS_URL }}
           SAUDE_AREA_DOCS_URL: ${{ secrets.SAUDE_AREA_DOCS_URL }}
@@ -289,6 +290,7 @@ jobs:
           # com basic auth no nginx do beta.
           # <TEMA>_ESTADO_DOCS_URL: Docs estaduais do laboratório (?unidade=estado).
           # CARACTERISTICAS_ESTADO_DOCS_URL: primeira página do relatório por estado.
+          # CARACTERISTICAS_AREA_DOCS_URL: primeira página do relatório por área.
           # <TEMA>_AREA_DOCS_URL: Docs de área de interesse (?unidade=area). O de
           # desenvolvimento social é de texto fixo e vale só para o Nordeste
           # (AREAS_DO_TEMA_DE_TEXTO_FIXO em utils/queries/area.py).
@@ -319,6 +321,7 @@ jobs:
             -e DESENVOLVIMENTO_SOCIAL_ESTADO_DOCS_URL="$DESENVOLVIMENTO_SOCIAL_ESTADO_DOCS_URL" \
             -e MEIO_AMBIENTE_ESTADO_DOCS_URL="$MEIO_AMBIENTE_ESTADO_DOCS_URL" \
             -e CARACTERISTICAS_ESTADO_DOCS_URL="$CARACTERISTICAS_ESTADO_DOCS_URL" \
+            -e CARACTERISTICAS_AREA_DOCS_URL="$CARACTERISTICAS_AREA_DOCS_URL" \
             -e DEMOGRAFIA_AREA_DOCS_URL="$DEMOGRAFIA_AREA_DOCS_URL" \
             -e EDUCACAO_AREA_DOCS_URL="$EDUCACAO_AREA_DOCS_URL" \
             -e SAUDE_AREA_DOCS_URL="$SAUDE_AREA_DOCS_URL" \

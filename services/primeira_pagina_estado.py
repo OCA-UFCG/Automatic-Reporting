@@ -14,8 +14,8 @@ de capa do Doc do primeiro tema (services/relatorio_estado.py, capa_da_unidade).
 Mapa de localização desde 17/11/2026, só no modo congelado (beta): um PNG por unidade na
 pasta congelada, que vira a Figura 1. Sem mapa, a menção "(Figura X)" do texto sai (ver
 _sem_mencao_ao_mapa). No modo congelado a primeira página de estado e de área também vem
-de um texto estático (primeira_pagina_da_unidade); o Doc de área ainda não segue o formato
-deste módulo.
+de um texto estático (primeira_pagina_da_unidade). A área tem o seu Doc desde 23/11/2026
+(services/primeira_pagina_area.py), convertido para o formato deste módulo.
 """
 
 import html
@@ -26,6 +26,7 @@ from fastapi import HTTPException
 
 from config import CARACTERISTICAS_ESTADO_DOCS_URL
 from services import relatorio_congelado
+from services.primeira_pagina_area import primeira_pagina_da_area
 from utils.cover import montar_indicadores_do_doc
 from utils.external.docs import (
     CardDoPanorama,
@@ -51,7 +52,13 @@ NAMESPACE_PRIMEIRA_PAGINA = "geral"
 
 # O ícone do card na capa (report/src/components/cover/MetricIcon.jsx) pelo campo do
 # Doc: os mesmos dois do municipal (utils/cover.py, `metricas`).
-_ICONE_DA_METRICA = {"area": "area", "pop_total_2022": "populacao"}
+# Na área (services/primeira_pagina_area.py) os campos têm o prefixo `area_`.
+_ICONE_DA_METRICA = {
+    "area": "area",
+    "pop_total_2022": "populacao",
+    "area_territorial_km2": "area",
+    "area_pop_total_2022": "populacao",
+}
 # O texto estático traz o valor fixo, sem `$campo`: o ícone sai pelo rótulo.
 _ICONE_DO_ROTULO = {"Área territorial": "area", "População residente": "populacao"}
 _CAMPO_DO_CARD = re.compile(r"\$(\w+)")
@@ -103,11 +110,20 @@ async def primeira_pagina_da_unidade(
         texto = relatorio_congelado.primeira_pagina(unidade, nome)
         if texto is not None:
             return montar_primeira_pagina(texto, {}, safe_report, mapa=mapa, nome=nome)
-    capa = await primeira_pagina_do_estado(nome, safe_report) if unidade == "estado" else {}
+    capa = await _primeira_pagina_do_doc(unidade, nome, safe_report)
     if mapa:
         # Sem texto estático, o mapa ainda é a Figura 1 (o contador já contou com ele).
         capa["mapa_principal"] = figura_do_mapa(mapa, None, nome)
     return capa
+
+
+async def _primeira_pagina_do_doc(unidade: str, nome: str, safe_report: str) -> dict[str, object]:
+    """O Doc de primeira página da unidade: estado e área têm o seu; município não passa aqui."""
+    if unidade == "estado":
+        return await primeira_pagina_do_estado(nome, safe_report)
+    if unidade == "area":
+        return await primeira_pagina_da_area(nome, safe_report)
+    return {}
 
 
 def figura_do_mapa(mapa: str, legenda: str | None, nome: str) -> str:
@@ -127,7 +143,12 @@ def figura_do_mapa(mapa: str, legenda: str | None, nome: str) -> str:
 
 
 def montar_primeira_pagina(
-    texto_do_doc: str, contexto: dict, safe_report: str, mapa: str | None = None, nome: str = ""
+    texto_do_doc: str,
+    contexto: dict,
+    safe_report: str,
+    mapa: str | None = None,
+    nome: str = "",
+    isolar_condicoes: bool = True,
 ) -> dict[str, object]:
     """Fatia o Doc e resolve cada parte contra a linha do estado. Bloco ausente no Doc
     não vira chave, e a capa mantém o que tinha.
@@ -138,7 +159,8 @@ def montar_primeira_pagina(
     """
     # No Doc estadual cada "Para quando … então:" vale só para a linha seguinte, como nos
     # Docs de tema (services/relatorio_estado.py, tema_da_unidade).
-    texto = isolar_paragrafo_de_cada_condicao(texto_do_doc)
+    # O Doc de área desliga (isolar_condicoes=False): lá a condição vale até a linha em branco.
+    texto = isolar_paragrafo_de_cada_condicao(texto_do_doc) if isolar_condicoes else texto_do_doc
     cards, texto = extrair_panorama_indicadores(texto)
     apresentacao, texto = extrair_relatorio_geral(texto)
     resumo, resto = extrair_resumo_cidade(texto)
