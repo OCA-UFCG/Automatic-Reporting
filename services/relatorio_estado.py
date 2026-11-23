@@ -302,8 +302,8 @@ async def _fontes_congeladas(unidade: str, slug: str, nome: str) -> tuple[str, d
 
 def graficos_da_unidade(unidade: str, slug: str, nome: str, linha: dict) -> dict[str, str]:
     """{marcador: PNG} do tema na unidade. O estado monta os gráficos das colunas
-    `uf_*`; a área tem os seus em services/graficos_area.py (a matview de área usa
-    `area_*`, e os adaptadores do estado não servem).
+    `uf_*`; a área (services/graficos_area.py) troca `area_` por `uf_` e usa os
+    mesmos adaptadores, com complementos próprios.
 
     Ex.: graficos_da_unidade("area", "desenvolvimento-social", "Nordeste", linha)
          == {"grafico_idhm_componentes": "grafico_idhm_componentes_area_nordeste.png"}
@@ -312,7 +312,7 @@ def graficos_da_unidade(unidade: str, slug: str, nome: str, linha: dict) -> dict
     if unidade == "estado":
         return gerar_graficos_do_estado(slug, linha, OUTPUT_DIR, sufixo)
     if unidade == "area":
-        return gerar_graficos_da_area(slug, nome, OUTPUT_DIR, sufixo)
+        return gerar_graficos_da_area(slug, nome, linha, OUTPUT_DIR, sufixo)
 
     return {}
 

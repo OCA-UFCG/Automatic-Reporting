@@ -497,6 +497,51 @@ def buscar_publico_etario_vacinas_estado(sigla_uf: str) -> dict[str, object] | N
     return None if linha is None else _publico_etario_da_linha(linha)
 
 
+# Relatório por área (23/11/2026): a areaint_saude também não tem o público-alvo por
+# faixa nem a série de estabelecimentos. A área soma os municípios que pertencem a
+# ela, pela coluna "Sim"/"Não" de cada tabela do painel. Em 16/11 essas somas
+# conferiram exatamente com a linha da matview (doses e estabelecimentos de 2025) nas
+# 4 áreas. {área: (coluna na imunização, coluna nos estabelecimentos)}; a Caatinga
+# tem um recorte diferente em cada tabela.
+COLUNAS_DE_PERTENCIMENTO_DA_AREA: dict[str, tuple[str, str]] = {
+    "Nordeste": ("ne", "ne"),
+    "Área de atuação da Sudene": ("aas_21", "aas_21"),
+    "Semiárido": ("semi_21", "semi_21"),
+    "Caatinga": ("caat_24", "caat_25"),
+}
+
+
+def buscar_saude_do_painel_da_area(area: str) -> dict[str, object]:
+    """Público-alvo e doses por faixa etária e série de estabelecimentos da área, com
+    as chaves do municipal. {} para área fora de COLUNAS_DE_PERTENCIMENTO_DA_AREA: os
+    dois gráficos ficam de fora, com aviso.
+
+    Ex.: buscar_saude_do_painel_da_area("Nordeste")["estabelecimentos_saude_serie"][0]["ano"] == 2010
+    """
+    if area not in COLUNAS_DE_PERTENCIMENTO_DA_AREA:
+        return {}
+    # As colunas vêm só do dicionário acima, nunca do pedido: podem ir no texto do SQL.
+    coluna_imunizacao, coluna_estabelecimentos = COLUNAS_DE_PERTENCIMENTO_DA_AREA[area]
+    publico = executar_query(
+        f"SELECT {_COLUNAS_PUBLICO_ETARIO} FROM sau_imunizacao.vw_imunizacao_anual_2025 i "
+        f"WHERE i.{coluna_imunizacao} = 'Sim'",
+        (),
+        f"público-etário de vacinas da área '{area}'",
+    )
+    serie = executar_query(
+        "SELECT ano, SUM(total) FROM (SELECT DISTINCT e.cd_mun, e.ano, e.tipo_estab, e.total "
+        f"FROM sau_estabelecimento_de_saude.estabelecimento_saude e WHERE e.{coluna_estabelecimentos} = 'Sim') x "
+        "GROUP BY ano ORDER BY ano",
+        (),
+        f"série histórica de estabelecimentos de saúde da área '{area}'",
+        buscar_todas=True,
+    )
+    return {
+        **({} if publico is None else _publico_etario_da_linha(publico)),
+        **(_serie_de_estabelecimentos(serie) or {}),
+    }
+
+
 def _publico_etario_da_linha(linha: tuple) -> dict[str, object]:
     (
         publico_etario_ao_nascer,

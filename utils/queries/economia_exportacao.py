@@ -8,6 +8,9 @@ logger = logging.getLogger(__name__)
 # A view emite a unidade no singular quando o valor arredonda para 1 ("milhão"):
 # sem essa forma aqui o valor entra no gráfico 1.000.000x menor.
 UNIDADE_MULTIPLICADOR = {
+    # PIB do Nordeste e da área da Sudene (areaint_economia, 23/11/2026).
+    "trilhões": 1_000_000_000_000,
+    "trilhão": 1_000_000_000_000,
     "bilhões": 1_000_000_000,
     "bilhão": 1_000_000_000,
     "milhões": 1_000_000,
