@@ -337,6 +337,9 @@ _ICONE_POR_CAMPO_DO_DOC = {
     "alfab_ind_per_2022": "indigena_alfabetizada",
     # O Doc de área junta indígena e quilombola num card só, em texto (17/11/2026).
     "alfab_ind_qui_txt": "indigena_alfabetizada",
+    # O Doc de área passou a usar a versão curta, "80,80% e 77,22%" (23/11/2026). Sem esta
+    # entrada, o card caía no ícone do tema e saía preto.
+    "alfab_ind_qui_curto_txt": "indigena_alfabetizada",
     # Saúde (Doc estadual de 11/11/2026): os mesmos ícones das bases municipais
     # equivalentes em _ICONE_POR_BASE.
     "nascidos": "nascidos_vivos",
