@@ -1,19 +1,27 @@
 import asyncio
 import logging
 import os
+from dataclasses import asdict
+from typing import Annotated
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from config import BASE_DIR, MAPAS_DIR, OUTPUT_DIR
+from config import BASE_DIR, MAPAS_DIR, OUTPUT_DIR, get_config_value
 from services import (
     apagar_relatorio_handler,
     gerar_relatorio_estado_handler,
     gerar_relatorio_handler,
     gerar_relatorio_unidade_handler,
     listar_relatorios_handler,
+)
+from services.atualizacao_docs import (
+    AtualizacaoEmAndamento,
+    conferir_e_atualizar,
+    docs_configurados,
+    token_de_docs_valido,
 )
 from utils.data.areas import AREAS_COM_RELATORIO, resolver_area
 from utils.data.cities import carregar_cidades
@@ -193,6 +201,24 @@ async def gerar_relatorio(
     if resolver_area(cidade) is not None:
         return await gerar_relatorio_unidade_handler("area", cidade, macrotema, aguardar=aguardar != "nao")
     return await gerar_relatorio_handler(cidade, macrotema, aguardar=aguardar != "nao")
+
+
+# Botão "Atualizar relatórios" do Data Nordeste (24/11/2026): confere os Docs e grava
+# no cache só os que passaram (services/atualizacao_docs.py). Quem chama é o servidor
+# do portal, nunca o navegador: o token fica no .env dos dois lados. Sem
+# DOCS_ATUALIZAR_TOKEN a rota fica desligada (503), e não aberta.
+@app.post("/docs/atualizar")
+async def atualizar_docs(x_docs_token: Annotated[str | None, Header()] = None):
+    esperado = get_config_value("DOCS_ATUALIZAR_TOKEN")
+    if not esperado:
+        raise HTTPException(status_code=503, detail="DOCS_ATUALIZAR_TOKEN não configurado: atualização pela web desligada.")
+    if not token_de_docs_valido(x_docs_token, esperado):
+        raise HTTPException(status_code=401, detail="Header X-Docs-Token ausente ou diferente do DOCS_ATUALIZAR_TOKEN.")
+    try:
+        resultados = await conferir_e_atualizar(docs_configurados())
+    except AtualizacaoEmAndamento as err:
+        raise HTTPException(status_code=409, detail=str(err)) from err
+    return {"docs": [asdict(resultado) for resultado in resultados]}
 
 
 # Laboratório de Temas: as rotas só existem com a flag ligada, e ela só é setada no
