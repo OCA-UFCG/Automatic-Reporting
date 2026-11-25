@@ -165,7 +165,7 @@ def _formatar_total(total: float) -> str:
     # "mil" por extenso, e não o "K": a unidade aparece no miolo da rosca,
     # lida por leitores não técnicos do relatório.
     if total >= 10000:
-        return f"{round(total / 1000)} mil"
+        return f"{round(total / 1000):,} mil".replace(",", ".")
     return f"{total:,.0f}".replace(",", ".")
 
 
