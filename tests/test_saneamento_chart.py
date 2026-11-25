@@ -14,6 +14,7 @@ from plotting.saneamento import (
     _Y_MAXIMO_ROTULO,
     _angulos_dos_meios,
     _fonte_total_ajustada_ao_buraco,
+    _formatar_total,
     _pontos_por_ano,
     _posicoes_dos_rotulos,
     _quebrar_rotulo_longo,
@@ -220,3 +221,17 @@ def test_rotulos_nao_se_sobrepoem_nem_cruzam(valores):
             assert cima - baixo >= _ESPACO_ENTRE_ROTULOS - 1e-9
         # Ordem dos rótulos = ordem vertical das fatias: linhas-guia não se cruzam.
         assert coluna == sorted(coluna, key=lambda i: -math.sin(math.radians(meios[i])))
+
+
+@pytest.mark.parametrize(
+    ("total", "esperado"),
+    [
+        (8_500, "8.500"),
+        (147_300, "147 mil"),
+        # Estados e áreas passam de 1 milhão de domicílios: o Nordeste saía
+        # "18795 mil" no miolo da rosca, sem o ponto de milhar.
+        (18_795_123, "18.795 mil"),
+    ],
+)
+def test_formatar_total_usa_ponto_de_milhar(total, esperado):
+    assert _formatar_total(total) == esperado
