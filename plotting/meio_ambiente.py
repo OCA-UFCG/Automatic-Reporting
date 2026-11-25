@@ -130,6 +130,19 @@ _CATEGORIAS_ARIDEZ_COMPARADA = (
 )
 _COR_LEGENDA_POR_ANO = {1991: "#C9C6C8", 2021: "#514C50"}
 _OPACIDADE_1991 = 0.4
+# A área de interesse usa este mesmo gráfico (services/graficos_area.py) e manda o
+# próprio rótulo em `aridez_rotulo_eixo`; sem ele saía "Área do estado" na Caatinga
+# (conferência de 25/11/2026).
+_ROTULO_DO_EIXO_DA_ARIDEZ = "Área do estado"
+
+
+def rotulo_do_eixo_da_aridez(cidade: dict) -> str:
+    """Rótulo do eixo Y do gráfico comparado: `aridez_rotulo_eixo` quando vem na
+    linha, senão o do estado.
+
+    Ex.: rotulo_do_eixo_da_aridez({"aridez_rotulo_eixo": "Área do território"}) == "Área do território"
+    """
+    return str(cidade.get("aridez_rotulo_eixo") or _ROTULO_DO_EIXO_DA_ARIDEZ)
 
 
 def _anos_da_aridez(cidade: dict) -> tuple[int, ...]:
@@ -220,7 +233,7 @@ def gerar_grafico_aridez_comparada(
 
     ax.set_ylim(0, 112)
     ax.set_yticks([0, 25, 50, 75, 100])
-    ax.set_ylabel("Área do estado", fontsize=FONTE_ROTULO_EIXO * ESCALA_FONTE)
+    ax.set_ylabel(rotulo_do_eixo_da_aridez(cidade), fontsize=FONTE_ROTULO_EIXO * ESCALA_FONTE)
     ax.set_xticks(x)
     ax.set_xticklabels([rotulo for rotulo, _, _ in classes], fontsize=FONTE_TICK * ESCALA_FONTE)
     ax.yaxis.set_major_formatter(FuncFormatter(lambda valor, _: f"{valor:.0f}%"))
