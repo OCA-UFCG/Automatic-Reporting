@@ -123,3 +123,13 @@ def test_handler_passa_a_linha_da_area(tmp_path: Path, monkeypatch):
     graficos_da_unidade("area", "saude", "Semiárido", {"area_x": 1})
 
     assert recebido == {"linha": {"area_x": 1}, "sufixo": "area_semi_rido"}
+
+
+def test_eixo_da_aridez_da_area_chega_ao_grafico_como_territorio():
+    """Regressão de 25/11/2026: a Caatinga saía com "Área do estado" no eixo."""
+    from services.graficos_estado import aridez_do_estado
+
+    linha = {"uf_aridez_2021_valida": 1, **graficos_area.rotulo_da_aridez_da_area({})}
+
+    assert aridez_do_estado(linha)["aridez_rotulo_eixo"] == "Área do território"
+    assert graficos_area.COMPLEMENTOS_DA_AREA["meio-ambiente"] is graficos_area.rotulo_da_aridez_da_area

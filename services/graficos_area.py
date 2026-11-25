@@ -8,7 +8,9 @@ próprios:
   - Saúde: público-alvo por faixa e estabelecimentos somados pelas colunas de
     pertencimento das tabelas do painel (buscar_saude_do_painel_da_area);
   - Saneamento: a rosca sai das quantidades da própria areaint_infraestrutura, que
-    tem as 7 categorias (somam o total), sem consultar o painel.
+    tem as 7 categorias (somam o total), sem consultar o painel;
+  - Meio Ambiente: o eixo do gráfico de aridez diz "Área do território", não
+    "Área do estado" (25/11/2026).
 
 Desenvolvimento Social não tem matview de área: o único gráfico é o do Nordeste, de
 valores fixos, como o texto do Doc.
@@ -92,6 +94,19 @@ def rosca_de_esgoto_da_area(linha: dict) -> dict[str, object]:
             **{chave: linha.get(coluna) for chave, coluna in _CATEGORIAS_DA_ROSCA}}
 
 
+# O gráfico de aridez é o do estado, que escreve "Área do estado" no eixo. O prefixo
+# `uf_aridez_` faz o rótulo passar por aridez_do_estado (services/graficos_estado.py).
+_ROTULO_DO_EIXO_DA_ARIDEZ_DA_AREA = "Área do território"
+
+
+def rotulo_da_aridez_da_area(_linha: dict) -> dict[str, object]:
+    """Complemento de Meio Ambiente: só troca o rótulo do eixo do gráfico de aridez.
+
+    Ex.: rotulo_da_aridez_da_area({}) == {"uf_aridez_rotulo_eixo": "Área do território"}
+    """
+    return {"uf_aridez_rotulo_eixo": _ROTULO_DO_EIXO_DA_ARIDEZ_DA_AREA}
+
+
 def _saude_do_painel(linha: dict) -> dict[str, object]:
     return buscar_saude_do_painel_da_area(str(linha.get("uf_nome") or ""))
 
@@ -99,6 +114,7 @@ def _saude_do_painel(linha: dict) -> dict[str, object]:
 COMPLEMENTOS_DA_AREA: dict[str, ComplementoDoPainel] = {
     "saude": _saude_do_painel,
     "saneamento": rosca_de_esgoto_da_area,
+    "meio-ambiente": rotulo_da_aridez_da_area,
 }
 
 

@@ -6,6 +6,7 @@ from plotting.meio_ambiente import (
     _percentuais_da_aridez,
     gerar_grafico_aridez,
     gerar_grafico_aridez_comparada,
+    rotulo_do_eixo_da_aridez,
 )
 
 
@@ -104,3 +105,13 @@ def test_aridez_comparada_sem_1991_valido_sai_so_com_2021(tmp_path: Path):
 def test_aridez_comparada_exige_2021_valido(tmp_path: Path):
     with pytest.raises(ValueError, match="aridez_2021_valida=0"):
         gerar_grafico_aridez_comparada(_aridez_paraiba(aridez_2021_valida=0), tmp_path, "sem_2021")
+
+
+def test_eixo_da_aridez_comparada_e_do_estado_por_padrao():
+    assert rotulo_do_eixo_da_aridez(_aridez_paraiba()) == "Área do estado"
+
+
+def test_eixo_da_aridez_comparada_usa_o_rotulo_da_linha():
+    linha = _aridez_paraiba(aridez_rotulo_eixo="Área do território")
+
+    assert rotulo_do_eixo_da_aridez(linha) == "Área do território"
