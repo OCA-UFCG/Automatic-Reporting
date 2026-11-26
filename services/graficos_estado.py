@@ -94,6 +94,12 @@ logger = logging.getLogger(__name__)
 _PREFIXO_FAIXA = "uf_faixa_etaria_2022_"
 _POSICOES_COR_RACA = ("pri", "seg", "ter", "quar", "quin")
 _ANOS_CENSO_ESTADO = (2010, 2022)
+# INTENTIONAL: com as alturas do municipal (4,4 e 5,6 pol), a pirâmide etária
+# não cabia embaixo da dinâmica populacional e pulava de página, deixando meia
+# página em branco nos relatórios por área (26/11/2026). Com 3,6 e 5,2, ela
+# sobe nas 4 áreas; a Sudene e o Semiárido têm só ~0,3 pol de folga.
+_ALTURA_VISAO_HISTORICA_ESTADO_POL = 3.6
+_ALTURA_FAIXA_ETARIA_ESTADO_POL = 5.2
 _NIVEIS_INSTRUCAO = ("pri_nivel", "seg_nivel", "ter_nivel", "quar_nivel")
 # Rótulo da faixa na matview -> sufixo da coluna municipal `taxa_<faixa>_<cor>`.
 _SUFIXO_POR_FAIXA_DE_ANALFABETISMO = {
@@ -332,7 +338,9 @@ def idhm_serie_do_estado(linha: dict) -> dict[str, object]:
 def _grafico_faixa_etaria(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
     cidade = {"faixas_etarias_sexo": faixas_etarias_sexo_do_estado(linha)}
 
-    return gerar_grafico_faixa_etaria_e_sexo(cidade, output_dir, safe_estado)
+    return gerar_grafico_faixa_etaria_e_sexo(
+        cidade, output_dir, safe_estado, altura_polegadas=_ALTURA_FAIXA_ETARIA_ESTADO_POL
+    )
 
 
 def _grafico_idhm(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
@@ -345,7 +353,11 @@ def _grafico_cor_raca(linha: dict, output_dir: pathlib.Path, safe_estado: str) -
 
 def _grafico_visao_historica(linha: dict, output_dir: pathlib.Path, safe_estado: str) -> str:
     return gerar_grafico_visao_historica_populacao(
-        populacao_historica_do_estado(linha), output_dir, safe_estado, anos_censo=_ANOS_CENSO_ESTADO
+        populacao_historica_do_estado(linha),
+        output_dir,
+        safe_estado,
+        anos_censo=_ANOS_CENSO_ESTADO,
+        altura_polegadas=_ALTURA_VISAO_HISTORICA_ESTADO_POL,
     )
 
 
