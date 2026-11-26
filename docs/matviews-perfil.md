@@ -101,6 +101,20 @@ só):
 docker exec automatic-reporting-beta python3 scripts/atualizar_docs.py   # na VM
 ```
 
+Ou pelo botão **"Atualizar relatórios"** em `/atualizar-conteudo` no Data Nordeste
+(24/11/2026), que chama `POST /docs/atualizar` com o header `X-Docs-Token`. A rota só
+existe de fato com `DOCS_ATUALIZAR_TOKEN` no ambiente; sem ele responde 503. Botão,
+cron e chamado à mão rodam a mesma rotina (`services/atualizacao_docs.py`) e a mesma
+trava de arquivo (`output/.atualizar_docs.lock`): duas rodadas ao mesmo tempo, a
+segunda recebe 409.
+
+**Conferir antes de gravar** (desde 24/11/2026): cada Doc baixado passa pela
+conferência rápida — regra "Para quando ...:" que o gerador lê diferente do escrito
+(`conferir_condicoes`) e regra escrita no resumo do tema (`condicoes_no_resumo`). O
+Doc com problema **não é gravado** e mantém a cópia anterior até alguém corrigir o
+Google Doc. Antes ele era gravado e só avisado no log, e o parágrafo sumia do
+relatório. A conferência completa, município a município, continua no Laboratório.
+
 Sem esse chamado manual, **uma edição no Doc só aparece no dia seguinte** — é o
 trade aceito de propósito: o cron é a rede de segurança por tempo, o chamado à mão
 é a invalidação por evento. Mesmo desenho de `services/cache.py:artefato_fresco`.

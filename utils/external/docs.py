@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import re
 import time
 from pathlib import Path
@@ -39,18 +40,40 @@ def _carregar_do_cache(doc_id: str) -> dict[str, object] | None:
     return None
 
 
+def _gravar_no_cache(doc_id: str, texto: str) -> None:
+    """Grava o texto JÁ LIMPO e levanta OSError se não conseguir. `timestamp` é
+    informativo (diagnóstico e log do script de atualização); nada decide frescor
+    por ele — quem decide quando rebaixar é services/atualizacao_docs.py, chamado
+    pelo cron, à mão ou pelo POST /docs/atualizar.
+
+    Escrita atômica (temporário + os.replace): desde o botão "Atualizar relatórios"
+    (24/11/2026) o cache é regravado em horário de uso, e um relatório lendo o JSON
+    no meio da escrita veria um arquivo cortado.
+    """
+    DOCS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    dados = {"timestamp": time.time(), "texto": texto}
+    destino = _cache_path(doc_id)
+    temporario = destino.with_suffix(f".{os.getpid()}.tmp")
+    temporario.write_text(json.dumps(dados, ensure_ascii=False), encoding="utf-8")
+    os.replace(temporario, destino)
+
+
 def _salvar_no_cache(doc_id: str, texto: str) -> None:
-    """Grava o texto JÁ LIMPO. `timestamp` é informativo (diagnóstico e log do
-    script de atualização); nada decide frescor por ele — quem decide quando
-    rebaixar é scripts/atualizar_docs.py, chamado pelo cron ou à mão."""
+    """Como _gravar_no_cache, mas engole o erro: no caminho do relatório, um cache
+    que não grava não pode derrubar a geração."""
     try:
-        DOCS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        dados = {"timestamp": time.time(), "texto": texto}
-        _cache_path(doc_id).write_text(
-            json.dumps(dados, ensure_ascii=False), encoding="utf-8"
-        )
+        _gravar_no_cache(doc_id, texto)
     except (OSError, TypeError, ValueError) as e:
         logger.debug("Falha ao salvar cache de docs (%s): %s", _cache_path(doc_id), e)
+
+
+def salvar_doc_no_cache(link_ou_id: str, texto: str) -> None:
+    """Grava no cache um texto já baixado e conferido. Levanta OSError se falhar,
+    para quem atualiza saber que o Doc NÃO foi atualizado.
+
+    Ex.: salvar_doc_no_cache(url, await baixar_doc(url))
+    """
+    _gravar_no_cache(extrair_doc_id(link_ou_id), texto)
 
 
 def extrair_doc_id(link_ou_id: str) -> str:

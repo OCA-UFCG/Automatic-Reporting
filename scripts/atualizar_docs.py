@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Baixa os Docs editoriais do Google e grava em output/docs_cache/.
+"""Baixa os Docs editoriais do Google, confere e grava em output/docs_cache/.
 
 Por que existe: o relatório lê a prosa do disco (utils/external/docs.py), não do
 Google. Sem este script o cache nunca se atualiza e a correção da editora não
@@ -17,18 +17,22 @@ services/cache.py:artefato_fresco descreve:
       .venv/bin/python scripts/atualizar_docs.py
       docker exec automatic-reporting-beta python3 scripts/atualizar_docs.py
 
+    ou pelo botão "Atualizar relatórios" do Data Nordeste (POST /docs/atualizar),
+    que roda a mesma rotina (services/atualizacao_docs.py).
+
 Ganho: tira ~610ms por Doc (medido) do caminho do request — ~15,7s num relatório
 "todos", que busca 8 Docs de macrotema + o de Características Gerais.
 
 Falhar aqui é barato de propósito: um Doc inacessível vira aviso no log e mantém
 a cópia anterior em disco; o relatório continua saindo com a prosa de ontem em vez
-de quebrar. Sai com código 1 se algum Doc falhou, pro cron registrar.
+de quebrar.
 
-Cada Doc baixado passa também por conferir_condicoes: regra "Para quando ...:"
-que o parser descarta em parte ou lê diferente do escrito vira AVISO com o texto
-da regra. Não muda o código de saída: o Doc foi baixado e o relatório sai, mas
-com um parágrafo sumido ou no município errado. É o momento de avisar quem
-editou o Doc (revisão editorial de Demografia, 29/09/2026).
+Cada Doc baixado passa pela conferência rápida (services/atualizacao_docs.py:
+regra "Para quando ...:" que o parser lê diferente do escrito, regra escrita no
+resumo do tema). Desde 24/11/2026 o Doc com problema NÃO é gravado: fica a cópia
+anterior até alguém corrigir o Google Doc. Antes ele era gravado e só avisado
+(revisão editorial de Demografia, 29/09/2026), e o parágrafo sumia do relatório.
+Sai com código 1 se algum Doc não foi atualizado, pro cron registrar.
 """
 
 import asyncio
@@ -37,84 +41,44 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from config import (
-    CARACTERISTICAS_AREA_DOCS_URL,
-    CARACTERISTICAS_DOCS_URL,
-    CARACTERISTICAS_ESTADO_DOCS_URL,
+from services.atualizacao_docs import (
+    AtualizacaoEmAndamento,
+    ResultadoDoDoc,
+    conferir_e_atualizar,
+    docs_configurados,
 )
-from services.macrotemas import docs_url
-from utils.data.macrotemas import MACROTEMAS
-from utils.external.docs import baixar_e_salvar_doc
-from utils.queries.area import AREAS_DO_TEMA_DE_TEXTO_FIXO, MATVIEW_AREA_POR_MACROTEMA
-from utils.queries.estado import MATVIEW_ESTADUAL_POR_MACROTEMA
-from utils.render.placeholders import conferir_condicoes
 
 
-def _docs_configurados() -> list[tuple[str, str]]:
-    """(rótulo, url) de todo Doc que o relatório pode pedir. Macrotema sem
-    docs_url no .env é pulado — é o mesmo tratamento de services/generation.py,
-    que apenas loga e segue."""
-    docs = [
-        (slug, dados["docs_url"])
-        for slug, dados in MACROTEMAS.items()
-        if dados["docs_url"]
-    ]
-    # Os Docs estaduais (relatório por estado, 05/11/2026). Sem eles aqui, o primeiro
-    # relatório de um estado baixava o Doc e ele ficava congelado no cache para sempre.
-    docs.extend(
-        (f"{slug} (estado)", url)
-        for slug in MATVIEW_ESTADUAL_POR_MACROTEMA
-        if (url := docs_url(slug, "estado"))
-    )
-    # Os Docs de área (Nordeste, Caatinga…), 16/11/2026: sem eles aqui, o Doc de área
-    # ficava congelado no cache e a correção das Fontes no Google não aparecia. Os
-    # temas de texto fixo não têm matview de área, mas têm Doc de área.
-    docs.extend(
-        (f"{slug} (área)", url)
-        for slug in (*MATVIEW_AREA_POR_MACROTEMA, *AREAS_DO_TEMA_DE_TEXTO_FIXO)
-        if (url := docs_url(slug, "area"))
-    )
-    if CARACTERISTICAS_DOCS_URL:
-        docs.append(("caracteristicas", CARACTERISTICAS_DOCS_URL))
-    if CARACTERISTICAS_ESTADO_DOCS_URL:
-        docs.append(("caracteristicas (estado)", CARACTERISTICAS_ESTADO_DOCS_URL))
-    if CARACTERISTICAS_AREA_DOCS_URL:
-        docs.append(("caracteristicas (área)", CARACTERISTICAS_AREA_DOCS_URL))
-    return docs
+def _imprimir(resultado: ResultadoDoDoc) -> None:
+    if resultado.estado == "atualizado":
+        print(f"ok: {resultado.rotulo} ({resultado.caracteres} caracteres)")
+        return
+    motivo = "regra que o relatório não entende" if resultado.estado == "com_problema" else "falhou"
+    for aviso in resultado.avisos:
+        print(f"AVISO: {resultado.rotulo}: {motivo} (mantida a cópia anterior em disco):\n  {aviso}")
 
 
 async def main() -> int:
-    docs = _docs_configurados()
+    docs = docs_configurados()
     if not docs:
         print("Nenhum *_DOCS_URL configurado no .env — nada a fazer.")
         return 1
+    try:
+        resultados = await conferir_e_atualizar(docs)
+    except AtualizacaoEmAndamento as err:
+        print(f"AVISO: {err}")
+        return 1
 
-    # Em paralelo: são 9 esperas de rede independentes. Sequencial mede ~15,7s,
-    # com gather ~1,1s. return_exceptions pra um Doc quebrado não abortar os outros
-    # — cada um tem seu próprio cache e seu próprio dono.
-    resultados = await asyncio.gather(
-        *(baixar_e_salvar_doc(url) for _, url in docs), return_exceptions=True
-    )
-
-    falhas = 0
-    regras_com_problema = 0
-    for (rotulo, _), resultado in zip(docs, resultados):
-        if isinstance(resultado, Exception):
-            falhas += 1
-            print(f"AVISO: {rotulo}: {resultado} (mantida a cópia anterior em disco)")
-            continue
-        print(f"ok: {rotulo} ({len(resultado)} caracteres)")
-        for aviso in conferir_condicoes(resultado):
-            regras_com_problema += 1
-            print(f"AVISO: {rotulo}: regra que o relatório não entende:\n  {aviso}")
-
-    print(f"=== atualizar_docs: {len(docs) - falhas}/{len(docs)} atualizados ===")
-    if regras_com_problema:
+    for resultado in resultados:
+        _imprimir(resultado)
+    atualizados = sum(r.estado == "atualizado" for r in resultados)
+    print(f"=== atualizar_docs: {atualizados}/{len(docs)} atualizados ===")
+    if any(r.estado == "com_problema" for r in resultados):
         print(
-            f"=== {regras_com_problema} regra(s) com problema: o parágrafo pode sumir ou "
-            "sair no município errado. Corrija no Google Doc e rode de novo. ==="
+            "=== Doc com regra problemática não foi gravado: corrija no Google Doc e "
+            "rode de novo. ==="
         )
-    return 1 if falhas else 0
+    return 0 if atualizados == len(docs) else 1
 
 
 if __name__ == "__main__":

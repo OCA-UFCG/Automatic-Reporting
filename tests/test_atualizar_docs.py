@@ -1,8 +1,9 @@
-"""Quais Docs o scripts/atualizar_docs.py baixa. Regressão de 16/11/2026: o script só
+"""Quais Docs a atualização baixa (scripts/atualizar_docs.py e POST /docs/atualizar,
+services/atualizacao_docs.py). Regressão de 16/11/2026: o script só
 cobria município e estado, e o Doc de área (Nordeste, Caatinga…) ficava congelado no
 output/docs_cache/ com a primeira cópia baixada, mesmo depois de corrigido no Google."""
 
-from scripts.atualizar_docs import _docs_configurados
+from services.atualizacao_docs import docs_configurados as _docs_configurados
 
 URL_AREA_DEMOGRAFIA = "https://docs.google.com/document/d/area-demografia/edit"
 URL_AREA_DESENVOLVIMENTO_SOCIAL = "https://docs.google.com/document/d/area-dessoc/edit"

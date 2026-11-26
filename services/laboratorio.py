@@ -62,6 +62,7 @@ from utils.json_tipado import codificar
 from utils.maps import buscar_mapa_estatico
 from utils.render.placeholders import (
     _numero_do_campo,
+    condicoes_no_resumo,
     conferir_condicoes,
     isolar_paragrafo_de_cada_condicao,
     nomes_resolvidos_sem_coluna,
@@ -82,8 +83,6 @@ logger = logging.getLogger(__name__)
 
 # "$campo" ou "tema.$campo" que sobrou no texto final: não resolveu neste município.
 _CAMPO_CRU = re.compile(r"(?:\b\w+\.)?\$([A-Za-z_]\w*)")
-# Sem âncora de linha: extrair_resumo_tema junta o resumo numa linha só.
-_CONDICAO_NO_TEXTO = re.compile(r"(?i)\bpara(?:\s+quando)?\s+[^:]*\$\w+[^:]*:")
 
 
 def com_csv(contextos: dict[str, dict], csv: dict[str, dict] | None) -> dict[str, dict]:
@@ -266,7 +265,7 @@ def conferir_doc(
     "Para quando ...:" cru no relatório (generation.py, `resumo_tema`)."""
     secoes, graficos_sem_legenda = separar_secoes_do_tema(doc_texto, slug)
     conferencia = conferir_tema(secoes.descricao_tema or "", slug, contextos, progresso)
-    conferencia["condicoes_sem_efeito"] = _CONDICAO_NO_TEXTO.findall(secoes.resumo_tema or "")
+    conferencia["condicoes_sem_efeito"] = condicoes_no_resumo(secoes.resumo_tema)
     conferencia["graficos_sem_legenda"] = graficos_sem_legenda
     return conferencia
 

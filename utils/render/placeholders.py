@@ -842,7 +842,8 @@ def conferir_condicoes(texto: str) -> list[str]:
     Passa cada regra pelos mesmos avaliadores do relatório (_avaliar_expressao),
     com todo campo valendo 1: o valor não importa para saber se a regra foi
     entendida, só para evitar a saída antecipada de "campo sem dado". Chamado
-    por scripts/atualizar_docs.py a cada Doc baixado.
+    por services/atualizacao_docs.py a cada Doc baixado: Doc com aviso não é
+    gravado no cache (24/11/2026).
     """
     avisos: list[str] = []
     for linha in texto.splitlines():
@@ -863,6 +864,21 @@ def conferir_condicoes(texto: str) -> list[str]:
             _PROBLEMAS_CONDICAO.reset(token)
         avisos.extend(f"{limpa}\n    → {problema}" for problema in problemas)
     return avisos
+
+
+# Sem âncora de linha: extrair_resumo_tema junta o resumo numa linha só.
+_CONDICAO_NO_TEXTO = re.compile(r"(?i)\bpara(?:\s+quando)?\s+[^:]*\$\w+[^:]*:")
+
+
+def condicoes_no_resumo(resumo_tema: str | None) -> list[str]:
+    """As regras "Para quando ...:" escritas no resumo do tema. O resumo só passa
+    por substituir_placeholders (generation.py, `resumo_tema`), então a regra não é
+    avaliada: sai escrita, crua, no relatório. Usado pelo Laboratório de Temas
+    (conferir_doc) e pela atualização dos Docs (services/atualizacao_docs.py).
+
+    Ex.: condicoes_no_resumo("Para quando $x for maior que 1: alto.") == ["Para quando $x for maior que 1:"]
+    """
+    return _CONDICAO_NO_TEXTO.findall(resumo_tema or "")
 
 
 # Relatório por estado (11/11/2026): nos Docs estaduais, cada "Para quando ...:" vale
