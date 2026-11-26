@@ -6,8 +6,13 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
+from PIL import Image
 
-from plotting.demografia import _percentuais_cor_raca
+from plotting.demografia import (
+    _percentuais_cor_raca,
+    gerar_grafico_faixa_etaria_e_sexo,
+    gerar_grafico_visao_historica_populacao,
+)
 from services.graficos_estado import (
     aridez_do_estado,
     cobertura_vacinal_serie_do_estado,
@@ -408,3 +413,29 @@ def test_gera_o_grafico_de_desenvolvimento_social(tmp_path: Path):
 
 def test_desenvolvimento_social_sem_idhm_fica_sem_grafico(tmp_path: Path):
     assert gerar_graficos_do_estado("desenvolvimento-social", {"uf_sigla_uf": "PB"}, tmp_path, "estado_para_ba") == {}
+
+
+def _altura_e_largura(arquivo: Path) -> tuple[int, int]:
+    with Image.open(arquivo) as imagem:
+        return imagem.height, imagem.width
+
+
+def test_graficos_de_demografia_do_estado_sao_mais_baixos_que_os_municipais(tmp_path: Path):
+    """Senão a pirâmide pula de página e deixa meia página em branco na área (26/11/2026)."""
+    graficos = gerar_graficos_do_estado("demografia", _linha_paraiba(), tmp_path, "estado_para_ba")
+    cidade = {
+        "pop_total_2000": 1,
+        "pop_total_2010": 2,
+        "pop_total_2022": 3,
+        "faixas_etarias_sexo": faixas_etarias_sexo_do_estado(_linha_paraiba()),
+    }
+    municipais = {
+        "grafico_visao_historica": gerar_grafico_visao_historica_populacao(cidade, tmp_path, "municipio"),
+        "grafico_faixa_etaria_e_sexo": gerar_grafico_faixa_etaria_e_sexo(cidade, tmp_path, "municipio"),
+    }
+
+    for marcador, municipal in municipais.items():
+        altura_estado, largura_estado = _altura_e_largura(tmp_path / graficos[marcador])
+        altura_mun, largura_mun = _altura_e_largura(tmp_path / municipal)
+        assert largura_estado == largura_mun, marcador
+        assert altura_estado < altura_mun, marcador

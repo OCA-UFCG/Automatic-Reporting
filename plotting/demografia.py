@@ -27,11 +27,21 @@ def _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas: float = 0.34) -> None:
     )
 
 
+# Altura do card no municipal; o estado e a área passam uma menor.
+_ALTURA_FAIXA_ETARIA_POL = 5.6
+
+
 def gerar_grafico_faixa_etaria_e_sexo(
     cidade: dict,
     OUTPUT_DIR: pathlib.Path,
     safe_city: str,
+    altura_polegadas: float = _ALTURA_FAIXA_ETARIA_POL,
 ) -> str:
+    """Pirâmide etária: mulheres à esquerda, homens à direita, uma faixa por linha.
+
+    `altura_polegadas` é a altura do card (a largura fica em 8).
+    Ex.: gerar_grafico_faixa_etaria_e_sexo({"faixas_etarias_sexo": faixas}, OUTPUT_DIR, "campina_grande_pb")
+    """
     faixas = cidade.get("faixas_etarias_sexo") or []
     if not faixas:
         raise ValueError("Dados por faixa etária e sexo não disponíveis.")
@@ -47,7 +57,9 @@ def gerar_grafico_faixa_etaria_e_sexo(
     if reuso is not None:
         return reuso
 
-    fig, ax = iniciar_card_grafico((8, 5.6), "População por faixa etária e sexo")
+    fig, ax = iniciar_card_grafico(
+        (8, altura_polegadas), "População por faixa etária e sexo"
+    )
     # Reserva uma faixa abaixo do corpo do gráfico, dentro do card, para a
     # legenda (senão ela cai fora da área desenhada e some do PNG).
     posicao = ax.get_position()
@@ -167,6 +179,9 @@ def gerar_grafico_composicao_cor_raca(
 
 
 _ANOS_VISAO_HISTORICA = (2000, 2010, 2022)
+# Altura do card no municipal. O estado e a área passam uma menor (ver
+# services/graficos_estado.py), senão a pirâmide não cabe embaixo dele.
+_ALTURA_VISAO_HISTORICA_POL = 4.4
 _SUFIXO_UNIDADE_POPULACAO = {"bilhões": "Bi", "milhões": "Mi", "mil": "mil", "": ""}
 _DIVISOR_UNIDADE_POPULACAO = {"bilhões": 1e9, "milhões": 1e6, "mil": 1e3, "": 1}
 
@@ -176,10 +191,12 @@ def gerar_grafico_visao_historica_populacao(
     OUTPUT_DIR: pathlib.Path,
     safe_city: str,
     anos_censo: tuple[int, ...] = _ANOS_VISAO_HISTORICA,
+    altura_polegadas: float = _ALTURA_VISAO_HISTORICA_POL,
 ) -> str:
     """Barras da população em cada ano de `anos_censo` (`pop_total_<ano>`).
 
     O estado passa (2010, 2022): a matview estadual não tem 2000 (12/11/2026).
+    `altura_polegadas` é a altura do card (a largura fica em 8).
     Ex.: gerar_grafico_visao_historica_populacao(linha, OUTPUT_DIR, "campina_grande_pb")
     """
     populacao_por_ano = {ano: cidade.get(f"pop_total_{ano}") for ano in anos_censo}
@@ -212,7 +229,7 @@ def gerar_grafico_visao_historica_populacao(
         return reuso
 
     fig, ax = iniciar_card_grafico(
-        (8, 4.4), "Dinâmica populacional", margem_esquerda=0.20
+        (8, altura_polegadas), "Dinâmica populacional", margem_esquerda=0.20
     )
     _reservar_espaco_rotulo_x(fig, ax, reserva_polegadas=0.5)
     x = np.arange(len(anos))
