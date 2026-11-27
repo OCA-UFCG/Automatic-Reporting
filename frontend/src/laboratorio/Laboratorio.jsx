@@ -1334,7 +1334,7 @@ export default function Laboratorio() {
   // os da conferência, só se ela é do texto de agora.
   const crusAchados = new Set()
   const avisosDoItem = new Map()
-  const colados = coladosNoMarcador(itens)
+  const colados = unidade === 'municipio' ? coladosNoMarcador(itens) : new Set()
   itens.forEach((item, indice) => {
     const locais = colados.has(indice) ? [AVISO_COLADO, ...avisosDaVersao(item, colunas)] : avisosDaVersao(item, colunas)
     const avisos = [...locais]

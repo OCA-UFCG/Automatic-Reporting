@@ -190,13 +190,16 @@ export const AVISO_COLADO =
 
 // Texto fixo logo depois de "versão + marcador", sem linha em branco: o gerador apaga a
 // linha do marcador e lê o texto como continuação da versão (a versão vai até a linha em
-// branco). A tela mostra o texto como fixo; o aviso desfaz a dúvida. O marcador vale como
+// branco). Só no município: no estado e na área, o gerador isola a linha de cada condição
+// (isolar_paragrafo_de_cada_condicao) e o texto de baixo não fica preso.
+// A tela mostra o texto como fixo; o aviso desfaz a dúvida. O marcador vale como
 // nada, e não como linha em branco, para nunca mudar o relatório (PR #302, fechado).
 export function coladosNoMarcador(itens) {
   const colados = new Set()
   itens.forEach((item, k) => {
-    const primeira = textoDoItem(item).split('\n')[0]
-    if (item.tipo !== 'texto' || !primeira.trim() || ESTRUTURA.test(primeira.trim())) return
+    // O ”@@ que fecha o tema não é texto que sai no relatório.
+    const primeira = semMarcadorDoTema(textoDoItem(item).split('\n')[0]).trim()
+    if (item.tipo !== 'texto' || !primeira || ESTRUTURA.test(primeira)) return
     let j = k - 1
     while (j >= 0 && marcaDoItem(itens[j])) j--
     if (j < k - 1 && itens[j]?.tipo === 'versao' && textoDoItem(itens[j]) !== '') colados.add(k)

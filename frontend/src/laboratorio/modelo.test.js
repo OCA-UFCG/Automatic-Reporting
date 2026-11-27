@@ -315,5 +315,6 @@ test('texto colado no marcador depois de uma versão ganha aviso; com linha em b
     '[bloco]\nPara quando $a for igual a 1:\nUm.\n[fimbloco]\n\nTítulo\n',
     '[bloco]\nPara quando $a for igual a 1:\nUm.\n[fimbloco]\n*grafico_x\n',
     'Fixo.\n[bloco]\nPara quando $a for igual a 1:\nUm.\n\n[fimbloco]\n',
+    'descricao_tema = “[bloco]\nPara quando $a for igual a 1:\nUm.\n[fimbloco]\n”@@\n',
   ]) assert.equal(coladosNoMarcador(lerDoc(doc)).size, 0, doc)
 })
