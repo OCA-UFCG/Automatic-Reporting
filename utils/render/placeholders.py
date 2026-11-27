@@ -230,10 +230,13 @@ _TERMINA_EM_FRASE = re.compile(r"[.!?…]+[\"'”’)]*$")
 _MARCADOR_JUNTA = re.compile(r"\s*\\?\[\s*junta com o pr[oó]ximo\s*\\?\]\s*$", re.IGNORECASE)
 
 
-# "[bloco: nome]" (ou só "[bloco]") numa linha própria: começa um bloco de versões
-# no TemaLab (decisão de 27/11/2026). O bloco é só da tela de edição; o relatório
-# sai como se a linha não existisse.
-_MARCADOR_BLOCO = re.compile(r"\s*\\?\[\s*bloco\s*(?::[^\]]*)?\\?\]\s*", re.IGNORECASE)
+# "[bloco: nome]" (ou só "[bloco]") e "[fimbloco]", cada um numa linha própria:
+# abrem e fecham um bloco de versões no TemaLab (decisões de 27/11/2026). O bloco é
+# só da tela de edição; o relatório sai como se as linhas não existissem. O fim
+# aceita "[fim bloco]" e "[fim do bloco]": escrito à mão de outro jeito, sairia cru.
+_MARCADOR_BLOCO = re.compile(
+    r"\s*\\?\[\s*(?:bloco\s*(?::[^\]]*)?|fim\s*(?:do\s*)?bloco\s*)\\?\]\s*", re.IGNORECASE
+)
 
 
 def _separar_marcador_junta(linha: str) -> tuple[str, bool]:

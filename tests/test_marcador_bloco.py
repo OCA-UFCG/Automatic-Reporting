@@ -1,5 +1,5 @@
-"""Marcador "[bloco: nome]" (utils/render/placeholders.py, _MARCADOR_BLOCO): marca
-os blocos do TemaLab no Doc; o relatório sai como se a linha não existisse."""
+"""Marcadores "[bloco: nome]" e "[fimbloco]" (utils/render/placeholders.py,
+_MARCADOR_BLOCO): abrem e fecham os blocos do TemaLab no Doc; o relatório sai como se a linha não existisse."""
 
 import pytest
 
@@ -30,7 +30,18 @@ Para quando $b for maior que 0:
 Detalhe opcional.
 Fecho."""
 
-MARCADORES = ["[bloco: Analfabetismo]", "[bloco]", "[Bloco: Síntese, fim]", r"\[bloco: Escapado\]", "  [ bloco ]  "]
+MARCADORES = [
+    "[bloco: Analfabetismo]",
+    "[bloco]",
+    "[Bloco: Síntese, fim]",
+    r"\[bloco: Escapado\]",
+    "  [ bloco ]  ",
+    "[fimbloco]",
+    "[FimBloco]",
+    "[fim bloco]",
+    "[fim do bloco]",
+    r"\[fimbloco\]",
+]
 CONTEXTOS = [{"a": 1, "b": 0}, {"a": 2, "b": 1}, {"a": 3, "b": 5}]
 
 
@@ -55,3 +66,12 @@ def test_estado_sem_linhas_em_branco(contexto):
 def test_frase_com_bloco_no_meio_nao_some():
     texto = "O [bloco] de texto continua."
     assert interpretar_blocos_condicionais(texto, {}).strip() == texto
+
+
+@pytest.mark.parametrize("contexto", CONTEXTOS)
+def test_abre_e_fecha_em_volta_de_texto_fixo(contexto):
+    doc = "[bloco: X]\nPara quando $a for igual a 1:\nVersão um.\n\nFrase fixa.\n[fimbloco]\n\nTítulo fora"
+    sem = "Para quando $a for igual a 1:\nVersão um.\n\nFrase fixa.\n\nTítulo fora"
+    com = interpretar_blocos_condicionais(doc, contexto)
+    assert "bloco" not in com.lower()
+    assert com.split() == interpretar_blocos_condicionais(sem, contexto).split()
