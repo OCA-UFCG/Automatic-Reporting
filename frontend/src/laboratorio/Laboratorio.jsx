@@ -198,6 +198,7 @@ function semOCampoDoCursor(texto, pos) {
 // Textarea com autocomplete de $coluna: abre ao digitar "$" (com ou sem "tema.") e
 // troca só o nome depois do "$". A lista fica embaixo do textarea, não no cursor.
 function EditorComColunas({ valor, mudar, colunas, prefixo }) {
+  const u = useContext(Unidade)
   const ref = useRef(null)
   const cursor = useRef(null)
   const [sugestao, setSugestao] = useState(null)
@@ -291,7 +292,7 @@ function EditorComColunas({ valor, mudar, colunas, prefixo }) {
                 escolher(nome)
               }}
             >
-              <b>${nome}</b> <span className="muted">{resumoDaColuna(colunas.get(nome))}</span>
+              <b>${nome}</b> <span className="muted">{resumoDaColuna(colunas.get(nome), u)}</span>
             </div>
           ))}
           <FichaDaColuna nome={sugestao.lista[sugestao.sel]} info={colunas.get(sugestao.lista[sugestao.sel])} />
