@@ -146,12 +146,12 @@ for (const tema of temas) {
   const doc = readFileSync(`${docs}/${tema}.txt`, 'utf-8')
   const itens = lerDoc(doc)
   saida[tema] = agruparEmBlocos(itens).filter((g) => g.tipo === 'bloco').map((g) => {
-    const inicio = itens.slice(0, g.versoes[0]).map(textoDoItem).join('').length
-    const fim = itens.slice(0, g.versoes.at(-1) + 1).map(textoDoItem).join('').length
+    const inicio = itens.slice(0, g.inicio).map(textoDoItem).join('').length
+    const fim = itens.slice(0, g.fim + 1).map(textoDoItem).join('').length
     const linhaInicio = doc.lastIndexOf('\\n', inicio - 1) + 1
     const quebra = doc.indexOf('\\n', fim - 1)
     const linhaFim = quebra === -1 ? doc.length : quebra
-    return doc.slice(0, linhaInicio) + textoDoBloco(itens, g.versoes) + doc.slice(linhaFim)
+    return doc.slice(0, linhaInicio) + textoDoBloco(itens, g) + doc.slice(linhaFim)
   })
 }
 console.log(JSON.stringify(saida))

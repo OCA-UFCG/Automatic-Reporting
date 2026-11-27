@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
-import { agruparEmBlocos, chaveDoRascunho, comNovoBloco, condicaoDoItem, exportar, lerDoc, prefixoDoDoc, trechoParaLer,
+import { AVISO_FIM_SOLTO, AVISO_FORA, AVISO_SEM_FIM, agruparEmBlocos, chaveDoRascunho, lerMarca, comNovoBloco, condicaoDoItem, exportar, lerDoc, prefixoDoDoc, trechoParaLer,
   avisosDaVersao, blocoAlterado, buscarOpcoes, doRascunho, htmlParaODocs, inserirColuna, paraRascunho, temEdicao, textoDoBloco } from './modelo.js'
 
 const FIXTURES = new URL('../../../tests/fixtures/relatorio_congelado/docs/', import.meta.url)
@@ -32,7 +32,7 @@ test('versão leva a linha em branco e o parágrafo; texto fixo encerra o bloco'
   assert.equal(itens[1].original, 'Para quando $a for igual a 1:\n\nUm.\n')
   assert.deepEqual(agruparEmBlocos(itens), [
     { tipo: 'texto', indice: 0 },
-    { tipo: 'bloco', versoes: [1, 3] },
+    { tipo: 'bloco', versoes: [1, 3], inicio: 1, fim: 3 },
     { tipo: 'texto', indice: 4 },
   ])
 })
@@ -101,14 +101,14 @@ test('bloco: alterado só se algum item mudou, e o texto volta igual ao Doc', ()
   const itens = lerDoc(doc)
   const blocos = agruparEmBlocos(itens).filter((g) => g.tipo === 'bloco')
   for (const b of blocos) {
-    assert.equal(blocoAlterado(itens, b.versoes), false)
-    assert.ok(doc.includes(textoDoBloco(itens, b.versoes)))
+    assert.equal(blocoAlterado(itens, b), false)
+    assert.ok(doc.includes(textoDoBloco(itens, b)))
   }
   const [b1, b2] = blocos
   itens[b2.versoes[0]].editado = ''
-  assert.equal(blocoAlterado(itens, b1.versoes), false)
-  assert.equal(blocoAlterado(itens, b2.versoes), true)
-  assert.ok(!textoDoBloco(itens, b2.versoes).includes(itens[b2.versoes[0]].original.trim()))
+  assert.equal(blocoAlterado(itens, b1), false)
+  assert.equal(blocoAlterado(itens, b2), true)
+  assert.ok(!textoDoBloco(itens, b2).includes(itens[b2.versoes[0]].original.trim()))
   assert.equal(temEdicao(itens), true)
 })
 
@@ -147,7 +147,7 @@ test('copiar o último bloco editado leva o ”@@ da linha do Doc', () => {
   const itens = lerDoc('descricao_tema = “Para quando $x for 1, então:\nA.\n\nPara quando $x for 2, então:\nB.”@@\n')
   const versoes = itens.flatMap((i, k) => (i.tipo === 'versao' ? [k] : []))
   itens[versoes[1]].editado = 'Para quando $x for 2, então:\nB editado.\n'
-  const copia = textoDoBloco(itens, versoes)
+  const copia = textoDoBloco(itens, { inicio: versoes[0], fim: versoes.at(-1) })
   assert.ok(copia.startsWith('descricao_tema = “Para quando $x for 1'))
   assert.ok(copia.endsWith('B editado.\n”@@'))
 })
@@ -206,4 +206,61 @@ test('novo bloco vai depois da última versão, antes do fim do tema', () => {
 
 test('novo bloco sem versão nenhuma no Doc não tem onde ficar', () => {
   assert.equal(comNovoBloco(lerDoc('Só um texto.\n'), 'demografia', () => 0), null)
+})
+
+// --- Marcadores de bloco: [bloco: nome] … [fimbloco] (27/11/2026) ---
+
+test('lerMarca: as grafias que o gerador aceita (_MARCADOR_BLOCO)', () => {
+  assert.deepEqual(lerMarca('[bloco: Analfabetismo]\n'), { abre: true, nome: 'Analfabetismo' })
+  assert.deepEqual(lerMarca('  [ Bloco ]  '), { abre: true, nome: '' })
+  assert.deepEqual(lerMarca('\\[bloco: Escapado\\]'), { abre: true, nome: 'Escapado' })
+  assert.deepEqual(lerMarca('descricao_tema = “[bloco: A]'), { abre: true, nome: 'A' })
+  for (const fim of ['[fimbloco]', '[FimBloco]', '[fim bloco]', '[fim do bloco]', '\\[fimbloco\\]', '[fimbloco]”@@'])
+    assert.deepEqual(lerMarca(fim), { abre: false }, fim)
+  assert.equal(lerMarca('O [bloco] de texto continua.'), null)
+})
+
+const DOC_MARCADO =
+  'descricao_tema = “[bloco: Analfabetismo]\nPara quando $a for igual a 1:\nUm.\n\nPara quando $b for igual a 2:\nDois.\n\nFixo dentro.\n[fimbloco]\n\nTítulo fora\n\n[bloco]\nPara quando $c for igual a 1:\nTrês.\n[fimbloco]”@@\n'
+
+test('marcadores: ida e volta idêntica, e cada marcador é um item próprio', () => {
+  const itens = lerDoc(DOC_MARCADO)
+  assert.equal(exportar(itens), DOC_MARCADO)
+  assert.deepEqual(itens.filter((i) => i.tipo === 'marca').map((i) => i.original), ['[bloco: Analfabetismo]\n', '[fimbloco]\n', '[bloco]\n', '[fimbloco]'])
+  // O marcador colado no texto encerra a versão (o gerador lê a linha como em branco).
+  const glued = lerDoc('Para quando $a for igual a 1:\nUm.\n[fimbloco]\nTítulo\n')
+  assert.deepEqual(glued.map((i) => i.tipo), ['versao', 'marca', 'texto'])
+})
+
+test('marcadores: o bloco vai do [bloco] ao [fimbloco], com o texto fixo de dentro, sem palpite', () => {
+  const itens = lerDoc(DOC_MARCADO)
+  const grupos = agruparEmBlocos(itens)
+  assert.deepEqual(grupos.map((g) => g.tipo), ['bloco', 'texto', 'bloco'])
+  const [b1, titulo, b2] = grupos
+  // $a e $b não têm campo em comum: no palpite seriam dois blocos.
+  assert.equal(b1.versoes.length, 2)
+  assert.equal(b1.nome, 'Analfabetismo')
+  assert.equal(itens[b1.membros.at(-1)].original.trim(), 'Fixo dentro.')
+  assert.equal(textoQueSaiDe(itens, titulo.indice), 'Título fora')
+  assert.equal(b2.nome, '')
+  assert.ok(!b1.aviso && !b2.aviso)
+  // Copiar leva os marcadores (e o descricao_tema / ”@@ da mesma linha).
+  assert.ok(textoDoBloco(itens, b1).startsWith('descricao_tema = “[bloco: Analfabetismo]'))
+  assert.ok(textoDoBloco(itens, b1).endsWith('Fixo dentro.\n[fimbloco]'))
+  assert.ok(textoDoBloco(itens, b2).endsWith('[fimbloco]”@@'))
+})
+
+const textoQueSaiDe = (itens, i) => itens[i].original.trim()
+
+test('marcadores: avisos de bloco sem fim, versão fora e [fimbloco] solto', () => {
+  const doc = '[bloco: A]\nPara quando $a for igual a 1:\nUm.\n\n[bloco: B]\nPara quando $a for igual a 2:\nDois.\n[fimbloco]\n\nFixo.\n\nPara quando $a for igual a 3:\nTrês.\n\n[fimbloco]\n'
+  const grupos = agruparEmBlocos(lerDoc(doc))
+  assert.deepEqual(grupos.map((g) => g.aviso ?? null), [AVISO_SEM_FIM, null, null, AVISO_FORA, AVISO_FIM_SOLTO])
+  const ultimo = agruparEmBlocos(lerDoc('[bloco]\nPara quando $a for igual a 1:\nUm.\n'))
+  assert.equal(ultimo[0].aviso, AVISO_SEM_FIM)
+})
+
+test('Doc sem marcador continua com o palpite', () => {
+  const itens = lerDoc('Para quando $a for igual a 1:\nUm.\n\nPara quando $b for igual a 1:\nDois.\n')
+  assert.equal(agruparEmBlocos(itens).length, 2)
 })

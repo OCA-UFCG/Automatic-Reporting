@@ -25,14 +25,29 @@ const ESTRUTURA = /^(?:#!|(?:%%|\*)\w+(?:\+\w+)*$)/
 
 // O Doc abre e fecha o bloco do tema na própria linha de texto
 // (descricao_tema = “Para quando ...); o backend corta isso antes de ler.
-const semMarcadorDeBloco = (linha) =>
+const semMarcadorDoTema = (linha) =>
   linha.replace(/^\s*descricao_tema\s*=\s*[“"]?/, '').replace(/[”"]?\s*@@\s*$/, '')
 const semFimDeLinha = (linha) => linha.replace(/\r$/, '')
 const emBranco = (linha) => semFimDeLinha(linha).trim() === ''
 
+// "[bloco: nome]" (ou só "[bloco]") e "[fimbloco]" numa linha própria abrem e fecham um
+// bloco da tela (decisões de 27/11/2026). Mesma regra do gerador
+// (utils/render/placeholders.py, _MARCADOR_BLOCO), que lê a linha como linha em branco.
+const ABRE_BLOCO = /^\s*\\?\[\s*bloco\s*(?::([^\]]*))?\\?\]\s*$/i
+const FECHA_BLOCO = /^\s*\\?\[\s*fim\s*(?:do\s*)?bloco\s*\\?\]\s*$/i
+// {abre: true, nome} | {abre: false} | null. Na linha do descricao_tema = “ ou do ”@@ também.
+export function lerMarca(linha) {
+  const limpa = semMarcadorDoTema(semFimDeLinha(linha.replace(/\n$/, '')))
+  const abre = limpa.match(ABRE_BLOCO)
+  if (abre) return { abre: true, nome: (abre[1] ?? '').replace(/\\$/, '').trim() }
+  return FECHA_BLOCO.test(limpa) ? { abre: false } : null
+}
+// Encerram a versão: condição, estrutura ou marcador de bloco.
+const fimDaVersao = (linha) => lerCondicao(linha) || ESTRUTURA.test(semFimDeLinha(linha).trim()) || lerMarca(linha)
+
 // Devolve {inline} se a linha é uma condição; inline é o texto depois do ":".
 function lerCondicao(linha) {
-  const limpa = normalizarCondicao(semMarcadorDeBloco(semFimDeLinha(linha)))
+  const limpa = normalizarCondicao(semMarcadorDoTema(semFimDeLinha(linha)))
   if (GINI.test(limpa)) return { inline: '' }
   const m = limpa.match(CONDICAO)
   if (m && CAMPO.test(m[1])) return { inline: m[2] }
@@ -51,6 +66,19 @@ export function lerDoc(texto) {
 
   let i = 0
   while (i < linhas.length) {
+    if (lerMarca(linhas[i])) {
+      // Como a versão: o descricao_tema = “ / ”@@ da mesma linha fica fora, como texto.
+      const abertura = linhas[i].match(/^\s*descricao_tema\s*=\s*[“"]?/)?.[0] ?? ''
+      texto_ += abertura
+      fecharTexto()
+      let marca = linhas[i].slice(abertura.length)
+      const fechamento = marca.match(/[”"]?\s*@@\s*$/)?.[0] ?? ''
+      marca = marca.slice(0, marca.length - fechamento.length)
+      itens.push({ id: itens.length, tipo: 'marca', original: marca })
+      texto_ = fechamento
+      i++
+      continue
+    }
     const condicao = lerCondicao(linhas[i])
     if (!condicao) {
       texto_ += linhas[i]
@@ -69,15 +97,10 @@ export function lerDoc(texto) {
       // A linha em branco entre a condição e o parágrafo pertence à versão.
       let j = i
       while (j < linhas.length && emBranco(linhas[j])) j++
-      if (j < linhas.length && !lerCondicao(linhas[j]) && !ESTRUTURA.test(semFimDeLinha(linhas[j]).trim())) {
+      if (j < linhas.length && !fimDaVersao(linhas[j])) {
         trecho += linhas.slice(i, j).join('')
         i = j
-        while (
-          i < linhas.length &&
-          !emBranco(linhas[i]) &&
-          !lerCondicao(linhas[i]) &&
-          !ESTRUTURA.test(semFimDeLinha(linhas[i]).trim())
-        ) {
+        while (i < linhas.length && !emBranco(linhas[i]) && !fimDaVersao(linhas[i])) {
           trecho += linhas[i]
           i++
         }
@@ -106,7 +129,7 @@ export const textoDoItem = (item) => item.editado ?? item.original
 // A condição de uma versão depois de editada (null se a 1ª linha deixou de ser condição).
 export function condicaoDoItem(item) {
   const primeira = semFimDeLinha(textoDoItem(item).replace(/^\s*\n/, '').split('\n')[0])
-  return lerCondicao(primeira) ? normalizarCondicao(semMarcadorDeBloco(primeira)) : null
+  return lerCondicao(primeira) ? normalizarCondicao(semMarcadorDoTema(primeira)) : null
 }
 
 // Os $campos de uma condição ou de um trecho inteiro (sem o prefixo do tema).
@@ -123,7 +146,11 @@ export function camposDaCondicao(condicao) {
 // `ajustes` vem da editora: `cortes` (id de versão que começa bloco novo) e `juncoes`
 // (id de versão que fica no bloco de cima), por cima da regra automática. Por id, e
 // não pela posição: inserir uma versão desloca as posições.
+//
+// Cada bloco devolve `versoes` (posições das versões) e `inicio`/`fim` (do 1º ao último
+// item dele, marcadores inclusive), que é o trecho que se copia para o Doc.
 export function agruparEmBlocos(itens, ajustes = { cortes: new Set(), juncoes: new Set() }) {
+  if (temMarcas(itens)) return agruparPelasMarcas(itens)
   const grupos = []
   let bloco = null
   itens.forEach((item, indice) => {
@@ -146,7 +173,55 @@ export function agruparEmBlocos(itens, ajustes = { cortes: new Set(), juncoes: n
       if (trechoParaLer(textoDoItem(item))) grupos.push({ tipo: 'texto', indice })
     }
   })
-  return grupos.map(({ campos: _campos, ...grupo }) => grupo)
+  return grupos.map(({ campos: _campos, ...grupo }) =>
+    grupo.tipo === 'bloco' ? { ...grupo, inicio: grupo.versoes[0], fim: grupo.versoes.at(-1) } : grupo)
+}
+
+const marcaDoItem = (item) => (item.tipo === 'marca' ? lerMarca(textoDoItem(item)) : null)
+// Doc com pelo menos um marcador: os blocos são os marcados, sem palpite (decisão 27/11).
+export const temMarcas = (itens) => itens.some(marcaDoItem)
+
+export const AVISO_SEM_FIM = 'Este bloco não tem [fimbloco]: vai até o próximo [bloco].'
+export const AVISO_FORA = 'Versões fora de [bloco] … [fimbloco]. Use "separar daqui" ou "juntar com o de cima" para pôr num bloco.'
+export const AVISO_FIM_SOLTO = '[fimbloco] sem [bloco] acima: não fecha nada.'
+
+// Bloco = do [bloco] ao [fimbloco], com o texto fixo de dentro (`membros`, na ordem).
+// Versão fora de qualquer bloco forma um bloco sem marcador, com aviso.
+function agruparPelasMarcas(itens) {
+  const grupos = []
+  let bloco = null
+  itens.forEach((item, indice) => {
+    const marca = marcaDoItem(item)
+    if (marca?.abre) {
+      if (bloco?.marcado) bloco.aviso = AVISO_SEM_FIM
+      bloco = { tipo: 'bloco', marcado: true, nome: marca.nome, versoes: [], membros: [], inicio: indice, fim: indice }
+      grupos.push(bloco)
+      return
+    }
+    if (marca) {
+      if (bloco?.marcado) bloco.fim = indice
+      else grupos.push({ tipo: 'texto', indice, aviso: AVISO_FIM_SOLTO })
+      bloco = null
+      return
+    }
+    if (item.tipo === 'marca') return // marcador apagado na tela
+    const temTexto = trechoParaLer(textoDoItem(item)) !== ''
+    if (item.tipo === 'versao' && !bloco) {
+      bloco = { tipo: 'bloco', marcado: false, nome: '', versoes: [], membros: [], inicio: indice, fim: indice, aviso: AVISO_FORA }
+      grupos.push(bloco)
+    }
+    if (bloco && (bloco.marcado || item.tipo === 'versao')) {
+      if (item.tipo === 'versao') bloco.versoes.push(indice)
+      if (item.tipo === 'versao' || temTexto) bloco.membros.push(indice)
+      if (item.tipo === 'versao' || temTexto || bloco.marcado) bloco.fim = indice
+      return
+    }
+    if (!temTexto) return // linha em branco: não encerra o bloco sem marcador
+    bloco = null
+    grupos.push({ tipo: 'texto', indice })
+  })
+  if (bloco?.marcado) bloco.aviso = AVISO_SEM_FIM
+  return grupos
 }
 
 // O prefixo que o Doc já usa ("demografia.$campo"); o mais comum ganha. Sem nenhum,
@@ -227,7 +302,7 @@ export function buscarOpcoes(opcoes, termo, max = 50) {
 
 // O trecho como o backend lê: sem o marcador do bloco do tema ("descricao_tema = “" /
 // "”@@"), que fica no texto antes da 1ª versão e depois da última.
-export const trechoParaLer = (texto) => semMarcadorDeBloco(texto.trim())
+export const trechoParaLer = (texto) => semMarcadorDoTema(texto.trim())
 
 // Os operadores que o gerador entende (utils/render/placeholders.py,
 // _OPERADORES_EDITORIAIS e _CONDICAO_SEM_DADOS). Comparar coluna de texto com uma
@@ -259,24 +334,24 @@ export function fraseDaCondicao({ prefixo, coluna, operador, valor = '', valor2 
 const editado = (item) => item.editado !== undefined || item.original === ''
 export const temEdicao = (itens) => itens.some(editado)
 
-// Do 1º ao último item de um bloco (`versoes` são posições em `itens`): as linhas em
-// branco entre as versões vão junto.
-const itensDoBloco = (itens, versoes) => itens.slice(versoes[0], versoes.at(-1) + 1)
+// Do 1º ao último item de um bloco (grupo de agruparEmBlocos): as linhas em branco entre
+// as versões, o texto fixo de dentro e os marcadores vão junto.
+const itensDoBloco = (itens, { inicio, fim }) => itens.slice(inicio, fim + 1)
 
-export const blocoAlterado = (itens, versoes) => itensDoBloco(itens, versoes).some(editado)
+export const blocoAlterado = (itens, grupo) => itensDoBloco(itens, grupo).some(editado)
 
 // O texto do bloco para colar no Doc por cima das mesmas linhas: o que não foi editado
 // volta idêntico; só as pontas em branco saem. Linhas inteiras do Doc: na 1ª e na última
 // versão do tema, o marcador (descricao_tema = “ / ”@@) está na mesma linha do texto, e
 // colar sem ele apagaria o tema do relatório.
-export function textoDoBloco(itens, versoes) {
-  const antes = itens.slice(0, versoes[0]).map(textoDoItem).join('')
-  const bloco = itensDoBloco(itens, versoes).map(textoDoItem).join('')
-  const depois = itens.slice(versoes.at(-1) + 1).map(textoDoItem).join('')
+export function textoDoBloco(itens, grupo) {
+  const antes = itens.slice(0, grupo.inicio).map(textoDoItem).join('')
+  const bloco = itensDoBloco(itens, grupo).map(textoDoItem).join('')
+  const depois = itens.slice(grupo.fim + 1).map(textoDoItem).join('')
   const comecoDaLinha = antes.slice(antes.lastIndexOf('\n') + 1)
   // Pelo original, que é o que está no Doc: editar a versão pode pôr uma quebra no fim
   // dela, mas no Doc a linha continua com o ”@@.
-  const original = itensDoBloco(itens, versoes).map((i) => i.original).join('')
+  const original = itensDoBloco(itens, grupo).map((i) => i.original).join('')
   const restoDaLinha = original.endsWith('\n') ? '' : depois.split('\n')[0]
   return (comecoDaLinha + bloco + restoDaLinha).trim()
 }

@@ -19,6 +19,7 @@ import {
   numeroValido,
   paraRascunho,
   prefixoDoDoc,
+  temMarcas,
   temEdicao,
   textoDoBloco,
   textoDoItem,
@@ -627,12 +628,12 @@ function Texto({ item, avisos, tema, colunas, csv }) {
   )
 }
 
-function Bloco({ numero: n, versoes, estatisticas, completo, juntar, novaVersao, alterado, dica, copiar, copiado }) {
+function Bloco({ numero: n, nome, aviso, versoes, estatisticas, completo, juntar, novaVersao, alterado, dica, copiar, copiado }) {
   const u = useContext(Unidade)
   return (
     <div className="card" id={`bloco-${n}`}>
       <div className="chead">
-        <span className="ctag">Bloco {n}</span>
+        <span className="ctag">Bloco {n}{nome ? ` · ${nome}` : ''}</span>
         <span className="chip">{versoes.length} {versoes.length === 1 ? 'versão' : 'versões'}</span>
         {alterado ? <span className="chip atencao">alterado</span> : <span className="chip bom">igual ao Doc</span>}
         {estatisticas?.sem.length > 0 && <span className="chip ruim">sem texto em {contar(estatisticas.sem.length, u)}</span>}
@@ -644,6 +645,7 @@ function Bloco({ numero: n, versoes, estatisticas, completo, juntar, novaVersao,
           {copiado ? 'copiado ✓' : 'copiar bloco'}
         </button>
       </div>
+      {aviso && <div className="problema">{aviso}</div>}
       {alterado && dica && <div className="bloco-detalhe">{dica}</div>}
       {estatisticas && (estatisticas.sem.length > 0 || estatisticas.varias.length > 0) && (
         <div className="bloco-detalhe">
@@ -1300,8 +1302,8 @@ export default function Laboratorio() {
   const blocos = grupos.filter((g) => g.tipo === 'bloco').map((g, i) => ({
     ...g,
     numero: i + 1,
-    alterado: blocoAlterado(itens, g.versoes),
-    dica: dicaDeColar(textoDoBloco(itens, g.versoes)),
+    alterado: blocoAlterado(itens, g),
+    dica: dicaDeColar(textoDoBloco(itens, g)),
     estatisticas: contaCom
       ? estatisticasDoBloco(g.versoes.map((indice) => posicao.get(indice)).filter((k) => k !== undefined), resultado.versoes_por_municipio)
       : null,
@@ -1339,9 +1341,9 @@ export default function Laboratorio() {
   for (const grupo of grupos) {
     if (grupo.tipo === 'bloco') {
       const bloco = blocos[contaBlocos++]
-      if (bloco.estatisticas && (bloco.estatisticas.sem.length || bloco.estatisticas.varias.length)) marcados.push(`bloco-${bloco.numero}`)
+      if (bloco.aviso || (bloco.estatisticas && (bloco.estatisticas.sem.length || bloco.estatisticas.varias.length))) marcados.push(`bloco-${bloco.numero}`)
       for (const indice of grupo.versoes) if (avisosDoItem.has(indice)) marcados.push(`item-${itens[indice].id}`)
-    } else if (avisosDoItem.has(grupo.indice)) {
+    } else if (grupo.aviso || avisosDoItem.has(grupo.indice)) {
       marcados.push(`item-${itens[grupo.indice].id}`)
     }
   }
@@ -1375,6 +1377,9 @@ export default function Laboratorio() {
   const opcoesDeCidade = useMemo(() => [...lugares, ...(csv?.so_no_csv ?? [])], [lugares, csv])
   let numeroBloco = 0
   const ultimoBloco = grupos.findLastIndex((g) => g.tipo === 'bloco')
+  // ponytail: com marcador no Doc, separar/juntar/novo bloco ainda não escrevem o
+  // marcador (vem no próximo commit) e ficam escondidos.
+  const marcado = temMarcas(itens)
   const docVazio = doc && !carregando && rascunho?.tipo !== 'doc_mudou' && textoSalvo.trim() === ''
 
   // O tutorial abre sozinho na primeira vez que um Doc abre: antes disso a tela só tem o
@@ -1533,22 +1538,32 @@ export default function Laboratorio() {
         {grupos.map((grupo, i) => {
           // Chaves com prefixo: id de texto e id de versão são números da mesma sequência,
           // e "b-3" e "t-3" não podem colidir (o React reaproveitaria o cartão errado).
-          if (grupo.tipo !== 'bloco') return <Texto key={`t-${itens[grupo.indice].id}`} item={itens[grupo.indice]} avisos={avisosDe(grupo.indice)} tema={tema} colunas={colunas} csv={csv} />
-          const primeiro = itens[grupo.versoes[0]]
+          if (grupo.tipo !== 'bloco') {
+            const avisos = grupo.aviso ? [grupo.aviso, ...avisosDe(grupo.indice)] : avisosDe(grupo.indice)
+            return <Texto key={`t-${itens[grupo.indice].id}`} item={itens[grupo.indice]} avisos={avisos} tema={tema} colunas={colunas} csv={csv} />
+          }
+          // O 1º item do bloco: a versão, ou o [bloco] (que pode não ter versão nenhuma).
+          const primeiro = itens[grupo.inicio]
           const bloco = blocos[numeroBloco++]
           return (
             <React.Fragment key={`b-${primeiro.id}`}>
             <Bloco
               numero={bloco.numero}
+              nome={grupo.nome}
+              aviso={grupo.aviso}
               alterado={bloco.alterado}
               dica={bloco.dica}
-              copiar={() => copiar(textoDoBloco(itens, grupo.versoes), `b-${primeiro.id}`)}
+              copiar={() => copiar(textoDoBloco(itens, grupo), `b-${primeiro.id}`)}
               copiado={copiado === `b-${primeiro.id}`}
               estatisticas={bloco.estatisticas}
               completo={cobertura?.completa}
-              juntar={grupos[i - 1]?.tipo === 'bloco' ? () => juntarComOdeCima(primeiro.id) : null}
-              novaVersao={() => novaVersao(itens[grupo.versoes.at(-1)].id)}
-              versoes={grupo.versoes.map((indice, j) => {
+              juntar={!marcado && grupos[i - 1]?.tipo === 'bloco' ? () => juntarComOdeCima(primeiro.id) : null}
+              novaVersao={() => novaVersao(itens[(grupo.membros ?? grupo.versoes).at(-1) ?? grupo.inicio].id)}
+              versoes={(grupo.membros ?? grupo.versoes).map((indice, j) => {
+                // Texto fixo dentro do bloco marcado: cartão de texto, no lugar dele.
+                if (itens[indice].tipo !== 'versao') {
+                  return <Texto key={itens[indice].id} item={itens[indice]} avisos={avisosDe(indice)} tema={tema} colunas={colunas} csv={csv} />
+                }
                 const k = posicao.get(indice)
                 return (
                   <Versao
@@ -1557,7 +1572,7 @@ export default function Laboratorio() {
                     contagem={contaCom && k !== undefined ? resultado.versoes[k].municipios : undefined}
                     avisos={avisosDe(indice)}
                     naCidade={naCidadeAtual && k !== undefined ? naCidadeAtual.versoes[k]?.[1] : undefined}
-                    podeSeparar={j > 0}
+                    podeSeparar={!marcado && j > 0}
                     acoes={acoesDaVersao(itens[indice].id)}
                     tema={tema}
                     colunas={colunas}
@@ -1567,7 +1582,7 @@ export default function Laboratorio() {
                 )
               })}
             />
-            {i === ultimoBloco && <button className="btn ghost sm novo-bloco" onClick={novoBloco}>+ novo bloco</button>}
+            {!marcado && i === ultimoBloco && <button className="btn ghost sm novo-bloco" onClick={novoBloco}>+ novo bloco</button>}
             </React.Fragment>
           )
         })}
