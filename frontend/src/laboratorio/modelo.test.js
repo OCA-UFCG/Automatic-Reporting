@@ -185,7 +185,7 @@ test('novo bloco num Doc vazio monta o tema com os marcadores', () => {
   let n = 0
   const { id, itens } = comNovoBloco(lerDoc(''), 'demografia', () => n++)
   const texto = exportar(itens)
-  assert.equal(texto, 'descricao_tema = “[bloco]\nPara quando demografia.$campo for igual a 0, então:\nTexto desta versão.\n[fimbloco]”@@\n')
+  assert.equal(texto, 'descricao_tema = “[bloco]\nPara quando demografia.$campo for igual a 0, então:\nTexto desta versão.\n[fimbloco]\n”@@\n')
   // Relido do Doc depois de colar, é o mesmo bloco.
   assert.deepEqual(lerDoc(texto).map((i) => i.tipo), ['texto', 'marca', 'versao', 'marca', 'texto'])
   assert.equal(agruparEmBlocos(itens).filter((g) => g.tipo === 'bloco').length, 1)
@@ -268,7 +268,7 @@ test('+ novo bloco num Doc sem marcador: marca o palpite e põe o bloco novo dep
   const { id, itens: novos } = novoBlocoDepois(itens, SEM_AJUSTES, itens[1].id, 'demografia', contador(itens))
   assert.equal(exportar(novos),
     'descricao_tema = “[bloco]\nPara quando $uf_pop for maior que 5:\nGrande.\n\nPara quando $uf_pop for menor ou igual a 5:\nPequeno.\n[fimbloco]\n' +
-    '[bloco]\nPara quando demografia.$campo for igual a 0, então:\nTexto desta versão.\n[fimbloco]”@@\n\n#!Fontes\n')
+    '[bloco]\nPara quando demografia.$campo for igual a 0, então:\nTexto desta versão.\n[fimbloco]\n”@@\n\n#!Fontes\n')
   assert.equal(novos.find((i) => i.id === id).tipo, 'versao')
   // Relido do Doc: os mesmos dois blocos, sem aviso.
   const blocos = agruparEmBlocos(lerDoc(exportar(novos))).filter((g) => g.tipo === 'bloco')
@@ -296,14 +296,15 @@ test('completarMarcas nos Docs reais: mesmos blocos do palpite, relidos do texto
     const doc = readFileSync(new URL(`${tema}.txt`, FIXTURES), 'utf-8')
     const itens = lerDoc(doc)
     const condicoes = (its, grupos) => grupos.filter((g) => g.tipo === 'bloco').map((g) => g.versoes.map((k) => its[k].condicao))
-    const marcado = exportar(completarMarcas(itens, SEM_AJUSTES, contador(itens)))
+    const completo = completarMarcas(itens, SEM_AJUSTES, contador(itens))
+    const marcado = exportar(completo)
     const relidos = lerDoc(marcado)
     assert.equal(exportar(relidos), marcado, tema)
     const grupos = agruparEmBlocos(relidos)
     assert.deepEqual(condicoes(relidos, grupos), condicoes(itens, agruparEmBlocos(itens)), tema)
     assert.ok(grupos.every((g) => !g.aviso), tema)
-    // Sem os marcadores, o texto é o Doc de antes.
-    assert.equal(marcado.replace(/\[bloco\]\n|\n?\[fimbloco\]\n?/g, (m) => (m.startsWith('\n') && m.endsWith('\n') ? '\n' : '')), doc, tema)
+    // Só os marcadores entraram: sem eles, o texto é o Doc de antes.
+    assert.equal(exportar(completo.filter((i) => i.tipo !== 'marca')), doc, tema)
   }
 })
 

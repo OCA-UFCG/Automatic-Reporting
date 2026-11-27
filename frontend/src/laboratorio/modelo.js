@@ -268,7 +268,7 @@ export function comNovoBloco(itens, prefixo, novoId) {
       { id: novoId(), tipo: 'texto', original: '', editado: 'descricao_tema = “' },
       { id: novoId(), tipo: 'marca', original: '', editado: '[bloco]\n' },
       { id, tipo: 'versao', original: '', editado: `${versaoModelo(prefixo)}\n`, condicao: null },
-      { id: novoId(), tipo: 'marca', original: '', editado: '[fimbloco]' },
+      { id: novoId(), tipo: 'marca', original: '', editado: '[fimbloco]\n' },
       { id: novoId(), tipo: 'texto', original: '', editado: '”@@\n' },
     ],
   }
@@ -282,21 +282,18 @@ export function comNovoBloco(itens, prefixo, novoId) {
 
 const textoDoMarcador = (abre, nome = '') => (abre ? `[bloco${nome ? `: ${nome}` : ''}]` : '[fimbloco]')
 
-// O marcador numa linha só dele, entre `antes` e `depois` (o texto em volta): quebra
-// antes se a linha de cima não acabou (fora o "descricao_tema = “", que pode ficar na
-// mesma linha) e depois, a não ser que venha o ”@@ do fim do tema.
-function linhaDoMarcador(antes, depois, marcador) {
+// O marcador numa linha só dele: quebra antes se a linha de cima não acabou (fora o
+// "descricao_tema = “", que pode ficar na mesma linha), e sempre depois, mesmo antes do
+// ”@@ do fim do tema. Linha própria = parágrafo próprio no Doc (migração por docx).
+function linhaDoMarcador(antes, marcador) {
   const ultimaLinha = antes.slice(antes.lastIndexOf('\n') + 1)
   const quebraAntes = semMarcadorDoTema(ultimaLinha).trim() !== '' ? '\n' : ''
-  const quebraDepois = /^[”"]?\s*@@/.test(depois) ? '' : '\n'
-  return quebraAntes + marcador + quebraDepois
+  return `${quebraAntes}${marcador}\n`
 }
 
 // Insere um marcador na posição `pos` de `itens`.
 function comMarcador(itens, pos, abre, novoId, nome = '') {
-  const antes = exportar(itens.slice(0, pos))
-  const depois = exportar(itens.slice(pos))
-  const marca = { id: novoId(), tipo: 'marca', original: '', editado: linhaDoMarcador(antes, depois, textoDoMarcador(abre, nome)) }
+  const marca = { id: novoId(), tipo: 'marca', original: '', editado: linhaDoMarcador(exportar(itens.slice(0, pos)), textoDoMarcador(abre, nome)) }
   return [...itens.slice(0, pos), marca, ...itens.slice(pos)]
 }
 
@@ -348,8 +345,7 @@ export function novoBlocoDepois(itens, ajustes, id, prefixo, novoId) {
   const pos = blocoDoItem(novos, id).fim + 1
   const versao = { id: novoId(), tipo: 'versao', original: '', editado: `${versaoModelo(prefixo)}\n`, condicao: null }
   novos = [...novos.slice(0, pos), versao, ...novos.slice(pos)]
-  // Os marcadores depois da versão: cada um olha o texto em volta para saber onde quebrar
-  // a linha, e o [bloco] precisa ver a versão depois dele, não o ”@@.
+  // Os marcadores depois da versão: cada um olha o texto de cima para saber se quebra a linha.
   novos = comMarcador(novos, pos + 1, false, novoId)
   return { id: versao.id, itens: comMarcador(novos, pos, true, novoId) }
 }
