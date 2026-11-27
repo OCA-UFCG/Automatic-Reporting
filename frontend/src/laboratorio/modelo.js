@@ -185,6 +185,25 @@ export const AVISO_SEM_FIM = 'Este bloco não tem [fimbloco]: vai até o próxim
 export const AVISO_FORA = 'Versões fora de [bloco] … [fimbloco]. Use "separar daqui" ou "juntar com o de cima" para pôr num bloco.'
 export const AVISO_FIM_SOLTO = '[fimbloco] sem [bloco] acima: não fecha nada.'
 
+export const AVISO_COLADO =
+  'Texto colado no marcador de cima: no relatório ele continua preso à condição da versão antes do marcador. Deixe uma linha em branco entre o marcador e o texto.'
+
+// Texto fixo logo depois de "versão + marcador", sem linha em branco: o gerador apaga a
+// linha do marcador e lê o texto como continuação da versão (a versão vai até a linha em
+// branco). A tela mostra o texto como fixo; o aviso desfaz a dúvida. O marcador vale como
+// nada, e não como linha em branco, para nunca mudar o relatório (PR #302, fechado).
+export function coladosNoMarcador(itens) {
+  const colados = new Set()
+  itens.forEach((item, k) => {
+    const primeira = textoDoItem(item).split('\n')[0]
+    if (item.tipo !== 'texto' || !primeira.trim() || ESTRUTURA.test(primeira.trim())) return
+    let j = k - 1
+    while (j >= 0 && marcaDoItem(itens[j])) j--
+    if (j < k - 1 && itens[j]?.tipo === 'versao' && textoDoItem(itens[j]) !== '') colados.add(k)
+  })
+  return colados
+}
+
 // Bloco = do [bloco] ao [fimbloco], com o texto fixo de dentro (`membros`, na ordem).
 // Versão fora de qualquer bloco forma um bloco sem marcador, com aviso.
 function agruparPelasMarcas(itens) {
@@ -235,33 +254,112 @@ export function prefixoDoDoc(texto, slug) {
 // O texto de uma versão criada na tela: o $campo do modelo a editora troca.
 export const versaoModelo = (prefixo) => `Para quando ${prefixo}.$campo for igual a 0, então:\nTexto desta versão.`
 
-// "+ novo bloco" (passo 4 dos estados, 04/11/2026): um Doc novo, de estado, chega vazio,
-// e o "+ nova versão" só existe dentro de um bloco. Devolve os itens com o bloco novo e
-// o id da versão dele, que vai para os `cortes` (começa bloco, mesmo testando o mesmo
-// $campo do de cima).
-// - Doc vazio: o tema inteiro, com os marcadores que o backend procura
-//   (descricao_tema = “ … ”@@), como texto separado da versão, igual ao lerDoc.
-// - Doc com versões: logo depois da última, antes do ”@@ que fecha o tema.
-// null se não há onde pôr: tem texto, mas nenhuma versão (o bloco não teria lugar certo).
+// "+ começar com um bloco" (passo 4 dos estados, 04/11/2026): um Doc novo, de estado,
+// chega vazio. Monta o tema inteiro, com os marcadores que o backend procura
+// (descricao_tema = “ … ”@@) e o bloco marcado. Devolve os itens e o id da versão; null
+// se o Doc não está vazio (aí o "+ novo bloco" de cada bloco é novoBlocoDepois).
 export function comNovoBloco(itens, prefixo, novoId) {
-  const vazio = exportar(itens).trim() === ''
-  if (vazio) {
-    const id = novoId()
-    return {
-      id,
-      itens: [
-        ...itens,
-        { id: novoId(), tipo: 'texto', original: '', editado: 'descricao_tema = “' },
-        { id, tipo: 'versao', original: '', editado: versaoModelo(prefixo), condicao: null },
-        { id: novoId(), tipo: 'texto', original: '', editado: '”@@\n' },
-      ],
-    }
-  }
-  const ultima = itens.findLastIndex((i) => i.tipo === 'versao')
-  if (ultima < 0) return null
+  if (exportar(itens).trim() !== '') return null
   const id = novoId()
-  const nova = { id, tipo: 'versao', original: '', editado: `\n${versaoModelo(prefixo)}\n`, condicao: null }
-  return { id, itens: [...itens.slice(0, ultima + 1), nova, ...itens.slice(ultima + 1)] }
+  return {
+    id,
+    itens: [
+      ...itens,
+      { id: novoId(), tipo: 'texto', original: '', editado: 'descricao_tema = “' },
+      { id: novoId(), tipo: 'marca', original: '', editado: '[bloco]\n' },
+      { id, tipo: 'versao', original: '', editado: `${versaoModelo(prefixo)}\n`, condicao: null },
+      { id: novoId(), tipo: 'marca', original: '', editado: '[fimbloco]' },
+      { id: novoId(), tipo: 'texto', original: '', editado: '”@@\n' },
+    ],
+  }
+}
+
+// --- Escrever os marcadores (27/11/2026) ---
+// "separar daqui", "juntar com o de cima", "+ novo bloco" e o nome do bloco escrevem
+// [bloco: nome] / [fimbloco] no texto. Num Doc sem marcador, a 1ª dessas ações marca
+// todos os blocos do palpite de uma vez (completarMarcas): com um marcador só, os
+// outros blocos perderiam o agrupamento (Doc com marcador não usa palpite).
+
+const textoDoMarcador = (abre, nome = '') => (abre ? `[bloco${nome ? `: ${nome}` : ''}]` : '[fimbloco]')
+
+// O marcador numa linha só dele, entre `antes` e `depois` (o texto em volta): quebra
+// antes se a linha de cima não acabou (fora o "descricao_tema = “", que pode ficar na
+// mesma linha) e depois, a não ser que venha o ”@@ do fim do tema.
+function linhaDoMarcador(antes, depois, marcador) {
+  const ultimaLinha = antes.slice(antes.lastIndexOf('\n') + 1)
+  const quebraAntes = semMarcadorDoTema(ultimaLinha).trim() !== '' ? '\n' : ''
+  const quebraDepois = /^[”"]?\s*@@/.test(depois) ? '' : '\n'
+  return quebraAntes + marcador + quebraDepois
+}
+
+// Insere um marcador na posição `pos` de `itens`.
+function comMarcador(itens, pos, abre, novoId, nome = '') {
+  const antes = exportar(itens.slice(0, pos))
+  const depois = exportar(itens.slice(pos))
+  const marca = { id: novoId(), tipo: 'marca', original: '', editado: linhaDoMarcador(antes, depois, textoDoMarcador(abre, nome)) }
+  return [...itens.slice(0, pos), marca, ...itens.slice(pos)]
+}
+
+// Apaga o item (o que nasceu na tela some; o do Doc fica vazio, como "remover").
+const semItem = (itens, pos) =>
+  itens[pos].original === '' ? itens.filter((_, k) => k !== pos) : itens.map((it, k) => (k === pos ? { ...it, editado: '' } : it))
+
+// Todo bloco com [bloco] e [fimbloco]: os do palpite (e as versões fora de bloco)
+// ganham os dois; o bloco sem fim ganha o [fimbloco].
+export function completarMarcas(itens, ajustes, novoId) {
+  let novos = itens
+  // De trás para frente: inserir não desloca as posições dos blocos que faltam.
+  for (const g of agruparEmBlocos(itens, ajustes).filter((g) => g.tipo === 'bloco').reverse()) {
+    if (!marcaDoItem(novos[g.fim])) novos = comMarcador(novos, g.fim + 1, false, novoId)
+    if (!marcaDoItem(novos[g.inicio])?.abre) novos = comMarcador(novos, g.inicio, true, novoId)
+  }
+  return novos
+}
+
+const posicaoDoId = (itens, id) => itens.findIndex((i) => i.id === id)
+// O bloco (já marcado) que tem o item `id`.
+function blocoDoItem(itens, id) {
+  const pos = posicaoDoId(itens, id)
+  return agruparEmBlocos(itens).find((g) => g.tipo === 'bloco' && g.inicio <= pos && pos <= g.fim)
+}
+
+// "separar daqui": [fimbloco] e [bloco] logo antes da versão `id`.
+export function separarBloco(itens, ajustes, id, novoId) {
+  let novos = completarMarcas(itens, ajustes, novoId)
+  novos = comMarcador(novos, posicaoDoId(novos, id), false, novoId)
+  return comMarcador(novos, posicaoDoId(novos, id), true, novoId)
+}
+
+// "juntar com o de cima": some o [fimbloco] do bloco de cima e o [bloco] deste (`id` é
+// um item deste bloco). O nome que fica é o do de cima.
+export function juntarBlocos(itens, ajustes, id, novoId) {
+  const novos = completarMarcas(itens, ajustes, novoId)
+  const blocos = agruparEmBlocos(novos).filter((g) => g.tipo === 'bloco')
+  const k = blocos.findIndex((g) => g.inicio === blocoDoItem(novos, id)?.inicio)
+  if (k < 1) return novos
+  // O de baixo primeiro: apagar um item que nasceu na tela desloca as posições depois dele.
+  return semItem(semItem(novos, blocos[k].inicio), blocos[k - 1].fim)
+}
+
+// "+ novo bloco" depois do bloco que tem o item `id`: [bloco], uma versão modelo e
+// [fimbloco]. Devolve os itens e o id da versão nova (que abre em edição).
+export function novoBlocoDepois(itens, ajustes, id, prefixo, novoId) {
+  let novos = completarMarcas(itens, ajustes, novoId)
+  const pos = blocoDoItem(novos, id).fim + 1
+  const versao = { id: novoId(), tipo: 'versao', original: '', editado: `${versaoModelo(prefixo)}\n`, condicao: null }
+  novos = [...novos.slice(0, pos), versao, ...novos.slice(pos)]
+  // Os marcadores depois da versão: cada um olha o texto em volta para saber onde quebrar
+  // a linha, e o [bloco] precisa ver a versão depois dele, não o ”@@.
+  novos = comMarcador(novos, pos + 1, false, novoId)
+  return { id: versao.id, itens: comMarcador(novos, pos, true, novoId) }
+}
+
+// O nome do bloco que tem o item `id`, no [bloco: nome] dele.
+export function renomearBloco(itens, ajustes, id, nome, novoId) {
+  const novos = completarMarcas(itens, ajustes, novoId)
+  const pos = blocoDoItem(novos, id).inicio
+  const texto = textoDoItem(novos[pos]).replace(/\\?\[\s*bloco[^\]]*\]/i, textoDoMarcador(true, nome.replace(/[\]\n]/g, ' ').trim()))
+  return novos.map((it, k) => (k === pos ? { ...it, editado: texto === it.original ? undefined : texto } : it))
 }
 
 // Troca o que se digitou depois do "$" (de `inicio` a `fim`) pela coluna escolhida e,

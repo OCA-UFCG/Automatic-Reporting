@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
+  AVISO_COLADO,
   OPERADORES,
   agruparEmBlocos,
   avisosDaVersao,
@@ -8,6 +9,7 @@ import {
   camposDaCondicao,
   camposForaDasColunas,
   chaveDoRascunho,
+  coladosNoMarcador,
   comNovoBloco,
   condicaoDoItem,
   doRascunho,
@@ -15,11 +17,14 @@ import {
   fraseDaCondicao,
   htmlParaODocs,
   inserirColuna,
+  juntarBlocos,
   lerDoc,
+  novoBlocoDepois,
   numeroValido,
   paraRascunho,
   prefixoDoDoc,
-  temMarcas,
+  renomearBloco,
+  separarBloco,
   temEdicao,
   textoDoBloco,
   textoDoItem,
@@ -628,7 +633,7 @@ function Texto({ item, avisos, tema, colunas, csv }) {
   )
 }
 
-function Bloco({ numero: n, nome, aviso, versoes, estatisticas, completo, juntar, novaVersao, alterado, dica, copiar, copiado }) {
+function Bloco({ numero: n, nome, aviso, versoes, estatisticas, completo, juntar, renomear, novaVersao, alterado, dica, copiar, copiado }) {
   const u = useContext(Unidade)
   return (
     <div className="card" id={`bloco-${n}`}>
@@ -640,6 +645,7 @@ function Bloco({ numero: n, nome, aviso, versoes, estatisticas, completo, juntar
         {estatisticas?.sem.length === 0 && completo && <span className="chip bom">texto em {u.todos} {u.varios}</span>}
         {estatisticas?.varias.length > 0 && <span className="chip ruim">sai com 2+ trechos em {contar(estatisticas.varias.length, u)}</span>}
         <span className="spacer" />
+        <button className="btn ghost sm" onClick={renomear} title="O nome vai no Doc, em [bloco: nome]">{nome ? 'renomear' : 'dar nome'}</button>
         {juntar && <button className="btn ghost sm" onClick={juntar}>juntar com o de cima</button>}
         <button className={`btn sm${alterado ? ' pri' : ''}`} onClick={copiar} title="Copia o bloco para colar no Doc, por cima do mesmo trecho">
           {copiado ? 'copiado ✓' : 'copiar bloco'}
@@ -1206,13 +1212,22 @@ export default function Laboratorio() {
     remover: () => mudarItens(itens.map((i) => (i.id === id ? { ...i, editado: '' } : i))),
     desfazer: () =>
       mudarItens(itens.flatMap((i) => (i.id !== id ? [i] : i.original === '' ? [] : [{ ...i, editado: undefined }]))),
-    separar: () =>
-      setAjustes(({ cortes, juncoes }) => ({ cortes: new Set(cortes).add(id), juncoes: new Set([...juncoes].filter((j) => j !== id)) })),
+    // Escreve [fimbloco] e [bloco] no texto (num Doc sem marcador, marca todos os blocos antes).
+    separar: () => mudarItens(separarBloco(itens, ajustes, id, novoId)),
     // Só limpa se for desta versão: os ids recomeçam do 0 em cada tema.
     digitar: (texto) => setAoVivo((atual) => (texto !== null ? { id, texto } : atual?.id === id ? null : atual)),
   })
+  const novoId = () => proximoId.current++
+  // `id`: um item do bloco (o 1º dele). Os três escrevem os marcadores no texto.
   function juntarComOdeCima(id) {
-    setAjustes(({ cortes, juncoes }) => ({ cortes: new Set([...cortes].filter((c) => c !== id)), juncoes: new Set(juncoes).add(id) }))
+    mudarItens(juntarBlocos(itens, ajustes, id, novoId))
+  }
+  function novoBlocoAbaixo(id) {
+    mudarItens(novoBlocoDepois(itens, ajustes, id, prefixo, novoId).itens)
+  }
+  function renomear(id, atual) {
+    const nome = window.prompt('Nome do bloco (vai no Doc, em [bloco: nome])', atual)
+    if (nome !== null) mudarItens(renomearBloco(itens, ajustes, id, nome, novoId))
   }
   function novaVersao(depoisDoId) {
     const nova = {
@@ -1228,12 +1243,10 @@ export default function Laboratorio() {
     mudarItens([...itens.slice(0, posicaoNoTexto), nova, ...itens.slice(posicaoNoTexto)])
   }
 
-  // Depois do último bloco, ou o tema inteiro num Doc vazio (comNovoBloco).
+  // O tema inteiro num Doc vazio (comNovoBloco), já com [bloco] … [fimbloco].
   function novoBloco() {
-    const novo = comNovoBloco(itens, prefixo, () => proximoId.current++)
-    if (!novo) return
-    setAjustes(({ cortes, juncoes }) => ({ cortes: new Set(cortes).add(novo.id), juncoes }))
-    mudarItens(novo.itens)
+    const novo = comNovoBloco(itens, prefixo, novoId)
+    if (novo) mudarItens(novo.itens)
   }
 
   const grupos = useMemo(() => agruparEmBlocos(itens, ajustes), [itens, ajustes])
@@ -1313,8 +1326,9 @@ export default function Laboratorio() {
   // os da conferência, só se ela é do texto de agora.
   const crusAchados = new Set()
   const avisosDoItem = new Map()
+  const colados = coladosNoMarcador(itens)
   itens.forEach((item, indice) => {
-    const locais = avisosDaVersao(item, colunas)
+    const locais = colados.has(indice) ? [AVISO_COLADO, ...avisosDaVersao(item, colunas)] : avisosDaVersao(item, colunas)
     const avisos = [...locais]
     const k = posicao.get(indice)
     if (contaCom && textoDoItem(item) !== '') {
@@ -1376,10 +1390,6 @@ export default function Laboratorio() {
   const editou = temEdicao(itens)
   const opcoesDeCidade = useMemo(() => [...lugares, ...(csv?.so_no_csv ?? [])], [lugares, csv])
   let numeroBloco = 0
-  const ultimoBloco = grupos.findLastIndex((g) => g.tipo === 'bloco')
-  // ponytail: com marcador no Doc, separar/juntar/novo bloco ainda não escrevem o
-  // marcador (vem no próximo commit) e ficam escondidos.
-  const marcado = temMarcas(itens)
   const docVazio = doc && !carregando && rascunho?.tipo !== 'doc_mudou' && textoSalvo.trim() === ''
 
   // O tutorial abre sozinho na primeira vez que um Doc abre: antes disso a tela só tem o
@@ -1557,7 +1567,8 @@ export default function Laboratorio() {
               copiado={copiado === `b-${primeiro.id}`}
               estatisticas={bloco.estatisticas}
               completo={cobertura?.completa}
-              juntar={!marcado && grupos[i - 1]?.tipo === 'bloco' ? () => juntarComOdeCima(primeiro.id) : null}
+              juntar={grupos[i - 1]?.tipo === 'bloco' ? () => juntarComOdeCima(primeiro.id) : null}
+              renomear={() => renomear(primeiro.id, grupo.nome)}
               novaVersao={() => novaVersao(itens[(grupo.membros ?? grupo.versoes).at(-1) ?? grupo.inicio].id)}
               versoes={(grupo.membros ?? grupo.versoes).map((indice, j) => {
                 // Texto fixo dentro do bloco marcado: cartão de texto, no lugar dele.
@@ -1572,7 +1583,7 @@ export default function Laboratorio() {
                     contagem={contaCom && k !== undefined ? resultado.versoes[k].municipios : undefined}
                     avisos={avisosDe(indice)}
                     naCidade={naCidadeAtual && k !== undefined ? naCidadeAtual.versoes[k]?.[1] : undefined}
-                    podeSeparar={!marcado && j > 0}
+                    podeSeparar={j > 0}
                     acoes={acoesDaVersao(itens[indice].id)}
                     tema={tema}
                     colunas={colunas}
@@ -1582,7 +1593,7 @@ export default function Laboratorio() {
                 )
               })}
             />
-            {!marcado && i === ultimoBloco && <button className="btn ghost sm novo-bloco" onClick={novoBloco}>+ novo bloco</button>}
+            <button className="btn ghost sm novo-bloco" onClick={() => novoBlocoAbaixo(primeiro.id)} title="Bloco novo logo abaixo deste">+ novo bloco</button>
             </React.Fragment>
           )
         })}

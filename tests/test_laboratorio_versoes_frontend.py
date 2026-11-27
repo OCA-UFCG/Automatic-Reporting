@@ -195,3 +195,50 @@ def test_marcador_junta_nao_muda_as_versoes_que_o_frontend_acha(tmp_path):
     with registrar_versoes() as versoes:
         interpretar_blocos_condicionais(descricao or "", {})
     assert json.loads(saida)["economia-renda"] == [condicao for condicao, _ in versoes]
+
+
+# Marcadores de bloco escritos pelo TemaLab (completarMarcas, 27/11/2026): no Doc real,
+# com todos os blocos marcados, o gerador acha as mesmas versões e o HTML do relatório
+# sai idêntico. Vale para o "separar/juntar/novo bloco" e para a migração dos Docs.
+# Foi este teste que derrubou a ideia de o marcador valer como linha em branco (PR #302,
+# fechado): com título colado na versão ("Síntese" / "Para quando…"), o HTML mudava em
+# 3 temas. O marcador tem que ser invisível para o gerador.
+_SCRIPT_MARCAR = """
+import { readFileSync } from 'node:fs'
+import { lerDoc, exportar, completarMarcas } from '%s'
+const [docs, ...temas] = process.argv.slice(1)
+const saida = {}
+for (const tema of temas) {
+  const itens = lerDoc(readFileSync(`${docs}/${tema}.txt`, 'utf-8'))
+  let n = itens.length
+  saida[tema] = exportar(completarMarcas(itens, { cortes: new Set(), juncoes: new Set() }, () => n++))
+}
+console.log(JSON.stringify(saida))
+"""
+
+
+def _contextos_do_tema(tema: str) -> list[dict]:
+    dados = json.loads((DOCS.parent / "dados.json").read_text())
+    reais = [c["retorno"] for c in dados["buscar_perfil_municipal"] if c["args"]["__tuple__"][0] == tema and c["retorno"]]
+    return [{}, *reais]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="sem Node")
+def test_doc_com_todos_os_blocos_marcados_sai_igual_no_relatorio():
+    from utils.render.renderer import render_descricao_tema_html
+
+    modelo = (RAIZ / "frontend" / "src" / "laboratorio" / "modelo.js").as_uri()
+    marcados = json.loads(subprocess.run(
+        ["node", "--input-type=module", "-e", _SCRIPT_MARCAR % modelo, str(DOCS), *TEMAS],
+        capture_output=True, text=True, check=True,
+    ).stdout)
+
+    for tema in TEMAS:
+        original = (DOCS / f"{tema}.txt").read_text()
+        assert marcados[tema].count("[bloco]") >= 1, tema
+        assert _versoes_do_backend(marcados[tema], tema) == _versoes_do_backend(original, tema), tema
+        sem = separar_secoes_do_tema(original, tema)[0].descricao_tema or ""
+        com = separar_secoes_do_tema(marcados[tema], tema)[0].descricao_tema or ""
+        for contexto in _contextos_do_tema(tema):
+            html_com = render_descricao_tema_html(com, dict(contexto), tema)
+            assert html_com == render_descricao_tema_html(sem, dict(contexto), tema), tema
