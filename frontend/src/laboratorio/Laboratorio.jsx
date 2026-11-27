@@ -25,6 +25,7 @@ import {
   prefixoDoDoc,
   renomearBloco,
   separarBloco,
+  temMarcas,
   temEdicao,
   textoDoBloco,
   textoDoItem,
@@ -676,6 +677,9 @@ function Bloco({ numero: n, nome, aviso, versoes, estatisticas, completo, juntar
 
 // O 1º e o último bloco do tema levam o marcador junto (textoDoBloco): a editora
 // precisa selecionar no Doc a linha inteira, com ele.
+const DICA_DOC_INTEIRO =
+  'O Doc ainda não tem marcadores de bloco, e a tela marcou todos os blocos. Use "copiar o Doc inteiro": colar só este bloco deixa os outros blocos do Doc fora de bloco no TemaLab.'
+
 function dicaDeColar(texto) {
   const abre = texto.startsWith('descricao_tema')
   const fecha = texto.endsWith('@@')
@@ -1312,11 +1316,15 @@ export default function Laboratorio() {
   const opcoesDeTema = useMemo(() => temasDaUnidade(temas, unidade), [temas, unidade])
   const temaAtual = opcoesDeTema.find((t) => t.slug === tema)
   const contaCom = casaComOTexto && !conferenciaVelha
+  // O Doc ainda sem marcador que ganhou marcadores na tela: colar um bloco só deixaria os
+  // outros fora de bloco (com marcador no Doc, não há palpite). Até a migração (27/11).
+  const docSemMarcas = useMemo(() => !doc || !temMarcas(lerDoc(doc.texto)), [doc])
+  const marcandoAgora = docSemMarcas && temMarcas(itens)
   const blocos = grupos.filter((g) => g.tipo === 'bloco').map((g, i) => ({
     ...g,
     numero: i + 1,
     alterado: blocoAlterado(itens, g),
-    dica: dicaDeColar(textoDoBloco(itens, g)),
+    dica: marcandoAgora ? DICA_DOC_INTEIRO : dicaDeColar(textoDoBloco(itens, g)),
     estatisticas: contaCom
       ? estatisticasDoBloco(g.versoes.map((indice) => posicao.get(indice)).filter((k) => k !== undefined), resultado.versoes_por_municipio)
       : null,

@@ -358,7 +358,7 @@ export function novoBlocoDepois(itens, ajustes, id, prefixo, novoId) {
 export function renomearBloco(itens, ajustes, id, nome, novoId) {
   const novos = completarMarcas(itens, ajustes, novoId)
   const pos = blocoDoItem(novos, id).inicio
-  const texto = textoDoItem(novos[pos]).replace(/\\?\[\s*bloco[^\]]*\]/i, textoDoMarcador(true, nome.replace(/[\]\n]/g, ' ').trim()))
+  const texto = textoDoItem(novos[pos]).replace(/\\?\[\s*bloco[^\]]*\]/i, textoDoMarcador(true, nome.replace(/[\]\n$]/g, ' ').trim()))
   return novos.map((it, k) => (k === pos ? { ...it, editado: texto === it.original ? undefined : texto } : it))
 }
 
