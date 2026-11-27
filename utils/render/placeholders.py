@@ -232,7 +232,7 @@ _MARCADOR_JUNTA = re.compile(r"\s*\\?\[\s*junta com o pr[oó]ximo\s*\\?\]\s*$", 
 
 # "[bloco: nome]" (ou só "[bloco]") e "[fimbloco]", cada um numa linha própria:
 # abrem e fecham um bloco de versões no TemaLab (decisões de 27/11/2026). O bloco é
-# só da tela de edição; o relatório sai como se as linhas não existissem. O fim
+# só da tela de edição; no relatório a linha vale como linha em branco. O fim
 # aceita "[fim bloco]" e "[fim do bloco]": escrito à mão de outro jeito, sairia cru.
 _MARCADOR_BLOCO = re.compile(
     r"\s*\\?\[\s*(?:bloco\s*(?::[^\]]*)?|fim\s*(?:do\s*)?bloco\s*)\\?\]\s*", re.IGNORECASE
@@ -950,8 +950,11 @@ def interpretar_blocos_condicionais(texto: str, contexto: dict) -> str:
     alvo_junta: int | None = None
 
     for linha in texto.splitlines():
+        # Vale como linha em branco: o marcador fecha o parágrafo de cima, como se lê
+        # no Doc. Sem isso, em "Versão.\n[fimbloco]\nTítulo" o título ficava preso à
+        # condição da versão (decisão de 27/11/2026).
         if _MARCADOR_BLOCO.fullmatch(linha):
-            continue
+            linha = ""
         linha, junta = _separar_marcador_junta(linha)
         limpa = _normalizar_condicao_editorial(linha)
 

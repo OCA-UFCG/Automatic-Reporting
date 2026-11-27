@@ -1,5 +1,6 @@
 """Marcadores "[bloco: nome]" e "[fimbloco]" (utils/render/placeholders.py,
-_MARCADOR_BLOCO): abrem e fecham os blocos do TemaLab no Doc; o relatório sai como se a linha não existisse."""
+_MARCADOR_BLOCO): abrem e fecham os blocos do TemaLab no Doc; no relatório a linha vale como
+linha em branco."""
 
 import pytest
 
@@ -75,3 +76,11 @@ def test_abre_e_fecha_em_volta_de_texto_fixo(contexto):
     com = interpretar_blocos_condicionais(doc, contexto)
     assert "bloco" not in com.lower()
     assert com.split() == interpretar_blocos_condicionais(sem, contexto).split()
+
+
+@pytest.mark.parametrize("marcador", ["[fimbloco]", "[bloco: X]"])
+def test_marcador_colado_no_texto_fecha_o_paragrafo_de_cima(marcador):
+    doc = f"Para quando $a for igual a 1:\nVersão um.\n{marcador}\nTítulo fora"
+    assert "Título fora" in interpretar_blocos_condicionais(doc, {"a": 2})
+    assert "Versão um." not in interpretar_blocos_condicionais(doc, {"a": 2})
+    assert "Versão um." in interpretar_blocos_condicionais(doc, {"a": 1})
